@@ -12,7 +12,7 @@ export function PlannedModule({
 }) {
   return (
     <div className="space-y-6">
-      <h1 className="px-1 pt-2 text-4xl tracking-[-0.03em]">{title}</h1>
+      <h1 className="text-4xl tracking-[-0.03em]">{title}</h1>
       <Panel aria-label={`${title}: em breve`} className="grid gap-4 p-3 sm:p-3 lg:grid-cols-2">
         <div className="flex min-h-72 flex-col justify-between rounded-[var(--radius-tile)] bg-[image:var(--tile-dusk)] p-6 text-[var(--tile-ink)]">
           <p className="text-sm font-medium">Fatia {slice}</p>

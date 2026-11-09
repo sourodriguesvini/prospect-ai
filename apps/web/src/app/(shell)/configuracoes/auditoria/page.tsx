@@ -32,7 +32,7 @@ async function AuditEntries() {
 export default function AuditPage() {
   return (
     <div className="space-y-6">
-      <div className="space-y-2 px-1 pt-2">
+      <div className="space-y-2">
         <Link
           href="/configuracoes"
           className="text-sm text-muted-foreground underline underline-offset-4"

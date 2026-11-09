@@ -16,7 +16,7 @@ const PLANNED = [
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
-      <h1 className="px-1 pt-2 text-4xl tracking-[-0.03em]">Configuração</h1>
+      <h1 className="text-4xl tracking-[-0.03em]">Configuração</h1>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel aria-labelledby="disponivel">
           <PanelHeader titleId="disponivel" title="Disponível" />
@@ -45,7 +45,7 @@ export default function SettingsPage() {
             {PLANNED.map((item) => (
               <li key={item.label} className="flex items-center justify-between gap-4 py-3 text-sm">
                 <span>{item.label}</span>
-                <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+                <span className="min-w-10 shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-center text-xs text-muted-foreground">
                   {item.slice}
                 </span>
               </li>

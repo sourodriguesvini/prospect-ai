@@ -28,7 +28,7 @@ export function NavPill({
       href={href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'inline-flex h-10 items-center whitespace-nowrap rounded-full px-4 text-sm transition-colors',
+        'inline-flex h-8 items-center whitespace-nowrap rounded-full px-4 text-sm transition-colors sm:h-10',
         focus,
         active
           ? 'bg-primary font-medium text-primary-foreground'
@@ -40,7 +40,10 @@ export function NavPill({
   );
 }
 
-/** Botão redondo do trilho lateral: só ícone, com nome acessível e dica ao passar o mouse. */
+/**
+ * Botão redondo do trilho lateral: só ícone, com nome acessível e dica ao passar o mouse.
+ * Abaixo de sm (celular) usa a escala menor, 32px, para o trilho horizontal caber em 360px.
+ */
 export function NavIcon({
   href,
   label,
@@ -58,7 +61,7 @@ export function NavIcon({
       title={label}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'grid size-10 place-items-center rounded-full transition-colors',
+        'grid size-8 place-items-center rounded-full transition-colors sm:size-10',
         focus,
         active
           ? 'bg-primary text-primary-foreground'

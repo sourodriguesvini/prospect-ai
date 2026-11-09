@@ -23,9 +23,9 @@ export const metadata: Metadata = { title: 'Início' };
 
 /** Fatos fixos desta instalação (ADR-0007, CLAUDE.md), não números de exemplo. */
 const SAFEGUARDS = [
-  { label: 'Onde roda', value: '127.0.0.1', note: 'Só este computador' },
-  { label: 'Envios', value: 'Com aprovação', note: 'Nada sai sem você' },
-  { label: 'Dados demo', value: 'Nenhum', note: 'Selo DEMO quando houver' },
+  { label: 'Onde roda', value: '127.0.0.1', note: 'Só local' },
+  { label: 'Aprovação', value: 'Obrigatória', note: 'Nada sai sem você' },
+  { label: 'Dados demo', value: 'Nenhum', note: 'Com selo DEMO' },
 ];
 
 async function Greeting() {
@@ -87,7 +87,7 @@ async function RecentActivity() {
 export default function Home() {
   return (
     <div className="space-y-6">
-      <div className="space-y-2 px-1 pt-2">
+      <div className="space-y-2">
         <Suspense fallback={<h1 className="text-4xl tracking-[-0.03em] sm:text-5xl">Início</h1>}>
           <Greeting />
         </Suspense>
@@ -99,9 +99,7 @@ export default function Home() {
       <div className="grid gap-4 lg:grid-cols-12">
         <Panel aria-labelledby="estado" className="flex flex-col gap-5 lg:col-span-4">
           <div className="space-y-4">
-            <h2 id="estado" className="text-sm font-medium text-muted-foreground">
-              Banco de dados
-            </h2>
+            <PanelHeader titleId="estado" title="Banco de dados" className="mb-0" />
             <Suspense
               fallback={
                 <p role="status" className="text-4xl tracking-[-0.04em] text-muted-foreground">
@@ -124,13 +122,17 @@ export default function Home() {
             </Button>
           </div>
           <Well className="mt-auto p-3">
-            <p className="px-1 pb-2 text-xs text-muted-foreground">Proteções desta instalação</p>
-            <ul className="grid grid-cols-3 gap-2">
+            <p className="px-2.5 pb-2 text-xs text-muted-foreground">Proteções desta instalação</p>
+            {/* Subgrade: rótulo, valor e nota ficam na mesma linha em todos os cartões. */}
+            <ul className="grid grid-cols-3 gap-x-2 gap-y-0">
               {SAFEGUARDS.map((item) => (
-                <li key={item.label} className="rounded-xl bg-surface p-2.5">
+                <li
+                  key={item.label}
+                  className="row-span-3 grid grid-rows-subgrid gap-y-1 rounded-xl bg-surface p-2.5"
+                >
                   <p className="text-[0.6875rem] text-muted-foreground">{item.label}</p>
-                  <p className="mt-1 text-sm font-medium">{item.value}</p>
-                  <p className="mt-0.5 text-[0.6875rem] text-muted-foreground">{item.note}</p>
+                  <p className="text-sm font-medium">{item.value}</p>
+                  <p className="text-[0.6875rem] text-muted-foreground">{item.note}</p>
                 </li>
               ))}
             </ul>
@@ -162,7 +164,8 @@ export default function Home() {
               icon={<MessagesSquare className="size-4" />}
             />
             <StatTile
-              label="Custo de IA no mês"
+              // Espaços inseparáveis: quebra como "Custo de IA / no mês", nunca "Custo de / IA".
+              label={'Custo de\u00a0IA no\u00a0mês'}
               value="—"
               note="Chega na F13"
               icon={<Coins className="size-4" />}
@@ -184,8 +187,11 @@ export default function Home() {
                 className="border-t border-dashed border-input/60"
               />
             ))}
-            <p className="absolute inset-0 grid place-items-center px-8 text-center text-sm text-muted-foreground">
-              Sem dados ainda. O funil aparece quando a Descoberta (F4) estiver ativa.
+            <p className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-muted-foreground">
+              {/* Fundo do poço por trás do texto: as linhas tracejadas não cruzam as letras. */}
+              <span className="max-w-xs text-balance rounded-lg bg-muted px-3 py-1.5">
+                Sem dados ainda. O funil aparece quando a Descoberta (F4) estiver ativa.
+              </span>
             </p>
           </div>
         </Panel>

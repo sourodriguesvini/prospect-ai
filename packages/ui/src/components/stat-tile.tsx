@@ -41,18 +41,29 @@ export interface StatTileProps extends VariantProps<typeof tileVariants> {
   className?: string;
 }
 
-/** Cartão de métrica com número grande em grotesca leve. */
+/**
+ * Cartão de métrica com número grande em grotesca leve. O ícone é decorativo: some quando o
+ * conteúdo do cartão tem menos de 8rem, para o rótulo não empurrá-lo para fora (container query).
+ */
 export function StatTile({ label, value, note, icon, tone, className }: StatTileProps) {
   const toneKey = tone ?? 'plain';
   return (
-    <div className={cn(tileVariants({ tone }), className)}>
+    <div className={cn('@container', tileVariants({ tone }), className)}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium">{label}</p>
+        {/* Com ícone, a primeira linha do rótulo fica centrada no círculo de 32px. */}
+        <p
+          className={cn(
+            'min-w-0 text-balance break-words text-sm font-medium',
+            icon ? '@min-[8rem]:pt-1.5' : null,
+          )}
+        >
+          {label}
+        </p>
         {icon ? (
           <span
             aria-hidden="true"
             className={cn(
-              'grid size-8 shrink-0 place-items-center rounded-full',
+              'hidden size-8 shrink-0 place-items-center rounded-full @min-[8rem]:grid',
               toneKey === 'plain' ? 'bg-surface' : 'bg-white/20',
             )}
           >
