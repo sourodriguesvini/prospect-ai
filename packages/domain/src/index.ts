@@ -1,5 +1,8 @@
 /**
- * Regras de negócio puras (sem IO). Vazio na F1: a fundação de uso interno (ADR-0007) não tem
- * regra de domínio; as primeiras chegam na F2 (ofertas, rubrica, ICP, score).
+ * Regras de negócio puras (sem IO, relógio ou acaso: datas e "hoje" chegam por parâmetro).
+ * F2: estratégia — ofertas, rubrica, modelo de score, ICP, cases, LIA e prontidão.
  */
-export {};
+export * from './strategy/drafts';
+export * from './strategy/lia';
+export * from './strategy/readiness';
+export * from './strategy/rules';

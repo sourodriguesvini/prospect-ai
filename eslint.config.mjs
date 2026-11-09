@@ -162,8 +162,8 @@ export default defineConfig(
     ignores: [COMPOSITION_ROOT],
     rules: {
       'no-restricted-imports': restrict(
-        ['@prospector/db', '@supabase/*'],
-        'A web acessa dados só pelos serviços de application (src/server/container.ts); @prospector/db só na raiz de composição e Supabase só dentro de @prospector/db (ADR-0001, ADR-0007).',
+        ['@prospector/db', '@prospector/application/memory', '@supabase/*'],
+        'A web acessa dados só pelos serviços de application (src/server/container.ts); @prospector/db e os adaptadores em memória só na raiz de composição, e Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0009).',
       ),
     },
   },

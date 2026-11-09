@@ -24,6 +24,11 @@ export const DATABASE_STATUS_VIEW: Record<DatabaseStatus, DatabaseStatusView> = 
     tone: 'warning',
     help: 'O banco responde, mas as tabelas do Prospector não existem. Aplique as migrações de supabase/migrations (docs/runbooks/ambiente-local.md).',
   },
+  memory: {
+    label: 'Modo memória',
+    tone: 'warning',
+    help: 'PROSPECTOR_STORAGE=memory: os dados ficam só na memória do servidor e somem ao reiniciar. Serve para testar telas sem banco, não para trabalho real.',
+  },
   unreachable: {
     label: 'Inacessível',
     tone: 'danger',

@@ -147,6 +147,15 @@ for (const dir of workspaceDirs()) {
       ) {
         violations.push(`${fileRel}: @prospector/db só pode ser importado em ${COMPOSITION_ROOT}.`);
       }
+      if (
+        name === '@prospector/web' &&
+        spec === '@prospector/application/memory' &&
+        fileRel !== COMPOSITION_ROOT
+      ) {
+        violations.push(
+          `${fileRel}: os adaptadores em memória só podem ser importados em ${COMPOSITION_ROOT} (ADR-0009).`,
+        );
+      }
       if (name === '@prospector/web' && spec.startsWith('@supabase/')) {
         violations.push(`${fileRel}: Supabase não entra na web; use os serviços de application.`);
       }

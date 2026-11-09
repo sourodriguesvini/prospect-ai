@@ -38,4 +38,15 @@ describe('describeAuditEntry', () => {
     });
     expect(describeAuditEntry(entry({ entityId: null })).detail).toBe('company');
   });
+
+  it('ações da F2 têm rótulo em pt-BR', () => {
+    expect(
+      describeAuditEntry(
+        entry({ action: 'compliance.lia.approved', entityType: 'legal_basis_assessment' }),
+      ).label,
+    ).toBe('LIA aprovada');
+    expect(describeAuditEntry(entry({ action: 'strategy.offer.versioned' })).label).toBe(
+      'Nova versão da oferta',
+    );
+  });
 });

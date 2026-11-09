@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "url": "http://127.0.0.1:3000"
+    },
+    {
+      "name": "dev-memoria",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "env": { "PROSPECTOR_STORAGE": "memory" },
+      "port": 3000,
+      "url": "http://127.0.0.1:3000"
     }
   ]
 }

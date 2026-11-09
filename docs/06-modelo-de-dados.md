@@ -69,16 +69,21 @@ erDiagram
 
 ### 4.2 Estratégia [MVP]
 
+Implementado na F2 (`supabase/migrations/20261109140000_strategy.sql`, [ADR-0009](adr/0009-versionamento-imutavel-da-estrategia.md)). Toda tabela de versão é **somente de inclusão**: trigger recusa `update`/`delete`/`truncate` com `version_immutable` e o `service_role` só tem `select`/`insert`. O número da versão é atribuído pelo banco (`app.assign_version()`, advisory lock + `unique (pai, version)`). Pesos são inteiros que somam 100.
+
 | Tabela | Colunas principais | Observações |
 |---|---|---|
-| `offers` | `org_id, slug, name, status (draft,active,archived), current_version_id` | |
-| `offer_versions` | `offer_id, version int, description, problems jsonb, need_signals jsonb, disqualifiers jsonb, deliverables jsonb, price_range int4range (centavos), value_props jsonb` | imutável após uso |
-| `audit_rubrics` | `org_id, offer_id, version, criteria jsonb [{key,label,description,weight,scale,evidence_required}]` | imutável após uso |
-| `proof_assets` | `org_id, offer_id, title, summary, segment, results text, public_ok bool, consent_ref, file_path` | só `public_ok` vai para mensagens |
-| `icp_profiles` | `org_id, offer_id, name, version, status, filters jsonb (cnae[], uf[], municipios[], porte[], idade_min_anos…), exclusions jsonb, desired_signals text[], scoring_model_id` | |
-| `scoring_models` | `org_id, version, weights jsonb, thresholds jsonb, gates jsonb, created_from_proposal_id` | pesos somam 1 (check em app + teste) |
-| `personas` | `org_id, offer_id, name, role_patterns text[], concerns jsonb, register` | [F2] |
-| `knowledge_documents` / `knowledge_chunks` | `org_id, kind, title, content` / `document_id, chunk, embedding vector(N)` | [F2]; N conforme provedor de embeddings [DECISÃO] |
+| `offers` | `status (draft, active, archived), is_demo` | cabeçalho; só `status` é alterável. Criação atômica com a v1 pela RPC `create_offer(jsonb)` |
+| `offer_versions` | `offer_id, version, name, description, problems text[], need_signals text[], disqualifiers text[], deliverables text[], value_props text[], price_min_cents, price_max_cents` | imutável; view `current_offer_versions` |
+| `audit_rubrics` | `offer_id, version, criteria jsonb [{key, label, description, weight, evidenceRequired}]` | imutável; 1–15 critérios, chaves únicas, pesos somam 100 (`app.rubric_criteria_ok`); escala fixa 1–5; view `current_audit_rubrics` |
+| `scoring_models` | `offer_id, version, weight_fit/need/signal/capacity/timing, pursue_priority, prepare_access_potential, discard_potential, min_evidence_coverage, created_from_proposal_id` | imutável; um modelo por oferta (não por ICP); pesos somam 100; descarte abaixo dos outros limiares; view `current_scoring_models` |
+| `icp_profiles` | `offer_id, status, is_demo` | cabeçalho; criação atômica pela RPC `create_icp_profile(uuid, jsonb)` |
+| `icp_profile_versions` | `icp_id, version, name, description, cnaes text[], ufs text[], municipalities jsonb [{name, uf}], sizes text[] (me, epp, demais), min/max_age_years, excluded_cnaes, excluded_municipalities, excluded_cnpj_roots, excluded_domains` | imutável; view `current_icp_profile_versions`. `desired_signals` ficou para a F4 |
+| `voice_guides` | `version, summary, principles text[], avoid text[], good_examples text[], bad_examples text[]` | espaço de trabalho único; imutável |
+| `contact_policies` | `version, agency_name, privacy_contact, opt_out_text` | identificação e opt-out de toda primeira mensagem; imutável |
+| `proof_assets` | `offer_id (opcional), title, segment, summary, results, public_ok, consent_ref, is_demo, archived_at` | editável e arquivável (sem `delete`); `public_ok` exige `consent_ref`; só `public_ok` vai para mensagens. `file_path` fica para quando houver Storage |
+| `legal_basis_assessments` | `version, purpose, legitimate_interest, necessity, data_categories text[], data_sources text[], expectations, risks, safeguards, conclusion, approved_at, review_due_on, revoked_at` | LIA (docs/12 §4). Texto imutável; aprovar e revogar uma vez cada (trigger + privilégio só nessas colunas); categorias de dados em lista fechada, sem CPF |
+| `personas`, `knowledge_documents` / `knowledge_chunks` | — | **não implementadas**: fora do escopo da F2 no doc 09 |
 
 ### 4.3 Empresas e descoberta [MVP]
 
@@ -86,7 +91,7 @@ erDiagram
 |---|---|---|
 | `companies` | `org_id, display_name, legal_name, cnpj_root text, cnpj text, ref_establishment_id, primary_domain, city, uf, cnae_main, size_band, lifecycle (candidate, investigating, qualified, disqualified, engaged, customer, archived), current_assessment_id, last_investigated_at, is_demo` | projeção para listagem; a verdade detalhada está nos claims. **CNPJ sempre `text`**: CNPJ alfanumérico existe para novas inscrições desde jul/2026 ([research/01 §A1](research/01-dados-empresas-e-decisores.md)) |
 | `company_identifiers` | `org_id, company_id, kind (cnpj, cnpj_root, domain, place_id, instagram, phone, linkedin_url), value_normalized, strength (strong, weak), verified, source_id` | `unique (org_id, kind, value_normalized)` para chaves fortes. Telefone e e-mail cadastrais são **fracos** (frequentemente do contador). `place_id` é o **único** dado do Google armazenável sem prazo |
-| `discovery_runs` | `org_id, icp_profile_id, query jsonb, sources text[], status, counts jsonb, requested_by, workflow_run_id` | |
+| `discovery_runs` | `org_id, icp_profile_id, icp_profile_version_id, query jsonb, sources text[], status, counts jsonb, requested_by, workflow_run_id` | grava o `DiscoveryClearance` de `assertReadyToDiscover` (ADR-0009 §7) |
 | `discovery_candidates` | `org_id, run_id, source, raw jsonb, normalized jsonb, matched_company_id, decision (new, merged, rejected, pending), decision_reason, fit_hint (high, medium, low), fit_reason` | |
 
 ### 4.3.1 Base de referência CNPJ (global, somente leitura) [MVP — depende de D-DATA-1]
@@ -146,7 +151,7 @@ Dados abertos da Receita Federal ingeridos mensalmente em **tabelas globais** (s
 
 | Tabela | Colunas principais | Observações |
 |---|---|---|
-| `qualification_assessments` | `org_id, company_id, offer_version_id, icp_profile_id, scoring_model_id, dimensions jsonb [{dimension, score, confidence, rationale, claim_ids}], potential, priority, evidence_coverage, recommendation, reasons jsonb, gates_triggered text[], what_would_change jsonb, run_id, is_current` | índice parcial `where is_current` |
+| `qualification_assessments` | `org_id, company_id, offer_version_id, icp_profile_id, icp_profile_version_id, scoring_model_id, dimensions jsonb [{dimension, score, confidence, rationale, claim_ids}], potential, priority, evidence_coverage, recommendation, reasons jsonb, gates_triggered text[], what_would_change jsonb, run_id, is_current` | índice parcial `where is_current` |
 | `approach_plans` | `org_id, company_id, assessment_id, offer_version_id, target_contact_id, thesis, angle, arguments jsonb [{text, strength, claim_ids}], objections jsonb, channel, sequence jsonb, cta, risks jsonb, status (draft, approved, rejected, superseded), forced_reason, approved_by, approved_at, run_id` | |
 | `outbound_messages` | `org_id, plan_id, contact_id, channel_id, step int, subject, body, claim_refs jsonb, verification jsonb, status (draft, needs_review, approved, queued, sending, sent, failed, cancelled), approval_id, idempotency_key unique, provider_message_id, sent_at, error` | |
 | `approvals` | `org_id, action_type, entity_type, entity_id, payload_hash, risk_level, requested_by_user, requested_by_run, status (pending, approved, rejected, expired), decided_by, decided_at, reason, expires_at` | |

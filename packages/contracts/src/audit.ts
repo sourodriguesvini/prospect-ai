@@ -40,7 +40,13 @@ export type AuditLogEntry = z.infer<typeof AuditLogEntry>;
 
 /**
  * Estado do banco visto pelo app: sem credenciais, acessível, acessível mas sem as migrações
- * aplicadas, ou fora do ar (rede ou credencial recusada).
+ * aplicadas, fora do ar (rede ou credencial recusada) ou modo memória (sem banco, ADR-0009).
  */
-export const DatabaseStatus = z.enum(['not_configured', 'ok', 'schema_missing', 'unreachable']);
+export const DatabaseStatus = z.enum([
+  'not_configured',
+  'ok',
+  'schema_missing',
+  'unreachable',
+  'memory',
+]);
 export type DatabaseStatus = z.infer<typeof DatabaseStatus>;
