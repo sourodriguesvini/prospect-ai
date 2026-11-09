@@ -1,6 +1,6 @@
-import type { AiRuntimeStatus, AiTask, GpuSnapshot } from '@prospector/contracts';
+import type { AiErrorCode, AiRuntimeStatus, AiTask, GpuSnapshot } from '@prospector/contracts';
 import { Alert, Badge, PanelHeader, StatusDot } from '@prospector/ui';
-import { formatGigabytes, formatMebibytesAsGigabytes } from '@/lib/copilot';
+import { describeCapabilities, formatGigabytes, formatMebibytesAsGigabytes } from '@/lib/copilot';
 import { LoadedModels } from './loaded-models';
 import { RefreshStatusButton } from './status-controls';
 
@@ -9,6 +9,11 @@ const TASK_LABEL: Record<AiTask, string> = {
   reasoning: 'Análise',
   vision: 'Imagens',
   embedding: 'Busca semântica',
+};
+
+const OFFLINE_LABEL: Partial<Record<AiErrorCode, string>> = {
+  runtime_unavailable: 'Ollama fora do ar',
+  invalid_config: 'Configuração inválida',
 };
 
 /** Tarefa que a tela já usa; as outras ainda não têm quem as chame (IA-2 em diante). */
@@ -38,7 +43,7 @@ export function LocalAiStatus({
       <div role="status">
         {status.state === 'offline' ? (
           <Badge variant="danger">
-            <StatusDot tone="danger">Ollama fora do ar</StatusDot>
+            <StatusDot tone="danger">{OFFLINE_LABEL[status.code] ?? 'Ollama com erro'}</StatusDot>
           </Badge>
         ) : (
           <Badge variant="success">
@@ -48,12 +53,22 @@ export function LocalAiStatus({
       </div>
       {status.state === 'offline' ? (
         <Alert tone="warning" role="status">
-          O Ollama não está respondendo neste computador. Abra o Ollama pelo menu Iniciar e clique
-          em Atualizar.
+          {status.code === 'runtime_unavailable'
+            ? 'O Ollama não está respondendo neste computador. Abra o Ollama pelo menu Iniciar e clique em Atualizar.'
+            : status.message}
         </Alert>
       ) : null}
 
-      <GpuMeter gpu={status.gpu} />
+      {status.state === 'offline' && status.code === 'invalid_config' ? (
+        <p className="text-sm text-muted-foreground">
+          A placa de vídeo não foi lida porque a IA local não foi iniciada.
+        </p>
+      ) : (
+        <GpuMeter
+          gpu={status.gpu}
+          reserveMiB={status.state === 'online' ? status.limits.vramReserveMiB : null}
+        />
+      )}
 
       {status.state === 'online' ? (
         <>
@@ -94,17 +109,25 @@ export function LocalAiStatus({
             <h3 id={`${titleId}-instalados`} className="text-sm font-medium">
               Instalados ({status.installed.length})
             </h3>
-            <ul className="space-y-1 text-sm">
-              {status.installed.map((model) => (
-                <li key={model.name} className="flex justify-between gap-3">
-                  <span className="min-w-0 truncate" title={model.name}>
-                    {model.name}
-                  </span>
-                  <span className="shrink-0 text-muted-foreground">
-                    {formatGigabytes(model.sizeBytes)}
-                  </span>
-                </li>
-              ))}
+            <ul className="space-y-2 text-sm">
+              {status.installed.map((model) => {
+                const capabilities = describeCapabilities(model);
+                return (
+                  <li key={model.name}>
+                    <div className="flex justify-between gap-3">
+                      <span className="min-w-0 truncate" title={model.name}>
+                        {model.name}
+                      </span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {formatGigabytes(model.sizeBytes)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {capabilities ?? 'Capacidades não informadas pelo Ollama'}
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
           </section>
 
@@ -123,11 +146,13 @@ export function LocalAiStatus({
   );
 }
 
-function GpuMeter({ gpu }: { gpu: GpuSnapshot | null }) {
+function GpuMeter({ gpu, reserveMiB }: { gpu: GpuSnapshot | null; reserveMiB: number | null }) {
   if (!gpu) {
     return (
       <p className="text-sm text-muted-foreground">
-        Não foi possível ler a placa de vídeo (é preciso uma GPU NVIDIA).
+        Não foi possível ler a placa de vídeo agora (a leitura usa o nvidia-smi, das placas NVIDIA).
+        Enquanto isso, os modelos são carregados sem conferir a reserva de memória para os outros
+        programas. Clique em Atualizar para tentar de novo.
       </p>
     );
   }
@@ -148,6 +173,11 @@ function GpuMeter({ gpu }: { gpu: GpuSnapshot | null }) {
       </div>
       <p className="text-xs text-muted-foreground">
         Memória de vídeo usada por todos os programas, não só pela IA.
+        {reserveMiB === null
+          ? ''
+          : reserveMiB > 0
+            ? ` A IA local só carrega um modelo se, depois disso, ainda sobrarem ${formatMebibytesAsGigabytes(reserveMiB)} livres para os outros programas.`
+            : ' Reserva para os outros programas desligada (AI_VRAM_RESERVE_MIB=0).'}
       </p>
     </div>
   );

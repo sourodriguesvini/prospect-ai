@@ -74,7 +74,7 @@ pnpm dev
 
 1. Instale o Ollama (https://ollama.com) e deixe-o aberto (ícone na bandeja). Nesta máquina ele está em `D:\ollama`, com os modelos em D:.
 2. Variáveis de ambiente **do Windows** (Configurações → Sistema → Sobre → Configurações avançadas → Variáveis de ambiente), depois feche e abra o Ollama:
-   - `OLLAMA_MAX_LOADED_MODELS=1` — um modelo na GPU por vez;
+   - `OLLAMA_MAX_LOADED_MODELS=1` — um modelo na GPU por vez (o app também descarrega o modelo ocioso quando o novo só cabe sem ele, mas outros programas que usem o Ollama não fazem isso);
    - `OLLAMA_NUM_PARALLEL=1` — uma resposta por vez;
    - `OLLAMA_CONTEXT_LENGTH=16384` (opcional; o app pede 8192 por padrão).
 3. Modelos usados pela política padrão:
@@ -86,7 +86,8 @@ pnpm dev
 
    Planejados (ainda não necessários): `qwen3-vl:8b` (auditoria visual, 6,2 GB) e `qwen3-embedding:0.6b` (memória semântica, 639 MB).
 4. Abra http://127.0.0.1:3000/copiloto. O painel "IA local" mostra versão, GPU, modelos na memória e modelo por tarefa; sem Ollama, mostra "Ollama fora do ar" e o que fazer.
-5. Ajustes opcionais em `apps/web/.env.local` (ver `apps/web/.env.example`): `OLLAMA_BASE_URL`, `AI_COPILOT_MODELS`, `AI_KEEP_ALIVE`, `AI_NUM_CTX`, `AI_MAX_CONCURRENCY`, `AI_MAX_QUEUE`. Nenhuma é segredo.
+5. Ajustes opcionais em `apps/web/.env.local` (ver `apps/web/.env.example`): `OLLAMA_BASE_URL`, `AI_COPILOT_MODELS`, `AI_KEEP_ALIVE`, `AI_NUM_CTX`, `AI_MAX_CONCURRENCY`, `AI_MAX_QUEUE`, `AI_VRAM_RESERVE_MIB`. Nenhuma é segredo. Valor inválido não derruba o app: o painel "IA local" mostra "Configuração inválida" com o nome da variável (nunca o valor); corrija e reinicie o `pnpm dev`.
+   - `AI_VRAM_RESERVE_MIB` (padrão 3072): memória de vídeo que fica livre para os outros programas. Antes de carregar um modelo, o app estima quanto ele ocupa (arquivo + cache de contexto + folga) e só carrega se sobrar a reserva; se não sobrar, o Copiloto responde "a placa de vídeo não tem memória livre" com o que fazer. Sem placa NVIDIA (`nvidia-smi` ausente) não há medição: o modelo carrega e a tela avisa que a reserva não foi conferida.
 6. Testes com o Ollama real (não custam dinheiro, mas ocupam a GPU por alguns minutos; feche jogos e renderizações antes):
 
    ```bash
@@ -98,7 +99,7 @@ pnpm dev
    E2E_OLLAMA=1 pnpm test:e2e
    ```
 
-   No PowerShell: `$env:E2E_OLLAMA = '1'` antes do comando. `pnpm evals` aceita `EVAL_MODELS` (lista separada por vírgula) e `EVAL_REPEAT` (padrão 2) e grava o resultado em `packages/agents/evals/copilot/results/`. Sem `E2E_OLLAMA`, o e2e aponta o app para um endereço sem Ollama e testa os estados de erro.
+   No PowerShell: `$env:E2E_OLLAMA = '1'` antes do comando. `pnpm evals` aceita `EVAL_MODELS` (lista separada por vírgula), `EVAL_PROMPTS` (versões do prompt a comparar, ex.: `1,2`; padrão: a versão em uso) e `EVAL_REPEAT` (padrão 2) e grava o resultado em `packages/agents/evals/copilot/results/`. `EVAL_REGRADE=<arquivo>.json` recalcula as notas de um resultado salvo sem usar a GPU. Sem `E2E_OLLAMA`, o e2e aponta o app para um endereço sem Ollama e testa os estados de erro.
 7. Para liberar a GPU na hora (Figma, edição de vídeo): botão **Descarregar** no painel do Copiloto, ou `ollama stop <modelo>`. O app nunca encerra outros programas.
 
 ## 6. Problemas comuns
@@ -112,6 +113,9 @@ pnpm dev
 | `pnpm install` lento ou com arquivos travados | Pasta sincronizada pelo OneDrive | Mova o repositório para fora do OneDrive |
 | Copiloto: "Ollama fora do ar" | Ollama fechado ou em outra porta | Abra o Ollama pelo menu Iniciar e clique em Atualizar; confira `OLLAMA_BASE_URL` |
 | Copiloto: "modelo não instalado" | Nenhum modelo da lista está no Ollama | `ollama pull qwen3.5:4b` (seção 5) |
-| Copiloto: "ocupado" | Já há uma resposta em andamento e a fila (3) está cheia | Espere terminar ou clique em Parar |
+| Copiloto: "ocupado" | Já há uma resposta em andamento e a fila (3) está cheia, ou o pedido esperou mais de 5 min na fila | Espere terminar ou clique em Parar |
+| Copiloto: "a placa de vídeo não tem memória livre" | Outros programas ocupam a GPU e o modelo não cabe deixando a reserva (`AI_VRAM_RESERVE_MIB`) | Feche o que usa a GPU (jogos, edição de vídeo) ou escolha um modelo menor; o app não fecha programas |
+| Painel IA local: "Configuração inválida" | Variável `AI_*` ou `OLLAMA_BASE_URL` com valor fora do esperado | Corrija o valor indicado em `apps/web/.env.local` e reinicie o `pnpm dev` |
+| Copiloto: "o modelo escolhido não tem o que esta tarefa precisa" | Modelo escolhido em Modelo não conversa (ex.: embeddings) | Escolha outro ou deixe em Automático |
 | Primeira resposta demora vários segundos | O modelo está sendo carregado do disco para a GPU | Normal na primeira pergunta; a tela mostra o tempo de carga |
 | Página não reage aos cliques em `127.0.0.1` | Servidor iniciado sem `--hostname 127.0.0.1` (o Next bloqueia recursos de desenvolvimento de outra origem) | Pare o servidor e use `pnpm dev` |

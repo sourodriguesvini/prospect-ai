@@ -1,5 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
+import { ModelName } from '@prospector/contracts';
 
 const DatabaseEnv = z.object({
   SUPABASE_URL: z.url({ protocol: /^https?$/ }),
@@ -37,8 +38,6 @@ export function databaseEnv(): DatabaseCredentials | null {
   return { url: parsed.data.SUPABASE_URL, secretKey: parsed.data.SUPABASE_SECRET_KEY };
 }
 
-const MODEL_NAME = /^[a-z0-9][a-z0-9._\-/]*(:[a-z0-9][a-z0-9._-]*)?$/i;
-
 const LocalAiEnv = z.object({
   OLLAMA_BASE_URL: z.url({ protocol: /^https?$/ }).optional(),
   AI_COPILOT_MODELS: z
@@ -49,7 +48,7 @@ const LocalAiEnv = z.object({
         .map((name) => name.trim())
         .filter(Boolean),
     )
-    .pipe(z.array(z.string().regex(MODEL_NAME)).min(1))
+    .pipe(z.array(ModelName).min(1))
     .optional(),
   AI_KEEP_ALIVE: z
     .string()
@@ -58,6 +57,8 @@ const LocalAiEnv = z.object({
   AI_NUM_CTX: z.coerce.number().int().min(2048).max(262_144).optional(),
   AI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
   AI_MAX_QUEUE: z.coerce.number().int().min(0).max(20).default(3),
+  /** Memória de vídeo (MiB) que a IA local deixa para os outros programas; 0 desliga a reserva. */
+  AI_VRAM_RESERVE_MIB: z.coerce.number().int().min(0).max(65_536).optional(),
 });
 
 /** Configuração da IA local (ADR-0008). Nada aqui é segredo; o endereço precisa ser local. */
@@ -68,6 +69,19 @@ export interface LocalAiSettings {
   numCtx: number | undefined;
   maxConcurrent: number;
   maxQueue: number;
+  vramReserveMiB: number | undefined;
+}
+
+/** Variável da IA local inválida. Leva só os nomes, nunca os valores. */
+export class LocalAiConfigError extends Error {
+  readonly variables: string[];
+  constructor(variables: string[]) {
+    super(
+      `Variáveis da IA local inválidas: ${variables.join(', ')}. Veja docs/runbooks/ambiente-local.md.`,
+    );
+    this.name = 'LocalAiConfigError';
+    this.variables = variables;
+  }
 }
 
 export function localAiEnv(): LocalAiSettings {
@@ -78,12 +92,12 @@ export function localAiEnv(): LocalAiSettings {
     AI_NUM_CTX: readVar('AI_NUM_CTX'),
     AI_MAX_CONCURRENCY: readVar('AI_MAX_CONCURRENCY'),
     AI_MAX_QUEUE: readVar('AI_MAX_QUEUE'),
+    AI_VRAM_RESERVE_MIB: readVar('AI_VRAM_RESERVE_MIB'),
   });
   if (!parsed.success) {
-    const names = [...new Set(parsed.error.issues.map((issue) => issue.path.join('.')))];
-    throw new Error(
-      `Variáveis da IA local inválidas: ${names.join(', ')}. Veja docs/runbooks/ambiente-local.md.`,
-    );
+    throw new LocalAiConfigError([
+      ...new Set(parsed.error.issues.map((issue) => issue.path.join('.'))),
+    ]);
   }
   const env = parsed.data;
   return {
@@ -93,5 +107,6 @@ export function localAiEnv(): LocalAiSettings {
     numCtx: env.AI_NUM_CTX,
     maxConcurrent: env.AI_MAX_CONCURRENCY,
     maxQueue: env.AI_MAX_QUEUE,
+    vramReserveMiB: env.AI_VRAM_RESERVE_MIB,
   };
 }

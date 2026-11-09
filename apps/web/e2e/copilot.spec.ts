@@ -13,6 +13,12 @@ test.describe('Copiloto: rota protegida', () => {
     expect(response.status()).toBe(403);
   });
 
+  test('recusa pedido sem Origin: só a página do app usa o Copiloto', async ({ request }) => {
+    // O cliente de API do Playwright, como curl, não envia Origin; o navegador sempre envia.
+    const response = await request.post('/api/copiloto', { data: ask });
+    expect(response.status()).toBe(403);
+  });
+
   test('exige JSON e valida o contrato', async ({ request, baseURL }) => {
     const headers = { origin: baseURL!, 'sec-fetch-site': 'same-origin' };
     const text = await request.post('/api/copiloto', {

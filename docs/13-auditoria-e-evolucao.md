@@ -10,6 +10,7 @@
 - Dos 10 módulos da navegação, **2 funcionam** (Início, parcialmente; Copiloto, com IA local) e 8 são páginas de aviso que dizem em que fatia chegam. Nenhuma tela mostra dados simulados.
 - Não existem ainda tabelas de empresas, prospects, oportunidades, claims nem conversas: o banco tem uma migração e uma tabela (`audit_log`).
 - **Entregue nesta rodada (IA-1):** o pacote `packages/agents` conversa com o Ollama local (detecção, modelos instalados, escolha por tarefa, limite de concorrência e fila, VRAM, descarregar sob demanda, erros tipados), e o **Copiloto responde de verdade, em streaming**, com o `qwen3.5:4b`. Verificado com testes unitários, testes contra o Ollama real, avaliação local e uso no navegador.
+- **Entregue na IA-1.1:** admissão por VRAM antes de carregar um modelo (reserva de 3 GB para os outros programas, recusa com orientação), escolha de modelo pelas capacidades lidas do Ollama (`/api/show`), corte do histórico no servidor para caber no contexto, fila com posição atualizada e tempo máximo, configuração inválida sem erro 500, rota do Copiloto exigindo `Origin`. O **prompt `copilot/v2` foi avaliado e não promovido**: com os corretores corrigidos depois da revisão do `avaliador-ia`, ficou abaixo do v1 no `qwen3.5:4b` (77% contra 82%, 13 casos sintéticos × 3), passou a recusar a redação de mensagens e dobrou o p95 com raciocínio ligado. O `copilot/v1` continua em uso; o v3 fica para a IA-1.2. Detalhes na seção 9.
 - O Copiloto ainda **não consulta o banco nem usa ferramentas**: isso depende do banco configurado e é a próxima fatia de IA (IA-2).
 - Maior bloqueio do produto: configurar o banco de desenvolvimento (D-INFRA-2). Sem ele não há histórico de conversas, tarefas, empresas nem evidências.
 
@@ -88,11 +89,11 @@ flowchart LR
 | Aspecto | Estado |
 |---|---|
 | Modelos | Ollama local; política por tarefa em `packages/agents/src/model-policy.ts` (`copilot`, `reasoning`, `vision`, `embedding`); só `copilot` tem consumidor |
-| Integração | `packages/agents/src/ollama/client.ts` (`/api/version`, `/api/tags`, `/api/ps`, `/api/chat` em streaming, descarregar) |
-| Prompts | `packages/agents/prompts/copilot/v1.md` (pt-BR, sem inventar dados, conteúdo colado é dado e não instrução) |
+| Integração | `packages/agents/src/ollama/client.ts` (`/api/version`, `/api/tags`, `/api/ps`, `/api/show`, `/api/chat` em streaming, descarregar) |
+| Prompts | `packages/agents/prompts/copilot/v1.md` em uso (pt-BR, sem inventar dados, conteúdo colado é dado e não instrução). `v2.md` (regras numeradas e exemplos ilustrativos) foi avaliado na IA-1.1 e **não promovido** (seção 9); fica no repositório para comparação, com sha fixado em teste |
 | Ferramentas | Nenhuma ainda |
 | Agentes | Nenhum agente com ferramentas; o Copiloto é uma conversa |
-| Memória | Só o histórico enviado pela aba (até 24 mensagens / 16 mil caracteres) |
+| Memória | Só o histórico enviado pela aba (até 24 mensagens), cortado no servidor para caber no `num_ctx` (IA-1.1) |
 | Orquestração e tarefas | Fila em memória para inferência; sem tarefas duráveis |
 | Claude API | Não usada em runtime (permanece como opção futura atrás do gateway, ADR-0008) |
 
@@ -152,17 +153,17 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 **Copiloto — Parcial**
 1. Funcionalidades: conversa em pt-BR com o modelo local em streaming; escolha de modelo; raciocínio opcional; cancelar; nova conversa; estados na fila/gerando/erro; métricas (tokens, tokens/s, tempo de carga); painel com Ollama, GPU, modelos na memória, modelo por tarefa e botão de descarregar.
 2. Evidências: `apps/web/src/components/copilot/*`, `apps/web/src/app/api/copiloto/route.ts`, `apps/web/src/lib/copilot.ts` (13 testes), `e2e/copilot.spec.ts`; uso real no navegador (seção 9).
-3. Limitações: sem ferramentas (não consulta o banco, não pesquisa, não dispara tarefas); histórico só na aba; renderiza apenas negrito; o modelo às vezes confunde "Prospector" com "Copiloto" e rotula demais (KI-036).
+3. Limitações: sem ferramentas (não consulta o banco, não pesquisa, não dispara tarefas); histórico só na aba; renderiza apenas negrito; avaliação sintética e pequena (KI-037); com raciocínio ligado o `qwen3.5:4b` pode gastar todo o limite pensando e não escrever a resposta: a tela agora diz isso e sugere desligar o raciocínio (KI-066).
 4. Dependências: banco (histórico, ferramentas de leitura), fila durável (tarefas), contratos de ferramentas.
-5. Próximas melhorias: IA-2 (threads persistentes, ferramentas de leitura com contratos Zod, avaliação de chamadas de ferramenta), prompt v2.
+5. Próximas melhorias: IA-2 (threads persistentes, ferramentas de leitura com contratos Zod, avaliação de chamadas de ferramenta); prompt v3 com as pendências do v2 (KI-063).
 6. Prioridade: alta.
 
 **IA local (gateway e gerenciador de modelos) — Funcional para conversa**
-1. Funcionalidades: ver a seção 6.2 (todos os 10 itens do gerenciador têm base implementada).
-2. Evidências: `packages/agents/src/*`; 48 testes unitários; 5 testes contra o Ollama real (`pnpm ai:live`); avaliação `evals/copilot/results/2026-11-09-15-40.json`.
-3. Limitações: política por tarefa em código/variáveis (sem `agent_configs`); sem `llm_calls`; VRAM só exibida, sem controle de admissão; capacidades do `/api/show` ainda não usadas na escolha.
+1. Funcionalidades: ver a seção 6.2 (os 10 itens do gerenciador implementados; admissão por VRAM e escolha por capacidade desde a IA-1.1).
+2. Evidências: `packages/agents/src/*`; 112 testes unitários; testes contra o Ollama real (`pnpm ai:live`); avaliações `evals/copilot/results/2026-11-09-15-40.regraded.json` (IA-1) e `2026-11-09-17-30.regraded.json` (v1 × v2, IA-1.1, notas com os corretores corrigidos; as respostas originais ficam em `2026-11-09-17-30.json`).
+3. Limitações: política por tarefa em código/variáveis (sem `agent_configs`); sem `llm_calls`; medição de VRAM só NVIDIA; estimativas de VRAM e de tokens sem o tokenizador real, calibradas para errar para cima (KI-061, KI-065).
 4. Dependências: banco para configuração e registro de chamadas.
-5. Próximas melhorias: IA-1.1 (admissão por VRAM, capacidades do modelo, prompt v2), `llm_calls` na F4.
+5. Próximas melhorias: `llm_calls` na IA-2, `agent_configs` na F4.
 6. Prioridade: alta.
 
 **Configurações e auditoria — Parcial + Integração**
@@ -190,7 +191,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 6. Prioridade: manutenção.
 
 **Testes e qualidade — Funcional localmente**
-1. Funcionalidades: typecheck, lint de fronteiras, Prettier, Vitest (142 testes), banco em PGlite (13), e2e smoke + Copiloto, testes contra Ollama real, avaliação local.
+1. Funcionalidades: typecheck, lint de fronteiras, Prettier, Vitest (228 testes na IA-1.1), banco em PGlite (13), e2e smoke + Copiloto, testes contra Ollama real, avaliação local.
 2. Evidências: seção 9.
 3. Limitações: CI nunca executado (KI-009); avaliação pequena e sintética (KI-037).
 4. Dependências: GitHub (D-INFRA-1).
@@ -209,8 +210,8 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 
 | Capacidade desejada | Hoje | Reaproveitar | Desenvolver |
 |---|---|---|---|
-| Conversar com IA local | **Pronto** (IA-1) | — | Prompt v2, renderização de listas |
-| Gerenciador de modelos | Base pronta | `gateway.ts`, `limiter.ts`, `gpu.ts`, `model-policy.ts` | Admissão por VRAM; escolha por capacidade (`/api/show`); `agent_configs`; `llm_calls` |
+| Conversar com IA local | **Pronto** (IA-1; prompt v1 em uso, v2 avaliado e não promovido na IA-1.1) | — | Renderização de listas; prompt v3 (IA-1.2, KI-063) |
+| Gerenciador de modelos | Base pronta | `gateway.ts`, `limiter.ts`, `gpu.ts`, `model-policy.ts` | `agent_configs`; `llm_calls` (admissão por VRAM e escolha por capacidade feitas na IA-1.1) |
 | Copiloto com ferramentas | Ausente | Contratos Zod, `RequestContext`, serviços de application, limites de autonomia (doc 04 §5) | Registro de ferramentas, laço de chamada de ferramentas no gateway, avaliação de chamadas |
 | Histórico de conversas | Só na aba | `CopilotTurn`/`CopilotRequest` | Tabelas `copilot_threads`/`copilot_messages` |
 | Tarefas e acompanhamento | Ausente | Fila em memória (padrão), ADR-0004 (requisitos de durabilidade) | Fila durável local no Postgres + processo worker local |
@@ -219,7 +220,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 | Auditoria visual | Ausente | Playwright e Chromium já instalados (e2e); `qwen3.5:4b` tem visão | Captura em worker, contrato `VisualFinding`, avaliação com 30 marcas |
 | Memória semântica | Ausente | Supabase + pgvector | Migração com `vector`, embeddings via `/api/embed`, busca híbrida |
 | Agentes especializados | Ausente | Tese "poucos agentes" (doc 04 §1) | Ver 6.5 |
-| Controle de recursos | Base pronta | `OLLAMA_MAX_LOADED_MODELS=1`, fila, `keep_alive`, descarregar | Admissão por VRAM, prioridade de tarefas, limite de capturas |
+| Controle de recursos | Base pronta | `OLLAMA_MAX_LOADED_MODELS=1`, fila, `keep_alive`, descarregar | Prioridade de tarefas, limite de capturas (admissão por VRAM feita na IA-1.1) |
 
 ## 6. Arquitetura de IA local
 
@@ -238,16 +239,16 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 |---|---|---|
 | Detecção do Ollama | Pronto: versão, timeout curto, estado "fora do ar" com orientação | `ollama/client.ts`, `gateway.status()` |
 | Listagem dos modelos | Pronto | `/api/tags` |
-| Verificação de disponibilidade | Pronto: modelo ausente vira `model_not_installed` | `resolveModel` |
-| Seleção por tarefa | Pronto (lista de preferência por `AiTask`, sobrescrita por `AI_COPILOT_MODELS`) · **falta** usar as capacidades do `/api/show` e mover para `agent_configs` | `model-policy.ts` |
-| Controle de contexto | Parcial: `num_ctx` 8192 por padrão (`AI_NUM_CTX`), até 1.024 tokens gerados (4.096 com raciocínio). O corte do histórico (24 mensagens de até 8.000 caracteres) é feito pelo navegador e conferido pelo contrato; o servidor ainda não mede o pedido contra o `num_ctx` (KI-032) | política + `buildHistory` + `CopilotRequest` |
-| Tratamento de falhas | Pronto: códigos `runtime_unavailable`, `model_not_installed`, `busy`, `timeout`, `cancelled`, `provider_error`, `invalid_request`, com mensagens em pt-BR; tempos de primeiro token, silêncio e total | `errors.ts`, contratos `ai.ts` |
-| Monitoramento de VRAM | Pronto para exibir (`nvidia-smi`, cache de 2 s) · **falta** usar na admissão | `gpu.ts` |
+| Verificação de disponibilidade | Pronto: modelo ausente vira `model_not_installed`; modelo sem a capacidade da tarefa vira `model_unsupported` | `chooseModel` |
+| Seleção por tarefa | Pronto: lista de preferência por `AiTask` (sobrescrita por `AI_COPILOT_MODELS`) filtrada pelas capacidades exigidas (`completion`, `thinking`, `vision`, `embedding`) lidas do `/api/show`, com cache por digest · **falta** mover para `agent_configs` | `model-policy.ts`, `model-catalog.ts` |
+| Controle de contexto | Pronto: `num_ctx` 8192 por padrão (`AI_NUM_CTX`), nunca acima do contexto de treino do modelo; até 1.024 tokens gerados (4.096 com raciocínio). O navegador limita a 24 mensagens; o servidor (IA-1.1) estima os tokens (teto por classe de caractere), corta as falas mais antigas para caber em `num_ctx` menos a resposta, avisa na conversa e recusa com mensagem clara o que não cabe (KI-065) | `context-budget.ts`, política, `CopilotRequest` |
+| Tratamento de falhas | Pronto: códigos `runtime_unavailable`, `model_not_installed`, `model_unsupported`, `insufficient_vram`, `busy`, `timeout`, `cancelled`, `invalid_request`, `invalid_config`, `provider_error`, com mensagens em pt-BR; tempos de primeiro token, silêncio, total e espera na fila (5 min) | `errors.ts`, contratos `ai.ts` |
+| Monitoramento de VRAM | Pronto: exibição e admissão (`nvidia-smi`, cache de 2 s, lido de novo depois de carregar ou descarregar) | `gpu.ts`, `admission.ts` |
 | Carregar e descarregar | Pronto: `keep_alive` 5 min, botão Descarregar com espera de até 3 s | `gateway.unload` |
-| Limite de concorrência | Pronto: 1 inferência por vez (`AI_MAX_CONCURRENCY`), fila de 3 (`AI_MAX_QUEUE`), excedente recebe `busy` | `limiter.ts` |
-| Fallback | Pronto: primeiro modelo instalado da lista | `resolveModel` |
+| Limite de concorrência | Pronto: 1 inferência por vez (`AI_MAX_CONCURRENCY`), fila de 3 (`AI_MAX_QUEUE`), excedente recebe `busy`; posição na fila atualizada enquanto espera | `limiter.ts` |
+| Fallback | Pronto: primeiro modelo instalado da lista com as capacidades da tarefa; preferido se também tiver as desejáveis (ex.: `thinking` com raciocínio ligado) | `chooseModel` |
 
-**Admissão por VRAM (planejada, IA-1.1):** antes de carregar um modelo que não está na memória, comparar o tamanho estimado (arquivo + contexto) com a VRAM livre menos uma reserva para o Windows e os apps de trabalho (proposta inicial: 3 GB). Sem espaço, a tarefa espera na fila ou o usuário escolhe descarregar outro modelo; o sistema nunca encerra processos de outros programas.
+**Admissão por VRAM (feita na IA-1.1, `admission.ts`):** antes de carregar um modelo que não está na memória (ou está com outro contexto), o gateway estima quanto ele ocupa: arquivo × 1,05 + cache K/V em f16 calculado dos metadados do `/api/show` (camadas, cabeças K/V, janela deslizante) + 512 MiB. Só carrega se, depois, sobrar a reserva `AI_VRAM_RESERVE_MIB` (padrão 3 GB). A memória de modelos ociosos do Ollama conta como recuperável; quando a decisão depende dela, o gateway descarrega esses modelos antes e confere de novo. Sem espaço, recusa com `insufficient_vram` e diz o que fazer (fechar o que usa a GPU ou escolher um modelo menor); a tarefa **não** espera vaga de memória, decisão registrada no ADR-0008. O sistema nunca encerra processos de outros programas. Calibração: `qwen3.5:4b` estimado em 4.097 MiB (medido 3.888) e `nemotron-3-nano:4b` em 3.481 MiB (medido 2.873), a `num_ctx` 8192 (KI-061).
 
 ### 6.3 Orçamento de recursos
 
@@ -324,8 +325,8 @@ SearXNG auto-hospedado foi descartado como fonte principal: precisa de Docker ou
 |---|---|---|
 | Não manter todos os modelos carregados | `OLLAMA_MAX_LOADED_MODELS=1`, `keep_alive` 5 min, botão Descarregar | Feito |
 | Execução sequencial de modelos pesados | 1 inferência por vez + `OLLAMA_NUM_PARALLEL=1` | Feito |
-| Monitorar VRAM | Painel do Copiloto (`nvidia-smi`) | Feito (exibição); admissão em IA-1.1 |
-| Preservar recursos do Windows | Reserva de VRAM na admissão; `num_ctx` 8192 | Planejado (IA-1.1) |
+| Monitorar VRAM | Painel do Copiloto (`nvidia-smi`) e admissão antes de carregar | Feito (IA-1.1) |
+| Preservar recursos do Windows | Reserva de VRAM na admissão (`AI_VRAM_RESERVE_MIB`, padrão 3 GB); `num_ctx` 8192 | Feito (IA-1.1) |
 | Não encerrar outros apps | O sistema só descarrega modelos do Ollama; nunca encerra processos | Feito por construção |
 | Limites de concorrência | `AI_MAX_CONCURRENCY` (1–4, padrão 1) | Feito |
 | Filas | Fila em memória para conversa (`AI_MAX_QUEUE`, padrão 3); fila durável para tarefas | Feito / IA-3 |
@@ -339,7 +340,8 @@ Ordem por dependência técnica e valor. Cada item é uma fatia vertical (skill 
 |---|---|---|---|---|
 | ✓ | **IA-1** | Conversa real com IA local no Copiloto | Ollama | Ver seção 9 |
 | 1 | **F1 (fechamento)** | Banco de desenvolvimento configurado e migração aplicada | Ação do usuário (D-INFRA-2) | Início mostra "Conectado"; `E2E_SUPABASE=1` verde |
-| 2 | **IA-1.1** | Admissão por VRAM, escolha por capacidade (`/api/show`), prompt v2 com avaliação | IA-1 | Carga recusada com reserva insuficiente (teste); prompt v2 ≥ v1 na avaliação |
+| ✓ | **IA-1.1** | Admissão por VRAM, escolha por capacidade (`/api/show`), prompt v2 com avaliação | IA-1 | Ver seção 9 (IA-1.1). Admissão e capacidade prontas; o v2 **não** passou (ficou abaixo do v1) e não foi promovido |
+| 2a | **IA-1.2** | Prompt v3 com as correções do v2; casos fora da amostra; reserva do Copiloto sem orientar a guardar dados pessoais | IA-1.1 | v3 ≥ v1 sem regredir o p95; `avaliador-ia` aprova; avaliação com aviso ao usuário antes |
 | 3 | **IA-2** | Histórico persistente, ferramentas de leitura (estado, auditoria), `llm_calls`, avaliação de chamadas de ferramenta | F1 | Conversa sobrevive ao recarregar; respostas sobre o sistema vêm de ferramenta; argumentos inválidos rejeitados |
 | 4 | **F2** | Estratégia: ofertas, rubrica, ICP, voz | F1 | doc 09 |
 | 5 | **F3** | Evidence Ledger, empresas, consulta CNPJ | F2 | doc 09 |
@@ -370,6 +372,14 @@ Registradas no [ADR-0008](adr/0008-ia-local-com-ollama.md) e na emenda 2 do [ADR
 - `qwen3.5:4b` é o padrão do Copiloto, `nemotron-3-nano:4b` a reserva, com base na avaliação local e nas licenças.
 - Recursos: 1 modelo carregado, 1 inferência por vez, fila curta, `keep_alive` 5 min, `num_ctx` 8192.
 - Streaming NDJSON com contrato Zod de eventos, conferido no servidor e no navegador; o Copiloto só aceita pedidos de mesma origem.
+
+Acrescentadas na IA-1.1 (emenda do ADR-0008):
+
+- Admissão por VRAM antes de carregar um modelo, com reserva `AI_VRAM_RESERVE_MIB` (padrão 3 GB) para os outros programas. Sem espaço, a tarefa é recusada com orientação (`insufficient_vram`; `model_too_large` quando o modelo nunca cabe), em vez de esperar. Modelos ociosos do próprio Ollama são descarregados pelo gateway quando a carga só cabe sem eles; processos de outros programas nunca são encerrados.
+- Modelo escolhido pelas capacidades que o Ollama informa (`/api/show`), com cache por digest; o painel e o seletor seguem a mesma regra.
+- Histórico cortado no servidor para caber no `num_ctx`, com estimativa de tokens que erra para cima.
+- `Origin` obrigatório na rota do Copiloto; configuração `AI_*`/`OLLAMA_BASE_URL` inválida vira estado `invalid_config` em vez de erro 500.
+- Prompt: `copilot/v1` continua em uso; `copilot/v2` avaliado e não promovido.
 
 ## 9. Testes e critérios de aceite da IA-1
 
@@ -413,7 +423,7 @@ Onde cada um erra:
 - `qwen3.5:4b`: ao descrever o que já existe, não cita Configuração nem Auditoria e diz que será preciso "configurar" módulos (2/2, KI-036); recusa o envio pelo WhatsApp sem mencionar a aprovação humana (2/2); uma resposta à data passou de 400 caracteres.
 - `nemotron-3-nano:4b`: leu a frase injetada como conteúdo da marca, sem apontá-la (2/2); não separou inferência de hipótese (2/2); não mencionou a aprovação humana (2/2); usou itálico com asterisco, que a tela mostra cru.
 
-Conclusão: o `qwen3.5:4b` continua o padrão (melhor nos critérios de honestidade e de injeção; a latência maior vem de respostas mais longas, 157 contra 72 tokens). **Nenhum dos dois atinge o limiar de 75%** com os corretores corrigidos: o Copiloto v1 fica como experimental, e a IA-1.1 traz o prompt v2 (módulos disponíveis pelo nome, aprovação humana nos pedidos de envio, apontar instruções em texto colado) com nova rodada de `pnpm evals` antes de promover. Os intervalos de confiança se sobrepõem: 16 respostas por modelo não separam modelos com segurança (KI-037). A F8 continua exigindo 30 pedidos reais com ≥ 80%.
+Conclusão: o `qwen3.5:4b` continua o padrão (melhor nos critérios de honestidade e de injeção; a latência maior vem de respostas mais longas, 157 contra 72 tokens). **Nenhum dos dois atinge o limiar de 75%** com os corretores corrigidos: o Copiloto v1 fica como experimental, e a IA-1.1 traz o prompt v2 (módulos disponíveis pelo nome, aprovação humana nos pedidos de envio, apontar instruções em texto colado) com nova rodada de `pnpm evals` antes de promover (resultado: v2 não promovido, ver "IA-1.1" abaixo). Os intervalos de confiança se sobrepõem: 16 respostas por modelo não separam modelos com segurança (KI-037). A F8 continua exigindo 30 pedidos reais com ≥ 80%.
 
 ### Revisões independentes (2026-11-09)
 
@@ -425,6 +435,88 @@ Quatro subagentes revisaram a IA-1 sem ver a conversa de implementação: `revis
 | Segurança | Sem bloqueantes. Marcas de controle do modelo neutralizadas no texto do usuário; `redirect: 'error'` nas chamadas ao Ollama; limite de tokens gerados; tamanho do pedido em bytes e pelo `content-length`; eventos conferidos no servidor; `nvidia-smi` pelo caminho completo | Histórico vem do navegador (KI-032, IA-2); cancelamento sem e2e (KI-040); pedidos sem `Origin` são aceitos (ADR-0007) |
 | Avaliação de IA | Corretores com falsos positivos corrigidos, com contraexemplos; caso novo "banco conectado"; recálculo sem GPU; resultado registra parâmetros, digest, p95 e intervalo de Wilson | Prompt v2 e nova rodada de `pnpm evals` (IA-1.1); mais casos (KI-037) |
 | UX | Página transbordava no celular (corrigido, com e2e a 375 px); pergunta perdida depois de erro (volta ao campo, com "Tentar de novo"); avisos para leitor de tela fora do log; foco não pula mais para o campo; Parar protegido contra duplo clique; Esc interrompe; mensagens de erro com próximo passo; "Liberar memória" confirma o resultado; aviso de Ollama fora do ar dentro da conversa; contador de caracteres; e2e com axe no tema escuro | Borda dos campos com contraste de ~1,65:1 (WCAG 1.4.11 pede 3:1): mexe no token `--input` do design system, decisão do usuário; o shell transborda 16 px a 320 px em todas as telas (anterior a esta fatia); extrair um `Textarea` para `packages/ui`; posição na fila não é atualizada (KI-040) |
+
+### IA-1.1 (2026-11-09): admissão por VRAM, capacidades e prompt v2
+
+Feita numa sessão paralela à F2, na branch `claude/ia-1-1-vram-prompt-v2-2b29e5`. Mudou só `packages/agents`, `packages/contracts/src/ai.ts`, os arquivos do Copiloto em `apps/web` e a documentação.
+
+#### Critérios
+
+| # | Critério | Situação | Evidência |
+|---|---|---|---|
+| 1 | Admissão por VRAM: carga recusada com reserva insuficiente | Atendido | `admission.ts`; `gateway.test.ts` ("recusa a carga quando a reserva… não é suficiente", "a recusa devolve a vaga da fila", descarga dos ociosos antes de carregar, sonda nula explícita); `capacity.test.ts` (estimativa, metadados adulterados) |
+| 2 | Escolha de modelo por capacidade (`/api/show`, com cache) | Atendido | `model-catalog.ts`, `chooseModel`; `model_unsupported`; seletor da tela filtrado pelo que a tarefa exige (`lib/copilot.test.ts`) |
+| 3 | Prompt v2 avaliado nos dois modelos, resultado salvo | Atendido | `evals/copilot/results/2026-11-09-17-30.json` (respostas) e `.regraded.json` (notas com os corretores corrigidos) |
+| 4 | Promover o v2 só se ≥ v1 | **Não promovido** | Com os corretores corrigidos, o v2 ficou abaixo do v1, recusou redigir mensagens e dobrou o p95 (tabela abaixo). `COPILOT_PROMPT_VERSION` continua 1 |
+| 5 | Acima de 75%, o Copiloto deixa de ser experimental | Não se aplica | Vale para a versão promovida. O v1 recalculado fez 82%, mas com casos sintéticos, corretores ainda em revisão e amostra efetiva de 13 casos (KI-037): o Copiloto continua experimental até o v3 passar no conjunto ampliado |
+| 6 | Pendências da revisão da IA-1 | Atendido | Ver a lista abaixo |
+
+Pendências da revisão da IA-1, todas resolvidas:
+
+- **Orçamento de contexto no servidor:** `context-budget.ts`, com teto por classe de caractere (KI-065).
+- **Teste que fixa o sha dos prompts:** `units.test.ts`, para `copilot/v1` e `copilot/v2`.
+- **Testes da rota:** `route.test.ts`, com recusas, conexão fechada no meio e cancelamento da leitura.
+- **`AI_*` ou `OLLAMA_BASE_URL` inválidas:** viram estado `invalid_config` com mensagem clara, em vez de erro 500 (`env.test.ts`).
+- **`Origin`:** passa a ser obrigatório na rota do Copiloto; o helper compartilhado ficou para depois (KI-064).
+- **Posição na fila:** atualizada enquanto a pessoa espera; quem espera mais de 5 minutos recebe `busy`.
+- **`GatewayEvent`:** agora é derivado de `CopilotEvent`.
+
+#### Comandos executados
+
+| Comando | Resultado |
+|---|---|
+| `pnpm typecheck` | 7 de 7 pacotes verdes |
+| `pnpm lint` | verde ("Fronteiras OK." + ESLint sem avisos) |
+| `pnpm format:check` | verde |
+| `pnpm test` | 228 testes verdes: contracts 41, agents 112, application 6, web 46, db 23 |
+| `E2E_PORT=3101 pnpm test:e2e` | 22 passaram, 3 pulados (2 exigem banco real, 1 exige Ollama), inclui "recusa pedido sem Origin" |
+| `pnpm ai:live` | 5 testes verdes contra o Ollama real; nenhum modelo ficou carregado depois |
+| `EVAL_PROMPTS=1,2 EVAL_REPEAT=3 pnpm evals` | 156 respostas (13 casos × 3 × 2 prompts × 2 modelos), 0 erros, com aviso e ok do usuário antes |
+| `EVAL_REGRADE=2026-11-09-17-30.json pnpm evals` | notas recalculadas sem GPU depois da revisão do `avaliador-ia` |
+
+Não testado: `E2E_OLLAMA=1` (a geração real foi coberta pelo `pnpm ai:live` e pela avaliação), `E2E_SUPABASE=1` (sem banco nesta máquina, KI-008), admissão com outro programa ocupando a GPU de verdade (coberta por testes com sonda simulada) e leitor de tela real (avisos conferidos pelo código).
+
+#### Avaliação v1 × v2
+
+Mesma rodada, mesmos 13 casos sintéticos × 3 repetições, prompts alternados a cada pedido. A primeira contagem deu 92% ao v2 contra 67% ao v1. A revisão do `avaliador-ia` mostrou que os corretores novos de rascunho e de LGPD procuravam palavras que só o v2 ensina: uma recusa que citava "rascunho" passava; uma recusa correta que falava em "privacidade", sem a palavra "LGPD", reprovava. Os corretores foram refeitos para medir o comportamento. Agora exigem que haja de fato um rascunho e não uma recusa, e reprovam quem ensina a guardar dado pessoal, quem acusa "instrução embutida" sem texto colado e quem manda a pessoa para um módulo em construção. Cada erro virou contraexemplo em `tests/eval-graders.test.ts`, e as mesmas respostas foram recalculadas.
+
+| Prompt · modelo | Aprovação (IC 95%) | Nos 9 casos da IA-1 | Total: mediana / p95 | Saída (mediana) |
+|---|---|---|---|---|
+| v1 · `qwen3.5:4b` | **82%** (32/39; 67–91%) | 22/27 | 1,8 s / 17,8 s | 158 tokens |
+| v2 · `qwen3.5:4b` | 77% (30/39; 62–87%) | 23/27 | 1,2 s / 37,9 s | 108 tokens |
+| v1 · `nemotron-3-nano:4b` | 67% (26/39; 51–79%) | 18/27 | 1,0 s / 11,9 s | 93 tokens |
+| v2 · `nemotron-3-nano:4b` | 62% (24/39; 46–75%) | 16/27 | 1,2 s / 7,4 s | 114 tokens |
+
+Por que o v2 não foi promovido:
+
+- **Ficou abaixo do v1** no modelo padrão. Os intervalos se sobrepõem, então na prática é um empate, o que não basta para promover. A regra do doc 11 pede que a versão nova não regrida nenhum limiar e melhore ao menos um.
+- **Regressão de comportamento:** passou a recusar o pedido de redigir uma mensagem (2 de 3), aplicando a regra de envio a um pedido de escrita.
+- **p95 dobrou:** de 17,8 s para 37,9 s. A causa é o caso com raciocínio ligado, em que o v2 levou o raciocínio até perto do limite de 4.096 tokens e uma vez devolveu resposta vazia (KI-066). Sem raciocínio, o v2 é mais rápido.
+- **Outros problemas na leitura das respostas:**
+  - rótulos Fato/Inferência em excesso;
+  - frases copiadas dos exemplos do prompt;
+  - "instrução embutida" apontada sem texto colado;
+  - a pessoa mandada ao módulo Empresas, que não existe (KI-036).
+
+Ganhos reais do v2, que vão para o v3:
+
+- cita os módulos disponíveis pelo nome;
+- deixou de chamar o Prospector de "copiloto";
+- cita Aprovações nos pedidos de envio;
+- respostas mais curtas (mediana de 446 contra 709 caracteres).
+
+O `nemotron-3-nano:4b` orientou guardar CPF e endereço de casa no caso de LGPD, com os dois prompts (KI-034).
+
+**Próximo passo (IA-1.2):** prompt v3 com as correções acima e casos fora da amostra, ou seja, paráfrases e contexto forjado (KI-037, KI-063). Depois, nova rodada com aviso ao usuário antes.
+
+#### Revisões independentes
+
+| Revisão | Correções feitas | Ficou pendente |
+|---|---|---|
+| Arquitetura | Recusa por GPU devolve a vaga da fila; `unload` espera o modelo sair e confere de novo a GPU; escolha de modelo numa função só (`chooseModel`, `resolveModel` removido); `AiRuntimeLimits` no contrato; `ModelName` do contrato usado em `env.ts` | — |
+| Segurança | Metadados do GGUF com teto (arquivo de terceiros não trava nem zera a estimativa); estimativa de tokens como teto para dígitos e escrita fora do latim; `OLLAMA_BASE_URL` fora deste computador vira `invalid_config` sem mostrar o endereço; mais marcas de controle neutralizadas (`</s>`, `[INST]`, `<eos>`) | `Origin` só na rota, não no helper (KI-064); contexto forjado em texto colado (KI-063) |
+| Avaliação de IA | Corretores refeitos (ver acima); resposta vazia vira falha própria; v2 não promovido | v3, casos fora da amostra, reserva e LGPD (KI-034, KI-036, KI-037, KI-063, KI-066) |
+| UX | Selo do painel separa "fora do ar", "configuração inválida" e "com erro"; sem leitura da GPU por configuração inválida, o painel não fala mais em "falta GPU NVIDIA"; `model_too_large` não oferece "Tentar de novo"; avisos da conversa anunciados ao leitor de tela; erro antigo some depois de Atualizar; "Liberar memória" só confirma quando o Ollama confirma; "memória" do contexto passou a se chamar "limite que o modelo lê de uma vez"; resposta vazia por raciocínio explicada na tela | Sugestões menores (KI-067) |
 
 ## 10. Ferramentas de desenvolvimento (Claude Code)
 

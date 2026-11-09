@@ -3,6 +3,12 @@ import { toAiError } from '../errors';
 import type { LocalAiGateway } from '../gateway';
 import type { PromptDoc } from '../prompts';
 
+/**
+ * Versão do prompt em uso (`packages/agents/prompts/copilot/v<N>.md`). Trocar exige avaliação
+ * (`pnpm evals`) com a nova versão ≥ a anterior (docs/11 §4.3, skill capacidade-ia).
+ */
+export const COPILOT_PROMPT_VERSION = 1;
+
 export interface CopilotTurnOptions {
   traceId: string;
   signal?: AbortSignal;
@@ -19,8 +25,8 @@ export interface Copilot {
 }
 
 /**
- * Copiloto v1 (fatia IA-1): conversa com o modelo local, sem ferramentas. Nunca lança: toda
- * falha vira um evento `error` com mensagem pt-BR, e o detalhe técnico vai para o log.
+ * Copiloto (fatias IA-1 e IA-1.1): conversa com o modelo local, sem ferramentas. Nunca lança:
+ * toda falha vira um evento `error` com mensagem pt-BR, e o detalhe técnico vai para o log.
  */
 export function createCopilot(deps: {
   gateway: LocalAiGateway;

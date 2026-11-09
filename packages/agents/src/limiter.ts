@@ -1,8 +1,13 @@
 import { AiError } from './errors';
 
 export interface LimiterTicket {
-  /** 0 = começa já; n = n-ésimo na fila de espera. */
-  position: number;
+  /** 0 = começa já (ou já começou); n = n-ésimo na fila de espera. Lido na hora, muda sozinho. */
+  readonly position: number;
+  /**
+   * Resolve quando a posição na fila mudar (alguém na frente saiu ou foi atendido). Só a última
+   * espera é avisada; em quem não está na fila, nunca resolve.
+   */
+  moved(): Promise<void>;
   /** Resolve com a função que devolve a vaga (chame sempre, de preferência num `finally`). */
   ready: Promise<() => void>;
   /**
@@ -21,7 +26,11 @@ export interface Limiter {
 
 interface Waiter {
   grant: (release: () => void) => void;
+  moved: () => void;
 }
+
+/** Para quem não está na fila: a posição nunca muda. */
+const never = (): Promise<void> => new Promise<void>(() => undefined);
 
 /** Promessa rejeitada que não vira "rejeição não tratada" se ninguém esperar por ela. */
 function quietly<T>(promise: Promise<T>): Promise<T> {
@@ -39,14 +48,21 @@ export function createLimiter(options: { maxConcurrent: number; maxQueue: number
   let active = 0;
   const queue: Waiter[] = [];
 
+  /** Avisa quem continua na fila que andou uma posição. */
+  function announce() {
+    for (const waiter of queue) waiter.moved();
+  }
+
   function makeRelease(): () => void {
     let released = false;
     return () => {
       if (released) return;
       released = true;
       const next = queue.shift();
-      if (next) next.grant(makeRelease());
-      else active -= 1;
+      if (next) {
+        next.grant(makeRelease());
+        announce();
+      } else active -= 1;
     };
   }
 
@@ -61,6 +77,7 @@ export function createLimiter(options: { maxConcurrent: number; maxQueue: number
       if (signal?.aborted) {
         return {
           position: 0,
+          moved: never,
           ready: quietly(Promise.reject(new AiError('cancelled'))),
           cancel: () => undefined,
         };
@@ -68,7 +85,7 @@ export function createLimiter(options: { maxConcurrent: number; maxQueue: number
       if (active < maxConcurrent) {
         active += 1;
         const release = makeRelease();
-        return { position: 0, ready: Promise.resolve(release), cancel: release };
+        return { position: 0, moved: never, ready: Promise.resolve(release), cancel: release };
       }
       if (queue.length >= maxQueue) throw new AiError('busy');
 
@@ -76,9 +93,13 @@ export function createLimiter(options: { maxConcurrent: number; maxQueue: number
       let settled = false;
       let waiter!: Waiter;
       let fail!: (error: AiError) => void;
+      let onMove: (() => void) | null = null;
       const leaveQueue = () => {
         const index = queue.indexOf(waiter);
-        if (index !== -1) queue.splice(index, 1);
+        if (index !== -1) {
+          queue.splice(index, 1);
+          announce();
+        }
         signal?.removeEventListener('abort', onAbort);
       };
       const onAbort = () => {
@@ -97,13 +118,24 @@ export function createLimiter(options: { maxConcurrent: number; maxQueue: number
               granted = release;
               resolve(release);
             },
+            moved: () => {
+              const notify = onMove;
+              onMove = null;
+              notify?.();
+            },
           };
         }),
       );
       signal?.addEventListener('abort', onAbort, { once: true });
       queue.push(waiter);
       return {
-        position: queue.length,
+        get position() {
+          return queue.indexOf(waiter) + 1;
+        },
+        moved: () =>
+          new Promise<void>((resolve) => {
+            onMove = resolve;
+          }),
         ready,
         cancel() {
           if (granted) {

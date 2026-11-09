@@ -19,7 +19,9 @@ async function Workspace() {
     : undefined;
   // Mostrado antes da primeira pergunta: no celular o painel "IA local" fica abaixo da conversa.
   const unavailable = !online
-    ? 'A IA local está fora do ar: abra o Ollama pelo menu Iniciar e clique em Atualizar no painel IA local.'
+    ? status.code === 'runtime_unavailable'
+      ? 'A IA local está fora do ar: abra o Ollama pelo menu Iniciar e clique em Atualizar no painel IA local.'
+      : status.message
     : !copilotRoute?.resolved
       ? `Nenhum modelo de conversa está instalado. Instale com "ollama pull ${copilotRoute?.preferred[0] ?? 'qwen3.5:4b'}" e clique em Atualizar.`
       : null;
@@ -32,7 +34,9 @@ async function Workspace() {
           description="Respostas geradas agora pela IA local, sem enviar nada para fora deste computador."
         />
         <CopilotChat
-          models={online ? chatModelOptions(status.installed) : []}
+          models={
+            online && copilotRoute ? chatModelOptions(status.installed, copilotRoute.requires) : []
+          }
           defaultModel={copilotRoute?.resolved ?? null}
           unavailable={unavailable}
         />

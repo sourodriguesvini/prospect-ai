@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  COPILOT_PROMPT_VERSION,
   createCopilot,
   createLimiter,
   nvidiaSmiPath,
@@ -8,7 +9,6 @@ import {
   loadPrompt,
   normalizeModelName,
   parseNvidiaSmi,
-  resolveModel,
   AiError,
   type LocalAiGateway,
 } from '../src';
@@ -70,20 +70,7 @@ describe('nvidiaSmiPath', () => {
   });
 });
 
-describe('resolveModel', () => {
-  const installed = ['qwen3.5:4b', 'bge-m3:latest'];
-
-  it('respeita a ordem de preferência e equivale nome sem tag a :latest', () => {
-    expect(resolveModel(['nemotron-3-nano:4b', 'qwen3.5:4b'], installed)).toBe('qwen3.5:4b');
-    expect(resolveModel(['bge-m3'], installed)).toBe('bge-m3:latest');
-    expect(resolveModel(['nada:1b'], installed)).toBeNull();
-  });
-
-  it('pedido explícito só vale se instalado', () => {
-    expect(resolveModel([], installed, 'QWEN3.5:4b')).toBe('qwen3.5:4b');
-    expect(resolveModel(['qwen3.5:4b'], installed, 'outro:1b')).toBeNull();
-  });
-
+describe('normalizeModelName', () => {
   it('normaliza nomes', () => {
     expect(normalizeModelName(' Bge-M3 ')).toBe('bge-m3:latest');
   });
@@ -119,6 +106,23 @@ describe('loadPrompt', () => {
     expect(doc.text).not.toContain('\r');
     expect(doc.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(findPromptsDir()).toMatch(/packages[\\/]agents[\\/]prompts$/);
+  });
+
+  /**
+   * Versão de prompt usada numa avaliação não pode mudar (skill capacidade-ia): o sha de cada
+   * uma fica fixado aqui e nos resultados em `evals/copilot/results`. Mudou o texto? Crie v<N+1>.
+   */
+  it.each([
+    [1, '7b9071c2a216c7a9977230194965ea79d889fab6bef61fba554eb3bd2f795660'],
+    [2, '732c5282714ab3fb33de0c528d2c9cf8d2e2dd4bb906a235a26b97918cadbd14'],
+  ])('copilot/v%i não foi editado depois de avaliado', (version, sha256) => {
+    expect(loadPrompt('copilot', version).sha256).toBe(sha256);
+  });
+
+  it('a versão em uso pelo Copiloto existe', () => {
+    expect(loadPrompt('copilot', COPILOT_PROMPT_VERSION).id).toBe(
+      `copilot/v${COPILOT_PROMPT_VERSION}`,
+    );
   });
 
   it('recusa nomes que escapariam da pasta', () => {

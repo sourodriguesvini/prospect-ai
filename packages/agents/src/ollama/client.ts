@@ -38,6 +38,11 @@ const PsResponse = z.object({
   ),
 });
 
+const ShowResponse = z.object({
+  capabilities: z.array(z.string()).optional(),
+  model_info: z.record(z.string(), z.unknown()).optional(),
+});
+
 const ChatChunk = z.object({
   model: z.string().optional(),
   message: z.object({ content: z.string().optional(), thinking: z.string().optional() }).optional(),
@@ -70,6 +75,14 @@ export interface OllamaRunningModel {
   contextLength: number | null;
 }
 
+/** Parte do `/api/show` que o Prospector usa: capacidades e metadados da arquitetura. */
+export interface OllamaModelShow {
+  /** null quando o Ollama não informa (versões antigas). */
+  capabilities: string[] | null;
+  /** Chaves do GGUF (`general.architecture`, `<arch>.context_length`, `<arch>.block_count`…). */
+  modelInfo: Record<string, unknown>;
+}
+
 export interface OllamaChatRequest {
   model: string;
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
@@ -84,6 +97,8 @@ export interface OllamaClient {
   version(): Promise<string>;
   listModels(): Promise<OllamaModelInfo[]>;
   listRunning(): Promise<OllamaRunningModel[]>;
+  /** Capacidades e metadados de um modelo instalado (`/api/show`); não carrega o modelo. */
+  show(model: string): Promise<OllamaModelShow>;
   /** Streaming: cada pedaço como o Ollama envia; o último tem `done: true` e as métricas. */
   chat(request: OllamaChatRequest, signal: AbortSignal): AsyncGenerator<OllamaChatChunk>;
   /** Descarrega o modelo da memória agora (`keep_alive: 0`). */
@@ -95,13 +110,29 @@ export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434';
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
-/** O app só conversa com um Ollama deste computador: nada de conteúdo indo para outro host. */
+const NOT_LOOPBACK =
+  'OLLAMA_BASE_URL precisa apontar para este computador (127.0.0.1, localhost ou [::1]).';
+
+/**
+ * O app só conversa com um Ollama deste computador: nada de conteúdo indo para outro host.
+ * A mensagem não repete o valor configurado; ele vai só no `detail` (log do servidor).
+ */
 export function assertLoopback(baseUrl: string): URL {
-  const url = new URL(baseUrl);
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch (error) {
+    throw new AiError('invalid_config', {
+      message: NOT_LOOPBACK,
+      detail: 'URL inválida',
+      cause: error,
+    });
+  }
   if (!['http:', 'https:'].includes(url.protocol) || !LOOPBACK.has(url.hostname)) {
-    throw new Error(
-      `OLLAMA_BASE_URL precisa apontar para este computador (recebido: ${url.host}).`,
-    );
+    throw new AiError('invalid_config', {
+      message: NOT_LOOPBACK,
+      detail: `recebido ${url.protocol}//${url.host}`,
+    });
   }
   return url;
 }
@@ -178,6 +209,25 @@ export function createOllamaClient(options: {
         expiresAt: model.expires_at ?? null,
         contextLength: model.context_length ?? null,
       }));
+    },
+
+    async show(model) {
+      const signal = AbortSignal.timeout(requestTimeoutMs);
+      try {
+        const response = await call(
+          '/api/show',
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ model }),
+          },
+          signal,
+        );
+        const parsed = parse(ShowResponse, await response.json(), '/api/show');
+        return { capabilities: parsed.capabilities ?? null, modelInfo: parsed.model_info ?? {} };
+      } catch (error) {
+        throw timeoutOr(error, signal);
+      }
     },
 
     async *chat(request, signal) {

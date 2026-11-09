@@ -2,10 +2,12 @@ import {
   AI_ERROR_MESSAGES,
   COPILOT_HISTORY_LIMIT,
   CopilotEvent,
+  MODEL_CAPABILITY_LABELS,
   type AiErrorCode,
   type ChatMessage,
   type GenerationUsage,
   type LocalModel,
+  type ModelCapability,
 } from '@prospector/contracts';
 
 /** Uma fala da conversa como a tela guarda (só no navegador; nada é salvo). */
@@ -165,12 +167,30 @@ export function describeExpiry(expiresAt: string | null, now: Date): string | nu
   return `Sai da memória em ${Math.max(1, Math.round(diff / 60_000))} min se ficar ocioso`;
 }
 
-/** Modelos de embedding não conversam; ficam fora da escolha do Copiloto. */
+/** Sem a leitura do `/api/show`, o nome é a única pista de que o modelo só gera embeddings. */
 const EMBEDDING = /embed|bge|nomic|minilm/i;
 
-export function chatModelOptions(installed: readonly LocalModel[]): string[] {
+/**
+ * Modelos que o Copiloto pode usar: os que têm as capacidades que o servidor diz que a tarefa
+ * exige (`routing[].requires`, a mesma regra do gateway). Se o Ollama não informou as
+ * capacidades de um modelo, ele fica na lista, menos os embeddings reconhecidos pelo nome.
+ */
+export function chatModelOptions(
+  installed: readonly LocalModel[],
+  requires: readonly ModelCapability[],
+): string[] {
   return installed
+    .filter((model) =>
+      model.capabilities === null
+        ? !EMBEDDING.test(model.name)
+        : requires.every((capability) => model.capabilities?.includes(capability)),
+    )
     .map((model) => model.name)
-    .filter((name) => !EMBEDDING.test(name))
     .sort((a, b) => a.localeCompare(b));
+}
+
+/** "conversa · imagens · raciocínio" para o painel; null quando o Ollama não informou. */
+export function describeCapabilities(model: LocalModel): string | null {
+  if (model.capabilities === null || model.capabilities.length === 0) return null;
+  return model.capabilities.map((capability) => MODEL_CAPABILITY_LABELS[capability]).join(' · ');
 }

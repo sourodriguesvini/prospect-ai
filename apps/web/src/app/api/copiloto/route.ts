@@ -13,10 +13,16 @@ function problem(status: number, message: string): Response {
 /**
  * Conversa com o Copiloto (IA local, ADR-0008). Responde em streaming NDJSON: um
  * `CopilotEvent` por linha. Se o navegador fechar a conexão, a geração no Ollama é interrompida.
+ *
+ * Só a própria página usa esta rota, e todo navegador atual manda `Origin` num POST feito por
+ * `fetch`. Por isso o `Origin` é obrigatório aqui (decisão da IA-1.1): um pedido sem ele não veio
+ * da página. Isso não protege contra programas deste computador, que podem forjar cabeçalhos e
+ * já são confiáveis pelo ADR-0007; fecha a porta para clientes que não se identificam.
  */
 export async function POST(request: Request): Promise<Response> {
   const headers = request.headers;
   if (
+    headers.get('origin') === null ||
     !isSameOriginRequest({
       host: headers.get('host'),
       origin: headers.get('origin'),

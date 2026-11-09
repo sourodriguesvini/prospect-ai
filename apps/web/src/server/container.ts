@@ -1,5 +1,11 @@
 import 'server-only';
-import { createLocalAiRuntime, DEFAULT_OLLAMA_URL, type LocalAiRuntime } from '@prospector/agents';
+import {
+  createLocalAiRuntime,
+  createUnavailableLocalAi,
+  DEFAULT_OLLAMA_URL,
+  isAiError,
+  type LocalAiRuntime,
+} from '@prospector/agents';
 
 /** Texto dos fatos do sistema para o Copiloto (função pura do pacote de IA). */
 export { buildCopilotSystemFacts } from '@prospector/agents';
@@ -15,7 +21,7 @@ import {
   createSupabaseDatabaseHealth,
 } from '@prospector/db';
 import { cache } from 'react';
-import { databaseEnv, localAiEnv } from './env';
+import { databaseEnv, LocalAiConfigError, localAiEnv } from './env';
 
 /**
  * Raiz de composição da aplicação web: o único lugar que liga serviços de aplicação a
@@ -56,18 +62,34 @@ type LocalAiHolder = typeof globalThis & { [LOCAL_AI_KEY]?: LocalAiRuntime };
 
 export function getLocalAi(): LocalAi {
   const holder = globalThis as LocalAiHolder;
-  let runtime = holder[LOCAL_AI_KEY];
+  let runtime: Pick<LocalAiRuntime, 'gateway' | 'copilot'> | undefined = holder[LOCAL_AI_KEY];
   if (!runtime) {
-    const settings = localAiEnv();
-    runtime = createLocalAiRuntime({
-      baseUrl: settings.baseUrl ?? DEFAULT_OLLAMA_URL,
-      copilotModels: settings.copilotModels,
-      keepAlive: settings.keepAlive,
-      numCtx: settings.numCtx,
-      maxConcurrent: settings.maxConcurrent,
-      maxQueue: settings.maxQueue,
-    });
-    holder[LOCAL_AI_KEY] = runtime;
+    try {
+      const settings = localAiEnv();
+      const created = createLocalAiRuntime({
+        baseUrl: settings.baseUrl ?? DEFAULT_OLLAMA_URL,
+        copilotModels: settings.copilotModels,
+        keepAlive: settings.keepAlive,
+        numCtx: settings.numCtx,
+        maxConcurrent: settings.maxConcurrent,
+        maxQueue: settings.maxQueue,
+        vramReserveMiB: settings.vramReserveMiB,
+      });
+      holder[LOCAL_AI_KEY] = created;
+      runtime = created;
+    } catch (error) {
+      // Configuração inválida não derruba a página nem a rota com erro 500: o painel e o
+      // Copiloto mostram o motivo. Não fica guardada: corrigida a variável, a próxima leitura
+      // monta a IA local de verdade. Qualquer outro erro é defeito e continua subindo.
+      const invalid =
+        error instanceof LocalAiConfigError ||
+        (isAiError(error) && error.code === 'invalid_config');
+      if (!invalid) throw error;
+      if (isAiError(error) && error.detail) {
+        console.warn(`[ia-local] configuração inválida: ${error.detail}`);
+      }
+      runtime = createUnavailableLocalAi('invalid_config', invalidConfigMessage(error));
+    }
   }
   const { gateway, copilot } = runtime;
   return {
@@ -75,4 +97,17 @@ export function getLocalAi(): LocalAi {
     unload: (model) => gateway.unload(model),
     copilot,
   };
+}
+
+/** Texto para a tela: nomes das variáveis e o que fazer, nunca os valores. */
+function invalidConfigMessage(error: unknown): string {
+  const what =
+    error instanceof LocalAiConfigError
+      ? error.variables.length === 1
+        ? `a variável ${error.variables.join('')} está inválida`
+        : `as variáveis ${error.variables.join(', ')} estão inválidas`
+      : isAiError(error)
+        ? error.message.replace(/\.$/, '')
+        : 'não foi possível ler as variáveis AI_* e OLLAMA_BASE_URL';
+  return `A IA local não foi iniciada: ${what}. Corrija em apps/web/.env.local (veja docs/runbooks/ambiente-local.md) e reinicie o app.`;
 }

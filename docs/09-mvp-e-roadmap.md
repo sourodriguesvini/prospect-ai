@@ -56,7 +56,7 @@ Pendências: `docs/known-issues.md`.
 
 **Objetivo:** comunicação funcional entre o app e um modelo local, com respostas reais no Copiloto.
 
-**Status em 2026-11-09: concluída e verificada** (sem banco; o Copiloto ainda não tem ferramentas nem histórico persistente — KI-032). A integração funciona; a **qualidade** das respostas ainda não passou o limiar: na avaliação local, com corretores corrigidos, o `qwen3.5:4b` fez 69% (limiar 75%). O Copiloto v1 fica como experimental até o prompt v2 da IA-1.1.
+**Status em 2026-11-09: concluída e verificada** (sem banco; o Copiloto ainda não tem ferramentas nem histórico persistente — KI-032). A integração funciona; a **qualidade** das respostas ainda não passou o limiar: na avaliação local, com corretores corrigidos, o `qwen3.5:4b` fez 69% (limiar 75%). O Copiloto v1 fica como experimental até o prompt v2 da IA-1.1 (resultado: o v2 não passou; ver IA-1.1 abaixo).
 
 | Critério | Situação | Evidência |
 |---|---|---|
@@ -69,6 +69,32 @@ Pendências: `docs/known-issues.md`.
 | 7. Respostas reais na interface | Atendido | Verificado no navegador em `http://127.0.0.1:3000/copiloto` |
 
 Comandos de 2026-11-09: `pnpm typecheck`, `pnpm lint`, `pnpm test` (154 testes), `pnpm test:db` (13), `pnpm test:e2e` (21 passaram, 3 pulados: banco e Ollama real), `E2E_OLLAMA=1 pnpm test:e2e` (17 passaram, 7 pulados: banco e estados sem Ollama), `pnpm ai:live` (5), `pnpm evals` (resultados e recálculo em [13 §9](13-auditoria-e-evolucao.md#9-testes-e-critérios-de-aceite-da-ia-1)).
+
+### IA-1.1 — Admissão por VRAM, capacidades e prompt v2 (P)
+
+**Status em 2026-11-09: concluída, com o prompt v2 não promovido.** O gerenciador de modelos ganhou estas proteções:
+
+- admissão por VRAM, com reserva de 3 GB para os outros programas;
+- escolha do modelo pelas capacidades que o Ollama informa;
+- corte do histórico no servidor;
+- fila com posição atualizada;
+- configuração inválida sem erro 500;
+- `Origin` obrigatório na rota do Copiloto.
+
+O `copilot/v2` foi avaliado contra o v1 e ficou abaixo dele no `qwen3.5:4b`: 77% contra 82%, com os corretores corrigidos depois da revisão do `avaliador-ia`. Também recusou redigir mensagens e dobrou o p95. O v1 continua em uso e o Copiloto segue experimental. Detalhes e números em [13 §9](13-auditoria-e-evolucao.md#ia-11-2026-11-09-admissão-por-vram-capacidades-e-prompt-v2).
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. Carga recusada com reserva de VRAM insuficiente | Atendido | `admission.ts`; testes em `gateway.test.ts` e `capacity.test.ts` |
+| 2. Modelo escolhido por capacidade (`/api/show`, com cache) | Atendido | `model-catalog.ts`, `chooseModel`; `model_unsupported` |
+| 3. Prompt v2 ≥ v1 na avaliação | **Não atendido** | `evals/copilot/results/2026-11-09-17-30.regraded.json`; v3 na IA-1.2 |
+| 4. Pendências da revisão da IA-1 | Atendido | Orçamento de contexto, sha dos prompts, testes da rota, configuração inválida, `Origin`, fila e `GatewayEvent` |
+
+Comandos de 2026-11-09: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` (228), `E2E_PORT=3101 pnpm test:e2e` (22 passaram, 3 pulados: banco e Ollama real), `pnpm ai:live` (5), `pnpm evals` (v1 × v2, 156 respostas) e recálculo sem GPU.
+
+### IA-1.2 — Prompt v3 do Copiloto (P, proposta)
+
+Prompt v3 com os ganhos do v2 e sem as falhas dele (KI-036), casos fora da amostra (KI-037, KI-063), raciocínio que não esgota o limite (KI-066) e uma reserva que não oriente guardar dados pessoais (KI-034). Aceite: v3 ≥ v1 sem regredir o p95, aprovado pelo `avaliador-ia`.
 
 ### F2 — Estratégia: ofertas, rubrica, ICP, voz (M)
 - CRUD versionado de ofertas, rubrica de auditoria (modelo padrão de branding editável), ICP (filtros CNAE/UF/município/porte/idade + exclusões), modelo de score (pesos/limiares), voz da agência, cases com `public_ok`.
@@ -210,7 +236,7 @@ flowchart LR
 
 F6 e partes de F9 podem correr em paralelo a F7 se houver mais de um desenvolvedor.
 
-Trilha de IA local (doc 13 §7): IA-1 (feita) → IA-1.1 (admissão por VRAM, prompt v2) → IA-2 (histórico e ferramentas de leitura, depende do banco da F1) → IA-3 (fila durável local, antes da F4/F5) → IA-4 (auditoria visual local, junto da F6) → IA-5 (memória semântica, depois da F3). Onde as fatias F citam modelos Claude, vale o modelo local definido pelo ADR-0008 até que uma avaliação justifique outro.
+Trilha de IA local (doc 13 §7): IA-1 (feita) → IA-1.1 (feita: admissão por VRAM; prompt v2 não promovido) → IA-1.2 (prompt v3) → IA-2 (histórico e ferramentas de leitura, depende do banco da F1) → IA-3 (fila durável local, antes da F4/F5) → IA-4 (auditoria visual local, junto da F6) → IA-5 (memória semântica, depois da F3). Onde as fatias F citam modelos Claude, vale o modelo local definido pelo ADR-0008 até que uma avaliação justifique outro.
 
 ## 4. Pós-MVP
 

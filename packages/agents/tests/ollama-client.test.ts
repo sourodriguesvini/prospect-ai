@@ -79,6 +79,35 @@ describe('createOllamaClient', () => {
     ]);
   });
 
+  it('lê capacidades e metadados do /api/show sem carregar o modelo', async () => {
+    const { fetch, calls } = fakeFetch({
+      'POST /api/show': () =>
+        json({
+          license: 'Apache 2.0…',
+          capabilities: ['completion', 'vision'],
+          model_info: { 'general.architecture': 'qwen35', 'qwen35.context_length': 262_144 },
+        }),
+    });
+    const client = createOllamaClient({ baseUrl: base, fetch });
+    expect(await client.show('qwen3.5:4b')).toEqual({
+      capabilities: ['completion', 'vision'],
+      modelInfo: { 'general.architecture': 'qwen35', 'qwen35.context_length': 262_144 },
+    });
+    expect(calls[0]).toEqual({ key: 'POST /api/show', body: { model: 'qwen3.5:4b' } });
+  });
+
+  it('/api/show de Ollama antigo (sem capacidades) devolve null, e 404 vira model_not_installed', async () => {
+    const { fetch } = fakeFetch({
+      'POST /api/show': (_url, init) =>
+        String(init?.body).includes('sumiu')
+          ? json({ error: "model 'sumiu:1b' not found" }, 404)
+          : json({ modelfile: 'FROM x' }),
+    });
+    const client = createOllamaClient({ baseUrl: base, fetch });
+    expect(await client.show('antigo:1b')).toEqual({ capabilities: null, modelInfo: {} });
+    await expect(client.show('sumiu:1b')).rejects.toMatchObject({ code: 'model_not_installed' });
+  });
+
   it('Ollama fechado vira runtime_unavailable', async () => {
     const refused = (async () => {
       throw new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } });

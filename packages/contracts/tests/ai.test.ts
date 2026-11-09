@@ -6,6 +6,8 @@ import {
   CopilotEvent,
   CopilotRequest,
   COPILOT_HISTORY_LIMIT,
+  LocalModel,
+  ModelCapability,
   ModelName,
 } from '../src';
 
@@ -102,13 +104,98 @@ describe('AI_ERROR_MESSAGES', () => {
   it('tem mensagem para todo código', () => {
     for (const code of AiErrorCode.options) expect(AI_ERROR_MESSAGES[code]).toBeTruthy();
   });
+
+  it('códigos da IA-1.1 dizem o que fazer', () => {
+    expect(AI_ERROR_MESSAGES.insufficient_vram).toMatch(/memória/);
+    expect(AI_ERROR_MESSAGES.insufficient_vram).toMatch(/Feche/);
+    expect(AI_ERROR_MESSAGES.model_too_large).toMatch(/modelo menor/);
+    expect(AI_ERROR_MESSAGES.model_unsupported).toMatch(/Escolha outro/);
+    expect(AI_ERROR_MESSAGES.invalid_config).toMatch(/AI_\*/);
+    expect(AI_ERROR_MESSAGES.invalid_config).toMatch(/reinicie/);
+  });
+
+  it('o evento de erro aceita os códigos novos', () => {
+    const codes: AiErrorCode[] = [
+      'insufficient_vram',
+      'model_too_large',
+      'model_unsupported',
+      'invalid_config',
+    ];
+    for (const code of codes) {
+      const event = { type: 'error', code, message: AI_ERROR_MESSAGES[code] };
+      expect(CopilotEvent.safeParse(event).success).toBe(true);
+    }
+  });
+});
+
+describe('LocalModel', () => {
+  const base = {
+    name: 'qwen3.5:4b',
+    sizeBytes: 3_324_173_934,
+    family: 'qwen35',
+    parameterSize: '4.2B',
+    quantization: 'Q4_K_M',
+  };
+
+  it('aceita capacidades conhecidas e desconhecidas (null)', () => {
+    const known = { ...base, capabilities: ['completion', 'vision'], contextLength: 262_144 };
+    expect(LocalModel.safeParse(known).success).toBe(true);
+    expect(LocalModel.safeParse({ ...base, capabilities: null, contextLength: null }).success).toBe(
+      true,
+    );
+  });
+
+  it('recusa capacidade fora da lista e contexto inválido', () => {
+    expect(
+      LocalModel.safeParse({ ...base, capabilities: ['hologram'], contextLength: null }).success,
+    ).toBe(false);
+    expect(LocalModel.safeParse({ ...base, capabilities: [], contextLength: 0 }).success).toBe(
+      false,
+    );
+    expect(ModelCapability.options).toContain('thinking');
+  });
 });
 
 describe('AiRuntimeStatus', () => {
-  it('aceita o estado offline sem GPU', () => {
+  it('aceita o estado offline sem GPU, com o motivo', () => {
+    expect(
+      AiRuntimeStatus.safeParse({
+        state: 'offline',
+        provider: 'ollama',
+        code: 'invalid_config',
+        message: 'x',
+        gpu: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('offline sem motivo não vale', () => {
     expect(
       AiRuntimeStatus.safeParse({ state: 'offline', provider: 'ollama', message: 'x', gpu: null })
         .success,
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it('online com lista de carregados ilegível (null) e reserva de VRAM', () => {
+    const online = {
+      state: 'online',
+      provider: 'ollama',
+      version: '0.40.15',
+      installed: [],
+      loaded: null,
+      routing: [],
+      gpu: null,
+      limits: { maxConcurrent: 1, maxQueue: 3, vramReserveMiB: 3072 },
+    };
+    expect(AiRuntimeStatus.safeParse(online).success).toBe(true);
+    expect(
+      AiRuntimeStatus.safeParse({ ...online, limits: { maxConcurrent: 1, maxQueue: 3 } }).success,
+    ).toBe(false);
+    expect(
+      AiRuntimeStatus.safeParse({
+        ...online,
+        limits: { maxConcurrent: 1, maxQueue: 3, vramReserveMiB: -1 },
+      }).success,
+    ).toBe(false);
   });
 });

@@ -3,6 +3,8 @@ import type { EvalCase } from './cases';
 import type { Grade } from './graders';
 
 export interface Run {
+  /** Versão do prompt (`copilot/vN`). Resultados antigos não têm: vale o `promptId` do arquivo. */
+  promptId?: string;
   model: string;
   caseId: string;
   attempt: number;
@@ -15,6 +17,7 @@ export interface Run {
 }
 
 export interface ModelSummary {
+  promptId: string | null;
   model: string;
   runs: number;
   passRate: number;
@@ -28,7 +31,15 @@ export interface ModelSummary {
   medianOutputTokens: number | null;
   /** Taxa de aprovação de cada corretor, para ver onde o modelo erra. */
   byCriterion: Record<string, { pass: number; total: number }>;
+  /** Aprovação por caso, para comparar versões de prompt caso a caso. */
+  byCase: Record<string, { pass: number; total: number }>;
   failures: string[];
+}
+
+/** Uma linha do resumo: um modelo com uma versão de prompt. */
+export interface SummaryGroup {
+  promptId: string | null;
+  model: string;
 }
 
 function percentile(values: number[], p: number): number | null {
@@ -59,15 +70,24 @@ export function wilson(pass: number, total: number): [number, number] {
 export function gradeRun(run: Run, cases: readonly EvalCase[]): Run {
   const evalCase = cases.find((entry) => entry.id === run.caseId);
   if (!evalCase || run.error) return { ...run, grades: [], pass: false };
+  // Resposta vazia (ex.: o raciocínio gastou todo o limite) é falha própria, não de "português".
+  if (run.output.trim() === '') {
+    return { ...run, grades: [{ name: 'resposta não vazia', pass: false }], pass: false };
+  }
   const grades = evalCase.graders.map((grade) => grade(run.output));
   return { ...run, grades, pass: grades.every((grade) => grade.pass) };
 }
 
-export function summarize(runs: readonly Run[], models: readonly string[]): ModelSummary[] {
-  return models
-    .map((model) => runs.filter((run) => run.model === model))
-    .filter((mine) => mine.length > 0)
-    .map((mine) => {
+export function summarize(runs: readonly Run[], groups: readonly SummaryGroup[]): ModelSummary[] {
+  return groups
+    .map((group) => ({
+      group,
+      mine: runs.filter(
+        (run) => run.model === group.model && (run.promptId ?? null) === group.promptId,
+      ),
+    }))
+    .filter(({ mine }) => mine.length > 0)
+    .map(({ group, mine }) => {
       const pick = (read: (run: Run) => number | null | undefined) =>
         mine.flatMap((run) => {
           const value = read(run);
@@ -83,8 +103,15 @@ export function summarize(runs: readonly Run[], models: readonly string[]): Mode
           if (grade.pass) entry.pass += 1;
         }
       }
+      const byCase: ModelSummary['byCase'] = {};
+      for (const run of mine) {
+        const entry = (byCase[run.caseId] ??= { pass: 0, total: 0 });
+        entry.total += 1;
+        if (run.pass) entry.pass += 1;
+      }
       return {
-        model: mine[0]?.model ?? '',
+        promptId: group.promptId,
+        model: group.model,
         runs: mine.length,
         passRate: passed / mine.length,
         passRate95: wilson(passed, mine.length),
@@ -103,6 +130,7 @@ export function summarize(runs: readonly Run[], models: readonly string[]): Mode
           50,
         ),
         byCriterion,
+        byCase,
         failures: mine
           .filter((run) => !run.pass)
           .map(
@@ -124,7 +152,7 @@ export function printSummary(file: string, summary: readonly ModelSummary[]): vo
   for (const row of summary) {
     const [low, high] = row.passRate95.map((value) => Math.round(value * 100));
     console.info(
-      `[evals] ${row.model}: ${Math.round(row.passRate * 100)}% (${row.runs} respostas; IC95 ${low}–${high}%) · mediana ${Math.round(row.medianTotalMs ?? 0)} ms (p95 ${Math.round(row.p95TotalMs ?? 0)} ms), ${Math.round(row.medianOutputTokens ?? 0)} tokens de saída, ${Math.round(row.medianTokensPerSecond ?? 0)} tokens/s`,
+      `[evals] ${row.promptId ?? '?'} · ${row.model}: ${Math.round(row.passRate * 100)}% (${row.runs} respostas; IC95 ${low}–${high}%) · mediana ${Math.round(row.medianTotalMs ?? 0)} ms (p95 ${Math.round(row.p95TotalMs ?? 0)} ms), ${Math.round(row.medianOutputTokens ?? 0)} tokens de saída, ${Math.round(row.medianTokensPerSecond ?? 0)} tokens/s`,
     );
     for (const failure of row.failures) console.info(`[evals]   ✗ ${failure}`);
   }

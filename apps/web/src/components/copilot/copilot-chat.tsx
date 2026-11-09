@@ -46,6 +46,7 @@ const STOP_GUARD_MS = 600;
 /** Falhas que fazem sentido repetir com o mesmo pedido. */
 const RETRYABLE = new Set<AiErrorCode>([
   'busy',
+  'insufficient_vram',
   'timeout',
   'runtime_unavailable',
   'provider_error',
@@ -131,6 +132,8 @@ export function CopilotChat({
     let settled = false;
     let received = false;
     let failed: AiErrorCode | null = null;
+    // Avisos entram no log com aria-live desligado durante a geração: são anunciados por aqui.
+    let notices = 0;
 
     try {
       const response = await fetch('/api/copiloto', {
@@ -166,10 +169,18 @@ export function CopilotChat({
             setPhase({ kind: 'generating' });
             setAnnouncement('O Copiloto está respondendo…');
           }
+          if (event.type === 'notice') {
+            notices += 1;
+            setAnnouncement(event.message);
+          }
           if (event.type === 'delta' || event.type === 'thinking') received = true;
           if (event.type === 'done') {
             settled = true;
-            setAnnouncement('Resposta pronta.');
+            setAnnouncement(
+              notices === 0
+                ? 'Resposta pronta.'
+                : `Resposta pronta, com ${notices === 1 ? 'um aviso' : `${notices} avisos`} acima da resposta.`,
+            );
           }
           if (event.type === 'error') {
             settled = true;
@@ -314,7 +325,8 @@ export function CopilotChat({
         >
           {trimmed ? (
             <p className="mb-4 px-1 text-xs text-muted-foreground">
-              As mensagens mais antigas já não entram na conversa com o modelo.
+              A conversa passou do limite desta tela: as mensagens mais antigas já não são enviadas
+              ao modelo.
             </p>
           ) : null}
           <ol className="space-y-4">
@@ -352,8 +364,9 @@ export function CopilotChat({
                   {busy && turn === last ? <Progress phase={phase} turn={turn} /> : null}
                   {turn.doneReason === 'length' ? (
                     <Alert tone="warning" role="status">
-                      A resposta foi cortada no limite de tamanho. Peça &quot;continue&quot; para
-                      ver o resto.
+                      {turn.content
+                        ? 'A resposta foi cortada no limite de tamanho. Peça "continue" para ver o resto.'
+                        : 'O modelo gastou todo o limite pensando e não chegou a escrever a resposta. Desligue "Pensar antes de responder" e envie de novo.'}
                     </Alert>
                   ) : null}
                   {turn.error?.code === 'cancelled' ? (

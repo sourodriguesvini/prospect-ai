@@ -1,10 +1,15 @@
-import { COPILOT_HISTORY_LIMIT, type GenerationUsage } from '@prospector/contracts';
+import {
+  COPILOT_HISTORY_LIMIT,
+  type GenerationUsage,
+  type LocalModel,
+} from '@prospector/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   HISTORY_CHAR_BUDGET,
   applyEvent,
   buildHistory,
   chatModelOptions,
+  describeCapabilities,
   createEventDecoder,
   describeExpiry,
   describeUsage,
@@ -191,20 +196,50 @@ describe('formatação', () => {
     expect(httpFailure(400, undefined)?.code).toBe('invalid_request');
   });
 
-  it('tira modelos de embedding da escolha do Copiloto', () => {
-    const model = (name: string) => ({
-      name,
-      sizeBytes: 1,
-      family: null,
-      parameterSize: null,
-      quantization: null,
-    });
+  const model = (name: string, capabilities: LocalModel['capabilities'] = null): LocalModel => ({
+    name,
+    sizeBytes: 1,
+    family: null,
+    parameterSize: null,
+    quantization: null,
+    capabilities,
+    contextLength: null,
+  });
+
+  it('oferece ao Copiloto só modelos que conversam, segundo o Ollama', () => {
     expect(
-      chatModelOptions([
-        model('qwen3.5:4b'),
-        model('qwen3-embedding:0.6b'),
-        model('bge-m3:latest'),
-      ]),
+      chatModelOptions(
+        [
+          model('qwen3.5:4b', ['completion', 'vision', 'tools', 'thinking']),
+          model('meu-embed-sem-nome-obvio:1b', ['embedding']),
+          model('nemotron-3-nano:4b', ['completion', 'tools', 'thinking']),
+        ],
+        ['completion'],
+      ),
+    ).toEqual(['nemotron-3-nano:4b', 'qwen3.5:4b']);
+  });
+
+  it('segue as capacidades que o servidor exige para a tarefa', () => {
+    const installed = [
+      model('qwen3.5:4b', ['completion', 'vision', 'tools', 'thinking']),
+      model('so-texto:1b', ['completion']),
+    ];
+    expect(chatModelOptions(installed, ['completion', 'tools'])).toEqual(['qwen3.5:4b']);
+  });
+
+  it('sem capacidades lidas, tira os embeddings pelo nome', () => {
+    expect(
+      chatModelOptions(
+        [model('qwen3.5:4b'), model('qwen3-embedding:0.6b'), model('bge-m3:latest')],
+        ['completion'],
+      ),
     ).toEqual(['qwen3.5:4b']);
+  });
+
+  it('descreve as capacidades em português', () => {
+    expect(describeCapabilities(model('qwen3.5:4b', ['completion', 'vision', 'thinking']))).toBe(
+      'conversa · imagens · raciocínio',
+    );
+    expect(describeCapabilities(model('x:1b'))).toBeNull();
   });
 });

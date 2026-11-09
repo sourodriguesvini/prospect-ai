@@ -7,7 +7,7 @@ import { useFormStatus } from 'react-dom';
 import { unloadModel, type UnloadState } from '@/app/(shell)/copiloto/actions';
 import { describeExpiry, formatGigabytes } from '@/lib/copilot';
 
-const INITIAL: UnloadState = { error: null, unloaded: null };
+const INITIAL: UnloadState = { error: null, message: null, at: null };
 
 /**
  * "Na memória agora": modelos carregados no Ollama e o botão para liberar a memória. A mensagem
@@ -18,7 +18,8 @@ export function LoadedModels({
   now,
   headingId,
 }: {
-  models: readonly LoadedModel[];
+  /** null = o Ollama não informou agora quais modelos estão carregados. */
+  models: readonly LoadedModel[] | null;
   /** ISO 8601 do momento da leitura no servidor, para "sai da memória em…". */
   now: string;
   headingId: string;
@@ -28,8 +29,10 @@ export function LoadedModels({
   const at = new Date(now);
 
   useEffect(() => {
-    if (state.unloaded) headingRef.current?.focus();
+    if (state.message) headingRef.current?.focus();
   }, [state]);
+  // Erro de um pedido feito antes de Atualizar não vale para a leitura nova.
+  const error = state.error && state.at === now ? state.error : null;
 
   return (
     <section aria-labelledby={headingId} className="space-y-2">
@@ -42,15 +45,19 @@ export function LoadedModels({
         Na memória agora
       </h3>
       {/* Sempre montado (vazio fica só para leitor de tela): região viva precisa existir antes. */}
-      <p role="status" className={state.unloaded ? 'text-xs text-muted-foreground' : 'sr-only'}>
-        {state.unloaded ? `${state.unloaded} saiu da memória.` : ''}
+      <p role="status" className={state.message ? 'text-xs text-muted-foreground' : 'sr-only'}>
+        {state.message ?? ''}
       </p>
-      {state.error ? (
+      {error ? (
         <p role="alert" className="text-xs text-danger">
-          {state.error}
+          {error}
         </p>
       ) : null}
-      {models.length === 0 ? (
+      {models === null ? (
+        <p className="text-sm text-muted-foreground">
+          Não foi possível ler os modelos na memória agora. Clique em Atualizar.
+        </p>
+      ) : models.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Nenhum modelo carregado. O primeiro pedido carrega o modelo em alguns segundos.
         </p>
@@ -75,6 +82,7 @@ export function LoadedModels({
                   </div>
                   <form action={action}>
                     <input type="hidden" name="model" value={model.name} />
+                    <input type="hidden" name="at" value={now} />
                     <FreeMemoryButton model={model.name} />
                   </form>
                 </Well>
