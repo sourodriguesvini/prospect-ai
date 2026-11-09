@@ -191,7 +191,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 6. Prioridade: manutenção.
 
 **Testes e qualidade — Funcional localmente**
-1. Funcionalidades: typecheck, lint de fronteiras, Prettier, Vitest (228 testes na IA-1.1), banco em PGlite (13), e2e smoke + Copiloto, testes contra Ollama real, avaliação local.
+1. Funcionalidades: typecheck, lint de fronteiras, Prettier, Vitest (636 testes com IA-1.1, F2 e F3a juntas na main), banco em PGlite (37), e2e smoke + Copiloto, testes contra Ollama real, avaliação local.
 2. Evidências: seção 9.
 3. Limitações: CI nunca executado (KI-009); avaliação pequena e sintética (KI-037).
 4. Dependências: GitHub (D-INFRA-1).
@@ -527,3 +527,25 @@ O `nemotron-3-nano:4b` orientou guardar CPF e endereço de casa no caso de LGPD,
 | Hooks | Nenhum no projeto. Um `PreToolUse` que bloqueie leitura de `.env.local` reforçaria a regra 5 | Recomendado, não criado (muda a configuração do Claude Code; pedir ao usuário) |
 | MCPs | Supabase MCP disponível (útil para o projeto de desenvolvimento, sempre com confirmação); navegador embutido para verificação visual | Nenhum MCP novo; um MCP do Ollama não acrescenta nada ao gateway e a `pnpm ai:live` |
 | `.claude/launch.json` | O do repositório roda `pnpm run dev`; existe outro na pasta antiga do OneDrive, criado porque a sessão abriu lá | Registrado em KI-039 |
+
+## 11. Integração na main (2026-11-09)
+
+IA-1, IA-1.1, F3a e F2 foram desenvolvidas em paralelo, cada uma na própria branch, e juntadas na `main` nesta ordem:
+
+| Passo | Commit | O que entrou |
+|---|---|---|
+| Avanço direto | `0ef96eb`, `c2377e2` | IA-1 e IA-1.1 (a IA-1.1 partiu da IA-1) |
+| `chore` | `4a959ee` | `.gitattributes` com fim de linha LF: sem ele, o `core.autocrlf=true` do Windows gravava CRLF em toda cópia de trabalho nova e o `pnpm format:check` falhava em arquivos sem mudança |
+| Merge | `ca1ea93` | F3a (`691a004`); conflito só em `known-issues.md` |
+| Merge | `db88c30` | F2 (`2940287`, partiu da `main` antes da IA-1); conflitos em `playwright.config.ts`, `container.ts`, `domain/src/index.ts`, `eslint.config.mjs`, `docs/README.md` e `known-issues.md`, resolvidos mantendo os dois lados |
+
+Ajuste de integração: a F2 acrescentou o estado de banco `memory` (modo memória, ADR-0009) depois da IA-1, e o Copiloto não tinha texto para ele (`packages/agents/src/copilot/system-facts.ts`); o typecheck só acusou com as duas fatias juntas.
+
+| Checagem com tudo junto | Resultado |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | Verdes |
+| `pnpm test` | 636 testes verdes: contracts 157, domain 223, application 36, db 39, agents 112, web 69 |
+| `pnpm test:db` | 37 testes verdes (PGlite) |
+| `pnpm test:e2e` | 28 passaram, 3 pulados (2 exigem banco real, 1 exige Ollama real) |
+
+Não rodados na integração: `pnpm ai:live` e `E2E_OLLAMA=1` (a parte de IA não mudou no merge além do texto do estado `memory`), `E2E_SUPABASE=1` (sem banco configurado, KI-008).
