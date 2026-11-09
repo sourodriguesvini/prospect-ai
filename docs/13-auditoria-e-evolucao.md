@@ -121,7 +121,7 @@ Estados: **Funcional** (implementado e funcional) · **Parcial** (implementado p
 | Segurança local | Funcional | — | F1 |
 | Testes e qualidade | Funcional (local); CI não executado | Média | F1 |
 | Descoberta | Não implementado | Alta | F4 |
-| Empresas (dossiê, evidências) | Não implementado | Alta | F3 |
+| Empresas (dossiê, evidências) | Parcial: contratos e regras do Evidence Ledger (F3a); sem banco, serviço nem tela | Alta | F3 |
 | Abordagens | Não implementado | Média | F10 |
 | Aprovações | Não implementado | Média | F10 |
 | Conversas | Não implementado | Baixa | F11 |
@@ -201,7 +201,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 **Descoberta, Empresas, Abordagens, Aprovações, Conversas, Pipeline, Monitoramento, Inteligência — Não implementado**
 1. Funcionalidades: página de aviso com a fatia.
 2. Evidências: `apps/web/src/lib/modules.ts` (`plannedSlice`), `e2e/smoke.spec.ts`.
-3. Limitações: sem backend, tabelas, contratos ou regras.
+3. Limitações: sem backend, tabelas, contratos ou regras. Exceção: o Evidence Ledger de Empresas já tem contratos (`packages/contracts/src/evidence.ts`) e regras puras (`packages/domain/src/evidence`) da F3a ([09](09-mvp-e-roadmap.md), F3).
 4. Dependências: banco, Evidence Ledger (F3), estratégia (F2), aprovação (F10), conformidade (D-LGPD-1 antes de qualquer contato).
 5. Próximas melhorias: seguir o roadmap ([09](09-mvp-e-roadmap.md)) com as fatias IA intercaladas (seção 7).
 6. Prioridade: Empresas e Descoberta altas; o resto depois do marco M1.
@@ -215,7 +215,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 | Copiloto com ferramentas | Ausente | Contratos Zod, `RequestContext`, serviços de application, limites de autonomia (doc 04 §5) | Registro de ferramentas, laço de chamada de ferramentas no gateway, avaliação de chamadas |
 | Histórico de conversas | Só na aba | `CopilotTurn`/`CopilotRequest` | Tabelas `copilot_threads`/`copilot_messages` |
 | Tarefas e acompanhamento | Ausente | Fila em memória (padrão), ADR-0004 (requisitos de durabilidade) | Fila durável local no Postgres + processo worker local |
-| Evidências tipadas | Desenhado (ADR-0002, doc 06) | — | F3 inteira |
+| Evidências tipadas | Contratos e regras puras (F3a) | `packages/contracts/src/evidence.ts`, `packages/domain/src/evidence`, [08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-propostos-f3a-2026-11-09) | Migração, `EvidenceService`, repositórios, conferência de trechos, recálculo, UI (F3) |
 | Pesquisa externa | Ausente | Pesquisas `research/01–02`, catálogo do doc 05 | Portas `WebSearch`, `PageFetcher`, `ScreenCapture`; decisão do provedor de busca (D-AI-4) |
 | Auditoria visual | Ausente | Playwright e Chromium já instalados (e2e); `qwen3.5:4b` tem visão | Captura em worker, contrato `VisualFinding`, avaliação com 30 marcas |
 | Memória semântica | Ausente | Supabase + pgvector | Migração com `vector`, embeddings via `/api/embed`, busca híbrida |

@@ -3,3 +3,4 @@
  * regra de domínio; as primeiras chegam na F2 (ofertas, rubrica, ICP, score).
  */
 export {};
+export * from './evidence';

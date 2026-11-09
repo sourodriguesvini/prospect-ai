@@ -55,6 +55,42 @@ LLM (juiz):
 
 Resultado: claims rebaixados (`rejected`/`disputed`) com motivo visível.
 
+### 2.5 Regras implementadas e valores propostos (F3a, 2026-11-09)
+
+Código: regras puras em `packages/domain/src/evidence`; contratos em `packages/contracts/src/evidence.ts`. Os itens marcados **proposta** não estavam fixados nas seções acima: valem até a calibração (§3.5) ou uma decisão do usuário.
+
+**Como o código lê §2.2 e §2.3**
+
+- Concordância é **aditiva**: `confiança_fato = min(1; confiabilidade × atualidade da melhor fonte + 0,05 × origens independentes que concordam)`. A melhor fonte é a de maior confiabilidade × atualidade entre as que sustentam e ainda não venceram; só se todas venceram, entre todas.
+- Atualidade: 1,0 até a validade; cai em linha reta até 0,5 no dobro da validade; depois do dobro o claim fica `stale`. `valid_until` = coleta mais recente que sustenta + 2 × validade.
+- Fonte não vencida que contradiz → `disputed`, confiança limitada a 0,5. Fonte vencida não contesta nem soma concordância. Se nenhuma fonte de apoio está dentro do dobro da validade, `stale` prevalece sobre `disputed`.
+- Inferência: `min(confiança das dependências) × fator`, com o fator limitado a [0,5; 0,9] (sem fator proposto, 0,5) e teto de 0,9. Herda o estado das dependências: alguma vencida, rejeitada ou substituída → `stale`; senão alguma contestada → `disputed` (teto 0,5). `valid_until` = o menor das dependências.
+- **Estado efetivo** (`effectiveStatus`): um claim gravado como `active` ou `disputed` cuja `valid_until` já passou conta como `stale` na leitura, mesmo antes de o banco ser atualizado. Vale para as dependências de inferências e hipóteses (no cálculo e na validação) e para o uso em afirmações.
+- **Recálculo** (`resolveStatus`): `rejected` (verificação ou revisão) e `superseded` (nova versão) não mudam ao recalcular; nos demais vale o estado calculado. Por isso a contradição achada pelo juiz (§2.4) entra no ledger como evidência que contradiz, e não como estado solto.
+- A confiança é gravada com 2 casas, **truncada para baixo**: o valor gravado nunca muda de faixa por arredondamento (0,799 → 0,79, Média).
+- A confiança vale para o momento do cálculo; como a atualidade decai, ela precisa ser recalculada com o tempo (KI-071).
+- Constantes do contrato (mudam só com nova versão do contrato): teto da inferência 0,9, faixa do fator [0,5; 0,9] e faixas da UI (0,6 e 0,8). Calibráveis em `EvidencePolicy`: confiabilidades, validades, bônus de concordância, teto de contestação e categorias que não somam concordância.
+
+**Propostas**
+
+| Item | Proposta | Motivo |
+|---|---|---|
+| Confiabilidade de anotação do usuário (`user_reported`) | 0,7 | observação de quem usa o app, mas de segunda mão; fica em Média |
+| Categoria de cada fonte | anotação do usuário → `user_reported`; registro de API de provedor oficial → `official_registry`, de outro provedor → `aggregator`; demais pelo endereço: domínio ou perfil do **sujeito do claim** → `company_owned`, lista de imprensa → `recognized_press`, lista de agregadores → `aggregator`, senão `unknown`; resultado de busca nunca passa de `aggregator`. Domínios comparados em minúsculas e punycode, sem `www.`, `m.`, `mobile.` nem ponto final | o tipo sozinho não diz se uma página é da empresa ou da imprensa; a categoria é decidida pelo sistema, nunca pelo modelo |
+| Onde a categoria fica | na evidência (`claim_evidence.reliability_tier`), não na fonte | o site da empresa A é `company_owned` num claim sobre A e fonte de terceiro num claim sobre B |
+| Validade por domínio, em dias | `firmographic` 90 · `digital_presence` 30 · `visual` 180 (os três de §2.3) · `positioning` 90 · `signal` 30 · `contact` 90 · `competitive` 180 · `financial_proxy` 180. Uma `key` do catálogo pode ter validade própria (ex.: cada tipo de sinal) | "conteúdo de site 30 dias" (§2.3) foi lido como `digital_presence` (o site existe, o que ele mostra); o que o site diz sobre posicionamento é `positioning`, 90 dias |
+| Fonte independente | tudo o que a própria empresa publica (site, subdomínios, perfis) é **uma origem só**; registro de API pelo provedor; o resto pelo domínio normalizado (páginas do mesmo site e perfis da mesma rede social contam uma vez) | mesmo autor não confirma a si mesmo; conservador. Ainda não detecta cópia entre domínios diferentes (KI-074) |
+| Fonte desconhecida (`unknown`) | pode ser a base e pode contestar, mas não soma concordância | citar muitos sites fracos não pode levar um claim a Média; contestar com fonte fraca só pede revisão (assimetria registrada em KI-072) |
+| Evidência | trecho literal ou região da fonte; captura de tela exige a região (`locator.bbox`), os demais tipos exigem o trecho; cada fonte uma vez por claim (chave `claim_id, source_id`) | §2.1 pede "trecho/região"; fonte repetida inflaria a contagem |
+| Data de coleta | `captured_at` é lido da fonte já gravada no ledger, nunca do que o modelo informou; coleta no futuro é recusada | a atualidade depende dela |
+| Fonte já vencida ao registrar | o claim é aceito e nasce `stale` | registra o que foi visto sem permitir uso em afirmação |
+| Hipótese | sem confiança calculada (`confidence` nulo, rótulo **A verificar**); exige raciocínio (o que a torna plausível e o que verificar); aceita evidências e dependências ativas; vence pela validade do domínio contada da evidência de apoio mais recente ou do registro | §2.1 diz "marcada como a verificar"; um número daria a ela peso de fato |
+| Fato | não tem dependências | fato é observação direta de uma fonte |
+| Inferência | não cita fontes diretamente (o trecho vira um fato e a inferência depende dele); pode depender também de inferências, nunca de hipóteses; todas as dependências ativas no estado efetivo | impede transformar hipótese em inferência |
+| Uso em afirmações | só fato ou inferência ativo no estado efetivo, com confiança ≥ 0,6 recalculada perto do momento do uso (`canSupportAssertion`) | §4.3 e §5.3 |
+
+Erros das regras: `ClaimIssueCode` (código, campo e mensagem em pt-BR). Ainda não implementado (F3/F5): conferência do trecho no conteúdo armazenado (`quote_verified` existe no contrato, mas ainda não entra no cálculo), `occurred_at ≤ captured_at`, URL que responde ou snapshot, contradição entre claims da mesma `key`, motivo visível do rebaixamento e recálculo periódico (KI-071 a KI-074).
+
 ## 3. Qualificação multidimensional
 
 ### 3.1 Dimensões

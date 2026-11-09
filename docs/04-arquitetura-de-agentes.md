@@ -116,7 +116,7 @@ flowchart LR
 | Ferramentas cliente (strict) | `get_company_context`, `list_claims`, `record_claim`, `propose_competitor`, `propose_contact`, `request_asset_capture`, `finish_investigation`. |
 | Orçamentos | `max_uses` por ferramenta servidor; limite de iterações do tool runner; `task_budget` (beta) quando disponível no modelo; teto em US$ calculado do `usage` a cada turno; timeout de parede do passo. |
 | Saída | Claims gravados incrementalmente (não se perde trabalho em falha) + `finish_investigation` com resumo, lacunas remanescentes e confiança geral. Se o loop terminar sem `finish_investigation`, uma chamada de saída estruturada gera o fechamento. |
-| Regras de evidência | `record_claim` exige `evidence[]` com URL e trecho literal; o servidor compara o trecho com o conteúdo capturado (resultado do `web_fetch` armazenado como `source`) e rejeita trechos inexistentes. Inferências exigem `depends_on` (claims de fato). |
+| Regras de evidência | `record_claim` exige `evidence[]` com URL e trecho literal; o servidor compara o trecho com o conteúdo capturado (resultado do `web_fetch` armazenado como `source`) e rejeita trechos inexistentes. Inferências exigem `depends_on` (claims de fato). O contrato `ClaimInput` (F3a) cita fontes por `sourceId` (UUID): a ferramenta pode receber um identificador curto da fonte já capturada no turno e o servidor o resolve para o `sourceId`; o modelo nunca informa `capturedAt` nem a categoria da fonte ([08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-propostos-f3a-2026-11-09)). |
 | Proibições | Não cria contatos com dados pessoais de fontes não autorizadas; não acessa domínios bloqueados; não executa ações externas. |
 
 ### 4.2 Copiloto

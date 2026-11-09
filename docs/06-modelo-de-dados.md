@@ -113,6 +113,8 @@ Dados abertos da Receita Federal ingeridos mensalmente em **tabelas globais** (s
 | `claim_evidence` | `claim_id, source_id, quote, locator jsonb (selector, bbox, page, timestamp), stance (supports, contradicts), quote_verified bool` | |
 | `claim_dependencies` | `claim_id, depends_on_claim_id` | inferências → fatos |
 
+> **Contratos da F3a (2026-11-09):** `packages/contracts/src/evidence.ts` usa estes nomes em camelCase, sem `org_id` nem `reviewed_by` (ADR-0007). Propõe para a migração da F3: `sources.external_ref` (identificador na origem quando não há URL, ex.: CNPJ consultado) e `sources.is_demo`; `claim_evidence.reliability_tier` (`official_registry, company_owned, recognized_press, aggregator, user_reported, unknown`, atribuída pelo sistema **por claim**, porque `company_owned` depende do sujeito: o site da empresa A é fonte de terceiro num claim sobre B); `claim_evidence.quote` nulo quando a evidência é só região (`locator.bbox` numa captura de tela); `claim_evidence.quote_verified` nulo enquanto não houver conferência; chave primária `(claim_id, source_id)` (cada fonte uma vez por claim); `claims.reasoning_factor` (fator aplicado da inferência, necessário para recalcular a confiança) e `claims.confidence` nulo só em hipótese. `valid_until` é o momento em que o claim fica `stale` (dobro da validade; [08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-propostos-f3a-2026-11-09)).
+
 ### 4.5 Investigação e auditoria [MVP]
 
 | Tabela | Colunas principais | Observações |
