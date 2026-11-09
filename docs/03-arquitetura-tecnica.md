@@ -3,6 +3,7 @@
 > Versão 0.1 · 2026-11-09
 > Decisões: [ADR-0001 Monorepo](adr/0001-monorepo-e-fronteiras.md) · [ADR-0002 Evidence Ledger](adr/0002-evidence-ledger.md) · [ADR-0003 Runtime de agentes](adr/0003-runtime-de-agentes.md) · [ADR-0004 Orquestração](adr/0004-orquestracao-duravel.md) · [ADR-0005 Observabilidade](adr/0005-observabilidade.md) · [ADR-0006 Segredos](adr/0006-segredos-e-credenciais.md)
 > Fundamentação: [research/04](research/04-infraestrutura-e-execucao.md).
+> **Estado real (2026-11-09):** o diagrama abaixo é o alvo original. Hoje o app roda só neste computador ([ADR-0007](adr/0007-uso-interno-local-sem-login.md)), sem Auth, Vercel, Trigger.dev, Langfuse nem Sentry, e a IA roda no Ollama local ([ADR-0008](adr/0008-ia-local-com-ollama.md)). A arquitetura implementada está em [13 §3](13-auditoria-e-evolucao.md#3-arquitetura-atual-o-que-o-código-faz-hoje); a orquestração de tarefas será revista (D-AI-5).
 
 ## 1. Visão de contexto
 
@@ -42,7 +43,7 @@ flowchart TB
 | **Storage** | Supabase Storage | Snapshots de páginas, screenshots, logos, documentos | Arquivos públicos (todos os buckets são privados) |
 | **Realtime** | Supabase Realtime | Progresso de workflows e atualizações de filas na UI | Transporte de dados sensíveis volumosos |
 | **Vault** | Supabase Vault | Credenciais por tenant | Segredos da plataforma (ficam em env) |
-| **LLM** | Claude API (`@anthropic-ai/sdk`) | Capacidades e agentes via LLM Gateway | — |
+| **LLM** | Ollama local em `127.0.0.1:11434` ([ADR-0008](adr/0008-ia-local-com-ollama.md)); Claude API como opção futura | Capacidades e agentes via LLM Gateway (`packages/agents`): modelo por tarefa, fila, limite de concorrência, VRAM, descarregar sob demanda | Rodar mais de um modelo pesado ao mesmo tempo; encerrar outros programas |
 
 ## 3. Padrões de execução
 

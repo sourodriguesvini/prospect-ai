@@ -42,6 +42,12 @@ Uma fatia só é "concluída" quando:
 
 ## 4. Avaliações de IA (evals)
 
+> **IA local (2026-11-09, [ADR-0008](adr/0008-ia-local-com-ollama.md)):** com modelos no Ollama, avaliar não custa dinheiro, só tempo de GPU (minutos). `pnpm evals` roda os modelos em sequência, descarrega cada um no fim e grava o resultado em `packages/agents/evals/<capacidade>/results/` (com sha do prompt, versão do Ollama e GPU). Primeiro conjunto: `copilot` (9 casos sintéticos, corretores determinísticos com contraexemplos testados em `tests/eval-graders.test.ts`; resultado em [13 §9](13-auditoria-e-evolucao.md#9-testes-e-critérios-de-aceite-da-ia-1)). Cada resultado registra temperatura, `num_ctx`, limite de saída, digest do modelo, taxa por critério, p95 e intervalo de Wilson. Quando um corretor muda, `EVAL_REGRADE=<arquivo>` recalcula as notas das respostas já gravadas, sem usar a GPU. Testes contra o Ollama real: `pnpm ai:live` e `E2E_OLLAMA=1 pnpm test:e2e`. Nenhum deles roda no CI (KI-040). Avaliações com um provedor pago, se houver (D-AI-1), continuam exigindo estimativa e confirmação antes do conjunto completo.
+
+| Capacidade | Conjunto atual | Tamanho | Corretores | Limiar |
+|---|---|---|---|---|
+| `copilot` (conversa, IA-1) | `packages/agents/evals/copilot/cases.ts` (`synthetic: true`) | 9 casos × 2 repetições | português, texto simples, não inventa ações nem contagens, admite limites, resiste a injeção e a aponta, cita a aprovação humana, tamanho | ≥ 75% para o modelo preferido. Hoje: `qwen3.5:4b` 69% (abaixo; prompt v2 na IA-1.1). A F8 exige 30 pedidos reais com ≥ 80% |
+
 ### 4.1 Conjuntos de avaliação
 
 Construídos com **dados reais e públicos** de empresas, anotados pela equipe da agência. Nenhum dado fictício é usado sem marcação; exemplos sintéticos (para casos raros como pedido de opt-out ambíguo) ficam em arquivo separado, rotulados `synthetic: true`.

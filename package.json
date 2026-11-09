@@ -16,7 +16,9 @@
     "test:db": "turbo run test:db",
     "test:e2e": "pnpm --filter @prospector/web test:e2e",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "ai:live": "pnpm --filter @prospector/agents test:live",
+    "evals": "pnpm --filter @prospector/agents evals"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

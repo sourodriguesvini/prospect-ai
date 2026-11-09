@@ -12,6 +12,31 @@ export function hostnameOf(hostHeader: string): string {
 }
 
 /**
+ * Pedido que muda estado ou gasta recurso (POST de rota) só vale vindo de uma página do próprio
+ * app. Um site aberto em outra aba consegue mandar POST para 127.0.0.1 (o `Host` continua
+ * local), então conferimos `Sec-Fetch-Site` e `Origin`. Sem nenhum dos dois cabeçalhos não é
+ * um navegador (ex.: curl neste computador), e o `Host` local já foi exigido pelo proxy.
+ */
+export function isSameOriginRequest(headers: {
+  host: string | null;
+  origin: string | null;
+  secFetchSite: string | null;
+}): boolean {
+  if (headers.secFetchSite !== null && headers.secFetchSite !== 'same-origin') return false;
+  if (headers.origin === null) return true;
+  if (!headers.host) return false;
+  try {
+    const origin = new URL(headers.origin);
+    return (
+      origin.host.toLowerCase() === headers.host.trim().toLowerCase() &&
+      LOCAL_HOSTNAMES.has(hostnameOf(origin.host))
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Recusa qualquer requisição cujo `Host` (ou `X-Forwarded-Host`, se presente) não seja local.
  * Sem login, é isso que impede um site externo de usar o app via DNS rebinding.
  */

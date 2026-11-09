@@ -9,6 +9,11 @@
 | `SUPABASE_URL` | servidor do app (`apps/web/src/server/env.ts`) | Baixa (identifica o projeto) | `apps/web/.env.local` |
 | `SUPABASE_SECRET_KEY` | servidor do app (`apps/web/src/server/env.ts` → `container.ts`) | **Sim** — ignora o RLS, dá acesso total aos dados | `apps/web/.env.local` neste computador; secret do CI só para testes |
 | `TEST_DATABASE_URL` | testes de banco | Sim (contém senha) | `.env.local`; gerado no CI. Só bancos descartáveis |
+| `OLLAMA_BASE_URL` | servidor do app (`apps/web/src/server/env.ts`) | Não (padrão `http://127.0.0.1:11434`; use só loopback) | `apps/web/.env.local` (opcional) |
+| `AI_COPILOT_MODELS`, `AI_KEEP_ALIVE`, `AI_NUM_CTX`, `AI_MAX_CONCURRENCY`, `AI_MAX_QUEUE` | servidor do app | Não (ajustes de modelo e recursos, ADR-0008) | `apps/web/.env.local` (opcional) |
+| `E2E_OLLAMA`, `EVAL_MODELS`, `EVAL_REPEAT` | testes e avaliações | Não | linha de comando |
+
+A IA local não usa chave de API. Se um provedor na nuvem for adicionado (D-AI-1), a chave entra nesta tabela como sensível e é lida só no servidor.
 
 Sem login (ADR-0007), o app age sempre com a secret key, no servidor. Por isso: o app só escuta em `127.0.0.1`, recusa `Host` não local, não usa variáveis `NEXT_PUBLIC_*` e a secret key só é lida em um módulo `server-only` (verificado por `scripts/check-boundaries.mjs`). A publishable key não é usada.
 

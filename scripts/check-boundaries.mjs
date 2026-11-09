@@ -4,11 +4,12 @@
  *  1. dependências declaradas entre pacotes do workspace (package.json);
  *  2. dependências externas proibidas em pacotes puros;
  *  3. imports relativos que escapam da pasta do pacote (atalho para burlar as regras acima);
- *  4. `@prospector/db` na web só na raiz de composição;
+ *  4. `@prospector/db` e `@prospector/agents` na web só na raiz de composição;
  *  5. nenhum `@supabase/*` na web (nem no package.json nem em imports): o Supabase fica dentro
  *     de @prospector/db (ADR-0007);
  *  6. credenciais do banco (`process.env.SUPABASE_*`) só são lidas em src/server/env.ts, e a web não usa
  *     variáveis `NEXT_PUBLIC_*` (nada do servidor vai para o navegador).
+ *  7. chamadas a modelos locais (API do Ollama, porta 11434) só em packages/agents (ADR-0008).
  * Sai com código 1 e lista as violações.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -23,6 +24,7 @@ const ALLOWED_INTERNAL = {
   '@prospector/domain': ['@prospector/contracts'],
   '@prospector/application': ['@prospector/domain', '@prospector/contracts'],
   '@prospector/db': ['@prospector/application', '@prospector/contracts'],
+  '@prospector/agents': ['@prospector/application', '@prospector/contracts'],
   '@prospector/ui': [],
   '@prospector/config': [],
   '@prospector/web': [
@@ -31,6 +33,7 @@ const ALLOWED_INTERNAL = {
     '@prospector/domain',
     '@prospector/ui',
     '@prospector/db',
+    '@prospector/agents',
   ],
 };
 
@@ -39,11 +42,14 @@ const ALLOWED_EXTERNAL = {
   '@prospector/contracts': ['zod'],
   '@prospector/domain': [],
   '@prospector/application': ['zod'],
+  // IA local sem SDK (ADR-0008): fala com o Ollama por `fetch`. SDK de IA novo passa por aqui.
+  '@prospector/agents': ['zod'],
 };
 
 const WEB_SRC = join('apps', 'web', 'src');
 const COMPOSITION_ROOT = join(WEB_SRC, 'server', 'container.ts');
 const SECRET_READER = join(WEB_SRC, 'server', 'env.ts');
+const AGENTS_DIR = join('packages', 'agents');
 const IMPORT_RE =
   /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g;
 
@@ -129,6 +135,9 @@ for (const dir of workspaceDirs()) {
         violations.push(`${fileRel}: sem variáveis NEXT_PUBLIC_* na web (ADR-0007).`);
       }
     }
+    if (/:11434\b/.test(text) && !fileRel.startsWith(AGENTS_DIR + sep)) {
+      violations.push(`${fileRel}: a API do Ollama só é chamada pelo gateway em ${AGENTS_DIR}.`);
+    }
     for (const match of text.matchAll(IMPORT_RE)) {
       const spec = match[1] ?? match[2] ?? match[3];
       if (!spec) continue;
@@ -142,10 +151,10 @@ for (const dir of workspaceDirs()) {
       }
       if (
         name === '@prospector/web' &&
-        spec.startsWith('@prospector/db') &&
+        /^@prospector\/(db|agents)(\/|$)/.test(spec) &&
         fileRel !== COMPOSITION_ROOT
       ) {
-        violations.push(`${fileRel}: @prospector/db só pode ser importado em ${COMPOSITION_ROOT}.`);
+        violations.push(`${fileRel}: ${spec} só pode ser importado em ${COMPOSITION_ROOT}.`);
       }
       if (name === '@prospector/web' && spec.startsWith('@supabase/')) {
         violations.push(`${fileRel}: Supabase não entra na web; use os serviços de application.`);

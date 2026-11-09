@@ -50,6 +50,26 @@ Pós-MVP (Fase 2/3) na seção 4.
 
 Pendências: `docs/known-issues.md`.
 
+### IA-1 — IA local no Copiloto (P)
+
+> Trilha de IA local ([ADR-0008](adr/0008-ia-local-com-ollama.md)), intercalada às fatias F. Plano completo (IA-1.1 a IA-5) em [13 §7](13-auditoria-e-evolucao.md#7-plano-incremental).
+
+**Objetivo:** comunicação funcional entre o app e um modelo local, com respostas reais no Copiloto.
+
+**Status em 2026-11-09: concluída e verificada** (sem banco; o Copiloto ainda não tem ferramentas nem histórico persistente — KI-032). A integração funciona; a **qualidade** das respostas ainda não passou o limiar: na avaliação local, com corretores corrigidos, o `qwen3.5:4b` fez 69% (limiar 75%). O Copiloto v1 fica como experimental até o prompt v2 da IA-1.1.
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. Conexão com o Ollama e verificação de disponibilidade | Atendido | `packages/agents/src/ollama/client.ts` (16 testes); painel "IA local"; e2e "Copiloto sem Ollama" |
+| 2. Modelo por tarefa com fallback e configuração | Atendido | `model-policy.ts`; variáveis `AI_*` validadas em `apps/web/src/server/env.ts` |
+| 3. Endpoint de inferência com streaming | Atendido | `POST /api/copiloto` (NDJSON, contrato `CopilotEvent`); recusas 403/415/400 no e2e |
+| 4. Geração real | Atendido | `pnpm ai:live` (5 testes); `E2E_OLLAMA=1 pnpm test:e2e` (resposta real em 7,2 s com métricas) |
+| 5. Erros e indisponibilidade | Atendido | `runtime_unavailable`, `model_not_installed`, `busy`, `timeout`, `cancelled` testados (unitários e live) |
+| 6. Limites de recursos | Atendido | 1 inferência por vez, fila de 3, `keep_alive` 5 min, descarregar com espera (`gateway.test.ts`) |
+| 7. Respostas reais na interface | Atendido | Verificado no navegador em `http://127.0.0.1:3000/copiloto` |
+
+Comandos de 2026-11-09: `pnpm typecheck`, `pnpm lint`, `pnpm test` (154 testes), `pnpm test:db` (13), `pnpm test:e2e` (21 passaram, 3 pulados: banco e Ollama real), `E2E_OLLAMA=1 pnpm test:e2e` (17 passaram, 7 pulados: banco e estados sem Ollama), `pnpm ai:live` (5), `pnpm evals` (resultados e recálculo em [13 §9](13-auditoria-e-evolucao.md#9-testes-e-critérios-de-aceite-da-ia-1)).
+
 ### F2 — Estratégia: ofertas, rubrica, ICP, voz (M)
 - CRUD versionado de ofertas, rubrica de auditoria (modelo padrão de branding editável), ICP (filtros CNAE/UF/município/porte/idade + exclusões), modelo de score (pesos/limiares), voz da agência, cases com `public_ok`.
 - Registro de LIA (modelo guiado) e texto de opt-out.
@@ -189,6 +209,8 @@ flowchart LR
 ```
 
 F6 e partes de F9 podem correr em paralelo a F7 se houver mais de um desenvolvedor.
+
+Trilha de IA local (doc 13 §7): IA-1 (feita) → IA-1.1 (admissão por VRAM, prompt v2) → IA-2 (histórico e ferramentas de leitura, depende do banco da F1) → IA-3 (fila durável local, antes da F4/F5) → IA-4 (auditoria visual local, junto da F6) → IA-5 (memória semântica, depois da F3). Onde as fatias F citam modelos Claude, vale o modelo local definido pelo ADR-0008 até que uma avaliação justifique outro.
 
 ## 4. Pós-MVP
 

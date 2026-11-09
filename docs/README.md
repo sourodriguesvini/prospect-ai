@@ -1,7 +1,7 @@
 # Documentação — Prospector
 
-> Sistema Operacional de Inteligência Comercial (nome de trabalho). Estado: **fatia F1 (fundação) implementada e testada localmente; partes dependentes de contas e Docker pendentes** · 2026-11-09.
-> O que foi e o que não foi verificado: [09 — status da F1](09-mvp-e-roadmap.md) e [known-issues.md](known-issues.md).
+> Sistema Operacional de Inteligência Comercial (nome de trabalho). Estado: **F1 (fundação) implementada e testada localmente, sem banco real; IA-1 (Copiloto com IA local via Ollama) entregue e verificada** · 2026-11-09.
+> Comece por [13 — auditoria e evolução](13-auditoria-e-evolucao.md) (diagnóstico, matriz de maturidade, lacunas e plano). O que foi e o que não foi verificado: [09](09-mvp-e-roadmap.md) e [known-issues.md](known-issues.md).
 > Verificação feita nesta versão: links internos entre documentos checados por script (26 arquivos, nenhum quebrado). Revisão independente pelos subagentes revisores ainda não foi feita.
 
 ## Ordem de leitura sugerida
@@ -21,6 +21,7 @@
 | 11 | [10-riscos-custos-decisoes.md](10-riscos-custos-decisoes.md) | Riscos, custos estimados, **decisões pendentes** |
 | 12 | [11-qualidade-e-testes.md](11-qualidade-e-testes.md) | DoD, testes, avaliações de IA, CI |
 | 13 | [12-seguranca-e-conformidade.md](12-seguranca-e-conformidade.md) | Segurança, LGPD, controles obrigatórios |
+| 14 | [13-auditoria-e-evolucao.md](13-auditoria-e-evolucao.md) | Estado real do código, matriz de maturidade, gap analysis, arquitetura de IA local, plano incremental |
 
 ## Decisões arquiteturais (ADRs)
 
@@ -28,11 +29,12 @@
 |---|---|---|
 | [0001](adr/0001-monorepo-e-fronteiras.md) | Monorepo e fronteiras entre camadas | Proposto |
 | [0002](adr/0002-evidence-ledger.md) | Evidence Ledger como núcleo | Proposto |
-| [0003](adr/0003-runtime-de-agentes.md) | Runtime de agentes (Messages API + Tool Runner) | Proposto |
+| [0003](adr/0003-runtime-de-agentes.md) | Runtime de agentes (Messages API + Tool Runner) | Proposto; provedor padrão emendado pelo 0008 |
 | [0004](adr/0004-orquestracao-duravel.md) | Orquestração durável (Trigger.dev v4) | Proposto |
 | [0005](adr/0005-observabilidade.md) | Observabilidade e custos | Proposto |
 | [0006](adr/0006-segredos-e-credenciais.md) | Segredos e credenciais | Proposto |
 | [0007](adr/0007-uso-interno-local-sem-login.md) | **Uso interno, local, sem login e sem multiempresa** (prevalece sobre os demais docs) | Aceito |
+| [0008](adr/0008-ia-local-com-ollama.md) | **IA local com Ollama como provedor padrão** (emenda o 0003) | Aceito |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 
@@ -55,7 +57,7 @@ Itens marcados **[não verificado]** nas pesquisas não foram confirmados em fon
 
 | Runbook | Para quê |
 |---|---|
-| [runbooks/ambiente-local.md](runbooks/ambiente-local.md) | Instalar, rodar testes, subir Supabase local |
+| [runbooks/ambiente-local.md](runbooks/ambiente-local.md) | Instalar, rodar testes, subir Supabase local, configurar o Ollama e rodar avaliações locais |
 | [runbooks/segredos.md](runbooks/segredos.md) | Inventário de variáveis, regras e rotação de chaves |
 
 ## Registro de problemas

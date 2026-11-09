@@ -1,6 +1,6 @@
 # ADR-0003 — Runtime de agentes: Claude Messages API + Tool Runner dentro de workflows duráveis
 
-- Status: **Proposto**
+- Status: **Proposto** · **Emendado por [ADR-0008](0008-ia-local-com-ollama.md)** (IA local com Ollama como provedor padrão; a Claude API passa a ser opção por capacidade, D-AI-1)
 - Data: 2026-11-09
 - Fonte: referência oficial do SDK da Claude API consultada em 2026-11-09 (superfícies disponíveis, modelos, recursos).
 

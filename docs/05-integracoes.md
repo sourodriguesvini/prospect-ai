@@ -38,8 +38,10 @@
 | **E-mail do sistema** (convites, notificações) | ESP transacional (Resend, Postmark ou SES) | — | Por volume | **Proibido para prospecção** pelas políticas de uso | Adotar só para o sistema |
 | **Agenda** | Link do Cal.com/Calendly do usuário + webhook | Google Calendar API (fase 2) | Calendly: API em todos os planos; Cal.com [não verificado] | Links de uso único do Calendly expiram em 90 dias | F12 |
 | **WhatsApp** | — | Cloud API (fase 2, só com opt-in) | Por mensagem entregue | Opt-in prévio obrigatório; bibliotecas não oficiais levam a banimento | Fase 2 |
-| **LLM** | Claude API (`@anthropic-ai/sdk`) | — | Ver [10 §3](10-riscos-custos-decisoes.md) | Ver [ADR-0003](adr/0003-runtime-de-agentes.md) | Adotar |
+| **LLM** | **Ollama local** (`qwen3.5:4b`, reserva `nemotron-3-nano:4b`) — [ADR-0008](adr/0008-ia-local-com-ollama.md) | Claude API (`@anthropic-ai/sdk`) como reserva por capacidade (D-AI-1) | Local: zero em dinheiro (energia e GPU); Claude: ver [10 §3](10-riscos-custos-decisoes.md) | Apache 2.0 (Qwen); NVIDIA Open Model License (Nemotron, só inglês segundo o cartão); Ollama só em loopback | **Adotado e em uso (IA-1)** |
 | **Infraestrutura** | Vercel Pro · Supabase Pro · Trigger.dev v4 · Langfuse · Sentry | Vercel Workflows (plano B) | Ver [research/04](research/04-infraestrutura-e-execucao.md) | Vercel Hobby proíbe uso comercial; regiões BR não verificadas | Adotar (D-INFRA-1) |
+
+> **Com IA local (2026-11-09):** `web_search` e `web_fetch` da Claude só funcionam com a Claude API. Com o Ollama como padrão, busca e leitura de páginas viram portas próprias (`WebSearch`, `PageFetcher`, `ScreenCapture`) com leitor próprio, Playwright e um provedor de busca a decidir (D-AI-4: Ollama Web Search ou Brave, ambos com termos e cotas **não verificados** em página oficial). Opções e fontes: [13 §6.7](13-auditoria-e-evolucao.md#67-pesquisa-externa).
 
 ## 3. Explicitamente evitados
 

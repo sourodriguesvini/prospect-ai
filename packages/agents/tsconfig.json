@@ -1,0 +1,11 @@
+{
+  "extends": "@prospector/config/tsconfig/library.json",
+  "include": [
+    "src",
+    "tests",
+    "evals",
+    "vitest.config.ts",
+    "vitest.live.config.ts",
+    "vitest.evals.config.ts"
+  ]
+}

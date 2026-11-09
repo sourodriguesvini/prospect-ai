@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@prospector/agents": "workspace:*",
     "@prospector/application": "workspace:*",
     "@prospector/contracts": "workspace:*",
     "@prospector/db": "workspace:*",

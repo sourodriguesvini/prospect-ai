@@ -1,16 +1,6 @@
 import { request as httpRequest } from 'node:http';
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
-
-const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-
-async function expectNoA11yViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  const summary = results.violations.map(
-    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
-  );
-  expect(summary).toEqual([]);
-}
+import { expect, test } from '@playwright/test';
+import { expectNoA11yViolations } from './support';
 
 /** GET cru com cabeçalho Host arbitrário (o fetch do navegador não deixa trocar o Host). */
 function getWithHost(baseURL: string, host: string): Promise<{ status: number; body: string }> {

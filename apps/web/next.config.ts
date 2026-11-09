@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Pacotes internos são publicados como código-fonte TypeScript (ADR-0001).
   transpilePackages: [
+    '@prospector/agents',
     '@prospector/application',
     '@prospector/contracts',
     '@prospector/db',

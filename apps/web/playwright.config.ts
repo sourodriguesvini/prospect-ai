@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = `http://127.0.0.1:${PORT}`;
 const withDatabase = process.env.E2E_SUPABASE === '1';
+const withOllama = process.env.E2E_OLLAMA === '1';
 
 /**
  * Smoke (sempre): telas, estados sem banco, proteção de host, cabeçalhos e acessibilidade.
@@ -11,6 +12,9 @@ const withDatabase = process.env.E2E_SUPABASE === '1';
  * Com banco (E2E_SUPABASE=1): usa SUPABASE_URL e SUPABASE_SECRET_KEY do ambiente ou do
  * .env.local de um projeto de desenvolvimento com as migrações aplicadas. Ver
  * docs/runbooks/ambiente-local.md e e2e/database.spec.ts.
+ *
+ * IA local: por padrão o Copiloto aponta para uma porta sem servidor (estado "Ollama fora do
+ * ar"). Com E2E_OLLAMA=1 usa o Ollama real deste computador e gera uma resposta de verdade.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -28,6 +32,7 @@ export default defineConfig({
     env: {
       NEXT_TELEMETRY_DISABLED: '1',
       ...(withDatabase ? {} : { SUPABASE_URL: '', SUPABASE_SECRET_KEY: '' }),
+      ...(withOllama ? {} : { OLLAMA_BASE_URL: 'http://127.0.0.1:9' }),
     },
   },
 });

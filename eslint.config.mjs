@@ -52,6 +52,8 @@ export default defineConfig(
       '**/test-results/**',
       '**/next-env.d.ts',
       'docs/**',
+      // Cópias de trabalho de sessões paralelas do Claude Code: cada uma roda o próprio lint.
+      '.claude/**',
     ],
   },
   js.configs.recommended,
@@ -72,6 +74,11 @@ export default defineConfig(
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly', URL: 'readonly' },
     },
+  },
+  {
+    // Avaliações e testes contra o Ollama real imprimem o relatório no terminal.
+    files: ['packages/agents/evals/**', 'packages/agents/tests/live/**'],
+    rules: { 'no-console': 'off' },
   },
   {
     files: ['apps/web/**/*.{ts,tsx}'],
@@ -128,6 +135,31 @@ export default defineConfig(
     },
   },
   {
+    files: ['packages/agents/src/**'],
+    rules: {
+      // Sem AI_SDK aqui: o gateway é o único lugar autorizado a falar com provedores de modelo.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@prospector/db',
+                '@prospector/ui',
+                '@prospector/web',
+                'next',
+                'next/*',
+                'react',
+              ],
+              message:
+                'agents usa serviços de application e contratos; não conhece banco, UI nem framework (ADR-0001).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['packages/ui/src/**'],
     rules: {
       'no-restricted-imports': restrict(
@@ -162,8 +194,8 @@ export default defineConfig(
     ignores: [COMPOSITION_ROOT],
     rules: {
       'no-restricted-imports': restrict(
-        ['@prospector/db', '@supabase/*'],
-        'A web acessa dados só pelos serviços de application (src/server/container.ts); @prospector/db só na raiz de composição e Supabase só dentro de @prospector/db (ADR-0001, ADR-0007).',
+        ['@prospector/db', '@prospector/agents', '@supabase/*'],
+        'A web acessa dados e IA só pela raiz de composição (src/server/container.ts): @prospector/db e @prospector/agents só lá, Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0008).',
       ),
     },
   },

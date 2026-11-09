@@ -3,6 +3,7 @@
 > Versão 0.1 · 2026-11-09
 > Referências: [02-dominios.md](02-dominios.md) · [ADR-0003 Runtime de agentes](adr/0003-runtime-de-agentes.md) · [ADR-0004 Orquestração](adr/0004-orquestracao-duravel.md) · [contracts/](contracts/README.md)
 > Informações sobre a Claude API verificadas na referência oficial do SDK em 2026-11-09 (modelos, preços, parâmetros). Preços e IDs mudam: o gateway lê a configuração do banco, nunca de constantes espalhadas no código.
+> **Emenda de 2026-11-09 ([ADR-0008](adr/0008-ia-local-com-ollama.md)):** o provedor padrão passou a ser o **Ollama local** (`qwen3.5:4b`, reserva `nemotron-3-nano:4b`). As colunas "Modelo proposto" e "Esforço" abaixo valem só se um provedor Claude for adicionado (D-AI-1). A tese, os contratos, os limites de autonomia e a defesa contra injeção continuam iguais. Mapeamento dos 10 especialistas pedidos para estas capacidades e estado real de implementação: [13 §6](13-auditoria-e-evolucao.md#6-arquitetura-de-ia-local).
 
 ## 1. Tese: poucos agentes, muitos passos confiáveis
 
@@ -156,11 +157,13 @@ Tipos de aprovação: `outbound_message.send`, `investigation.over_budget`, `cal
 | **Memória de entidades** | Evidence Ledger (claims) | agentes/capacidades via `EvidenceService` | recuperada por ferramenta/consulta, nunca "lembrada" pelo modelo |
 | Conhecimento da agência | ofertas, rubricas, cases, voz (`knowledge_*` + pgvector) | humanos | injetado de forma determinística ou por busca semântica |
 | Aprendizados | `learnings` aprovados | `learning_synthesizer` propõe, humano aprova | injetados nos prompts de planejamento/redação |
-| Conversas do Copiloto | `copilot_threads/messages` | runtime | histórico + compaction em threads longas |
+| Conversas do Copiloto | `copilot_threads/messages` (IA-2; hoje só na aba) | runtime | histórico + compaction em threads longas |
 
 Não há memória escrita livremente pelo modelo: evita deriva e envenenamento por conteúdo web.
 
 ## 8. LLM Gateway (único ponto de chamada)
+
+> Estado em 2026-11-09: implementado para o Ollama local em `packages/agents` (IA-1) com resolução de modelo por tarefa, prompt versionado com hash, streaming, fila e limite de concorrência, tempos limite e erros tipados. Ainda faltam os itens 1 (por `agent_configs`), 3 (cache de prompt não se aplica ao Ollama), 7 (`llm_calls`), 8 e 9 — ver KI-031.
 
 Responsabilidades:
 1. Resolver `agent_config` (modelo, esforço, max_tokens, ferramentas, orçamento) por organização com fallback global.

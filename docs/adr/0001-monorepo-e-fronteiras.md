@@ -66,6 +66,14 @@ Ajustes feitos ao implementar a fundação, verificados por `pnpm lint` (`script
 
 O status deste ADR passa a "Aceito" quando o CI rodar pela primeira vez com estas regras.
 
+## Emenda 2 — pacote `agents` e IA local (2026-11-09, [ADR-0008](0008-ia-local-com-ollama.md))
+
+1. `packages/agents` existe e depende só de `@prospector/contracts` e `zod`. `scripts/check-boundaries.mjs` recusa qualquer outra dependência externa (`ALLOWED_EXTERNAL`); um SDK de IA novo precisa entrar nessa lista por decisão registrada. O ESLint proíbe nele `@prospector/db`, `@prospector/ui`, `@prospector/web`, Next e React. Quando os agentes precisarem de dados, a dependência será `@prospector/application` (serviços), nunca `@prospector/db`.
+2. **web → agents** só pela raiz de composição (`apps/web/src/server/container.ts`, função `getLocalAi`), como já valia para `db` (item 1 da emenda anterior).
+3. Endereços da API do Ollama (porta `11434`) só podem aparecer em arquivos de `packages/agents` (regra 7 de `scripts/check-boundaries.mjs`, que lê arquivos `.ts`, `.tsx`, `.mts` e `.mjs`). A web recebe a URL por `OLLAMA_BASE_URL`, lida em `src/server/env.ts`.
+4. Contratos de IA (`AiTask`, `AiErrorCode`, `CopilotRequest`, `CopilotEvent`, `AiRuntimeStatus`) ficam em `packages/contracts/src/ai.ts`, compartilhados pela rota, pelo cliente e pelo gateway.
+5. Avaliações (`packages/agents/evals/**`) e testes contra o Ollama real (`packages/agents/tests/live/**`) podem imprimir no console (exceção do ESLint) e ficam fora de `pnpm test`.
+
 ## Alternativas consideradas
 
 - **App Next.js único com pastas**: mais rápido no início, fronteiras só por convenção; rejeitado pelo requisito explícito de separação.

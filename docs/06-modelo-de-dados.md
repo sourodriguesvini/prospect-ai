@@ -189,7 +189,9 @@ Dados abertos da Receita Federal ingeridos mensalmente em **tabelas globais** (s
 | `provider_usage` | `org_id, provider, operation, units, cost_usd, occurred_at, ref` | custo de APIs não-LLM |
 | `usage_budgets` | `org_id, period (month), limit_usd, hard_stop, alert_at_pct` | |
 | `audit_log` | `id bigint identity, actor_type check in (user,agent,system), actor_label, action, entity_type, entity_id, diff jsonb (≤ 64 KB), trace_id uuid, occurred_at` | append-only (trigger bloqueia update/delete/truncate para todos; `service_role` só com select/insert). **F1:** `action` no formato `dominio.entidade.verbo` (check no banco e `AuditAction` em contracts); ator e `trace_id` vêm do `RequestContext` da aplicação (`AuditService.record`); `actor_label` = nome do agente ou componente. Ainda sem produtores: as fatias F2+ registram suas ações. Sem `ip`/`user_agent` (uso local).
-| `copilot_threads` / `copilot_messages` | `org_id, user_id, title, entity_ref` / `role, content jsonb, run_id` | |
+| `copilot_threads` / `copilot_messages` | `org_id, user_id, title, entity_ref` / `role, content jsonb, run_id` | IA-2. Sem `org_id`/`user_id` no uso local (ADR-0007); guardar também `model`, `prompt_id` e métricas da resposta |
+
+> **IA local (2026-11-09, [ADR-0008](adr/0008-ia-local-com-ollama.md)):** nenhuma destas tabelas foi migrada ainda. Ajustes propostos para quando forem: `model_pricing` e `cost_usd` ficam zerados para modelos locais (registrar tempo de GPU e tokens); `llm_calls` ganha `provider` (`ollama`, `anthropic`), `load_ms` e `first_token_ms`; tarefas duráveis locais em `ai_jobs` (`kind, status, idempotency_key, attempts, lease_until, input jsonb, result jsonb, error jsonb, trace_id`) se a decisão D-AI-5 confirmar a fila no Postgres; memória semântica com a extensão `vector` (`qwen3-embedding:0.6b`, até 1024 dimensões, índice HNSW) na IA-5. Ver [13 §6](13-auditoria-e-evolucao.md#6-arquitetura-de-ia-local).
 
 ## 5. Armazenamento de arquivos (Storage)
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hostnameOf, isLocalRequest } from './host';
+import { hostnameOf, isLocalRequest, isSameOriginRequest } from './host';
 
 describe('hostnameOf', () => {
   it.each([
@@ -31,5 +31,32 @@ describe('isLocalRequest', () => {
     expect(isLocalRequest('127.0.0.1:3000', 'evil.example')).toBe(false);
     expect(isLocalRequest('127.0.0.1:3000', 'localhost:3000, evil.example')).toBe(false);
     expect(isLocalRequest('127.0.0.1:3000', '127.0.0.1:3000')).toBe(true);
+  });
+});
+
+describe('isSameOriginRequest', () => {
+  const local = {
+    host: '127.0.0.1:3000',
+    origin: 'http://127.0.0.1:3000',
+    secFetchSite: 'same-origin',
+  };
+
+  it('aceita a própria página e clientes sem cabeçalhos de navegador', () => {
+    expect(isSameOriginRequest(local)).toBe(true);
+    expect(isSameOriginRequest({ host: '127.0.0.1:3000', origin: null, secFetchSite: null })).toBe(
+      true,
+    );
+  });
+
+  it('recusa pedido vindo de outro site, mesmo com Host local', () => {
+    expect(isSameOriginRequest({ ...local, secFetchSite: 'cross-site' })).toBe(false);
+    expect(isSameOriginRequest({ ...local, secFetchSite: 'same-site' })).toBe(false);
+    expect(
+      isSameOriginRequest({ ...local, origin: 'https://evil.example', secFetchSite: null }),
+    ).toBe(false);
+    expect(
+      isSameOriginRequest({ ...local, origin: 'http://127.0.0.1:4000', secFetchSite: null }),
+    ).toBe(false);
+    expect(isSameOriginRequest({ ...local, origin: 'null', secFetchSite: null })).toBe(false);
   });
 });

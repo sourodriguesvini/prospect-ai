@@ -1,6 +1,6 @@
 # Runbook — ambiente local
 
-> Fatia F1 · 2026-11-09, revista pelo [ADR-0007](../adr/0007-uso-interno-local-sem-login.md) (uso interno, só neste computador, sem login). Estado: os passos sem banco (seção 2) foram executados nesta máquina; os passos com banco (seções 3 e 4) **ainda não foram executados**.
+> Fatia F1 · 2026-11-09, revista pelo [ADR-0007](../adr/0007-uso-interno-local-sem-login.md) (uso interno, só neste computador, sem login). Estado: os passos sem banco (seção 2) e a IA local (seção 5) foram executados nesta máquina; os passos com banco (seções 3 e 4) **ainda não foram executados**.
 
 ## 1. Pré-requisitos
 
@@ -68,7 +68,40 @@ pnpm dev
 4. Com `supabase status`, preencha `apps/web/.env.local`: `SUPABASE_URL` = API URL, `SUPABASE_SECRET_KEY` = secret key, `TEST_DATABASE_URL` = DB URL.
 5. `pnpm test:db` passa a rodar contra esse Postgres (arquivos em série) e `E2E_SUPABASE=1 pnpm test:e2e` contra a API local.
 
-## 5. Problemas comuns
+## 5. IA local (Ollama)
+
+> Executado nesta máquina em 2026-11-09 com Ollama 0.40.15. Decisão: [ADR-0008](../adr/0008-ia-local-com-ollama.md).
+
+1. Instale o Ollama (https://ollama.com) e deixe-o aberto (ícone na bandeja). Nesta máquina ele está em `D:\ollama`, com os modelos em D:.
+2. Variáveis de ambiente **do Windows** (Configurações → Sistema → Sobre → Configurações avançadas → Variáveis de ambiente), depois feche e abra o Ollama:
+   - `OLLAMA_MAX_LOADED_MODELS=1` — um modelo na GPU por vez;
+   - `OLLAMA_NUM_PARALLEL=1` — uma resposta por vez;
+   - `OLLAMA_CONTEXT_LENGTH=16384` (opcional; o app pede 8192 por padrão).
+3. Modelos usados pela política padrão:
+
+   ```bash
+   ollama pull qwen3.5:4b
+   ollama pull nemotron-3-nano:4b
+   ```
+
+   Planejados (ainda não necessários): `qwen3-vl:8b` (auditoria visual, 6,2 GB) e `qwen3-embedding:0.6b` (memória semântica, 639 MB).
+4. Abra http://127.0.0.1:3000/copiloto. O painel "IA local" mostra versão, GPU, modelos na memória e modelo por tarefa; sem Ollama, mostra "Ollama fora do ar" e o que fazer.
+5. Ajustes opcionais em `apps/web/.env.local` (ver `apps/web/.env.example`): `OLLAMA_BASE_URL`, `AI_COPILOT_MODELS`, `AI_KEEP_ALIVE`, `AI_NUM_CTX`, `AI_MAX_CONCURRENCY`, `AI_MAX_QUEUE`. Nenhuma é segredo.
+6. Testes com o Ollama real (não custam dinheiro, mas ocupam a GPU por alguns minutos; feche jogos e renderizações antes):
+
+   ```bash
+   pnpm ai:live
+   pnpm evals
+   ```
+
+   ```bash
+   E2E_OLLAMA=1 pnpm test:e2e
+   ```
+
+   No PowerShell: `$env:E2E_OLLAMA = '1'` antes do comando. `pnpm evals` aceita `EVAL_MODELS` (lista separada por vírgula) e `EVAL_REPEAT` (padrão 2) e grava o resultado em `packages/agents/evals/copilot/results/`. Sem `E2E_OLLAMA`, o e2e aponta o app para um endereço sem Ollama e testa os estados de erro.
+7. Para liberar a GPU na hora (Figma, edição de vídeo): botão **Descarregar** no painel do Copiloto, ou `ollama stop <modelo>`. O app nunca encerra outros programas.
+
+## 6. Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
@@ -77,3 +110,8 @@ pnpm dev
 | Início mostra "Migrações pendentes" | Migração não aplicada | Seção 3, passo 2 |
 | "Host não permitido" (403) | App aberto por IP da rede, nome de máquina ou túnel | Abra por http://127.0.0.1:3000 ou http://localhost:3000 |
 | `pnpm install` lento ou com arquivos travados | Pasta sincronizada pelo OneDrive | Mova o repositório para fora do OneDrive |
+| Copiloto: "Ollama fora do ar" | Ollama fechado ou em outra porta | Abra o Ollama pelo menu Iniciar e clique em Atualizar; confira `OLLAMA_BASE_URL` |
+| Copiloto: "modelo não instalado" | Nenhum modelo da lista está no Ollama | `ollama pull qwen3.5:4b` (seção 5) |
+| Copiloto: "ocupado" | Já há uma resposta em andamento e a fila (3) está cheia | Espere terminar ou clique em Parar |
+| Primeira resposta demora vários segundos | O modelo está sendo carregado do disco para a GPU | Normal na primeira pergunta; a tela mostra o tempo de carga |
+| Página não reage aos cliques em `127.0.0.1` | Servidor iniciado sem `--hostname 127.0.0.1` (o Next bloqueia recursos de desenvolvimento de outra origem) | Pare o servidor e use `pnpm dev` |
