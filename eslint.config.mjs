@@ -194,8 +194,8 @@ export default defineConfig(
     ignores: [COMPOSITION_ROOT],
     rules: {
       'no-restricted-imports': restrict(
-        ['@prospector/db', '@prospector/agents', '@supabase/*'],
-        'A web acessa dados e IA só pela raiz de composição (src/server/container.ts): @prospector/db e @prospector/agents só lá, Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0008).',
+        ['@prospector/db', '@prospector/agents', '@prospector/application/memory', '@supabase/*'],
+        'A web acessa dados e IA só pela raiz de composição (src/server/container.ts): @prospector/db, @prospector/agents e os adaptadores em memória só lá, Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0008, ADR-0009).',
       ),
     },
   },

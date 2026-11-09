@@ -10,6 +10,8 @@ export const DATABASE_FACT: Record<DatabaseStatus, string> = {
     'Banco de dados: ainda não configurado; não há empresas, dossiês nem histórico salvos.',
   schema_missing: 'Banco de dados: acessível, mas sem as tabelas do Prospector.',
   unreachable: 'Banco de dados: inacessível no momento.',
+  memory:
+    'Banco de dados: desligado de propósito (modo memória, para testes); o que for salvo fica só na memória do servidor e some ao reiniciar. O Copiloto não lê esse conteúdo.',
 };
 
 export interface CopilotModuleFact {

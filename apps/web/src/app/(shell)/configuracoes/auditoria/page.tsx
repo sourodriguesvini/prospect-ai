@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { AuditTable } from '@/components/audit-table';
+import { StorageNotice } from '@/components/strategy/page-parts';
 import { loadRecentAudit } from '@/server/audit-entries';
 
 export const metadata: Metadata = { title: 'Auditoria' };
@@ -19,14 +20,18 @@ async function AuditEntries() {
       </Alert>
     );
   }
-  if (result.entries.length === 0) {
-    return (
-      <Well className="py-10 text-center text-sm text-muted-foreground">
-        Nenhum registro ainda.
-      </Well>
-    );
-  }
-  return <AuditTable entries={result.entries} />;
+  return (
+    <div className="space-y-4">
+      <StorageNotice storage={result.storage} />
+      {result.entries.length === 0 ? (
+        <Well className="py-10 text-center text-sm text-muted-foreground">
+          Nenhum registro ainda.
+        </Well>
+      ) : (
+        <AuditTable entries={result.entries} />
+      )}
+    </div>
+  );
 }
 
 export default function AuditPage() {

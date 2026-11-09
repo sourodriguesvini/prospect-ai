@@ -78,3 +78,8 @@ O status deste ADR passa a "Aceito" quando o CI rodar pela primeira vez com esta
 
 - **App Next.js único com pastas**: mais rápido no início, fronteiras só por convenção; rejeitado pelo requisito explícito de separação.
 - **Microsserviços**: desproporcional para o estágio; rejeitado.
+
+## Emenda — F2 (2026-11-09, ADR-0009)
+
+1. **web → domain** permitido só para valores e funções puras de apresentação: rascunhos sugeridos (`DRAFT_*`), formatação de data civil (`formatCalendarDate`) e tipos de status para rótulos. Toda decisão (prontidão, barreiras, aprovação da LIA, validação) continua passando pelos serviços de `application`; a web não chama regra do domínio para decidir nada. `scripts/check-boundaries.mjs` registra a dependência.
+2. **Adaptadores em memória** (`@prospector/application/memory`) seguem a mesma regra do item 1 da emenda F1: na web, só a raiz de composição (`apps/web/src/server/container.ts`) pode importá-los (ESLint `no-restricted-imports` e `check-boundaries.mjs`).

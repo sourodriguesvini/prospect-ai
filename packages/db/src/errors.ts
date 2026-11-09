@@ -10,6 +10,9 @@ import { isMissingRelation } from './sql-errors';
 const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
   invalid_input: 'validation',
   not_found: 'not_found',
+  lia_decision_locked: 'conflict',
+  lia_not_latest: 'conflict',
+  review_date_out_of_range: 'validation',
 };
 
 interface DbErrorLike {
@@ -39,8 +42,13 @@ export function toAppError(error: DbErrorLike): AppError {
     case '22023':
     case '22P02':
       return new AppError('validation', 'invalid_input', { cause: error });
+    // Linha não encontrada, ou chave estrangeira cujo pai (oferta, ICP) não existe.
     case 'PGRST116':
+    case '23503':
       return new AppError('not_found', 'not_found', { cause: error });
+    // Unicidade de (pai, versão): duas versões salvas ao mesmo tempo.
+    case '23505':
+      return new AppError('conflict', 'concurrent_change', { cause: error });
     default:
       return new AppError('unexpected', 'unexpected', { cause: error });
   }
