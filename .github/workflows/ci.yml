@@ -17,7 +17,7 @@ env:
   TURBO_TELEMETRY_DISABLED: '1'
 
 jobs:
-  # Typecheck, lint de fronteiras, unitários, RLS em PGlite e E2E smoke. Não precisa de Docker.
+  # Typecheck, lint de fronteiras, unitários, banco em PGlite e E2E smoke. Não precisa de Docker.
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -43,8 +43,9 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
-  # Mesmas migrações e testes de RLS contra o Supabase real (CLI + Docker do runner) e o E2E
-  # completo da F1. AINDA NÃO EXECUTADO: validar na primeira execução (docs/known-issues.md).
+  # Mesmas migrações e testes de banco contra o Supabase real (CLI + Docker do runner) e o E2E
+  # com banco (e2e/database.spec.ts). AINDA NÃO EXECUTADO: validar na primeira execução
+  # (docs/known-issues.md KI-008, KI-009).
   supabase:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -64,8 +65,7 @@ jobs:
         run: |
           supabase status -o json > "$RUNNER_TEMP/supabase.json"
           {
-            echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -r '.API_URL' "$RUNNER_TEMP/supabase.json")"
-            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(jq -r '.PUBLISHABLE_KEY // .ANON_KEY' "$RUNNER_TEMP/supabase.json")"
+            echo "SUPABASE_URL=$(jq -r '.API_URL' "$RUNNER_TEMP/supabase.json")"
             echo "SUPABASE_SECRET_KEY=$(jq -r '.SECRET_KEY // .SERVICE_ROLE_KEY' "$RUNNER_TEMP/supabase.json")"
             echo "TEST_DATABASE_URL=$(jq -r '.DB_URL' "$RUNNER_TEMP/supabase.json")"
           } >> "$GITHUB_ENV"

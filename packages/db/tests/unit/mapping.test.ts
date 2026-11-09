@@ -1,31 +1,37 @@
 import { AppError } from '@prospector/application';
 import { describe, expect, it } from 'vitest';
-import {
-  mapAuditRow,
-  mapInvitationRow,
-  mapMemberRow,
-  mapOrganizationRow,
-  toAppError,
-} from '../../src';
+import { mapAuditRow, toAppError } from '../../src';
 
-const ORG = '3f1d2c4b-8a7e-4c1d-9b2a-5e6f7a8b9c0d';
-const USER = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+const TRACE = '0b7c6d3e-4f2a-4b8c-9d1e-2f3a4b5c6d7e';
 
 describe('toAppError', () => {
   it.each([
-    [{ message: 'not_admin', code: '42501' }, 'forbidden', 'not_admin'],
-    [{ message: 'slug_taken', code: '23505' }, 'conflict', 'slug_taken'],
-    [{ message: 'invitation_invalid', code: 'P0002' }, 'not_found', 'invitation_invalid'],
-    [{ message: 'not_authenticated', code: '28000' }, 'unauthenticated', 'not_authenticated'],
-    [
-      { message: 'permission denied for table organizations', code: '42501' },
-      'forbidden',
-      'forbidden',
-    ],
     [
       { message: 'new row violates check constraint', code: '23514' },
       'validation',
       'invalid_input',
+    ],
+    [
+      { message: 'JSON object requested, multiple (or no) rows returned', code: 'PGRST116' },
+      'not_found',
+      'not_found',
+    ],
+    [
+      { message: "Could not find the table 'public.audit_log'", code: 'PGRST205' },
+      'unavailable',
+      'database_schema_missing',
+    ],
+    [
+      { message: 'relation "public.audit_log" does not exist', code: '42P01' },
+      'unavailable',
+      'database_schema_missing',
+    ],
+    [{ message: 'TypeError: fetch failed', code: '' }, 'unavailable', 'database_unreachable'],
+    [{ message: 'Invalid API key' }, 'unavailable', 'database_unreachable'],
+    [
+      { message: 'permission denied for table audit_log', code: '42501' },
+      'unexpected',
+      'unexpected',
     ],
     [{ message: 'algo inesperado', code: 'XX000' }, 'unexpected', 'unexpected'],
   ])('%o → %s/%s', (input, code, reason) => {
@@ -41,70 +47,39 @@ describe('toAppError', () => {
   });
 });
 
-describe('mapeamento de linhas', () => {
-  it('organização com papel (embed objeto ou array)', () => {
-    const row = {
-      role: 'admin',
-      organizations: { id: ORG, name: 'Agência', slug: 'agencia', is_demo: true },
-    };
-    expect(mapOrganizationRow(row)).toEqual({
-      id: ORG,
-      name: 'Agência',
-      slug: 'agencia',
-      isDemo: true,
-      role: 'admin',
-    });
-    expect(mapOrganizationRow({ ...row, organizations: [row.organizations] }).slug).toBe('agencia');
-  });
+describe('mapAuditRow', () => {
+  const row = {
+    id: 42,
+    actor_type: 'agent',
+    actor_label: 'investigador@v1',
+    action: 'research.company.investigated',
+    entity_type: 'company',
+    entity_id: 'c-1',
+    diff: { fontes: 3 },
+    trace_id: TRACE,
+    occurred_at: '2026-11-09T12:00:00+00:00',
+  };
 
-  it('membro com perfil ausente', () => {
-    expect(
-      mapMemberRow({
-        user_id: USER,
-        role: 'viewer',
-        created_at: '2026-11-09T12:00:00Z',
-        profiles: null,
-      }),
-    ).toEqual({
-      userId: USER,
-      email: null,
-      fullName: null,
-      role: 'viewer',
-      joinedAt: '2026-11-09T12:00:00Z',
+  it('converte snake_case para o contrato', () => {
+    expect(mapAuditRow(row)).toEqual({
+      id: 42,
+      actorType: 'agent',
+      actorLabel: 'investigador@v1',
+      action: 'research.company.investigated',
+      entityType: 'company',
+      entityId: 'c-1',
+      diff: { fontes: 3 },
+      traceId: TRACE,
+      occurredAt: '2026-11-09T12:00:00+00:00',
     });
   });
 
-  it('convite pendente vencido aparece como expirado', () => {
-    const row = {
-      id: ORG,
-      email: 'a@example.test',
-      role: 'viewer',
-      status: 'pending',
-      expires_at: '2026-11-01T00:00:00Z',
-      created_at: '2026-10-25T00:00:00Z',
-    };
-    expect(mapInvitationRow(row, new Date('2026-11-09T00:00:00Z')).status).toBe('expired');
-    expect(mapInvitationRow(row, new Date('2026-10-30T00:00:00Z')).status).toBe('pending');
-  });
-
-  it('linha de auditoria com id bigint em texto', () => {
-    const entry = mapAuditRow({
-      id: '42',
-      actor_type: 'user',
-      actor_id: USER,
-      action: 'memberships.update',
-      entity_type: 'memberships',
-      entity_id: USER,
-      diff: { role: { from: 'viewer', to: 'admin' } },
-      occurred_at: '2026-11-09T12:00:00Z',
-    });
-    expect(entry.id).toBe(42);
-    expect(entry.action).toBe('memberships.update');
+  it('aceita id bigint em texto', () => {
+    expect(mapAuditRow({ ...row, id: '42' }).id).toBe(42);
   });
 
   it('linha fora do formato falha alto', () => {
-    expect(() =>
-      mapMemberRow({ user_id: USER, role: 'root', created_at: 'x', profiles: null }),
-    ).toThrow();
+    expect(() => mapAuditRow({ ...row, actor_type: 'root' })).toThrow();
+    expect(() => mapAuditRow({ ...row, diff: null })).toThrow();
   });
 });

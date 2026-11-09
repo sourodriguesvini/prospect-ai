@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 
 const fieldBase =
-  'w-full rounded-sm border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-danger';
+  'w-full rounded-full border border-input bg-surface px-4 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-danger';
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cn(fieldBase, 'h-10', className)} {...props} />;

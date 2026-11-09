@@ -1,29 +1,41 @@
+import { cn } from '@prospector/ui';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { setTheme } from '@/app/actions';
-import { THEME_COOKIE, THEME_LABELS, THEMES, parseTheme } from '@/lib/theme';
+import { THEME_COOKIE, THEME_LABELS, THEMES, parseTheme, type Theme } from '@/lib/theme';
 
-/** Troca de tema por formulário: funciona sem JavaScript e persiste em cookie. */
-export async function ThemeSwitcher() {
+const ICONS: Record<Theme, typeof Sun> = { light: Sun, dark: Moon, system: Monitor };
+const ORDER: readonly Theme[] = ['light', 'dark', 'system'];
+
+/**
+ * Troca de tema por formulário (funciona sem JavaScript, persiste em cookie). Pílula vertical
+ * de ícones no topo do trilho, como na referência; em telas estreitas fica na horizontal.
+ */
+export async function ThemeSwitcher({ className }: { className?: string }) {
   const current = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   return (
     <form
       action={setTheme}
-      className="inline-flex items-center gap-1 text-xs"
       aria-label="Tema da interface"
+      className={cn('flex gap-1 rounded-full bg-surface p-1 md:flex-col', className)}
     >
-      <span className="mr-1 text-muted-foreground">Tema</span>
-      {THEMES.map((theme) => (
-        <button
-          key={theme}
-          type="submit"
-          name="theme"
-          value={theme}
-          aria-pressed={current === theme}
-          className="rounded-sm px-1.5 py-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring aria-pressed:bg-muted aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:underline aria-pressed:decoration-primary aria-pressed:decoration-2 aria-pressed:underline-offset-4"
-        >
-          {THEME_LABELS[theme]}
-        </button>
-      ))}
+      {ORDER.filter((theme) => THEMES.includes(theme)).map((theme) => {
+        const Icon = ICONS[theme];
+        return (
+          <button
+            key={theme}
+            type="submit"
+            name="theme"
+            value={theme}
+            aria-label={THEME_LABELS[theme]}
+            title={`Tema: ${THEME_LABELS[theme]}`}
+            aria-pressed={current === theme}
+            className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:bg-muted aria-pressed:text-foreground"
+          >
+            <Icon aria-hidden="true" className="size-4" />
+          </button>
+        );
+      })}
     </form>
   );
 }

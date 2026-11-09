@@ -3,13 +3,16 @@ import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium tracking-wide',
+  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
   {
     variants: {
       variant: {
         neutral: 'bg-muted text-foreground',
         outline: 'border border-border text-muted-foreground',
-        accent: 'bg-primary/10 text-primary',
+        accent: 'bg-accent-soft text-accent-foreground',
+        success: 'bg-success-soft text-success',
+        warning: 'bg-warning-soft text-warning',
+        danger: 'bg-danger-soft text-danger',
       },
     },
     defaultVariants: { variant: 'neutral' },
@@ -30,7 +33,7 @@ export function DemoBadge({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-sm border border-warning px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-foreground',
+        'inline-flex items-center rounded-full border border-warning px-1.5 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-foreground',
         className,
       )}
       title="Dados de demonstração: não representam empresas ou pessoas reais"

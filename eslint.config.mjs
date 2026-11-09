@@ -14,14 +14,10 @@ const AI_SDK = {
   message: 'Toda chamada ao Claude passa pelo LLM Gateway em packages/agents (CLAUDE.md).',
 };
 
-/** Únicos arquivos da web que falam com o Supabase (sessão, autenticação e proxy). */
-const SUPABASE_GATEWAY = [
-  'apps/web/src/server/supabase.ts',
-  'apps/web/src/server/auth.ts',
-  'apps/web/src/server/session.ts',
-  'apps/web/src/proxy.ts',
-];
-/** Raiz de composição: liga serviços de application aos adaptadores de @prospector/db. */
+/**
+ * Raiz de composição: único arquivo da web que liga serviços de application aos adaptadores de
+ * @prospector/db (e o único que recebe a secret key, via src/server/env.ts). ADR-0007.
+ */
 const COMPOSITION_ROOT = 'apps/web/src/server/container.ts';
 
 /** domain e contracts são puros e rodam também no navegador: sem IO, relógio ou acaso globais. */
@@ -163,20 +159,11 @@ export default defineConfig(
   },
   {
     files: ['apps/web/src/**'],
-    ignores: [...SUPABASE_GATEWAY, COMPOSITION_ROOT],
+    ignores: [COMPOSITION_ROOT],
     rules: {
       'no-restricted-imports': restrict(
-        ['@prospector/db', '@supabase/*', '@/server/supabase'],
-        'A web acessa dados pelos serviços de application (src/server/container.ts) e a autenticação por src/server/auth.ts; Supabase e @prospector/db só nesses pontos (ADR-0001).',
-      ),
-    },
-  },
-  {
-    files: SUPABASE_GATEWAY,
-    rules: {
-      'no-restricted-imports': restrict(
-        ['@prospector/db'],
-        '@prospector/db só na raiz de composição (src/server/container.ts).',
+        ['@prospector/db', '@supabase/*'],
+        'A web acessa dados só pelos serviços de application (src/server/container.ts); @prospector/db só na raiz de composição e Supabase só dentro de @prospector/db (ADR-0001, ADR-0007).',
       ),
     },
   },
@@ -185,7 +172,7 @@ export default defineConfig(
     rules: {
       'no-restricted-imports': restrict(
         ['@supabase/*'],
-        'A raiz de composição recebe o cliente de src/server/supabase.ts.',
+        'A raiz de composição cria o cliente por @prospector/db; Supabase não entra na web.',
       ),
     },
   },

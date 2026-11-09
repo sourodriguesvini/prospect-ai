@@ -5,8 +5,10 @@
  *  2. dependências externas proibidas em pacotes puros;
  *  3. imports relativos que escapam da pasta do pacote (atalho para burlar as regras acima);
  *  4. `@prospector/db` na web só na raiz de composição;
- *  5. Supabase na web (`@supabase/*` e o cliente em src/server/supabase.ts, por alias ou caminho
- *     relativo) só na fachada de sessão/autenticação, na raiz de composição e no proxy.
+ *  5. nenhum `@supabase/*` na web (nem no package.json nem em imports): o Supabase fica dentro
+ *     de @prospector/db (ADR-0007);
+ *  6. credenciais do banco (`process.env.SUPABASE_*`) só são lidas em src/server/env.ts, e a web não usa
+ *     variáveis `NEXT_PUBLIC_*` (nada do servidor vai para o navegador).
  * Sai com código 1 e lista as violações.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -41,14 +43,7 @@ const ALLOWED_EXTERNAL = {
 
 const WEB_SRC = join('apps', 'web', 'src');
 const COMPOSITION_ROOT = join(WEB_SRC, 'server', 'container.ts');
-const SUPABASE_CLIENT = join(root, WEB_SRC, 'server', 'supabase');
-const SUPABASE_GATEWAY = [
-  join(WEB_SRC, 'server', 'supabase.ts'),
-  join(WEB_SRC, 'server', 'auth.ts'),
-  join(WEB_SRC, 'server', 'session.ts'),
-  join(WEB_SRC, 'proxy.ts'),
-  COMPOSITION_ROOT,
-];
+const SECRET_READER = join(WEB_SRC, 'server', 'env.ts');
 const IMPORT_RE =
   /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g;
 
@@ -106,6 +101,11 @@ for (const dir of workspaceDirs()) {
       violations.push(`${rel}/package.json: ${name} não pode depender de ${dep} (ADR-0001).`);
     }
   }
+  if (name === '@prospector/web') {
+    for (const dep of allDeps.filter((d) => d.startsWith('@supabase/'))) {
+      violations.push(`${rel}/package.json: a web não depende de ${dep}; use @prospector/db.`);
+    }
+  }
   const allowedExternal = ALLOWED_EXTERNAL[name];
   if (allowedExternal) {
     for (const dep of runtimeDeps) {
@@ -120,6 +120,15 @@ for (const dir of workspaceDirs()) {
   for (const file of sourceFiles(dir)) {
     const text = readFileSync(file, 'utf8');
     const fileRel = relative(root, file);
+    if (name === '@prospector/web' && fileRel.startsWith(WEB_SRC + sep)) {
+      // Leitura de credenciais (process.env.SUPABASE_* ou acesso dinâmico) só no leitor central.
+      if (/process\.env(?:\.SUPABASE_|\[)/.test(text) && fileRel !== SECRET_READER) {
+        violations.push(`${fileRel}: credenciais do banco só são lidas em ${SECRET_READER}.`);
+      }
+      if (/NEXT_PUBLIC_[A-Z0-9_]+/.test(text)) {
+        violations.push(`${fileRel}: sem variáveis NEXT_PUBLIC_* na web (ADR-0007).`);
+      }
+    }
     for (const match of text.matchAll(IMPORT_RE)) {
       const spec = match[1] ?? match[2] ?? match[3];
       if (!spec) continue;
@@ -138,21 +147,8 @@ for (const dir of workspaceDirs()) {
       ) {
         violations.push(`${fileRel}: @prospector/db só pode ser importado em ${COMPOSITION_ROOT}.`);
       }
-      if (
-        name === '@prospector/web' &&
-        fileRel.startsWith(WEB_SRC + sep) &&
-        !SUPABASE_GATEWAY.includes(fileRel)
-      ) {
-        const target = spec.startsWith('.') ? resolve(dirname(file), spec) : null;
-        const isClient =
-          spec === '@/server/supabase' ||
-          target === SUPABASE_CLIENT ||
-          target === `${SUPABASE_CLIENT}.ts`;
-        if (spec.startsWith('@supabase/') || isClient) {
-          violations.push(
-            `${fileRel}: Supabase na web só em src/server/{supabase,auth,session,container}.ts e src/proxy.ts; use os serviços de application ou a fachada src/server/auth.ts.`,
-          );
-        }
+      if (name === '@prospector/web' && spec.startsWith('@supabase/')) {
+        violations.push(`${fileRel}: Supabase não entra na web; use os serviços de application.`);
       }
     }
   }

@@ -1,4 +1,6 @@
+export { createSupabaseAuditRepository } from './audit-repository';
+export { AUDIT_SELECT, mapAuditRow } from './audit-rows';
+export { createServerSupabaseClient, type ServerClientOptions } from './client';
+export { createSupabaseDatabaseHealth } from './database-health';
 export { toAppError } from './errors';
-export { createSupabaseTenancyRepository } from './tenancy-repository';
-export { mapAuditRow, mapInvitationRow, mapMemberRow, mapOrganizationRow } from './tenancy-rows';
-export { INTERNAL_DB_ERROR_KEYS, RPC_SIGNATURES, type RpcName } from './rpc';
+export { INTERNAL_DB_ERROR_KEYS, isMissingRelation } from './sql-errors';

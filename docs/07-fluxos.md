@@ -179,20 +179,22 @@ sequenceDiagram
 
 1. `search_companies` (lista + filtros) → 2. `get_assessments` → 3. resposta com ranking curto, motivos com links para claims, e ações sugeridas ("preparar abordagem para 3 empresas — custo estimado US$ X"). Nenhuma ação é executada sem o usuário pedir; ações externas viram itens de aprovação.
 
-## 5. Linguagem visual (direção inicial)
+## 5. Linguagem visual (design system)
 
-> A direção final passa por exploração com a equipe de criação da agência. Abaixo, restrições de base para a fundação técnica.
+> Decisão do usuário em 2026-11-09: seguir duas referências de dashboard enviadas por ele (painéis brancos muito arredondados sobre cinza, navegação em pílula com item ativo preto e acento laranja; cartões de métrica com gradientes suaves, cartão grafite e números grandes em grotesca). Tokens em `packages/ui/src/styles/tokens.css`; componentes em `packages/ui`. Das referências entrou a estrutura e a linguagem visual; ficaram de fora saldos, transações, avatares e números de exemplo (regra de dados sem ficção).
 
-| Elemento | Direção |
+| Elemento | Decisão |
 |---|---|
-| Tipografia | Serifada editorial para títulos e números de destaque; sans grotesca neutra para UI e dados; numerais tabulares em tabelas e scores [DECISÃO: famílias e licenças] |
-| Cor | Neutros quentes (papel/grafite) como base; um acento único para ação; cores semânticas apenas para estado (bloqueio, aviso, sucesso) e para o tipo de claim |
-| Densidade | Duas densidades: leitura (dossiê, resumo — respiro, colunas de texto ≤ 72 caracteres) e operação (tabelas de triagem, revisão — compactas) |
-| Linhas e superfícies | Fios finos e hierarquia por tipografia/espaço em vez de cartões com sombra |
-| Movimento | Mínimo e funcional (progresso de investigação, transições de painel) |
-| Tema | Claro e escuro desde a fundação (tokens CSS) |
-| Componentes | shadcn/ui como base, tematizado via tokens; componentes próprios: `ClaimChip`, `EvidencePopover`, `ConfidenceMeter`, `DimensionBar`, `RecommendationBadge`, `VerifierHighlight`, `CostEstimate`, `DemoBadge` |
-| Acessibilidade | WCAG 2.2 AA: contraste, foco visível, navegação por teclado completa nas filas de revisão/aprovação |
+| Superfícies | Quatro camadas: `canvas` (fundo) → `background` (moldura do app, raio 32 px) → `surface` (painel branco, raio 24 px, `Panel`) → `muted` (poço cinza, raio 18 px, `Well`) |
+| Navegação | Marca em pílula; navegação principal em pílula com item ativo em tinta (`NavPill`); trilho de ícones à esquerda com tema (sol/lua/sistema), módulos de apoio e Configuração (`NavIcon`, nome acessível + dica) |
+| Cor | Tinta (`primary`: preto no claro, quase branco no escuro) para a ação principal e o item ativo; laranja (`accent`) só como destaque, no máximo um cartão por grupo; semânticas `success`/`warning`/`danger` com versões `-soft` para fundos |
+| Cartões de métrica | `StatTile` nos tons `plain`, `accent` (laranja), `dusk` (céu de fim de tarde), `sand` (areia) e `graphite`; número grande em peso regular com tracking negativo; sem dado real, mostra "—" e a fatia que o entrega |
+| Tipografia | Uma grotesca (Geist, OFL) para tudo; títulos em peso 500 com tracking negativo; numerais tabulares em tabelas e números |
+| Botões e chips | Tudo em pílula (`rounded-full`); botão primário em tinta, secundário em superfície com fio; estados com ponto colorido + texto (`StatusDot`, `Badge`) |
+| Tabelas | Cabeçalho em poço cinza com pontas arredondadas, linhas com fio fino (`AuditTable`) |
+| Contraste | WCAG 2.2 AA verificado com axe nos dois temas. O laranja de fundo é mais fechado que o das referências (#C2410C) para o texto branco passar de 4,5:1; o laranja de texto é outro tom (#B43C12 / #FB8A5C) |
+| Densidade e movimento | Como antes: leitura com respiro, operação compacta; movimento mínimo e funcional |
+| Componentes próprios a criar | `ClaimChip`, `EvidencePopover`, `ConfidenceMeter`, `DimensionBar`, `RecommendationBadge`, `VerifierHighlight`, `CostEstimate` (seguindo estes tokens); `DemoBadge` já existe |
 
 ### Padrão de explicabilidade (componente-chave)
 

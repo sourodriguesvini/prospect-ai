@@ -1,12 +1,12 @@
 import type { Queryable } from './test-db';
 
 /**
- * Verificações de catálogo que valem para TODAS as tabelas presentes e futuras.
- * Cada função devolve a lista de violações (vazia = ok).
+ * Verificações de catálogo que valem para TODOS os objetos presentes e futuros do banco.
+ * Regra (ADR-0007): só o servidor do app (service_role) acessa o banco; a API pública
+ * (anon/authenticated) não enxerga nada. Cada função devolve a lista de violações (vazia = ok).
  */
 
-/** Catálogos globais somente leitura que podem existir sem org_id (docs/06 §1). */
-export const GLOBAL_CATALOG_TABLES = new Set<string>([]);
+const API_ROLES = ['anon', 'authenticated'] as const;
 
 export async function tablesWithoutRls(q: Queryable): Promise<string[]> {
   const rows = await q.query<{ table_name: string }>(`
@@ -18,63 +18,50 @@ export async function tablesWithoutRls(q: Queryable): Promise<string[]> {
   return rows.map((r) => r.table_name);
 }
 
-export async function tenantTablesWithoutSelectPolicy(q: Queryable): Promise<string[]> {
-  const rows = await q.query<{ table_name: string }>(`
-    select c.relname as table_name
-    from pg_class c
-    join pg_namespace n on n.oid = c.relnamespace
-    join pg_attribute a on a.attrelid = c.oid and a.attname = 'org_id' and not a.attisdropped
-    where n.nspname = 'public' and c.relkind in ('r', 'p')
-      and not exists (
-        select 1 from pg_policies p
-        where p.schemaname = 'public' and p.tablename = c.relname and p.cmd in ('SELECT', 'ALL')
-      )
-    order by 1`);
-  return rows.map((r) => r.table_name);
-}
-
-/** Tabelas de dados do tenant sem coluna org_id (fora das exceções documentadas). */
-export async function tablesWithoutOrgId(q: Queryable): Promise<string[]> {
-  const rows = await q.query<{ table_name: string }>(`
-    select c.relname as table_name
-    from pg_class c
-    join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'public' and c.relkind in ('r', 'p')
-      and not exists (
-        select 1 from pg_attribute a
-        where a.attrelid = c.oid and a.attname = 'org_id' and not a.attisdropped
-      )
-    order by 1`);
-  // organizations é o próprio tenant; profiles é por usuário (protegida por RLS própria).
-  const allowed = new Set(['organizations', 'profiles', ...GLOBAL_CATALOG_TABLES]);
-  return rows.map((r) => r.table_name).filter((t) => !allowed.has(t));
-}
-
-export async function permissivePolicies(q: Queryable): Promise<string[]> {
+/** Qualquer política em public abriria linhas para a API pública: não deve existir nenhuma. */
+export async function policiesInPublic(q: Queryable): Promise<string[]> {
   const rows = await q.query<{ name: string }>(`
     select tablename || '.' || policyname as name
     from pg_policies
     where schemaname = 'public'
-      and (
-        coalesce(qual, '') in ('true', '(true)')
-        or coalesce(with_check, '') in ('true', '(true)')
-        or roles && array['public', 'anon']::name[]
-      )
     order by 1`);
   return rows.map((r) => r.name);
 }
 
-export async function securityDefinerWithoutSearchPath(q: Queryable): Promise<string[]> {
-  const rows = await q.query<{ name: string }>(`
-    select n.nspname || '.' || p.proname as name
+/** Tabelas, views e sequências de public em que anon/authenticated têm qualquer privilégio. */
+export async function objectsGrantedToApiRoles(q: Queryable): Promise<string[]> {
+  const rows = await q.query<{ name: string }>(
+    `
+    select r.role || ': ' || c.relname as name
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join unnest($1::text[]) as r(role)
+    where n.nspname = 'public'
+      and (
+        (c.relkind in ('r', 'p', 'v', 'm', 'f')
+          and (has_table_privilege(r.role, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+               or has_any_column_privilege(r.role, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES')))
+        or (c.relkind = 'S' and has_sequence_privilege(r.role, c.oid, 'USAGE,SELECT,UPDATE'))
+      )
+    order by 1`,
+    [API_ROLES],
+  );
+  return rows.map((r) => r.name);
+}
+
+/** Funções de public e app que anon/authenticated conseguem executar. */
+export async function functionsExecutableByApiRoles(q: Queryable): Promise<string[]> {
+  const rows = await q.query<{ name: string }>(
+    `
+    select r.role || ': ' || n.nspname || '.' || p.proname as name
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
+    cross join unnest($1::text[]) as r(role)
     where n.nspname in ('public', 'app')
-      and p.prosecdef
-      and not exists (
-        select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) as cfg where cfg like 'search_path=%'
-      )
-    order by 1`);
+      and has_function_privilege(r.role, p.oid, 'EXECUTE')
+    order by 1`,
+    [API_ROLES],
+  );
   return rows.map((r) => r.name);
 }
 
@@ -99,27 +86,16 @@ export async function viewsBypassingRls(q: Queryable): Promise<string[]> {
   return rows.map((r) => r.name);
 }
 
-/** Tabelas de public em que anon tem qualquer privilégio. */
-export async function tablesGrantedToAnon(q: Queryable): Promise<string[]> {
-  const rows = await q.query<{ name: string }>(`
-    select c.relname as name
-    from pg_class c
-    join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm')
-      and has_table_privilege('anon', c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-    order by 1`);
-  return rows.map((r) => r.name);
-}
-
-/** Funções security definer (public e app) que anon consegue executar. */
-export async function securityDefinerExecutableByAnon(q: Queryable): Promise<string[]> {
+export async function securityDefinerWithoutSearchPath(q: Queryable): Promise<string[]> {
   const rows = await q.query<{ name: string }>(`
     select n.nspname || '.' || p.proname as name
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname in ('public', 'app')
       and p.prosecdef
-      and has_function_privilege('anon', p.oid, 'EXECUTE')
+      and not exists (
+        select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) as cfg where cfg like 'search_path=%'
+      )
     order by 1`);
   return rows.map((r) => r.name);
 }
@@ -139,17 +115,4 @@ export async function tablePrivileges(
   );
   const row = rows[0] ?? {};
   return all.filter((p) => row[p]);
-}
-
-/** Nomes dos argumentos de uma função de public, na ordem (null se não existir). */
-export async function functionArgNames(q: Queryable, name: string): Promise<string[] | null> {
-  const rows = await q.query<{ args: string[] | null }>(
-    `select p.proargnames as args
-     from pg_proc p
-     join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public' and p.proname = $1`,
-    [name],
-  );
-  if (rows.length !== 1) return null;
-  return rows[0]?.args ?? [];
 }

@@ -32,6 +32,7 @@
 | [0004](adr/0004-orquestracao-duravel.md) | Orquestração durável (Trigger.dev v4) | Proposto |
 | [0005](adr/0005-observabilidade.md) | Observabilidade e custos | Proposto |
 | [0006](adr/0006-segredos-e-credenciais.md) | Segredos e credenciais | Proposto |
+| [0007](adr/0007-uso-interno-local-sem-login.md) | **Uso interno, local, sem login e sem multiempresa** (prevalece sobre os demais docs) | Aceito |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 

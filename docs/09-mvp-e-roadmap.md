@@ -19,33 +19,36 @@ Pós-MVP (Fase 2/3) na seção 4.
 
 ### F1 — Fundação técnica (G)
 **Objetivo:** base segura e verificável sobre a qual tudo é construído.
+
+> Escopo revisto em 2026-11-09 pelo [ADR-0007](adr/0007-uso-interno-local-sem-login.md): uso interno, só neste computador, **sem login, organizações, convites ou papéis**. A versão multiempresa implementada antes está no commit `a5f6c51` (referência para quando houver publicação).
+
 - Monorepo (ADR-0001), TypeScript strict, lint de fronteiras, Vitest, Playwright, CI.
-- Next.js com shell da aplicação (navegação da AI, tema claro/escuro, tokens de design iniciais, `DemoBadge`).
-- Supabase: projeto com chaves novas; Auth (e-mail); `organizations`, `memberships`, `profiles`, `invitations`; `app.is_member`; `audit_log` append-only.
-- Teste de catálogo de RLS + testes de isolamento.
+- Next.js com shell da aplicação (navegação da AI, tema claro/escuro, tokens de design iniciais, `DemoBadge`), servindo só em `127.0.0.1` e recusando `Host` não local.
+- Supabase (Postgres) acessado só pelo servidor do app com a secret key; banco fechado para a API pública (RLS sem políticas, nenhum privilégio para `anon`/`authenticated`); `audit_log` append-only com ator e `traceId`.
+- Teste de catálogo do banco.
 - Esqueleto de `packages/contracts`, `domain`, `application`, `db`.
 - Runbook de ambiente local e de segredos.
 
 **Aceite**
-1. Usuário cria conta, cria organização, convida membro com papel; papéis aplicados nas telas e no banco.
-2. Teste automático falha se alguma tabela com `org_id` não tiver RLS.
-3. Usuário da org A não acessa nenhum dado da org B (testes passando).
-4. CI executa typecheck, lint, unit, db e e2e smoke com sucesso; preview deploy acessível.
-5. Ações de convite/mudança de papel registradas em `audit_log`; `update/delete` em `audit_log` falham.
+1. O app abre em `http://127.0.0.1:3000` sem login, mostra o estado do banco (não configurado, conectado, migrações pendentes, inacessível) e recusa requisições com `Host` externo.
+2. Teste automático falha se alguma tabela de `public` estiver sem RLS, tiver política ou der privilégio a `anon`/`authenticated`.
+3. A secret key só é lida no servidor (módulo `server-only`), nunca vai ao navegador, e a web não acessa o Supabase fora da raiz de composição (lint).
+4. CI executa typecheck, lint, unit, db e e2e smoke com sucesso.
+5. `audit_log` grava ator (usuário, agente ou sistema) e `traceId`; `update/delete/truncate` falham; a tela de auditoria lista as entradas.
 
-**Depende de:** D-INFRA-1 (contas), D-INFRA-2 (Docker vs projeto dev), R-OPS-1 (pasta fora do OneDrive).
+**Depende de:** projeto Supabase de desenvolvimento ou Docker (D-INFRA-2) para os critérios com banco real; GitHub para o CI (D-INFRA-1); R-OPS-1 (pasta fora do OneDrive).
 
-**Status em 2026-11-09: implementada localmente; NÃO concluída.** Faltam infraestrutura e execução contra o Supabase real.
+**Status em 2026-11-09: implementada localmente; NÃO concluída.** Falta executar contra um banco Supabase real e rodar o CI.
 
 | Critério | Situação | Evidência |
 |---|---|---|
-| 1. Conta, organização, convite com papel; papéis nas telas e no banco | **Parcial** | Banco: `packages/db/tests/db/tenancy-roles.test.ts` (PGlite). Serviço/domínio: `packages/application/tests`, `packages/domain/tests`. Telas: `apps/web/e2e/tenancy.spec.ts` escrito, **nunca executado** (exige Supabase). Cadastro de ponta a ponta sem teste (KI-026). |
-| 2. Teste falha se tabela com `org_id` não tiver RLS | **Atendido (PGlite)** | `packages/db/tests/db/catalog.test.ts`, com auto-prova que cria uma tabela sem RLS. Também barra views sem `security_invoker`, privilégios de anon e funções security definer executáveis por anon. |
-| 3. Org A não acessa dados da org B | **Atendido no SQL (PGlite)** | `packages/db/tests/db/tenancy-isolation.test.ts`. Caminho real (PostgREST + sessão) só no E2E não executado; isolamento não parametrizado por tabela (KI-026). |
-| 4. CI verde e preview deploy | **Não atendido** | `.github/workflows/ci.yml` escrito, nunca executado; sem repositório remoto nem Vercel (KI-003, KI-009). Localmente: typecheck, lint, format, unit (contracts 18, domain 18, application 8, db 29, web 31), db 46 (PGlite) e e2e smoke 13 + 1 pulado. |
-| 5. Convite e papel no `audit_log`; update/delete falham | **Atendido (PGlite)** | `tenancy-roles.test.ts` (bloco `audit_log`): convite, aceite, mudança de papel, remoção e revogação com autor; update/delete/truncate falham para todos os papéis. Tela de auditoria só no E2E não executado. |
+| 1. App local sem login, estado do banco, recusa de host externo | **Atendido sem banco** | `apps/web/e2e/smoke.spec.ts` (14 testes, incluindo 403 para `Host` externo e acessibilidade axe); `apps/web/src/lib/host.test.ts`. Estado "Conectado" só em `e2e/database.spec.ts`, **nunca executado** (exige banco). |
+| 2. Teste de catálogo do banco | **Atendido (PGlite)** | `packages/db/tests/db/catalog.test.ts`, com auto-provas (tabela nova nasce fechada; política ou privilégio concedido é detectado). Nunca executado contra Supabase real (KI-008). |
+| 3. Secret key só no servidor; Supabase fora da web | **Atendido** | `scripts/check-boundaries.mjs` (credenciais só em `src/server/env.ts`, sem `NEXT_PUBLIC_*`, sem `@supabase/*` na web) e `eslint.config.mjs`; `pnpm lint` verde. |
+| 4. CI verde | **Não atendido** | `.github/workflows/ci.yml` escrito, nunca executado; sem repositório remoto (KI-003, KI-009). Localmente: typecheck, lint, format, unit, db (PGlite) e e2e smoke verdes. |
+| 5. `audit_log` com ator e trace, append-only, tela | **Parcial** | Banco: `packages/db/tests/db/audit-log.test.ts` (PGlite). Serviço: `packages/application/tests/audit-service.test.ts`. Adaptador PostgREST: `packages/db/tests/unit/supabase-adapters.test.ts` (respostas simuladas). Tela: só o estado "não configurado" foi visto; lista real nunca executada. Nada na F1 grava no `audit_log` ainda (os produtores chegam com F2+). |
 
-Revisões feitas (arquitetura, segurança, testes, UX) e o que ficou pendente: `docs/known-issues.md` KI-008 a KI-027.
+Pendências: `docs/known-issues.md`.
 
 ### F2 — Estratégia: ofertas, rubrica, ICP, voz (M)
 - CRUD versionado de ofertas, rubrica de auditoria (modelo padrão de branding editável), ICP (filtros CNAE/UF/município/porte/idade + exclusões), modelo de score (pesos/limiares), voz da agência, cases com `public_ok`.
@@ -53,7 +56,7 @@ Revisões feitas (arquitetura, segurança, testes, UX) e o que ficou pendente: `
 - **Checklist de prontidão**: o que falta para descobrir/abordar.
 
 **Aceite**
-1. Owner configura oferta + rubrica + ICP + modelo de score; pesos inválidos são rejeitados.
+1. O usuário configura oferta + rubrica + ICP + modelo de score; pesos inválidos são rejeitados.
 2. Versão usada por qualquer avaliação fica imutável; editar cria nova versão.
 3. Sem LIA aprovada e oferta ativa, ações de abordagem ficam bloqueadas com explicação.
 4. Seeds de demonstração (se usados) aparecem com selo DEMO.
@@ -122,7 +125,7 @@ Revisões feitas (arquitetura, segurança, testes, UX) e o que ficou pendente: `
 **Aceite**
 1. Respostas sobre dados do tenant vêm de ferramentas e linkam entidades/claims.
 2. Operações com custo acima do limiar pedem confirmação.
-3. Copiloto respeita papel do usuário (viewer não dispara workflows) — testes.
+3. Copiloto só dispara workflows com confirmação explícita do usuário — testes. (Papéis por usuário só se o app deixar de ser individual — ADR-0007.)
 4. Avaliação de tarefas do Copiloto (conjunto de 30 pedidos reais) ≥ 80% de sucesso.
 
 **Marco M1 — validação com a agência antes de seguir.**

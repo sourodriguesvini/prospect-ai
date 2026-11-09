@@ -1,12 +1,16 @@
-# Configuração do Supabase LOCAL (CLI). Escrita à mão na F1, sem a CLI instalada:
-# na primeira execução de `supabase start`, compare com a saída de `supabase init` em uma pasta
-# temporária e corrija chaves que a versão da CLI não reconheça (docs/known-issues.md).
+# Configuração do Supabase LOCAL (CLI). Escrita à mão, sem a CLI instalada: na primeira
+# execução de `supabase start`, compare com a saída de `supabase init` em uma pasta temporária
+# e corrija chaves que a versão da CLI não reconheça (docs/known-issues.md).
+#
+# O Prospector não usa o Supabase Auth (ADR-0007): o app acessa o banco só pelo servidor,
+# com a secret key. A API pública fica ligada porque é por ela que o servidor fala com o banco,
+# mas anon/authenticated não têm acesso a nenhuma tabela.
 project_id = "prospector"
 
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "graphql_public"]
+schemas = ["public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
@@ -19,33 +23,11 @@ major_version = 17
 enabled = true
 port = 54323
 
-# Caixa de e-mail local para ler links de confirmação (http://127.0.0.1:54324).
-[inbucket]
-enabled = true
-port = 54324
-
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/**", "http://localhost:3100/**"]
-jwt_expiry = 3600
-enable_refresh_token_rotation = true
-refresh_token_reuse_interval = 10
-enable_signup = true
-minimum_password_length = 10
+site_url = "http://127.0.0.1:3000"
+# Sem cadastro: ninguém cria conta pela API pública.
+enable_signup = false
 
 [auth.email]
-enable_signup = true
-enable_confirmations = true
-double_confirm_changes = true
-secure_password_change = true
-max_frequency = "1m0s"
-
-[auth.email.template.confirmation]
-subject = "Confirme seu e-mail no Prospector"
-content_path = "./supabase/templates/confirmation.html"
-
-# MFA TOTP habilitado no Auth; a exigência para owner/admin (D-AUTH-1) ainda não está na aplicação.
-[auth.mfa.totp]
-enroll_enabled = true
-verify_enabled = true
+enable_signup = false

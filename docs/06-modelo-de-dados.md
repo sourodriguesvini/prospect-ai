@@ -2,6 +2,8 @@
 
 > Versão 0.1 · 2026-11-09 · Postgres (Supabase)
 > As migrações SQL serão escritas na fatia F1 a partir deste documento. Marcação: **[MVP]** entra no MVP · **[F2]/[F3]** fases posteriores.
+>
+> **Revisto pelo [ADR-0007](adr/0007-uso-interno-local-sem-login.md) (uso interno, um único usuário, só neste computador):** as tabelas **não têm `org_id`**, não há `organizations`, `memberships`, `profiles` nem `invitations`, e não há políticas de RLS por membro. Onde as tabelas abaixo citarem `org_id`, ignore a coluna. A estratégia de acesso vigente está na seção 2.
 
 ## 1. Convenções
 
@@ -13,36 +15,22 @@
 - JSONB apenas para estruturas que variam por oferta/versão (critérios de rubrica, pesos); nada que precise de filtro frequente fica só em JSONB.
 - Nomes em inglês no banco (convenção técnica); UI em pt-BR.
 
-## 2. Estratégia multi-tenant e RLS
+## 2. Acesso ao banco e RLS (ADR-0007)
+
+O app é de um único usuário e acessa o banco **só pelo servidor**, com a secret key do Supabase (que ignora o RLS). A API REST pública do Supabase continua existindo, então o banco é fechado para ela:
 
 ```sql
--- Função auxiliar (security definer, search_path fixo) usada por todas as políticas
-create function app.is_member(p_org uuid, p_min_role text default 'viewer')
-returns boolean language sql stable security definer set search_path = '' as $$
-  select exists (
-    select 1 from public.memberships m
-    where m.org_id = p_org
-      and m.user_id = (select auth.uid())
-      and app.role_rank(m.role) >= app.role_rank(p_min_role)
-  );
-$$;
-
--- Padrão por tabela
-alter table public.companies enable row level security;
-create policy companies_select on public.companies for select to authenticated
-  using ( (select app.is_member(org_id)) );
-create policy companies_write on public.companies for insert to authenticated
-  with check ( (select app.is_member(org_id, 'operator')) );
-create policy companies_update on public.companies for update to authenticated
-  using ( (select app.is_member(org_id, 'operator')) )
-  with check ( (select app.is_member(org_id, 'operator')) );
+-- Padrão por tabela (migração)
+create table public.companies (...);
+alter table public.companies enable row level security;   -- sem nenhuma política
+revoke all on public.companies from anon, authenticated;
+-- service_role recebe só o que o app usa (ex.: select, insert, update)
 ```
 
-- Índice em `org_id` (ou composto começando por `org_id`) em toda tabela de tenant.
-- Workers de workflow usam credencial de serviço **somente no backend** e sempre filtram por `org_id` explicitamente; repositórios recebem `org_id` obrigatório (lint/teste garante).
-- `audit_log` e `llm_calls`: sem política de `update`/`delete` para ninguém (append-only); inserção apenas pelo backend.
-- Testes de isolamento: para cada tabela, usuário da org A não lê/escreve dados da org B (ver [11-qualidade-e-testes.md](11-qualidade-e-testes.md)).
-- Detalhes de performance/segurança de RLS a confirmar com [research/04](research/04-infraestrutura-e-execucao.md).
+- Privilégios padrão de `public` revogados para `anon`/`authenticated` (tabelas, sequências e funções): tabela nova nasce fechada.
+- Teste de catálogo (`packages/db/tests/db/catalog.test.ts`, roda em `pnpm test:db`) falha se alguma tabela de `public` estiver sem RLS, tiver política, der privilégio a `anon`/`authenticated`, se houver view que contorne o RLS, função executável por esses papéis ou função `security definer` sem `search_path` fixo.
+- `audit_log` e `llm_calls`: append-only; `service_role` só com `select` e `insert`, e trigger bloqueia `update`/`delete`/`truncate` para todos.
+- Workers e agentes que rodarem fora deste computador (ADR-0004, Trigger.dev) precisam de revisão antes da F4: hoje a secret key só existe aqui.
 
 ## 3. Diagrama de entidades (núcleo)
 
@@ -75,14 +63,9 @@ erDiagram
 
 ## 4. Tabelas
 
-### 4.1 Tenancy e acesso [MVP]
+### 4.1 Tenancy e acesso — removido (ADR-0007)
 
-| Tabela | Colunas principais | Observações |
-|---|---|---|
-| `organizations` | `id, name, slug unique, plan, settings jsonb, voice_guide jsonb, is_demo, created_by, archived_at` | `settings`: fuso, idioma, limiares, orçamentos padrão. **F1 implementou** `id, name, slug, settings, is_demo, created_by, archived_at`; `plan` e `voice_guide` chegam em F2/F13. Membros editam só `name` e `settings` (grant por coluna). |
-| `memberships` | `org_id, user_id → profiles(user_id), role check in (owner,admin,operator,viewer)`, PK `(org_id,user_id)` | FK para `profiles` (não direto para `auth.users`) para permitir o join com nome/e-mail sob RLS; `profiles` é criado por trigger em `auth.users` e removido em cascata. Escritas só por RPC. **Implementado (F1).** |
-| `profiles` | `user_id PK → auth.users, email, full_name, avatar_url (https), title` | `email` espelha `auth.users.email` (trigger de insert/update) para exibir membros sem expor `auth`. Visível a quem compartilha organização. **Implementado (F1).** |
-| `invitations` | `org_id, email, role (sem owner), token_hash (sha-256), status, invited_by, expires_at (7 dias), accepted_by, accepted_at` | Um pendente por `(org_id, email)`; `token_hash` invisível ao cliente (grant por coluna) e fora do `audit_log`. **Implementado (F1).** |
+`organizations`, `memberships`, `profiles` e `invitations` foram implementadas na primeira versão da F1 e removidas na simplificação (referência no commit `a5f6c51`). Preferências do espaço de trabalho (fuso, idioma, limiares, orçamentos, voz da agência) entram como tabela de configuração única quando a F2 precisar delas.
 
 ### 4.2 Estratégia [MVP]
 
@@ -205,7 +188,7 @@ Dados abertos da Receita Federal ingeridos mensalmente em **tabelas globais** (s
 | `tool_calls` | `org_id, agent_run_id, tool, input_redacted jsonb, output_summary, status, duration_ms, provider, provider_cost_usd, approval_id` | |
 | `provider_usage` | `org_id, provider, operation, units, cost_usd, occurred_at, ref` | custo de APIs não-LLM |
 | `usage_budgets` | `org_id, period (month), limit_usd, hard_stop, alert_at_pct` | |
-| `audit_log` | `org_id, actor_type, actor_id, action, entity_type, entity_id, diff jsonb, ip, user_agent, occurred_at` | append-only (trigger bloqueia update/delete/truncate para todos, inclusive `service_role`), particionável por mês. **F1:** escrito por trigger em `organizations`, `memberships` e `invitations` (`action` = `<tabela>.<operação>`, `diff` = linha inserida/removida ou `{campo: {from, to}}`); `ip`/`user_agent` ainda não preenchidos. Leitura: admin/owner. |
+| `audit_log` | `id bigint identity, actor_type check in (user,agent,system), actor_label, action, entity_type, entity_id, diff jsonb (≤ 64 KB), trace_id uuid, occurred_at` | append-only (trigger bloqueia update/delete/truncate para todos; `service_role` só com select/insert). **F1:** `action` no formato `dominio.entidade.verbo` (check no banco e `AuditAction` em contracts); ator e `trace_id` vêm do `RequestContext` da aplicação (`AuditService.record`); `actor_label` = nome do agente ou componente. Ainda sem produtores: as fatias F2+ registram suas ações. Sem `ip`/`user_agent` (uso local).
 | `copilot_threads` / `copilot_messages` | `org_id, user_id, title, entity_ref` / `role, content jsonb, run_id` | |
 
 ## 5. Armazenamento de arquivos (Storage)

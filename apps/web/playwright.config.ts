@@ -1,14 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
-const baseURL = `http://localhost:${PORT}`;
+const baseURL = `http://127.0.0.1:${PORT}`;
+const withDatabase = process.env.E2E_SUPABASE === '1';
 
 /**
- * Smoke (sempre): telas públicas, redirecionamentos, cabeçalhos de segurança e acessibilidade.
- * Não precisa de Supabase rodando: sem sessão, o app não chama a API.
+ * Smoke (sempre): telas, estados sem banco, proteção de host, cabeçalhos e acessibilidade.
+ * Roda com o banco desligado de propósito (variáveis vazias sobrepõem o .env.local).
  *
- * Fluxo completo (E2E_SUPABASE=1): exige Supabase local (`supabase start`) e as variáveis de
- * docs/runbooks/ambiente-local.md. Ver e2e/tenancy.spec.ts.
+ * Com banco (E2E_SUPABASE=1): usa SUPABASE_URL e SUPABASE_SECRET_KEY do ambiente ou do
+ * .env.local de um projeto de desenvolvimento com as migrações aplicadas. Ver
+ * docs/runbooks/ambiente-local.md e e2e/database.spec.ts.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -19,18 +21,13 @@ export default defineConfig({
   use: { baseURL, trace: 'retain-on-failure', locale: 'pt-BR' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: `pnpm exec next build && pnpm exec next start --port ${PORT}`,
-    url: `${baseURL}/entrar`,
+    command: `pnpm exec next build && pnpm exec next start --hostname 127.0.0.1 --port ${PORT}`,
+    url: `${baseURL}/configuracoes`,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
     env: {
-      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321',
-      // Placeholder explícito para o smoke; não é uma chave real.
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
-        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-        'sb_publishable_placeholder_for_e2e_smoke',
-      NEXT_PUBLIC_SITE_URL: baseURL,
       NEXT_TELEMETRY_DISABLED: '1',
+      ...(withDatabase ? {} : { SUPABASE_URL: '', SUPABASE_SECRET_KEY: '' }),
     },
   },
 });

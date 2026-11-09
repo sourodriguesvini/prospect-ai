@@ -1,63 +1,118 @@
 /*
- * Tokens de design do Prospector (direção inicial, docs/07 §5).
- * Neutros quentes (papel/grafite), um acento único para ação, cores semânticas só para estado.
- * A direção final passa pela equipe de criação; mude os valores aqui, nunca nos componentes.
+ * Design system do Prospector (docs/07 §5, decisão do usuário em 2026-11-09).
+ * Referências: dashboard com painéis brancos muito arredondados sobre cinza claro, navegação
+ * em pílula com item ativo preto e acento laranja; cartões de métrica com gradiente suave,
+ * cartão grafite e números grandes em grotesca.
+ *
+ * Camadas de superfície, de fora para dentro:
+ *   canvas (fundo da janela) → background (moldura do app) → surface (painel) → muted (poço)
+ * Ação principal é tinta (preto no claro, quase branco no escuro); o laranja é destaque, não botão.
+ * Contraste: todo texto pequeno ≥ 4,5:1 (WCAG 2.2 AA). Por isso o laranja de fundo é mais
+ * fechado que o da referência, e o laranja de texto é outro tom.
  *
  * Tema: `data-theme="light" | "dark"` no <html>; sem o atributo, segue o sistema.
+ * Mude valores aqui, nunca nos componentes.
  */
 
 :root {
   color-scheme: light;
-  --background: oklch(0.985 0.004 85);
-  --foreground: oklch(0.22 0.008 70);
-  --muted: oklch(0.955 0.006 85);
-  --muted-foreground: oklch(0.47 0.012 70);
-  --border: oklch(0.89 0.008 80);
-  --input: oklch(0.62 0.01 75);
-  --primary: oklch(0.45 0.12 275);
-  --primary-foreground: oklch(0.985 0.004 85);
-  --ring: oklch(0.45 0.12 275);
-  --success: oklch(0.5 0.11 150);
-  --warning: oklch(0.62 0.13 75);
-  --danger: oklch(0.52 0.19 27);
+  --canvas: #e6e6e8;
+  --background: #f3f3f4;
+  --surface: #ffffff;
+  --foreground: #141416;
+  --muted: #f4f4f5;
+  --muted-foreground: #6b6b72;
+  --border: #e7e7ea;
+  --input: #c9c9cf;
+  --primary: #18181b;
+  --primary-foreground: #ffffff;
+  --ring: #18181b;
+  --accent: #c2410c;
+  --accent-soft: #fdede6;
+  --accent-foreground: #b43c12;
+  --success: #15803d;
+  --success-soft: #e9f7ee;
+  --warning: #a16207;
+  --warning-soft: #fdf6e3;
+  --danger: #b91c1c;
+  --danger-soft: #fdecec;
+
+  /* Cartões de destaque (gradientes). Texto sobre eles já tem contraste conferido. */
+  --tile-accent: linear-gradient(150deg, #cf4614 0%, #c2410c 55%, #b53a0c 100%);
+  --tile-accent-foreground: #ffffff;
+  --tile-dusk: linear-gradient(180deg, #b9bdd9 0%, #d9cbd6 55%, #f2c9a8 100%);
+  --tile-sand: linear-gradient(160deg, #f6ece4 0%, #ecd6c6 100%);
+  --tile-graphite: linear-gradient(160deg, #46464d 0%, #34343a 100%);
+  --tile-ink: #141416;
+  --tile-paper: #ffffff;
+
+  --shadow-panel: 0 1px 2px rgb(20 20 22 / 0.04);
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --background: oklch(0.18 0.006 70);
-  --foreground: oklch(0.94 0.008 85);
-  --muted: oklch(0.23 0.007 70);
-  --muted-foreground: oklch(0.74 0.012 80);
-  --border: oklch(0.31 0.008 70);
-  --input: oklch(0.52 0.01 75);
-  --primary: oklch(0.74 0.11 275);
-  --primary-foreground: oklch(0.18 0.006 70);
-  --ring: oklch(0.74 0.11 275);
-  --success: oklch(0.74 0.12 150);
-  --warning: oklch(0.8 0.12 80);
-  --danger: oklch(0.72 0.16 27);
+  --canvas: #09090a;
+  --background: #111113;
+  --surface: #18181b;
+  --foreground: #f4f4f5;
+  --muted: #222226;
+  --muted-foreground: #a1a1aa;
+  --border: #2a2a2f;
+  --input: #4a4a52;
+  --primary: #f4f4f5;
+  --primary-foreground: #141416;
+  --ring: #f4f4f5;
+  --accent: #c2410c;
+  --accent-soft: #3a1d12;
+  --accent-foreground: #fb8a5c;
+  --success: #4ade80;
+  --success-soft: #12261a;
+  --warning: #facc15;
+  --warning-soft: #2a2410;
+  --danger: #f87171;
+  --danger-soft: #2c1414;
+  --tile-dusk: linear-gradient(180deg, #8d92b8 0%, #c2aebf 55%, #e8b993 100%);
+  --tile-sand: linear-gradient(160deg, #e9d9cc 0%, #dcc0ad 100%);
+  --tile-graphite: linear-gradient(160deg, #2e2e34 0%, #222226 100%);
+  --tile-paper: #f4f4f5;
+  --shadow-panel: none;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --background: oklch(0.18 0.006 70);
-    --foreground: oklch(0.94 0.008 85);
-    --muted: oklch(0.23 0.007 70);
-    --muted-foreground: oklch(0.74 0.012 80);
-    --border: oklch(0.31 0.008 70);
-    --input: oklch(0.52 0.01 75);
-    --primary: oklch(0.74 0.11 275);
-    --primary-foreground: oklch(0.18 0.006 70);
-    --ring: oklch(0.74 0.11 275);
-    --success: oklch(0.74 0.12 150);
-    --warning: oklch(0.8 0.12 80);
-    --danger: oklch(0.72 0.16 27);
+    --canvas: #09090a;
+    --background: #111113;
+    --surface: #18181b;
+    --foreground: #f4f4f5;
+    --muted: #222226;
+    --muted-foreground: #a1a1aa;
+    --border: #2a2a2f;
+    --input: #4a4a52;
+    --primary: #f4f4f5;
+    --primary-foreground: #141416;
+    --ring: #f4f4f5;
+    --accent: #c2410c;
+    --accent-soft: #3a1d12;
+    --accent-foreground: #fb8a5c;
+    --success: #4ade80;
+    --success-soft: #12261a;
+    --warning: #facc15;
+    --warning-soft: #2a2410;
+    --danger: #f87171;
+    --danger-soft: #2c1414;
+    --tile-dusk: linear-gradient(180deg, #8d92b8 0%, #c2aebf 55%, #e8b993 100%);
+    --tile-sand: linear-gradient(160deg, #e9d9cc 0%, #dcc0ad 100%);
+    --tile-graphite: linear-gradient(160deg, #2e2e34 0%, #222226 100%);
+    --tile-paper: #f4f4f5;
+    --shadow-panel: none;
   }
 }
 
 @theme inline {
+  --color-canvas: var(--canvas);
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
@@ -66,21 +121,33 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
 
-  /* Famílias provisórias: serifada editorial para títulos, grotesca neutra para UI (D: famílias e licenças). */
-  --font-serif: var(--font-display), ui-serif, Georgia, serif;
+  /* Uma grotesca para tudo: interface, títulos e números grandes. */
   --font-sans: var(--font-text), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-panel: 1.5rem;
+  --radius-tile: 1.125rem;
+  --shadow-panel: var(--shadow-panel);
 }
 
 @layer base {
   * {
     border-color: var(--border);
   }
+  html {
+    background: var(--canvas);
+  }
   body {
-    background: var(--background);
+    background: var(--canvas);
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -88,11 +155,11 @@
   h1,
   h2,
   h3 {
-    font-family: var(--font-serif);
-    font-weight: 450;
-    letter-spacing: -0.01em;
+    font-weight: 500;
+    letter-spacing: -0.02em;
   }
-  table {
+  table,
+  .tabular {
     font-variant-numeric: tabular-nums;
   }
 }

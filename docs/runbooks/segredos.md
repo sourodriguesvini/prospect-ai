@@ -1,39 +1,33 @@
 # Runbook — segredos e chaves
 
-> Fatia F1 · 2026-11-09. Complementa o [ADR-0006](../adr/0006-segredos-e-credenciais.md). Nenhuma conta de nuvem foi criada ainda (D-INFRA-1); os procedimentos de rotação abaixo não foram executados.
+> Fatia F1 · 2026-11-09, revista pelo [ADR-0007](../adr/0007-uso-interno-local-sem-login.md). Complementa o [ADR-0006](../adr/0006-segredos-e-credenciais.md). Nenhuma conta de nuvem foi criada ainda; os procedimentos de rotação abaixo não foram executados.
 
 ## 1. Inventário (F1)
 
 | Variável | Onde é lida | Sensível? | Onde guardar |
 |---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | app web (servidor e proxy) | Não (pública por desenho) | `.env.local`; variável de ambiente na Vercel |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | app web | Não (pública; o acesso é limitado pelo RLS) | idem |
-| `NEXT_PUBLIC_SITE_URL` | app web (links de confirmação e convite) | Não | idem |
-| `SUPABASE_SECRET_KEY` | **somente** testes E2E e, no futuro, workers | **Sim** — ignora o RLS | `.env.local` de quem roda E2E; secret do CI; Vercel/Trigger.dev só quando houver worker que precise |
-| `TEST_DATABASE_URL` | testes de banco | Sim (contém senha, ainda que local) | `.env.local`; gerado no CI |
+| `SUPABASE_URL` | servidor do app (`apps/web/src/server/env.ts`) | Baixa (identifica o projeto) | `apps/web/.env.local` |
+| `SUPABASE_SECRET_KEY` | servidor do app (`apps/web/src/server/env.ts` → `container.ts`) | **Sim** — ignora o RLS, dá acesso total aos dados | `apps/web/.env.local` neste computador; secret do CI só para testes |
+| `TEST_DATABASE_URL` | testes de banco | Sim (contém senha) | `.env.local`; gerado no CI. Só bancos descartáveis |
 
-A aplicação web **não** usa a secret key: toda leitura e escrita acontece com o JWT do usuário, sob RLS e RPCs que checam papel.
+Sem login (ADR-0007), o app age sempre com a secret key, no servidor. Por isso: o app só escuta em `127.0.0.1`, recusa `Host` não local, não usa variáveis `NEXT_PUBLIC_*` e a secret key só é lida em um módulo `server-only` (verificado por `scripts/check-boundaries.mjs`). A publishable key não é usada.
 
 ## 2. Regras
 
-1. Nada sensível com prefixo `NEXT_PUBLIC_` (vai para o navegador).
+1. Nada com prefixo `NEXT_PUBLIC_` (vai para o navegador). A web não usa nenhuma.
 2. `.env*` fica fora do git (exceto `.env.example`, sem valores). Agentes não leem nem imprimem `.env.local`.
-3. Logs registram nome do erro e `traceId`, nunca valores de variáveis, tokens ou e-mails (`apps/web/src/server/action-errors.ts`).
-4. Token de convite: aparece uma única vez para o administrador; o banco guarda só o SHA-256. O token não entra no `audit_log`.
-5. Credenciais de terceiros por organização (OAuth de e-mail etc.) vão para o Supabase Vault, fatias F9/F11 (ADR-0006).
+3. Logs registram nome do erro e `traceId`, nunca valores de variáveis, tokens ou e-mails.
+4. Credenciais de terceiros (OAuth de e-mail etc.) ficam criptografadas no banco, fatias F9/F11 (ADR-0006).
+5. Antes de publicar o app em qualquer host: adicionar autenticação (ADR-0007) e revisar este inventário.
 
 ## 3. Rotação (procedimento)
 
 **Secret key do Supabase** (vazamento suspeito ou troca de pessoa com acesso):
 1. No painel do Supabase → Settings → API Keys, crie uma nova secret key.
-2. Atualize o valor nos ambientes que a usam (CI, workers).
-3. Faça deploy/reexecute e confirme que os jobs funcionam.
+2. Atualize `apps/web/.env.local` (e o secret do CI, se houver).
+3. Reinicie o app e confirme "Conectado" na tela inicial.
 4. Revogue a chave antiga no painel.
 5. Registre data, motivo e responsável (sem o valor) no log de operações.
-
-**Publishable key**: mesma sequência; como é pública, a troca é de higiene, não de emergência.
-
-**Chave de assinatura JWT** (JWT assimétrico): rotacione pelo painel (Settings → JWT Keys), mantendo a anterior como verificadora até expirarem as sessões ativas (`jwt_expiry` = 1 h). [Procedimento não executado — validar no primeiro projeto.]
 
 ## 4. Se um segredo vazar
 

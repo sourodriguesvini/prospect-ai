@@ -2,13 +2,13 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 
-const alertVariants = cva('border-l-2 px-4 py-3 text-sm', {
+const alertVariants = cva('rounded-[var(--radius-tile)] px-4 py-3 text-sm', {
   variants: {
     tone: {
-      info: 'border-foreground/40 bg-muted text-foreground',
-      success: 'border-success bg-success/10 text-foreground',
-      warning: 'border-warning bg-warning/15 text-foreground',
-      danger: 'border-danger bg-danger/10 text-foreground',
+      info: 'bg-muted text-foreground',
+      success: 'bg-success-soft text-foreground',
+      warning: 'bg-warning-soft text-foreground',
+      danger: 'bg-danger-soft text-foreground',
     },
   },
   defaultVariants: { tone: 'info' },

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,40 +19,22 @@ export interface Queryable {
   query<T extends Row = Row>(sql: string, params?: unknown[]): Promise<T[]>;
 }
 
-export interface TestUser {
-  id: string;
-  email: string;
-}
+export type ApiRole = 'anon' | 'authenticated' | 'service_role';
 
 export interface TestDb extends Queryable {
   readonly mode: 'pglite' | 'postgres';
-  /** Executa `fn` numa transação como `authenticated` com o JWT do usuário. */
-  asUser<T>(userId: string, fn: (q: Queryable) => Promise<T>): Promise<T>;
-  /** Executa `fn` numa transação com outro papel do Supabase. */
-  asRole<T>(role: 'anon' | 'service_role', fn: (q: Queryable) => Promise<T>): Promise<T>;
-  createUser(options?: { confirmed?: boolean; fullName?: string }): Promise<TestUser>;
+  /**
+   * Executa `fn` numa transação com um papel do Supabase: `service_role` é o servidor do app
+   * (secret key); `anon` e `authenticated` são a API pública, que não deve ver nada.
+   */
+  asRole<T>(role: ApiRole, fn: (q: Queryable) => Promise<T>): Promise<T>;
   close(): Promise<void>;
-}
-
-/** E-mail único e claramente fictício (TLD reservado .test). */
-export function testEmail(label: string): string {
-  return `${label}-${randomUUID().slice(0, 8)}@example.test`;
-}
-
-/** Slug único para organizações de teste. */
-export function testSlug(label: string): string {
-  return `${label}-${randomUUID().slice(0, 8)}`;
 }
 
 async function listMigrations(): Promise<string[]> {
   const files = (await readdir(migrationsDir)).filter((f) => f.endsWith('.sql')).sort();
   return files.map((f) => path.join(migrationsDir, f));
 }
-
-const CREATE_USER_SQL = `
-  insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data)
-  values ($1, $2, case when $3::boolean then now() end, $4::jsonb)
-  returning id`;
 
 export async function createTestDb(): Promise<TestDb> {
   const url = process.env.TEST_DATABASE_URL;
@@ -97,24 +78,7 @@ async function createPgliteDb(): Promise<TestDb> {
   return {
     mode: 'pglite',
     query: base.query,
-    asUser: (userId, fn) =>
-      inTransaction(
-        ['set local role authenticated'],
-        JSON.stringify({ sub: userId, role: 'authenticated' }),
-        fn,
-      ),
     asRole: (role, fn) => inTransaction([`set local role ${role}`], JSON.stringify({ role }), fn),
-    async createUser(options) {
-      const email = testEmail('user');
-      const meta = JSON.stringify(options?.fullName ? { full_name: options.fullName } : {});
-      const rows = await base.query<{ id: string }>(CREATE_USER_SQL, [
-        randomUUID(),
-        email,
-        options?.confirmed ?? true,
-        meta,
-      ]);
-      return { id: rows[0]!.id, email };
-    },
     close: () => db.close(),
   };
 }
@@ -156,20 +120,7 @@ async function createPostgresDb(url: string): Promise<TestDb> {
   return {
     mode: 'postgres',
     query: base.query,
-    asUser: (userId, fn) =>
-      inTransaction('authenticated', JSON.stringify({ sub: userId, role: 'authenticated' }), fn),
     asRole: (role, fn) => inTransaction(role, JSON.stringify({ role }), fn),
-    async createUser(options) {
-      const email = testEmail('user');
-      const meta = JSON.stringify(options?.fullName ? { full_name: options.fullName } : {});
-      const rows = await base.query<{ id: string }>(CREATE_USER_SQL, [
-        randomUUID(),
-        email,
-        options?.confirmed ?? true,
-        meta,
-      ]);
-      return { id: rows[0]!.id, email };
-    },
     close: () => pool.end(),
   };
 }

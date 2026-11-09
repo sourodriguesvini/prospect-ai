@@ -1,12 +1,12 @@
 # Prospector — Sistema Operacional de Inteligência Comercial
 
-Plataforma SaaS multi-tenant de prospecção comercial com agentes de IA, começando por uma agência de branding/identidade visual. Descobre empresas, investiga com evidências, qualifica, planeja abordagens verdadeiras, executa contatos **somente com aprovação humana** e aprende com resultados.
+Ferramenta interna de prospecção comercial com agentes de IA, para uso do próprio usuário (agência de branding/identidade visual). **Roda só neste computador (localhost), sem login e sem multiempresa** — ver `docs/adr/0007-uso-interno-local-sem-login.md`, que prevalece sobre menções a SaaS, organizações e papéis nos demais docs. Descobre empresas, investiga com evidências, qualifica, planeja abordagens verdadeiras, executa contatos **somente com aprovação humana** e aprende com resultados.
 
 Antes de qualquer trabalho não trivial, leia o documento relevante em `docs/` (índice: `docs/README.md`). As decisões vigentes estão em `docs/adr/`.
 
 ## Stack
 
-TypeScript (strict) · Next.js (App Router) · React · Tailwind · shadcn/ui · Supabase (Postgres, Auth, Storage, RLS) · Claude API via `@anthropic-ai/sdk` · Zod · Vitest · Playwright · pnpm workspaces + Turborepo.
+TypeScript (strict) · Next.js (App Router) · React · Tailwind · shadcn/ui · Supabase (Postgres e Storage; sem Auth) · Claude API via `@anthropic-ai/sdk` · Zod · Vitest · Playwright · pnpm workspaces + Turborepo.
 
 Layout do monorepo e regras de dependência: `docs/adr/0001-monorepo-e-fronteiras.md`. Resumo:
 - `packages/domain` é puro (sem IO, sem Supabase, sem Next, sem SDKs).
@@ -20,13 +20,13 @@ Rode na raiz do repositório (`C:\dev\prospector`). Detalhes e Supabase local em
 
 ```
 pnpm install
-pnpm dev            # app web em http://localhost:3000 (precisa de apps/web/.env.local)
+pnpm dev            # app web em http://127.0.0.1:3000, só local (banco: apps/web/.env.local)
 pnpm typecheck      # tsc em todos os pacotes (+ next typegen na web)
 pnpm lint           # scripts/check-boundaries.mjs + ESLint (fronteiras do ADR-0001)
 pnpm format:check   # Prettier (pnpm format corrige)
 pnpm test           # unitários + contrato (Vitest)
 pnpm test:db        # migrações + RLS; PGlite por padrão, Postgres real com TEST_DATABASE_URL
-pnpm test:e2e       # next build + start na porta 3100 + Playwright (smoke; fluxo completo com E2E_SUPABASE=1)
+pnpm test:e2e       # next build + start em 127.0.0.1:3100 + Playwright (smoke; com banco real: E2E_SUPABASE=1)
 pnpm evals          # (ainda não existe) avaliações de IA — custa dinheiro, peça confirmação antes do conjunto completo
 ```
 
@@ -34,9 +34,10 @@ pnpm evals          # (ainda não existe) avaliações de IA — custa dinheiro,
 
 1. **Evidência tipada.** Conclusões sobre prospects são claims `fact` | `inference` | `hypothesis` gravados via `EvidenceService`, com fonte, data e confiança calculada no servidor. Nunca grave conclusões em texto livre fora do ledger. Ver `docs/08-metodologia-comercial.md`.
 2. **Nada sai sem aprovação.** Nenhum código pode enviar mensagem ou agir externamente sem `approval_id` válido cujo `payload_hash` corresponde ao conteúdo. Checagem de supressão acontece no momento do envio.
-3. **RLS em toda tabela de tenant.** Toda tabela com `org_id` tem RLS habilitado, políticas por papel e teste de isolamento entre organizações. Credencial de serviço só no backend, sempre filtrando `org_id`.
+3. **Banco fechado para a API pública.** Toda tabela de `public` tem RLS habilitado e nenhuma política nem privilégio para `anon`/`authenticated`; o acesso é só pelo servidor do app, com a secret key em módulos `server-only`. O teste de catálogo (`pnpm test:db`) garante isso para tabelas novas.
+3a. **Só localhost.** O app escuta em `127.0.0.1` e o proxy recusa `Host` fora de localhost. Sem login, essa é a proteção: nunca publique o app (Vercel ou outro host) sem antes adicionar autenticação (ADR-0007).
 4. **Sem dados fictícios silenciosos.** Seeds e exemplos são marcados (`is_demo = true`, `synthetic: true` em evals) e aparecem com selo DEMO na UI. Nunca use placeholders que pareçam dados reais.
-5. **Sem segredos no código, logs ou traces.** Nunca leia nem imprima `.env.local`/segredos. Nada sensível em `NEXT_PUBLIC_*`. Tokens de terceiros por tenant ficam criptografados (ver ADR de segredos).
+5. **Sem segredos no código, logs ou traces.** Nunca leia nem imprima `.env.local`/segredos. Nada sensível em `NEXT_PUBLIC_*`. Tokens de terceiros ficam criptografados (ver ADR de segredos).
 6. **Integrações só autorizadas.** Nada de scraping que viole termos (LinkedIn, Instagram etc.). Toda integração nova segue a skill `integracao-externa` e o checklist de termos de `docs/05-integracoes.md`.
 7. **LGPD.** Base legal e origem registradas para cada contato; minimização (sem CPF, sem dados pessoais desnecessários); opt-out honrado imediatamente.
 8. **Honestidade de status.** Não declare pronto o que não foi executado e testado. Registre problemas em `docs/known-issues.md` e decisões em ADR.
@@ -66,5 +67,5 @@ pnpm evals          # (ainda não existe) avaliações de IA — custa dinheiro,
 
 - Windows 11; shell padrão PowerShell (Bash disponível). Node 24, pnpm 11.
 - Repositório em `C:\dev\prospector`, fora do OneDrive (R-OPS-1). A cópia antiga em `OneDrive\APP Prospector` não é mais a fonte da verdade.
-- Supabase local exige Docker (não instalado no momento) — ver decisão D-INFRA-2. Sem ele, `pnpm test:db` roda em PGlite.
+- Banco: projeto Supabase de desenvolvimento acessado só pelo servidor (URL + secret key em `apps/web/.env.local`). Docker não está instalado; `pnpm test:db` roda em PGlite.
 - TypeScript fixado em 6.0.x enquanto o typescript-eslint não suportar a 7 (`docs/known-issues.md`).

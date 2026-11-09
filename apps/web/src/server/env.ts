@@ -1,32 +1,38 @@
 import 'server-only';
 import { z } from 'zod';
 
-const ServerEnv = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.url(),
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20),
-  NEXT_PUBLIC_SITE_URL: z.url(),
+const DatabaseEnv = z.object({
+  SUPABASE_URL: z.url({ protocol: /^https?$/ }),
+  SUPABASE_SECRET_KEY: z.string().min(20),
 });
-export type ServerEnv = z.infer<typeof ServerEnv>;
 
-let cached: ServerEnv | undefined;
+export interface DatabaseCredentials {
+  url: string;
+  secretKey: string;
+}
+
+function readVar(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
 
 /**
- * Variáveis de ambiente validadas. A falha cita só os nomes ausentes, nunca valores.
- * A secret key do Supabase não é lida aqui: a aplicação web age sempre como o usuário.
+ * Credenciais do banco (só servidor, nunca `NEXT_PUBLIC_*`). Sem nenhuma das duas variáveis,
+ * devolve null e o app mostra "banco não configurado". Configuração parcial ou inválida falha
+ * alto citando só os nomes das variáveis, nunca os valores.
  */
-export function serverEnv(): ServerEnv {
-  if (cached) return cached;
-  const parsed = ServerEnv.safeParse({
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-  });
+export function databaseEnv(): DatabaseCredentials | null {
+  const raw = {
+    SUPABASE_URL: readVar('SUPABASE_URL'),
+    SUPABASE_SECRET_KEY: readVar('SUPABASE_SECRET_KEY'),
+  };
+  if (raw.SUPABASE_URL === undefined && raw.SUPABASE_SECRET_KEY === undefined) return null;
+  const parsed = DatabaseEnv.safeParse(raw);
   if (!parsed.success) {
-    const names = parsed.error.issues.map((issue) => issue.path.join('.')).join(', ');
+    const names = [...new Set(parsed.error.issues.map((issue) => issue.path.join('.')))];
     throw new Error(
-      `Variáveis de ambiente ausentes ou inválidas: ${names}. Veja docs/runbooks/ambiente-local.md.`,
+      `Variáveis de ambiente ausentes ou inválidas: ${names.join(', ')}. Veja docs/runbooks/ambiente-local.md.`,
     );
   }
-  cached = parsed.data;
-  return cached;
+  return { url: parsed.data.SUPABASE_URL, secretKey: parsed.data.SUPABASE_SECRET_KEY };
 }

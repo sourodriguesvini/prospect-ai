@@ -1,4 +1,4 @@
-// Fuso fixo até existir configuração por organização (ver docs/known-issues.md).
+// Fuso fixo até existir configuração de preferências (ver docs/known-issues.md).
 const TIME_ZONE = 'America/Sao_Paulo';
 
 const dateTime = new Intl.DateTimeFormat('pt-BR', {
