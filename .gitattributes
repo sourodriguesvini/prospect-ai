@@ -1,0 +1,18 @@
+# Fim de linha LF em todo o repositório, também em cópias de trabalho novas no Windows.
+# Sem isto, core.autocrlf=true grava CRLF no checkout e `pnpm format:check` (Prettier, LF)
+# falha em arquivos que ninguém alterou.
+* text=auto eol=lf
+
+# Binários: nunca converter.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
