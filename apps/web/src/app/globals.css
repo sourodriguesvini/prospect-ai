@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+@import '@prospector/ui/styles.css';
+
+/* Componentes do pacote de UI usam classes do Tailwind: inclua-os na varredura. */
+@source '../../../../packages/ui/src';

@@ -1,0 +1,98 @@
+/*
+ * Tokens de design do Prospector (direção inicial, docs/07 §5).
+ * Neutros quentes (papel/grafite), um acento único para ação, cores semânticas só para estado.
+ * A direção final passa pela equipe de criação; mude os valores aqui, nunca nos componentes.
+ *
+ * Tema: `data-theme="light" | "dark"` no <html>; sem o atributo, segue o sistema.
+ */
+
+:root {
+  color-scheme: light;
+  --background: oklch(0.985 0.004 85);
+  --foreground: oklch(0.22 0.008 70);
+  --muted: oklch(0.955 0.006 85);
+  --muted-foreground: oklch(0.47 0.012 70);
+  --border: oklch(0.89 0.008 80);
+  --input: oklch(0.62 0.01 75);
+  --primary: oklch(0.45 0.12 275);
+  --primary-foreground: oklch(0.985 0.004 85);
+  --ring: oklch(0.45 0.12 275);
+  --success: oklch(0.5 0.11 150);
+  --warning: oklch(0.62 0.13 75);
+  --danger: oklch(0.52 0.19 27);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: oklch(0.18 0.006 70);
+  --foreground: oklch(0.94 0.008 85);
+  --muted: oklch(0.23 0.007 70);
+  --muted-foreground: oklch(0.74 0.012 80);
+  --border: oklch(0.31 0.008 70);
+  --input: oklch(0.52 0.01 75);
+  --primary: oklch(0.74 0.11 275);
+  --primary-foreground: oklch(0.18 0.006 70);
+  --ring: oklch(0.74 0.11 275);
+  --success: oklch(0.74 0.12 150);
+  --warning: oklch(0.8 0.12 80);
+  --danger: oklch(0.72 0.16 27);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --background: oklch(0.18 0.006 70);
+    --foreground: oklch(0.94 0.008 85);
+    --muted: oklch(0.23 0.007 70);
+    --muted-foreground: oklch(0.74 0.012 80);
+    --border: oklch(0.31 0.008 70);
+    --input: oklch(0.52 0.01 75);
+    --primary: oklch(0.74 0.11 275);
+    --primary-foreground: oklch(0.18 0.006 70);
+    --ring: oklch(0.74 0.11 275);
+    --success: oklch(0.74 0.12 150);
+    --warning: oklch(0.8 0.12 80);
+    --danger: oklch(0.72 0.16 27);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  /* Famílias provisórias: serifada editorial para títulos, grotesca neutra para UI (D: famílias e licenças). */
+  --font-serif: var(--font-display), ui-serif, Georgia, serif;
+  --font-sans: var(--font-text), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 450;
+    letter-spacing: -0.01em;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}

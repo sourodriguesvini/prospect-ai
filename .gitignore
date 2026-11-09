@@ -1,0 +1,33 @@
+# dependências
+node_modules/
+.pnpm-store/
+
+# build
+.next/
+out/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# testes
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# turbo
+.turbo/
+
+# ambiente e segredos (nunca versionar)
+.env
+.env.*
+!.env.example
+
+# supabase local
+supabase/.branches/
+supabase/.temp/
+
+# sistema
+.DS_Store
+Thumbs.db
+*.log

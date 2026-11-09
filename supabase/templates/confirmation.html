@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR">
+  <body style="font-family: system-ui, sans-serif; color: #2b2a28; line-height: 1.5">
+    <h2 style="font-family: Georgia, serif; font-weight: 400">Confirme seu e-mail</h2>
+    <p>Recebemos um pedido de criação de conta no Prospector com este endereço.</p>
+    <p>
+      <a
+        href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}"
+      >
+        Confirmar e-mail e ativar a conta
+      </a>
+    </p>
+    <p style="color: #6b6862; font-size: 14px">
+      Se não foi você, ignore esta mensagem: nenhuma conta será ativada sem a confirmação.
+    </p>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+node_modules
+.next
+.turbo
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+docs/research
+supabase/migrations
+
+# prosa escrita à mão: não reformatar
+docs/
+.claude/
+CLAUDE.md

@@ -1,0 +1,33 @@
+{
+  "name": "prospector",
+  "private": true,
+  "description": "Sistema Operacional de Inteligência Comercial (monorepo)",
+  "packageManager": "pnpm@11.0.8",
+  "engines": {
+    "node": ">=24"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev --filter=@prospector/web",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "node scripts/check-boundaries.mjs && eslint . --max-warnings=0",
+    "test": "turbo run test",
+    "test:db": "turbo run test:db",
+    "test:e2e": "pnpm --filter @prospector/web test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.4.5",
+    "@types/node": "^24.19.2",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "prettier": "3.9.10",
+    "turbo": "2.11.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
+  }
+}

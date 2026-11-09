@@ -1,0 +1,26 @@
+{
+  "name": "@prospector/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:db": "vitest run --config vitest.db.config.ts"
+  },
+  "dependencies": {
+    "@prospector/application": "workspace:*",
+    "@prospector/contracts": "workspace:*",
+    "@supabase/supabase-js": "2.119.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@prospector/config": "workspace:*",
+    "@types/pg": "^8.23.1",
+    "pg": "8.23.1"
+  }
+}

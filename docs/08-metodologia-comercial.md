@@ -1,0 +1,184 @@
+# Metodologia comercial: evidência, qualificação e abordagem
+
+> Versão 0.1 · 2026-11-09
+> Este documento define **como o sistema pensa**. É a especificação que os prompts, o motor de score e o verificador implementam. Mudanças aqui exigem atualização de avaliações ([11-qualidade-e-testes.md](11-qualidade-e-testes.md)).
+
+## 1. Princípio
+
+O sistema não é premiado por gerar mais leads, e sim por **acertar onde há oportunidade e dizer a verdade sobre ela**. Três consequências:
+
+1. Tudo que se afirma sobre um prospect é rastreável (claim → fonte → data).
+2. Força do argumento e confiança no dado são medidas separadas.
+3. "Não abordar" e "não sabemos o suficiente" são saídas de primeira classe.
+
+## 2. Modelo epistemológico (Evidence Ledger)
+
+### 2.1 Tipos de claim
+
+| Tipo | Definição | Exemplo | Requisitos |
+|---|---|---|---|
+| **Fato** (`fact`) | Observação direta e verificável de uma fonte, na data da coleta. | "O site exibe logotipo diferente do perfil do Instagram (capturas de 2026-11-08)." / "CNAE principal 8630-5/04 segundo a base CNPJ." | ≥ 1 evidência com fonte, `captured_at` e trecho/região. Afirma o que a fonte diz, não a verdade do mundo. |
+| **Inferência** (`inference`) | Conclusão derivada de fatos por raciocínio explícito. | "A identidade visual é inconsistente entre canais." | `depends_on` ≥ 1 fato; raciocínio registrado; confiança ≤ 0,9. |
+| **Hipótese** (`hypothesis`) | Suposição plausível ainda não sustentada, útil para orientar investigação ou pergunta. | "A empresa pode estar preparando expansão regional." | Marcada como a verificar; **não pode** ser usada como afirmação em mensagem. |
+
+### 2.2 Confiança
+
+Confiança (0–1) é calculada, não "sentida" pelo modelo:
+
+```
+confiança_fato = confiabilidade_da_fonte × atualidade × concordância
+```
+
+| Componente | Regra inicial (calibrável) |
+|---|---|
+| Confiabilidade da fonte | registro oficial 0,95 · site da própria empresa 0,85 (para o que ela declara) · imprensa reconhecida 0,8 · agregador/diretório 0,6 · fonte desconhecida 0,4 |
+| Atualidade | 1,0 se dentro da validade do tipo de dado; decai linearmente até 0,5 no dobro da validade; depois `stale` |
+| Concordância | +0,05 por fonte independente concordante (máx. 1,0); fonte conflitante → claim `disputed` e confiança limitada a 0,5 |
+
+Inferências: `min(confiança dos fatos de base) × fator do raciocínio` (fator proposto pelo modelo, limitado a [0,5; 0,9] e auditado em avaliação). Rótulos na UI: **Alta** ≥ 0,8 · **Média** 0,6–0,8 · **Baixa** < 0,6.
+
+### 2.3 Validade
+
+Cada `key` de claim tem prazo de validade (ex.: dados cadastrais 90 dias, conteúdo de site 30 dias, sinais conforme tipo, auditoria visual 180 dias). Claims vencidos ficam `stale`, não são usados em mensagens e entram na fila de revalidação se a empresa estiver ativa.
+
+### 2.4 Validação de evidências (passo `evidence.validate`)
+
+DET:
+- trecho citado existe no conteúdo armazenado da fonte (normalização de espaços/acentos);
+- URL da fonte responde ou há snapshot armazenado;
+- datas coerentes (`occurred_at ≤ captured_at`);
+- inferências têm dependências ativas.
+
+LLM (juiz):
+- o trecho realmente sustenta a afirmação (sim / parcial / não);
+- detecção de contradição entre claims da mesma `key`.
+
+Resultado: claims rebaixados (`rejected`/`disputed`) com motivo visível.
+
+## 3. Qualificação multidimensional
+
+### 3.1 Dimensões
+
+| Dimensão | Pergunta | Fontes de evidência | Cálculo |
+|---|---|---|---|
+| **Adequação (Fit)** | A empresa é do perfil que a oferta atende? | CNAE, porte, região, modelo de negócio, público | DET contra filtros e pesos do ICP |
+| **Necessidade (Need)** | Há problema de marca observável que a oferta resolve? | auditoria visual, posicionamento, comparação competitiva, avaliações | LLM (`need_assessor`) restrito aos claims + rubrica; cada ponto cita `claim_ids` |
+| **Sinais (Signal)** | Algo mudou que torna o tema relevante agora? | catálogo de sinais | DET: soma ponderada com decaimento |
+| **Capacidade (Capacity)** | Consegue contratar no nível de investimento da oferta? | porte, capital social, nº de unidades, presença de mídia paga, posicionamento de preço | DET com proxies; baixa confiança por natureza |
+| **Timing** | É o momento? | recência de sinais, rebranding recente (negativo), sazonalidade do segmento | DET |
+| **Acesso (Access)** | Sabemos quem decide e temos canal permitido? | contatos, canais verificados, base legal, supressão | DET |
+| **Confiança (Evidence)** | Quão sustentado está tudo isso? | cobertura e confiança dos claims usados | DET |
+
+### 3.2 Composição
+
+```
+potencial = Σ (peso_d × score_d)  para d ∈ {fit, need, signal, capacity, timing}   (pesos do scoring_model)
+prioridade = potencial × fator_confiança × fator_acesso
+```
+
+- `fator_confiança` ∈ [0,4; 1,0] a partir da cobertura de evidência (quantas dimensões têm ≥ 1 claim de confiança ≥ média).
+- `fator_acesso` ∈ [0,6; 1,0] (sem decisor/canal reduz prioridade, mas não zera: gera `prepare_access`).
+- Pesos iniciais propostos para branding (calibrar): fit 0,25 · need 0,30 · signal 0,20 · capacity 0,15 · timing 0,10.
+
+### 3.3 Gates (antes de qualquer score)
+
+Desqualificação imediata com motivo codificado:
+- empresa/domínio/contato na supressão;
+- fora de região/segmento excluído do ICP;
+- situação cadastral inativa;
+- cliente atual ou oportunidade aberta;
+- concorrente da agência (outra agência de branding/design);
+- rebranding concluído há < 18 meses (para oferta de rebranding) — vira `monitor`;
+- desqualificadores específicos da oferta.
+
+### 3.4 Recomendação (saída obrigatória)
+
+| Recomendação | Condição (limiares calibráveis) | Ação do sistema |
+|---|---|---|
+| `pursue` — **Abordar agora** | prioridade ≥ 70, need com ≥ 1 fato/inferência de confiança ≥ média, acesso OK | habilita plano de abordagem |
+| `prepare_access` — **Preparar acesso** | potencial ≥ 70, sem decisor ou canal permitido | tarefa de identificar decisor/canal |
+| `investigate_more` — **Investigar mais** | potencial promissor, confiança insuficiente | propõe subir de nível (com custo estimado) |
+| `monitor` — **Monitorar** | fit bom, sem necessidade ou timing agora | entra em watchlist |
+| `discard` — **Descartar** | gate acionado ou potencial < 40 | arquiva com motivo |
+| `insufficient_evidence` — **Sem base suficiente** | cobertura de evidência abaixo do mínimo após o nível máximo permitido | explicita o que falta; **não gera abordagem** |
+
+Cada recomendação acompanha: 3–5 motivos (cada um com `claim_ids`), o que mudaria a decisão ("se X, então Y") e o custo já gasto.
+
+### 3.5 Calibração
+
+- Desfechos registrados por empresa abordada: sem resposta, resposta negativa, positiva, reunião, proposta, ganho/perda.
+- Mensalmente (D16): taxa de desfecho por faixa de cada dimensão; regressão logística simples quando n ≥ 50 desfechos; backtest dos pesos propostos.
+- Saída: **proposta** de novos pesos/limiares com efeito estimado e intervalo; só um owner/admin aplica. Versões antigas permanecem.
+
+## 4. Planejamento de abordagem
+
+### 4.1 Estrutura da tese
+
+```
+Observação (fatos) → Implicação para o negócio (inferência) → Como a oferta resolve → Prova (case autorizado) → Próximo passo de baixo atrito
+```
+
+Exemplo (fictício, apenas para ilustrar o formato):
+> Observação: site e Instagram usam logotipos e paletas diferentes (capturas de 08/11). Implicação: para uma clínica que vende tratamentos de alto valor, inconsistência visual reduz percepção de profissionalismo (inferência, confiança média). Oferta: sistema de identidade unificado. Prova: case autorizado de clínica similar. Próximo passo: enviar diagnóstico visual de 1 página.
+
+### 4.2 Elementos do plano (`approach_plans`)
+
+- **Por que esta empresa** (fit + need) e **por que agora** (sinais/timing) — com claims.
+- **Interlocutor-alvo** e papel na decisão; **registro de linguagem** adequado (ver 5.2).
+- **Ângulo** principal (ex.: consistência, diferenciação frente a concorrente, preparação para expansão, modernização, valorização de preço).
+- **Argumentos** (máx. 3), cada um com `claim_ids` e força.
+- **Objeções prováveis** e respostas (do catálogo D13).
+- **Canal** permitido e **sequência** (passos, intervalos, condição de parada).
+- **Oferta de valor inicial** (diagnóstico, comparativo, conteúdo útil) — preferível a "agendar uma call".
+- **Riscos** (ex.: hipótese não confirmada, decisor incerto).
+
+### 4.3 Quando **não** planejar
+
+- Recomendação diferente de `pursue`/`prepare_access` (forçar exige justificativa registrada).
+- Necessidade sustentada apenas por hipóteses.
+- Contato sem base legal ou canal permitido.
+- Claims centrais `stale` ou `disputed`.
+
+## 5. Personalização
+
+### 5.1 Níveis
+
+| Nível | Descrição | Permitido? |
+|---|---|---|
+| P0 Genérica | Serve para qualquer empresa | Não |
+| P1 Firmográfica | Nome, cidade, segmento | Insuficiente sozinha |
+| P2 Observacional | Cita algo específico e verdadeiro observado | **Mínimo exigido** |
+| P3 Insight | Conecta a observação a uma consequência de negócio relevante para o interlocutor | Meta |
+
+### 5.2 Registro por interlocutor (exemplos)
+
+| Interlocutor | Foco | Registro |
+|---|---|---|
+| Fundador(a)/sócio(a) de PME | crescimento, reputação, diferenciação local, preço | direto, concreto, sem jargão de branding |
+| Diretor(a)/gerente de marketing | consistência, performance, governança de marca, eficiência de produção | técnico-moderado, pode usar termos do ofício |
+| C-level de empresa média | expansão, valuation de marca, M&A, posicionamento | executivo, curto, orientado a risco/resultado |
+
+### 5.3 Regras do verificador (bloqueantes)
+
+1. Toda afirmação factual sobre o prospect mapeia para claim `active` com confiança ≥ média.
+2. Hipóteses só aparecem como pergunta ou observação condicional ("notei X — faz sentido para vocês?").
+3. Proibido: elogio genérico, urgência artificial, familiaridade fingida ("como conversamos"), depreciação do prospect ou de concorrentes nomeados, promessas de resultado não suportadas por case, dados pessoais desnecessários.
+4. Identificação clara do remetente e da agência; na primeira mensagem, motivo do contato e origem do dado de contato; mecanismo de opt-out conforme canal (ver [12 §4](12-seguranca-e-conformidade.md)).
+5. Tamanho e formato conforme canal (e-mail inicial ≤ 120 palavras; nota de conexão manual ≤ 300 caracteres).
+6. Links apenas de domínios da agência ou da própria empresa prospectada.
+
+Não bloqueantes (avisos): legibilidade, repetição com mensagens anteriores ao mesmo contato, tom fora da voz da agência.
+
+## 6. Ciclo de aprendizado
+
+```mermaid
+flowchart LR
+  A[Avaliação e plano] --> B[Abordagem enviada]
+  B --> C[Desfecho registrado]
+  C --> D[Métricas por dimensão, ângulo, canal, segmento]
+  D --> E[Propostas: pesos, limiares, aprendizados]
+  E -->|aprovação humana| F[Nova versão de scoring/learnings]
+  F --> A
+```
+
+Aprendizados (ex.: "em clínicas, ângulo de consistência teve 2× a taxa de resposta do ângulo de modernização; n = 64") só são usados após aprovação e exibem tamanho de amostra.
