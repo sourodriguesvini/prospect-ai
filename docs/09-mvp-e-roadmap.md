@@ -94,6 +94,19 @@ Comandos de 2026-11-09: `pnpm typecheck`, `pnpm lint`, `pnpm test` (154 testes),
 4. Toda informação exibida no dossiê abre a evidência (fonte, data, trecho).
 5. Custo da consulta registrado em `provider_usage`.
 
+**Status em 2026-11-09: regras do ledger prontas (F3a); F3 NÃO concluída.** A F3a adiantou, em paralelo à F2, o que não depende da estratégia: contratos e regras puras do Evidence Ledger, sem banco e sem tela. Valores propostos em [08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-propostos-f3a-2026-11-09).
+
+- **Pronto:** contratos `packages/contracts/src/evidence.ts` (fonte, claim, entrada de claim, evidência com trecho ou região, dependência, erros codificados) e regras `packages/domain/src/evidence` (validação de fato, inferência e hipótese; classificação de fontes por claim, com o que a própria empresa publica contando como uma origem só; confiança com concordância, conflito e teto de inferência; atualidade, `stale` e estado efetivo com relógio injetado; recálculo que preserva `rejected` e `superseded`; rótulos Alta, Média, Baixa e A verificar). O critério 3 está coberto nas regras puras (testes em `packages/domain/tests/evidence`); falta o `EvidenceService` aplicá-las.
+- **Falta (F3, depois de juntar a F2):** migração do ledger, `EvidenceService` em `packages/application`, repositórios em `packages/db`, empresas e deduplicação, adaptador de CNPJ, dossiê v0 e componentes `ClaimChip`, `EvidencePopover` e `ConfidenceMeter`; conferência de trechos e recálculo da confiança com o tempo (KI-071 a KI-073).
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. CNPJ gera claims `fact` com fonte, data e confiança | **Não atendido** | Regra pronta: registro oficial recém-coletado = 0,95 (`packages/domain/tests/evidence/confidence.test.ts`); falta adaptador e serviço. |
+| 2. Sem duplicata por CNPJ ou domínio | **Não atendido** | — |
+| 3. Rejeita fato sem evidência e inferência sem dependência | **Parcial** | Só na regra de domínio: `validateClaimInput` (`fact_requires_evidence`, `inference_requires_dependencies`, `inference_requires_fact`…) em `packages/domain/tests/evidence/validation.test.ts`. O `EvidenceService` ainda não existe. |
+| 4. Dossiê abre a evidência | **Não atendido** | — |
+| 5. Custo em `provider_usage` | **Não atendido** | — |
+
 ### F4 — Descoberta + LLM Gateway (G)
 - `discovery_runs`/`discovery_candidates`; fontes: base CNPJ por filtros do ICP + importação CSV (+ Places se aprovado em D-DATA-1).
 - **LLM Gateway** (ADR-0003): config por capacidade, prompt versionado, cache, `llm_calls` com custo, tratamento de `stop_reason`, redação de PII.

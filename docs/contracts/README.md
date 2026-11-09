@@ -4,49 +4,24 @@
 > Fonte da verdade na implementação: **schemas Zod em `packages/contracts`**. Este documento descreve os contratos em TypeScript/Zod de forma legível; a fatia F1 cria o pacote real e testes de schema.
 > Regras gerais: todo contrato tem `schemaVersion`; IDs são UUID; datas ISO-8601 com fuso; valores monetários em centavos (BRL) ou micro-dólares (custo de IA); textos para o usuário em pt-BR.
 
-## 1. Primitivas compartilhadas
+## 1. Primitivas compartilhadas e Evidence Ledger
 
-```ts
-// packages/contracts/src/primitives.ts
-export const EpistemicType = z.enum(["fact", "inference", "hypothesis"]);
-export const Confidence = z.number().min(0).max(1);
-export const ClaimDomain = z.enum([
-  "firmographic", "digital_presence", "visual", "positioning",
-  "signal", "contact", "competitive", "financial_proxy",
-]);
+> **Implementado na F3a (2026-11-09)** em `packages/contracts/src/evidence.ts`, com testes em `packages/contracts/tests/evidence.test.ts`. Os contratos fixam só a forma; as regras epistemológicas e o cálculo de confiança ficam em `packages/domain/src/evidence` ([08 §2.5](../08-metodologia-comercial.md#25-regras-implementadas-e-valores-propostos-f3a-2026-11-09)). Os campos são as colunas de [06 §4.4](../06-modelo-de-dados.md#44-evidence-ledger-mvp) em camelCase.
 
-export const EvidenceRef = z.object({
-  url: z.string().url(),
-  quote: z.string().min(1).max(1200),          // trecho literal; verificado no servidor
-  retrievedAt: z.string().datetime(),
-  locator: z.object({                            // opcional: onde está na fonte
-    selector: z.string().optional(),
-    bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
-    assetId: z.string().uuid().optional(),
-  }).optional(),
-  stance: z.enum(["supports", "contradicts"]).default("supports"),
-});
+| Contrato | Conteúdo |
+|---|---|
+| `EpistemicType`, `ClaimStatus`, `ClaimDomain`, `ClaimSubjectType`, `EvidenceStance`, `Confidence` | enums e faixa 0–1 |
+| `ClaimKey` | `segmento(.segmento)*` em minúsculas, até 120 caracteres |
+| `SourceKind`, `SourceReliabilityTier` | tipo da fonte; categoria de confiabilidade atribuída pelo sistema, por claim (fica na evidência) |
+| `SourceInput` / `Source` | tipo, `url` ou `externalRef`, `provider`, `capturedAt`, hash, Storage, título, texto normalizado; página, captura, post e resultado de busca exigem URL; registro de API exige provedor. `Source` acrescenta `id` e `createdAt`. `capturedAt` nunca vem do modelo |
+| `EvidenceLocator`, `ClaimEvidenceInput` / `ClaimEvidence` | `sourceId`, trecho literal (1–1.200) **ou** região no localizador (`selector`, `bbox`, `page`, `timestamp`), `stance`; a gravada acrescenta `claimId`, `reliabilityTier` (categoria da fonte para o sujeito do claim) e `quoteVerified` (nulo sem trecho). As regras do domínio exigem `bbox` em captura de tela e trecho nos demais tipos |
+| `ClaimDependency` | `claimId` → `dependsOnClaimId` (nunca o próprio) |
+| `ClaimInput` | sujeito (`subjectType`, `subjectId`), `domain`, `key`, `statement`, `value`, `epistemicType`, até 8 evidências, até 20 dependências, `reasoning`, `reasoningFactor` (só inferência) |
+| `Claim` | gravado: `confidence` (nula só em hipótese; inferência ≤ 0,9), `status`, `validUntil`, `reasoningFactor` aplicado, procedência (`producedByRunId`, `promptVersionId`, `supersedesId`), `reviewedAt`, `isDemo` |
+| `ConfidenceBand`, `CONFIDENCE_BAND_LABELS` | `high` Alta · `medium` Média · `low` Baixa · `unverified` A verificar |
+| `ClaimIssueCode`, `CLAIM_ISSUE_MESSAGES`, `ClaimIssue` | erros das regras do ledger, com mensagem em pt-BR |
 
-export const ClaimInput = z.object({
-  subject: z.object({ type: z.enum(["company", "contact", "competitor_link"]), id: z.string().uuid() }),
-  domain: ClaimDomain,
-  key: z.string().regex(/^[a-z0-9_.]+$/),        // ex.: "brand.consistency.cross_channel"
-  statement: z.string().min(5).max(500),
-  value: z.record(z.unknown()).optional(),
-  epistemicType: EpistemicType,
-  confidenceHint: Confidence,                    // sugestão do modelo; o servidor recalcula
-  evidence: z.array(EvidenceRef).max(8),
-  dependsOn: z.array(z.string().uuid()).default([]),
-  reasoning: z.string().max(800).optional(),
-}).superRefine((c, ctx) => {
-  if (c.epistemicType === "fact" && c.evidence.length === 0)
-    ctx.addIssue({ code: "custom", message: "fato exige evidência" });
-  if (c.epistemicType === "inference" && c.dependsOn.length === 0)
-    ctx.addIssue({ code: "custom", message: "inferência exige dependências" });
-});
-
-export const ClaimRef = z.object({ claimId: z.string().uuid() });
-```
+Mudanças em relação ao esboço anterior desta seção: a evidência cita `sourceId` (a fonte é gravada antes pelo sistema), não uma URL solta; não existe `confidenceHint` (a única estimativa aceita do modelo é o `reasoningFactor` da inferência); o sujeito é plano (`subjectType`, `subjectId`), como no banco; as regras "fato exige evidência" e "inferência exige dependências" saíram do `superRefine` e viraram regras de domínio com código. `ClaimRef` nasce com o primeiro consumidor (F7).
 
 ## 2. Eventos de domínio (workflow engine)
 
