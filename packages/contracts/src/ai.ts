@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { InternalLink, ToolName, ToolStatus } from './tools';
 
 /**
  * Contratos da IA local (ADR-0008). O gateway em `@prospector/agents` escolhe o modelo por
@@ -132,6 +133,29 @@ export const CopilotEvent = z.discriminatedUnion('type', [
     usage: GenerationUsage,
   }),
   z.object({ type: z.literal('error'), code: AiErrorCode, message: z.string() }),
+  /** Conversa em que a resposta fica salva (IA-2); `created` = criada por este pedido. */
+  z.object({
+    type: z.literal('thread'),
+    threadId: z.string(),
+    title: z.string(),
+    created: z.boolean(),
+  }),
+  /** O modelo pediu uma ferramenta; a tela mostra o que está sendo consultado. */
+  z.object({
+    type: z.literal('tool_call'),
+    id: z.string(),
+    name: ToolName,
+    title: z.string(),
+  }),
+  /** Resultado da ferramenta: só o resumo e os links internos (os dados vão para o modelo). */
+  z.object({
+    type: z.literal('tool_result'),
+    id: z.string(),
+    name: ToolName,
+    status: ToolStatus,
+    summary: z.string(),
+    links: z.array(InternalLink),
+  }),
 ]);
 export type CopilotEvent = z.infer<typeof CopilotEvent>;
 

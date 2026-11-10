@@ -8,8 +8,19 @@ import { AiError } from './errors';
  */
 
 export interface BudgetMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  /** Pedidos de ferramenta feitos pelo assistente nesta mensagem (IA-2). */
+  toolCalls?: ReadonlyArray<{ id: string; name: string; arguments: Record<string, unknown> }>;
+  /** Mensagem `tool`: qual ferramenta e qual chamada ela responde. */
+  toolName?: string;
+  toolCallId?: string;
+}
+
+/** Custo de uma mensagem: o texto e, se houver, os pedidos de ferramenta em JSON. */
+export function estimateMessageTokens(message: BudgetMessage): number {
+  const calls = message.toolCalls?.length ? estimateTokens(JSON.stringify(message.toolCalls)) : 0;
+  return estimateTokens(message.content) + calls;
 }
 
 /**
@@ -59,10 +70,11 @@ export interface ContextPlan<M extends BudgetMessage> {
 }
 
 /**
- * Mantém as instruções de sistema e a última mensagem, e acrescenta o histórico do mais recente
- * para o mais antigo enquanto couber em `numCtx` menos o espaço da resposta. A conversa enviada
- * sempre começa por uma fala do usuário. Se nem o mínimo couber com o espaço inteiro da resposta,
- * a resposta encolhe até `MIN_OUTPUT_TOKENS`; abaixo disso o pedido é recusado.
+ * Mantém as instruções de sistema e o turno atual (a última pergunta do usuário e, com
+ * ferramentas, os pedidos e resultados que vieram depois dela), e acrescenta o histórico do mais
+ * recente para o mais antigo enquanto couber em `numCtx` menos o espaço da resposta. A conversa
+ * enviada sempre começa por uma fala do usuário. Se nem o mínimo couber com o espaço inteiro da
+ * resposta, a resposta encolhe até `MIN_OUTPUT_TOKENS`; abaixo disso o pedido é recusado.
  */
 export function fitToContext<M extends BudgetMessage>(
   messages: readonly M[],
@@ -70,26 +82,31 @@ export function fitToContext<M extends BudgetMessage>(
 ): ContextPlan<M> {
   const system = messages.filter((message) => message.role === 'system');
   const conversation = messages.filter((message) => message.role !== 'system');
-  const last = conversation.at(-1);
-  if (!last) throw new AiError('invalid_request', { detail: 'pedido sem mensagens da conversa' });
+  if (conversation.length === 0) {
+    throw new AiError('invalid_request', { detail: 'pedido sem mensagens da conversa' });
+  }
+  let turnStart = conversation.length - 1;
+  while (turnStart > 0 && conversation[turnStart]?.role !== 'user') turnStart -= 1;
+  const turn = conversation.slice(turnStart);
 
   const sum = (list: readonly M[]) =>
-    list.reduce((total, message) => total + estimateTokens(message.content), 0);
+    list.reduce((total, message) => total + estimateMessageTokens(message), 0);
   const budget = limits.numCtx - limits.maxOutputTokens - SAFETY_MARGIN_TOKENS;
-  let used = sum(system) + estimateTokens(last.content);
-  const kept: M[] = [last];
-  for (let index = conversation.length - 2; index >= 0; index -= 1) {
+  let used = sum(system) + sum(turn);
+  const kept: M[] = [...turn];
+  for (let index = turnStart - 1; index >= 0; index -= 1) {
     const message = conversation[index];
     if (!message) continue;
-    const cost = estimateTokens(message.content);
+    const cost = estimateMessageTokens(message);
     if (used + cost > budget) break;
     kept.unshift(message);
     used += cost;
   }
-  // Uma resposta antiga do assistente sem a pergunta que a originou só confunde o modelo.
-  while (kept.length > 1 && kept[0]?.role === 'assistant') {
+  // Uma resposta antiga do assistente (ou resultado de ferramenta) sem a pergunta que a originou
+  // só confunde o modelo.
+  while (kept.length > turn.length && kept[0]?.role !== 'user') {
     const removed = kept.shift();
-    if (removed) used -= estimateTokens(removed.content);
+    if (removed) used -= estimateMessageTokens(removed);
   }
 
   const room = limits.numCtx - used - SAFETY_MARGIN_TOKENS;

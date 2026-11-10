@@ -43,9 +43,29 @@ const ShowResponse = z.object({
   model_info: z.record(z.string(), z.unknown()).optional(),
 });
 
+/**
+ * Pedido de ferramenta como o Ollama manda: `arguments` costuma vir como objeto, mas alguns
+ * modelos devolvem o JSON em texto; o gateway normaliza.
+ */
+const ChunkToolCall = z.object({
+  id: z.string().optional(),
+  function: z.object({
+    index: z.number().optional(),
+    name: z.string(),
+    arguments: z.union([z.record(z.string(), z.unknown()), z.string()]).optional(),
+  }),
+});
+export type OllamaChunkToolCall = z.infer<typeof ChunkToolCall>;
+
 const ChatChunk = z.object({
   model: z.string().optional(),
-  message: z.object({ content: z.string().optional(), thinking: z.string().optional() }).optional(),
+  message: z
+    .object({
+      content: z.string().optional(),
+      thinking: z.string().optional(),
+      tool_calls: z.array(ChunkToolCall).optional(),
+    })
+    .optional(),
   done: z.boolean().optional(),
   done_reason: z.string().optional(),
   total_duration: z.number().optional(),
@@ -83,9 +103,30 @@ export interface OllamaModelShow {
   modelInfo: Record<string, unknown>;
 }
 
+/** Ferramenta oferecida ao modelo (`tools` do `/api/chat`). */
+export interface OllamaTool {
+  type: 'function';
+  function: { name: string; description: string; parameters: Record<string, unknown> };
+}
+
+/** Mensagem no formato do `/api/chat`, inclusive pedidos e resultados de ferramentas. */
+export type OllamaChatMessage =
+  | { role: 'system' | 'user'; content: string }
+  | {
+      role: 'assistant';
+      content: string;
+      tool_calls?: Array<{
+        id?: string;
+        function: { name: string; arguments: Record<string, unknown> };
+      }>;
+    }
+  | { role: 'tool'; content: string; tool_name: string; tool_call_id?: string };
+
 export interface OllamaChatRequest {
   model: string;
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  messages: OllamaChatMessage[];
+  /** Ausente ou vazio = sem ferramentas. */
+  tools?: OllamaTool[];
   think: boolean;
   keepAlive: string;
   /** `num_predict` limita os tokens gerados (raciocínio incluído). */
@@ -239,6 +280,7 @@ export function createOllamaClient(options: {
           body: JSON.stringify({
             model: request.model,
             messages: request.messages,
+            ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
             stream: true,
             think: request.think,
             keep_alive: request.keepAlive,

@@ -101,7 +101,7 @@ flowchart LR
 
 - **Dependências:** pnpm 11 + Turborepo; Next 16.4.5, React 19.3.1, TypeScript 6.0.3 (fixado, KI-012), zod 4.6.7, Vitest, Playwright 1.65 com Chromium instalado. `packages/agents` não adiciona dependência externa além de `zod`.
 - **Variáveis:** `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `TEST_DATABASE_URL` e as de IA local (`OLLAMA_BASE_URL`, `AI_*`, ver [runbooks/segredos.md](runbooks/segredos.md)).
-- **Scripts:** `dev`, `typecheck`, `lint` (fronteiras + ESLint), `format:check`, `test`, `test:db`, `test:e2e`, `ai:live` e `evals` (novos).
+- **Scripts:** `dev`, `typecheck`, `lint` (fronteiras + ESLint), `format:check`, `test`, `test:db`, `test:e2e`, `ai:live`, `evals` e `app:install` (instalação no disco D, §11).
 - **Docker:** não existe no projeto nem na máquina.
 - **CI:** `.github/workflows/ci.yml` escrito e nunca executado (sem remoto, KI-009).
 - **Logs:** console do servidor; sem `llm_calls`, traces ou métricas persistidas.
@@ -114,10 +114,10 @@ Estados: **Funcional** (implementado e funcional) · **Parcial** (implementado p
 |---|---|---|---|
 | Shell, navegação e design system | Funcional | — | F1 |
 | Início | Parcial + Integração | Média | F1 → F10 |
-| Copiloto | Parcial | **Alta** | IA-1 → IA-2, F8 |
+| Copiloto | Funcional (IA-2, 2026-11-10): conversas salvas no banco, ferramentas de leitura da estratégia, telemetria; prompt `copilot-tools/v2` com ressalvas (KI-076) | **Alta** | IA-2 → F8 |
 | IA local (gateway, gerenciador de modelos) | Funcional para conversa; Parcial para as demais tarefas | **Alta** | IA-1 → IA-5 |
 | Configurações e auditoria | Funcional: estratégia e conformidade gravam no banco real com auditoria na mesma transação (ADR-0010) | Média | F1, F2 |
-| Banco de dados | Funcional (desenvolvimento): 4 migrações no `prospector-dev`; `pnpm test:db` real e CI não executados | Média | F1, F2 |
+| Banco de dados | Funcional (desenvolvimento): 5 migrações no `prospector-dev` (a 5ª, do Copiloto, em 2026-11-10); `pnpm test:db` real e CI não executados | Média | F1, F2 |
 | Segurança local | Funcional | — | F1 |
 | Testes e qualidade | Funcional (local); CI não executado | Média | F1 |
 | Descoberta | Não implementado | Alta | F4 |
@@ -706,3 +706,32 @@ Preenchimento final, no mesmo dia, depois que o usuário aprovou os textos e ped
 | GitHub | Repositório privado `sourodriguesvini/prospect-ai`; `main` enviada com o commit desta rodada. Primeira execução do CI não conferida pelo agente (KI-009) |
 
 Ambiente: a porta 3100, padrão do e2e, estava ocupada por outro projeto do usuário; os e2e rodaram com `E2E_PORT=3120 E2E_MEMORY_PORT=3130`. Com o painel do navegador embutido escondido, o `requestAnimationFrame` não dispara e o React não revela o conteúdo transmitido depois do `Suspense` (a página fica em "Carregando…"). Não é defeito do app: o HTML chega completo.
+
+### App instalado no disco D (2026-11-10)
+
+Pedido do usuário: transformar o projeto num aplicativo da máquina, instalado no disco D, para abrir sem terminal. Detalhes de uso no [runbook §7](runbooks/ambiente-local.md#7-app-instalado-neste-computador-dprospector).
+
+| Item | O que foi feito |
+|---|---|
+| Build | `PROSPECTOR_STANDALONE=1` liga `output: 'standalone'` em `apps/web/next.config.ts`; sem a variável nada muda. `/*turbopackIgnore: true*/` no `execFile` do `nvidia-smi` (`packages/agents/src/gpu.ts`), que fazia o Turbopack rastrear o projeto inteiro para o build |
+| Instalador | `pnpm app:install` (`scripts/app/instalar.mjs`): build, cópia para `D:\Prospector\app` com os 26 links simbólicos relativos do pnpm, `.next/static`, prompts, `.env.local` (sem ler), scripts e atalhos |
+| Atalhos | Área de Trabalho e Menu Iniciar: Prospector, Parar Prospector, Desinstalar Prospector; ícone gerado com as cores do design system |
+| Servidor | `node server.js` sem janela, só em `127.0.0.1:3210`; o PID e a linha de comando são conferidos antes de reaproveitar ou encerrar, para nunca mexer em outro programa |
+| Achado | O Copiloto instalado não acharia o prompt (KI-035): o instalador passou a copiar `packages/agents/prompts` e o `pnpm-workspace.yaml` |
+
+| Checagem | Resultado |
+|---|---|
+| `pnpm app:install` | Instalou e reinstalou (atualização): 24 MB, 26 links, `versao.txt` com o commit de origem |
+| Atalho da Área de Trabalho | Servidor respondeu em 5 s, escutando só em `127.0.0.1:3210`; segundo clique reaproveitou o mesmo PID |
+| App instalado no navegador | Início com banco "Conectado", dados demo "Nenhum" e a atividade recente do banco real |
+| `Host: exemplo.com` | 403 |
+| `parar.ps1` | Encerrou só o servidor do app; os processos do `pnpm dev` continuaram |
+| Prompt no app instalado | `findPromptsDir` a partir de `D:\Prospector\app\apps\web` achou `D:\Prospector\app\packages\agents\prompts` e leu o `copilot/v3` |
+| `pnpm lint`, `format:check`, `typecheck`, `test` | Verdes |
+| `pnpm test:e2e` (`E2E_PORT=3120 E2E_MEMORY_PORT=3130`) | 30 passaram, 3 pulados |
+
+Não verificado: resposta real do Copiloto no app instalado (a GPU estava ocupada pela avaliação do prompt v4) e o desinstalador de ponta a ponta (KI-075).
+
+## 12. Execução de conclusão (desde 2026-11-10)
+
+O andamento dos marcos M0 a M7 (o que foi feito, verificado e o que falta) fica em [14 — Execução e conclusão](14-execucao-e-conclusao.md). A matriz da §4 é atualizada ao fim de cada marco.

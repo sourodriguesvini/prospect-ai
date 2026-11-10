@@ -6,7 +6,8 @@ const MEMORY_PORT = Number(process.env.E2E_MEMORY_PORT ?? 3110);
 const memoryURL = `http://127.0.0.1:${MEMORY_PORT}`;
 const withDatabase = process.env.E2E_SUPABASE === '1';
 const withOllama = process.env.E2E_OLLAMA === '1';
-const STRATEGY_SPEC = /strategy\.spec\.ts$/;
+/** Specs que gravam dados: rodam no servidor em modo memória (sem banco real). */
+const STRATEGY_SPEC = /(strategy|copilot-history)\.spec\.ts$/;
 
 /** Sem E2E_OLLAMA=1, o Copiloto aponta para uma porta sem servidor (estado "Ollama fora do ar"). */
 const ollamaEnv: Record<string, string> = withOllama

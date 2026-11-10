@@ -11,21 +11,30 @@ import {
 export { buildCopilotSystemFacts } from '@prospector/agents';
 import {
   createAuditService,
+  createCopilotService,
   createStrategyService,
   createSystemService,
+  createToolRegistry,
+  strategyTools,
+  type AiTelemetryRepository,
   type AuditRepository,
   type AuditService,
+  type CopilotRepository,
+  type CopilotService,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
+  type ToolRegistry,
 } from '@prospector/application';
 import {
   createMemoryAuditRepository,
+  createMemoryCopilotRepository,
   createMemoryStrategyRepository,
 } from '@prospector/application/memory';
 import {
   createServerSupabaseClient,
   createSupabaseAuditRepository,
+  createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
   createSupabaseStrategyRepository,
 } from '@prospector/db';
@@ -52,11 +61,16 @@ export interface Services {
   /** null enquanto o banco não estiver configurado: a tela mostra o estado, não um erro. */
   audit: AuditService | null;
   strategy: StrategyService | null;
+  /** Conversas persistentes do Copiloto e telemetria da IA local (IA-2). */
+  copilot: CopilotService | null;
+  /** Ferramentas de leitura oferecidas ao Copiloto; null sem banco. */
+  tools: ToolRegistry | null;
 }
 
 interface MemoryStores {
   audit: AuditRepository;
   strategy: StrategyRepository;
+  copilot: CopilotRepository & AiTelemetryRepository;
 }
 
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
@@ -68,6 +82,7 @@ function memoryStores(): MemoryStores {
     holder.__prospectorMemoryStores = {
       audit,
       strategy: createMemoryStrategyRepository({ audit }),
+      copilot: createMemoryCopilotRepository({ audit }),
     };
   }
   return holder.__prospectorMemoryStores;
@@ -90,25 +105,45 @@ export const getServices = cache((): Services => {
     warnIgnoredDatabase();
     const stores = memoryStores();
     const audit = createAuditService(stores.audit);
+    // LIA e auditoria somem ao reiniciar: a barreira de abordagem nunca libera (ADR-0009).
+    const strategy = createStrategyService({ repo: stores.strategy, ephemeralStorage: true });
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
       audit,
-      // LIA e auditoria somem ao reiniciar: a barreira de abordagem nunca libera (ADR-0009).
-      strategy: createStrategyService({ repo: stores.strategy, ephemeralStorage: true }),
+      strategy,
+      copilot: createCopilotService({ repo: stores.copilot, telemetry: stores.copilot }),
+      tools: createToolRegistry({
+        tools: strategyTools({ strategy, audit }),
+        telemetry: stores.copilot,
+      }),
     };
   }
   const credentials = databaseEnv();
   if (!credentials) {
-    return { storage: 'supabase', system: createSystemService(null), audit: null, strategy: null };
+    return {
+      storage: 'supabase',
+      system: createSystemService(null),
+      audit: null,
+      strategy: null,
+      copilot: null,
+      tools: null,
+    };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
   const audit = createAuditService(createSupabaseAuditRepository(client));
+  const strategy = createStrategyService({ repo: createSupabaseStrategyRepository(client) });
+  const copilotRepo = createSupabaseCopilotRepository(client);
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
     audit,
-    strategy: createStrategyService({ repo: createSupabaseStrategyRepository(client) }),
+    strategy,
+    copilot: createCopilotService({ repo: copilotRepo, telemetry: copilotRepo }),
+    tools: createToolRegistry({
+      tools: strategyTools({ strategy, audit }),
+      telemetry: copilotRepo,
+    }),
   };
 });
 

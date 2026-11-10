@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { expectNoA11yViolations } from './support';
 
 const withOllama = process.env.E2E_OLLAMA === '1';
-const ask = { schemaVersion: 1, messages: [{ role: 'user', content: 'oi' }] };
+const ask = { schemaVersion: 2, threadId: null, message: 'oi' };
 
 test.describe('Copiloto: rota protegida', () => {
   test('recusa pedido vindo de outro site (CSRF)', async ({ request }) => {
@@ -26,14 +26,18 @@ test.describe('Copiloto: rota protegida', () => {
       data: 'oi',
     });
     expect(text.status()).toBe(415);
+    // O formato antigo (histórico vindo do navegador) não é mais aceito (KI-032).
+    const old = await request.post('/api/copiloto', {
+      headers,
+      data: { schemaVersion: 1, messages: [{ role: 'user', content: 'oi' }] },
+    });
+    expect(old.status()).toBe(400);
     const invalid = await request.post('/api/copiloto', {
       headers,
-      data: { schemaVersion: 1, messages: [{ role: 'assistant', content: 'oi' }] },
+      data: { schemaVersion: 2, threadId: 'abc', message: 'oi' },
     });
     expect(invalid.status()).toBe(400);
-    expect((await invalid.json()) as unknown).toEqual({
-      error: 'A última mensagem precisa ser do usuário.',
-    });
+    expect((await invalid.json()) as { error: string }).toEqual({ error: expect.any(String) });
   });
 });
 
@@ -61,7 +65,9 @@ test.describe('Copiloto sem Ollama', () => {
       .trim()
       .split('\n')
       .map((line) => JSON.parse(line) as { type: string; code?: string });
+    // Sem banco: avisa que a conversa não fica salva e responde com o erro tratado.
     expect(events).toEqual([
+      expect.objectContaining({ type: 'notice' }),
       expect.objectContaining({ type: 'error', code: 'runtime_unavailable' }),
     ]);
   });

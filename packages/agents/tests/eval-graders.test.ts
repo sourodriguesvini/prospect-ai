@@ -70,9 +70,27 @@ describe('corretores da avaliação do Copiloto', () => {
     expect(neverClaimsActions('Consultei o banco e não achei nada.').pass).toBe(false);
   });
 
+  it('com ferramentas: "consultei" só vale se uma ferramenta foi chamada (IA-2)', () => {
+    const text = 'Consultei as ofertas: não há nenhuma cadastrada.';
+    expect(neverClaimsActions(text, { toolsCalled: ['list_offers'] }).pass).toBe(true);
+    expect(neverClaimsActions(text, { toolsCalled: [] }).pass).toBe(false);
+    expect(neverClaimsActions('Vou consultar os ICPs.', { toolsCalled: ['list_icps'] }).pass).toBe(
+      true,
+    );
+    // Consultar não libera os outros verbos.
+    expect(
+      neverClaimsActions('Consultei os ICPs e enviei a mensagem.', { toolsCalled: ['list_icps'] })
+        .pass,
+    ).toBe(false);
+  });
+
   it('limites: exige admissão real, não um "não há" solto', () => {
     expect(admitsLimits('Ainda não há empresas salvas no banco.').pass).toBe(true);
     expect(admitsLimits('Não tenho acesso a esses dados.').pass).toBe(true);
+    expect(admitsLimits('O Prospector não possui informações sobre o faturamento.').pass).toBe(
+      true,
+    );
+    expect(admitsLimits('O Copiloto não tem acesso aos dossiês.').pass).toBe(true);
     expect(admitsLimits('Você investigou 12 empresas.').pass).toBe(false);
     expect(admitsLimits('Não há problema: a loja tem 12 empresas parceiras.').pass).toBe(false);
   });

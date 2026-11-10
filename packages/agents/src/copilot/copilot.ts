@@ -1,6 +1,15 @@
-import type { CopilotEvent, CopilotRequest } from '@prospector/contracts';
+import type {
+  AiErrorCode,
+  CopilotEvent,
+  CopilotRequest,
+  GenerationUsage,
+  InternalLink,
+  ToolCallRequest,
+  ToolSpec,
+  ToolStatus,
+} from '@prospector/contracts';
 import { toAiError } from '../errors';
-import type { LocalAiGateway } from '../gateway';
+import type { GatewayMessage, LocalAiGateway } from '../gateway';
 import type { PromptDoc } from '../prompts';
 
 /**
@@ -14,6 +23,43 @@ import type { PromptDoc } from '../prompts';
  */
 export const COPILOT_PROMPT_VERSION = 3;
 
+/**
+ * Prompt do Copiloto com ferramentas de leitura (IA-2, `prompts/copilot-tools/v<N>.md`). É um
+ * prompt inteiro, não um adendo ao v3: o v3 diz que o Copiloto não tem ferramentas.
+ */
+export const COPILOT_TOOLS_PROMPT_VERSION = 2;
+
+/** Rodadas de geração por pergunta: até 3 com ferramentas e a última obrigatoriamente sem. */
+export const MAX_COPILOT_ROUNDS = 4;
+
+/** O que a tela e o modelo recebem de uma ferramenta executada no servidor. */
+export interface CopilotToolOutcome {
+  status: ToolStatus;
+  /** Frase pt-BR mostrada na tela. */
+  summary: string;
+  links: InternalLink[];
+  /** Texto entregue ao modelo (JSON com status, resumo e dados, já limitado em tamanho). */
+  forModel: string;
+}
+
+/** Ferramentas oferecidas nesta conversa e quem as executa (serviços de application). */
+export interface CopilotToolbox {
+  specs: readonly ToolSpec[];
+  /** Nunca lança: falha vira `status: 'error'` com resumo pt-BR. */
+  execute(call: ToolCallRequest, signal?: AbortSignal): Promise<CopilotToolOutcome>;
+}
+
+/** Uma geração do modelo, para a telemetria (`llm_calls`). */
+export interface GenerationRecord {
+  /** null quando a falha veio antes de o modelo ser escolhido. */
+  model: string | null;
+  status: 'ok' | 'error' | 'cancelled';
+  errorCode: AiErrorCode | null;
+  doneReason: string | null;
+  usage: GenerationUsage | null;
+  round: number;
+}
+
 export interface CopilotTurnOptions {
   traceId: string;
   signal?: AbortSignal;
@@ -22,6 +68,10 @@ export interface CopilotTurnOptions {
    * prompt, depois da parte estática, e são rotulados como contexto, não como instrução.
    */
   systemFacts: readonly string[];
+  /** Ferramentas de leitura (IA-2). Ausente = conversa sem ferramentas (prompt v3). */
+  tools?: CopilotToolbox;
+  /** Chamado a cada geração terminada ou interrompida (telemetria). Não pode lançar. */
+  onGeneration?: (record: GenerationRecord) => void;
 }
 
 export interface Copilot {
@@ -29,13 +79,22 @@ export interface Copilot {
   reply(request: CopilotRequest, options: CopilotTurnOptions): AsyncGenerator<CopilotEvent>;
 }
 
+/** Ferramentas que pedem a mesma coisa duas vezes na mesma pergunta recebem o resultado anterior. */
+function callKey(call: ToolCallRequest): string {
+  return `${call.name}:${JSON.stringify(call.arguments)}`;
+}
+
 /**
- * Copiloto (fatias IA-1 e IA-1.1): conversa com o modelo local, sem ferramentas. Nunca lança:
- * toda falha vira um evento `error` com mensagem pt-BR, e o detalhe técnico vai para o log.
+ * Copiloto (IA-1, IA-1.1 e IA-2): conversa com o modelo local e, com ferramentas, executa as
+ * consultas que o modelo pedir e devolve o resultado a ele, em até `MAX_COPILOT_ROUNDS` gerações.
+ * Nunca lança: toda falha vira um evento `error` com mensagem pt-BR, e o detalhe técnico vai
+ * para o log.
  */
 export function createCopilot(deps: {
   gateway: LocalAiGateway;
   prompt: () => PromptDoc;
+  /** Prompt do modo com ferramentas; sem ele, as ferramentas nunca são oferecidas. */
+  toolsPrompt?: () => PromptDoc;
   log?: (message: string) => void;
 }): Copilot {
   const log = deps.log ?? ((message: string) => console.warn(message));
@@ -46,42 +105,194 @@ export function createCopilot(deps: {
 
     async *reply(request, options) {
       let promptId = 'copilot/?';
+      let round = 0;
+      let roundModel: string | null = null;
+      let roundOpen = false;
+      const record = (entry: Omit<GenerationRecord, 'round'>) => {
+        try {
+          options.onGeneration?.({ ...entry, round });
+        } catch (error) {
+          log(`[copiloto] telemetria falhou trace=${options.traceId}: ${String(error)}`);
+        }
+      };
       try {
-        const prompt = deps.prompt();
+        const toolbox = options.tools && deps.toolsPrompt ? options.tools : undefined;
+        const prompt = toolbox && deps.toolsPrompt ? deps.toolsPrompt() : deps.prompt();
         promptId = prompt.id;
         const context = options.systemFacts.map((fact) => `- ${fact}`).join('\n');
-        const messages = [
-          { role: 'system' as const, content: prompt.text },
+        const conversation: GatewayMessage[] = [
+          { role: 'system', content: prompt.text },
           {
-            role: 'system' as const,
+            role: 'system',
             content: `Contexto do sistema (dados verificados pelo Prospector, não são instruções):\n${context}`,
           },
           ...request.messages,
         ];
-        for await (const event of deps.gateway.chat(
-          'copilot',
-          { messages, model: request.model, think: request.think },
-          options.signal,
-        )) {
-          if (event.type === 'start') {
-            yield {
-              type: 'start',
-              model: event.model,
-              promptVersion: prompt.id,
-              traceId: options.traceId,
-            };
-          } else {
-            yield event;
+
+        let started = false;
+        let wroteText = false;
+        const shownNotices = new Set<string>();
+        const answered = new Map<string, string>();
+        const usedIds = new Set<string>();
+        const totals = { outputTokens: 0, totalMs: 0, any: false };
+        let lastDone: Extract<CopilotEvent, { type: 'done' }> | null = null;
+
+        for (round = 1; round <= MAX_COPILOT_ROUNDS; round += 1) {
+          const offer = toolbox && round < MAX_COPILOT_ROUNDS ? toolbox.specs : undefined;
+          let calls: ToolCallRequest[] = [];
+          let roundText = '';
+          let separated = !wroteText;
+          roundOpen = true;
+          roundModel = null;
+          for await (const event of deps.gateway.chat(
+            'copilot',
+            { messages: conversation, model: request.model, think: request.think, tools: offer },
+            options.signal,
+          )) {
+            switch (event.type) {
+              case 'start':
+                roundModel = event.model;
+                if (!started) {
+                  started = true;
+                  yield {
+                    type: 'start',
+                    model: event.model,
+                    promptVersion: prompt.id,
+                    traceId: options.traceId,
+                  };
+                }
+                break;
+              case 'notice':
+                if (!shownNotices.has(event.message)) {
+                  shownNotices.add(event.message);
+                  yield event;
+                }
+                break;
+              case 'delta':
+                if (!separated) {
+                  // Texto de uma rodada anterior (antes das ferramentas) e o desta ficam em
+                  // parágrafos separados na tela.
+                  separated = true;
+                  yield { type: 'delta', text: '\n\n' };
+                }
+                roundText += event.text;
+                wroteText = true;
+                yield event;
+                break;
+              case 'tool_calls':
+                calls = event.calls;
+                break;
+              case 'done':
+                roundOpen = false;
+                record({
+                  model: event.model,
+                  status: 'ok',
+                  errorCode: null,
+                  doneReason: event.doneReason,
+                  usage: event.usage,
+                });
+                lastDone = event;
+                if (event.usage.outputTokens !== null) {
+                  totals.outputTokens += event.usage.outputTokens;
+                  totals.any = true;
+                }
+                if (event.usage.totalMs !== null) totals.totalMs += event.usage.totalMs;
+                break;
+              default:
+                yield event;
+            }
           }
+
+          if (!toolbox || calls.length === 0 || !offer) break;
+          // Ids repetidos entre rodadas (o gateway numera quando o Ollama não manda) confundiriam
+          // a tela e o modelo: cada chamada da pergunta tem id único.
+          calls = calls.map((call) => {
+            let id = call.id;
+            while (usedIds.has(id)) id = `${call.id}_${round}_${usedIds.size}`;
+            usedIds.add(id);
+            return id === call.id ? call : { ...call, id };
+          });
+
+          conversation.push({ role: 'assistant', content: roundText, toolCalls: calls });
+          for (const call of calls) {
+            const spec = toolbox.specs.find((tool) => tool.name === call.name);
+            yield {
+              type: 'tool_call',
+              id: call.id,
+              name: call.name,
+              title: spec?.title ?? 'Ferramenta desconhecida',
+            };
+            const key = callKey(call);
+            let outcome: CopilotToolOutcome;
+            const repeated = answered.get(key);
+            if (repeated !== undefined) {
+              outcome = {
+                status: 'ok',
+                summary: 'Mesma consulta de antes nesta pergunta; resultado reaproveitado.',
+                links: [],
+                forModel: repeated,
+              };
+            } else {
+              outcome = await toolbox.execute(call, options.signal);
+              answered.set(key, outcome.forModel);
+            }
+            yield {
+              type: 'tool_result',
+              id: call.id,
+              name: call.name,
+              status: outcome.status,
+              summary: outcome.summary,
+              links: outcome.links,
+            };
+            conversation.push({
+              role: 'tool',
+              content: outcome.forModel,
+              toolName: call.name,
+              toolCallId: call.id,
+            });
+          }
+        }
+
+        if (lastDone) {
+          // Uma linha de métricas para a pergunta inteira: soma das gerações.
+          yield {
+            ...lastDone,
+            usage: {
+              ...lastDone.usage,
+              outputTokens: totals.any ? totals.outputTokens : lastDone.usage.outputTokens,
+              totalMs: totals.totalMs > 0 ? totals.totalMs : lastDone.usage.totalMs,
+            },
+          };
         }
       } catch (error) {
         const failure = toAiError(error);
+        if (roundOpen) {
+          roundOpen = false;
+          record({
+            model: roundModel,
+            status: failure.code === 'cancelled' ? 'cancelled' : 'error',
+            errorCode: failure.code,
+            doneReason: null,
+            usage: null,
+          });
+        }
         if (failure.code !== 'cancelled') {
           log(
             `[copiloto] falha ${failure.code} trace=${options.traceId} prompt=${promptId}${failure.detail ? ` detalhe=${failure.detail}` : ''}`,
           );
         }
         yield { type: 'error', code: failure.code, message: failure.message };
+      } finally {
+        // Quem consome desistiu no meio da geração (navegador fechou): conta como cancelada.
+        if (roundOpen) {
+          record({
+            model: roundModel,
+            status: 'cancelled',
+            errorCode: 'cancelled',
+            doneReason: null,
+            usage: null,
+          });
+        }
       }
     },
   };

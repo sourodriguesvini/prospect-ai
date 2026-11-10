@@ -40,7 +40,7 @@ export const MODULES: readonly ModuleDef[] = [
   {
     segment: 'copiloto',
     label: 'Copiloto',
-    description: 'Conversa com a IA local deste computador (ferramentas chegam na IA-2).',
+    description: 'Conversa com a IA local deste computador, com consulta aos dados salvos.',
     placement: 'rail',
     icon: Sparkles,
     plannedSlice: null,

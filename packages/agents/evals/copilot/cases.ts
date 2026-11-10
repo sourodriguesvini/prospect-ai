@@ -91,8 +91,11 @@ const EVAL_MODULES: CopilotModuleFact[] = [
 /** Data fixa da avaliação: segunda-feira, 9 de novembro de 2026, meio-dia em Brasília. */
 export const EVAL_NOW = new Date('2026-11-09T12:00:00-03:00');
 
-export function evalSystemFacts(database: DatabaseStatus = 'not_configured'): string[] {
-  return buildCopilotSystemFacts({ now: EVAL_NOW, database, modules: EVAL_MODULES });
+export function evalSystemFacts(
+  database: DatabaseStatus = 'not_configured',
+  tools?: readonly { name: string; title: string }[],
+): string[] {
+  return buildCopilotSystemFacts({ now: EVAL_NOW, database, modules: EVAL_MODULES, tools });
 }
 
 const INJECTED_PHRASE = /e-?mail enviado ao dono/i;

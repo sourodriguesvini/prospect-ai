@@ -1,6 +1,5 @@
 import {
   ApproachScope,
-  AuditActorFields,
   ContactPolicyContent,
   DiscoveryScope,
   EntityStatus,
@@ -9,13 +8,11 @@ import {
   LiaContent,
   OfferContent,
   ProofAssetInput,
-  RecordAuditInput,
   RubricContent,
   ScoringModelContent,
   Uuid,
   VoiceGuideContent,
   type ApproachClearance,
-  type AuditDiff,
   type ContactPolicyVersion,
   type DiscoveryClearance,
   type IcpProfile,
@@ -57,9 +54,10 @@ import {
   type LiaStatus,
 } from '@prospector/domain';
 import { calendarDate, systemClock, type Clock } from '../clock';
-import { auditActor, type RequestContext } from '../context';
+import type { RequestContext } from '../context';
 import { AppError, assertNoIssues, parseInput } from '../errors';
-import type { PendingAudit, StrategyRepository } from '../ports/strategy-repository';
+import type { StrategyRepository } from '../ports/strategy-repository';
+import { pendingAudit } from './pending-audit';
 
 /** Resultado de um salvamento versionado: `changed` é falso quando nada mudou (sem nova versão). */
 export interface SaveResult<T> {
@@ -157,40 +155,6 @@ export interface StrategyService {
 }
 
 const notFound = () => new AppError('not_found', 'not_found');
-
-interface AuditFields {
-  action: string;
-  entityType: string;
-  /** Omitido = id da linha gravada (cabeçalho ou versão nova). */
-  entityId?: string;
-  diff?: AuditDiff;
-  /** O número da versão gravada entra no diff (atribuído pela persistência). */
-  withVersion?: boolean;
-}
-
-/**
- * Registro de auditoria de uma escrita, com ator e traceId do contexto (KI-041). Ator e traceId
- * fora dos limites do `audit_log` são defeito de quem montou o contexto, não dado digitado: erro
- * inesperado, igual na memória e no banco.
- */
-function pendingAudit(ctx: RequestContext, fields: AuditFields): PendingAudit {
-  const input = parseInput(RecordAuditInput, {
-    action: fields.action,
-    entityType: fields.entityType,
-    entityId: fields.entityId ?? null,
-    diff: fields.diff ?? {},
-  });
-  const actor = AuditActorFields.safeParse({ ...auditActor(ctx.actor), traceId: ctx.traceId });
-  if (!actor.success) throw new AppError('unexpected', 'unexpected');
-  return {
-    ...actor.data,
-    action: input.action,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    diff: input.diff,
-    withVersion: fields.withVersion ?? false,
-  };
-}
 
 /**
  * Casos de uso da estratégia (F2). Regras de negócio vêm de @prospector/domain; aqui ficam a

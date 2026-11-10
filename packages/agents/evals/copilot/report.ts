@@ -11,6 +11,8 @@ export interface Run {
   /** Raciocínio ligado nesta resposta (resultados antigos não têm: vale o caso). */
   think?: boolean;
   output: string;
+  /** Ferramentas chamadas nesta resposta, na ordem (IA-2; ausente no modo sem ferramentas). */
+  toolCalls?: string[];
   error: string | null;
   firstTokenMs: number | null;
   usage: GenerationUsage | null;
@@ -80,7 +82,8 @@ export function gradeRun(run: Run, cases: readonly EvalCase[]): Run {
   if (run.output.trim() === '') {
     return { ...run, grades: [{ name: 'resposta não vazia', pass: false }], pass: false };
   }
-  const grades = evalCase.graders.map((grade) => grade(run.output));
+  const context = { toolsCalled: run.toolCalls ?? [] };
+  const grades = evalCase.graders.map((grade) => grade(run.output, context));
   return { ...run, grades, pass: grades.every((grade) => grade.pass) };
 }
 

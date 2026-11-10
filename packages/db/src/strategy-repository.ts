@@ -76,7 +76,8 @@ export type AuditedTable =
   | 'voice_guides'
   | 'contact_policies'
   | 'proof_assets'
-  | 'legal_basis_assessments';
+  | 'legal_basis_assessments'
+  | 'copilot_threads';
 
 /**
  * JSON em base64: cabeçalho HTTP só aceita ASCII. Sem conteúdo da estratégia (KI-015). `table` e

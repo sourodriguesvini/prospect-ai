@@ -1,9 +1,24 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  createAuditService,
+  createStrategyService,
+  createToolRegistry,
+  strategyTools,
+} from '@prospector/application';
+import {
+  createMemoryAuditRepository,
+  createMemoryStrategyRepository,
+} from '@prospector/application/memory';
 import type { GenerationUsage } from '@prospector/contracts';
 import { expect, it } from 'vitest';
-import { COPILOT_PROMPT_VERSION, createCopilot } from '../../src/copilot/copilot';
+import {
+  COPILOT_PROMPT_VERSION,
+  COPILOT_TOOLS_PROMPT_VERSION,
+  createCopilot,
+  type CopilotToolbox,
+} from '../../src/copilot/copilot';
 import { DEFAULT_POLICY } from '../../src/model-policy';
 import { createOllamaClient, DEFAULT_OLLAMA_URL } from '../../src/ollama/client';
 import { loadPrompt } from '../../src/prompts';
@@ -20,8 +35,10 @@ import { gradeRun, printSummary, summarize, type Run, type SummaryGroup } from '
  * Variáveis: EVAL_MODELS (lista separada por vírgula; padrão = política do Copiloto),
  * EVAL_PROMPTS (versões do prompt, ex.: "1,2"; padrão = a versão em uso), EVAL_REPEAT
  * (repetições por caso; padrão 2, a temperatura não é zero), EVAL_CASES (ids separados por
- * vírgula; padrão = todos, ex.: "raciocinio-ligado" com EVAL_REPEAT=10) e EVAL_REGRADE (caminho
- * de um resultado salvo: recalcula as notas com os corretores atuais, sem Ollama).
+ * vírgula; padrão = todos, ex.: "raciocinio-ligado" com EVAL_REPEAT=10), EVAL_REGRADE (caminho
+ * de um resultado salvo: recalcula as notas com os corretores atuais, sem Ollama) e EVAL_TOOLS=1
+ * (IA-2: modo com ferramentas, prompt `copilot-tools/v<N>` e as ferramentas reais da aplicação
+ * sobre um banco em memória VAZIO; todos os casos rodam como se o banco estivesse conectado).
  */
 const baseUrl = process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_URL;
 const models = process.env.EVAL_MODELS?.split(',').map((name) => name.trim()) ?? [
@@ -31,12 +48,31 @@ const promptVersions = process.env.EVAL_PROMPTS?.split(',').map((value) =>
   Number(value.trim()),
 ) ?? [COPILOT_PROMPT_VERSION];
 const repeat = Math.max(1, Number(process.env.EVAL_REPEAT ?? 2));
+const withTools = process.env.EVAL_TOOLS === '1';
 const caseFilter = process.env.EVAL_CASES?.split(',').map((id) => id.trim());
 const selectedCases = caseFilter ? CASES.filter((entry) => caseFilter.includes(entry.id)) : CASES;
 /** Limiar do modelo preferido da política (docs/11 §4.3 para capacidades locais). */
 const MIN_PASS_RATE = 0.75;
 const here = dirname(fileURLToPath(import.meta.url));
 const resultsDir = join(here, 'results');
+
+/** Ferramentas reais da estratégia sobre dados vazios em memória (nada é gravado em lugar nenhum). */
+function emptyToolbox(): CopilotToolbox {
+  const audit = createMemoryAuditRepository();
+  const strategy = createStrategyService({ repo: createMemoryStrategyRepository({ audit }) });
+  const registry = createToolRegistry({
+    tools: strategyTools({ strategy, audit: createAuditService(audit) }),
+    telemetry: null,
+  });
+  const ctx = { actor: { type: 'user' as const }, traceId: crypto.randomUUID() };
+  return {
+    specs: registry.specs(),
+    async execute(call) {
+      const { result, forModel } = await registry.execute(ctx, call);
+      return { status: result.status, summary: result.summary, links: [], forModel };
+    },
+  };
+}
 
 function save(name: string, report: object): string {
   mkdirSync(resultsDir, { recursive: true });
@@ -92,11 +128,23 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
   const digests = new Map(
     (await client.listModels()).map((model) => [model.name, model.digest] as const),
   );
-  const prompts = promptVersions.map((version) => loadPrompt('copilot', version));
+  // No modo com ferramentas, EVAL_PROMPTS escolhe versões do prompt `copilot-tools`.
+  const prompts = withTools
+    ? (process.env.EVAL_PROMPTS ? promptVersions : [COPILOT_TOOLS_PROMPT_VERSION]).map((version) =>
+        loadPrompt('copilot-tools', version),
+      )
+    : promptVersions.map((version) => loadPrompt('copilot', version));
   const copilots = prompts.map((prompt) => ({
     prompt,
-    copilot: createCopilot({ gateway: runtime.gateway, prompt: () => prompt }),
+    copilot: withTools
+      ? createCopilot({
+          gateway: runtime.gateway,
+          prompt: () => loadPrompt('copilot', COPILOT_PROMPT_VERSION),
+          toolsPrompt: () => prompt,
+        })
+      : createCopilot({ gateway: runtime.gateway, prompt: () => prompt }),
   }));
+  const toolCounts = new Map<string, number>();
   const runs: Run[] = [];
   const skipped: string[] = [];
 
@@ -114,6 +162,8 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
           let output = '';
           let usage: GenerationUsage | null = null;
           let error: string | null = null;
+          const called: string[] = [];
+          const tools = withTools ? emptyToolbox() : undefined;
           for await (const event of copilot.reply(
             {
               schemaVersion: 1,
@@ -123,9 +173,16 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
             },
             {
               traceId: `eval-${prompt.id}-${evalCase.id}-${attempt}`,
-              systemFacts: evalSystemFacts(evalCase.database),
+              systemFacts: withTools
+                ? evalSystemFacts('ok', tools?.specs)
+                : evalSystemFacts(evalCase.database),
+              tools,
             },
           )) {
+            if (event.type === 'tool_call') {
+              toolCounts.set(event.name, (toolCounts.get(event.name) ?? 0) + 1);
+              called.push(event.name);
+            }
             if (event.type === 'delta') {
               firstTokenMs ??= performance.now() - started;
               output += event.text;
@@ -142,6 +199,7 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
                 attempt,
                 think: evalCase.think ?? false,
                 output,
+                ...(withTools ? { toolCalls: called } : {}),
                 error,
                 firstTokenMs,
                 usage,
@@ -166,7 +224,14 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
   const policy = runtime.policy.copilot;
   const report = {
     synthetic: true,
-    capability: 'copilot',
+    capability: withTools ? 'copilot-tools' : 'copilot',
+    ...(withTools
+      ? {
+          toolsMode:
+            'Ferramentas reais da estratégia sobre banco em memória vazio; casos rodam com o banco "conectado".',
+          toolCalls: Object.fromEntries(toolCounts),
+        }
+      : {}),
     prompts: prompts.map(({ id, sha256 }) => ({ id, sha256 })),
     ...(prompts.length === 1 ? { promptId: prompts[0]?.id, promptSha256: prompts[0]?.sha256 } : {}),
     ranAt: new Date().toISOString(),
