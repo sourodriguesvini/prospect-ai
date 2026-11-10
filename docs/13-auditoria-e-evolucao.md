@@ -703,5 +703,6 @@ Preenchimento final, no mesmo dia, depois que o usuário aprovou os textos e ped
 | ICPs | v2 dos três, com 20, 18 e 18 CNAEs |
 | LIA | v2 em rascunho com a conclusão que registra a aprovação do usuário. A confirmação "Revisei a LIA v2 e assumo esta avaliação" foi barrada pelo classificador de permissões do Claude Code: é declaração do usuário, e fica para ele marcar |
 | Prontidão | Descoberta liberada; abordagem bloqueada só pela LIA |
+| GitHub | Repositório privado `sourodriguesvini/prospect-ai`; `main` enviada com o commit desta rodada. Primeira execução do CI não conferida pelo agente (KI-009) |
 
 Ambiente: a porta 3100, padrão do e2e, estava ocupada por outro projeto do usuário; os e2e rodaram com `E2E_PORT=3120 E2E_MEMORY_PORT=3130`. Com o painel do navegador embutido escondido, o `requestAnimationFrame` não dispara e o React não revela o conteúdo transmitido depois do `Suspense` (a página fica em "Carregando…"). Não é defeito do app: o HTML chega completo.
