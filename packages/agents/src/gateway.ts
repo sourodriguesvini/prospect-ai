@@ -129,19 +129,21 @@ export function createLocalAiGateway(deps: {
 
   /**
    * Admissão por VRAM (IA-1.1). Modelo já carregado com o mesmo contexto não passa pela conta. Sem
-   * leitura da GPU, carrega e devolve um aviso explícito. Se só couber com a memória dos modelos
-   * ociosos do Ollama, descarrega esses modelos antes e confere de novo. Sem espaço, lança
-   * `insufficient_vram`. Devolve avisos para a tela.
+   * leitura da GPU, carrega e devolve um aviso explícito. Sem espaço, lança `insufficient_vram`.
+   * Se só couber com a memória dos modelos ociosos do Ollama, devolve quais tirar: quem chama
+   * mostra a fase "liberando memória" (KI-067) e chama `freeVram`.
    */
   async function admit(
     model: OllamaModelInfo,
     details: ModelDetails,
     numCtx: number,
-  ): Promise<string[]> {
+  ): Promise<Admission> {
     const [running, snapshot] = await Promise.all([client.listRunning().catch(() => null), gpu()]);
     const loaded = running?.find((entry) => sameModel(entry.name, model.name));
-    if (loaded && (loaded.contextLength === null || loaded.contextLength === numCtx)) return [];
-    if (!snapshot) return [UNMEASURED_VRAM_NOTICE];
+    if (loaded && (loaded.contextLength === null || loaded.contextLength === numCtx)) {
+      return { notices: [] };
+    }
+    if (!snapshot) return { notices: [UNMEASURED_VRAM_NOTICE] };
     const neededMiB = estimateModelMiB({ sizeBytes: model.sizeBytes, kv: details.kv, numCtx });
     const reserveMiB = deps.limits.vramReserveMiB;
     // Sem a lista de carregados, não conta com memória a recuperar (estimativa para baixo).
@@ -153,18 +155,29 @@ export function createLocalAiGateway(deps: {
       reserveMiB,
     });
     if (!decision.admitted) throw insufficientVramError(model.name, decision);
-    if (neededMiB + reserveMiB <= snapshot.freeMiB || idle.length === 0) return [];
+    if (neededMiB + reserveMiB <= snapshot.freeMiB || idle.length === 0) return { notices: [] };
+    return { notices: [], free: { idle: idle.map((entry) => entry.name), neededMiB, reserveMiB } };
+  }
 
-    // Só cabe tirando os ociosos da memória: tira e confere com a leitura nova da GPU.
-    for (const entry of idle) await unloadAndWait(entry.name);
+  /** Só cabe tirando os ociosos da memória: tira e confere com a leitura nova da GPU. */
+  async function freeVram(
+    model: OllamaModelInfo,
+    plan: NonNullable<Admission['free']>,
+  ): Promise<string[]> {
+    for (const name of plan.idle) await unloadAndWait(name);
     const after = await gpu();
     if (after) {
-      const recheck = decideAdmission({ neededMiB, gpu: after, reclaimableMiB: 0, reserveMiB });
+      const recheck = decideAdmission({
+        neededMiB: plan.neededMiB,
+        gpu: after,
+        reclaimableMiB: 0,
+        reserveMiB: plan.reserveMiB,
+      });
       if (!recheck.admitted) throw insufficientVramError(model.name, recheck);
     }
-    const names = idle.map((entry) => entry.name).join(', ');
+    const names = plan.idle.join(', ');
     return [
-      idle.length === 1
+      plan.idle.length === 1
         ? `Para caber na placa de vídeo, o modelo ${names} saiu da memória antes de carregar ${model.name}.`
         : `Para caber na placa de vídeo, os modelos ${names} saíram da memória antes de carregar ${model.name}.`,
     ];
@@ -335,43 +348,116 @@ export function createLocalAiGateway(deps: {
         }
 
         if (signal?.aborted) throw new AiError('cancelled');
-        notices.unshift(...(await admit(info, modelDetails, numCtx)));
+        const admission = await admit(info, modelDetails, numCtx);
+        if (admission.free) {
+          yield { type: 'phase', phase: 'freeing_vram' };
+          notices.unshift(...(await freeVram(info, admission.free)));
+        } else {
+          notices.unshift(...admission.notices);
+        }
         loadedNow = true;
         yield { type: 'start', model };
         for (const message of notices) yield { type: 'notice', message };
 
         deadline(taskPolicy.totalTimeoutMs);
+        const startedAt = performance.now();
         let idle = deadline(taskPolicy.firstTokenTimeoutMs);
-        let last: OllamaChatChunk | null = null;
-        const stream = client.chat(
-          {
-            model,
-            messages: plan.messages,
-            think,
-            keepAlive: taskPolicy.keepAlive,
-            options: {
-              num_ctx: numCtx,
-              temperature: taskPolicy.temperature,
-              num_predict: plan.numPredict,
-            },
-          },
-          controller.signal,
-        );
-        for await (const chunk of stream) {
-          clear(idle);
-          idle = deadline(taskPolicy.idleTimeoutMs);
-          const thinking = chunk.message?.thinking;
-          const content = chunk.message?.content;
-          if (thinking) yield { type: 'thinking', text: thinking };
-          if (content) yield { type: 'delta', text: content };
-          if (chunk.done) last = chunk;
+
+        /**
+         * Uma geração no Ollama. Com o raciocínio ligado, para de ler (e fecha a conexão) quando
+         * o raciocínio passa de `thinkingBudget` tokens sem a resposta ter começado (KI-066).
+         */
+        async function* generate(
+          withThinking: boolean,
+          numPredict: number,
+          thinkingBudget: number,
+        ): AsyncGenerator<GatewayEvent, Generation> {
+          const phase = new AbortController();
+          const forward = () => phase.abort(controller.signal.reason);
+          if (controller.signal.aborted) forward();
+          else controller.signal.addEventListener('abort', forward, { once: true });
+          const result: Generation = { last: null, answered: false, thoughtTokens: 0, cut: false };
+          try {
+            const stream = client.chat(
+              {
+                model,
+                messages: plan.messages,
+                think: withThinking,
+                keepAlive: taskPolicy.keepAlive,
+                options: {
+                  num_ctx: numCtx,
+                  temperature: taskPolicy.temperature,
+                  num_predict: numPredict,
+                },
+              },
+              phase.signal,
+            );
+            for await (const chunk of stream) {
+              clear(idle);
+              idle = deadline(taskPolicy.idleTimeoutMs);
+              const thinking = chunk.message?.thinking;
+              const content = chunk.message?.content;
+              if (thinking) {
+                // O Ollama manda um token por pedaço: a contagem de pedaços estima os tokens.
+                result.thoughtTokens += 1;
+                yield { type: 'thinking', text: thinking };
+                if (!result.answered && result.thoughtTokens >= thinkingBudget) {
+                  result.cut = true;
+                  break;
+                }
+              }
+              if (content) {
+                result.answered = true;
+                yield { type: 'delta', text: content };
+              }
+              if (chunk.done) result.last = chunk;
+            }
+          } finally {
+            controller.signal.removeEventListener('abort', forward);
+            // Saiu antes do fim (corte do raciocínio): fecha a geração no Ollama.
+            if (!phase.signal.aborted) phase.abort(new AiError('cancelled'));
+          }
+          return result;
         }
-        if (!last) throw new AiError('provider_error', { detail: 'stream terminou sem done' });
+
+        const thinkingBudget = think
+          ? Math.max(MIN_THINKING_TOKENS, plan.numPredict - taskPolicy.answerReserveTokens)
+          : Number.POSITIVE_INFINITY;
+        const first = yield* generate(think, plan.numPredict, thinkingBudget);
+        let last = first.last;
+        let usage: GatewayEventUsage | null = last ? usageOf(last) : null;
+        const exhausted = first.cut || (last?.done_reason === 'length' && !first.answered);
+        if (think && !first.answered && exhausted) {
+          // O raciocínio esgotou o espaço da resposta: pede a resposta sem raciocínio, em vez de
+          // devolver resposta vazia (KI-066). As métricas somam as duas gerações.
+          yield { type: 'notice', message: THINKING_EXHAUSTED_NOTICE };
+          const retry = fitToContext(sanitized, {
+            numCtx,
+            maxOutputTokens: taskPolicy.maxOutputTokens,
+          });
+          clear(idle);
+          idle = deadline(taskPolicy.firstTokenTimeoutMs);
+          const second = yield* generate(false, retry.numPredict, Number.POSITIVE_INFINITY);
+          last = second.last;
+          usage = null;
+          if (last) {
+            const answer = usageOf(last);
+            usage = {
+              ...answer,
+              outputTokens: first.thoughtTokens + (answer.outputTokens ?? 0),
+              totalMs: Math.round(performance.now() - startedAt),
+              loadMs: null,
+            };
+          }
+        }
+        if (!last || !usage) {
+          throw new AiError('provider_error', { detail: 'stream terminou sem done' });
+        }
         yield {
           type: 'done',
           model,
           doneReason: last.done_reason ?? null,
-          usage: usageOf(last),
+          usage,
         };
       } catch (error) {
         const reason: unknown = controller.signal.aborted ? controller.signal.reason : undefined;
@@ -398,8 +484,12 @@ function choiceError(
 ): AiError {
   if (choice.kind === 'not_installed') {
     const wanted = requested ? [requested] : taskPolicy.models;
+    const first = wanted[0] ?? '';
     return new AiError('model_not_installed', {
-      message: `Nenhum destes modelos está instalado: ${wanted.join(', ')}. Instale com "ollama pull ${wanted[0] ?? ''}".`,
+      message:
+        wanted.length === 1
+          ? `O modelo ${first} não está instalado. Instale com "ollama pull ${first}" ou escolha outro modelo instalado em Modelo.`
+          : `Nenhum destes modelos está instalado: ${wanted.join(', ')}. Instale com "ollama pull ${first}".`,
     });
   }
   const missing = choice.missing
@@ -423,6 +513,28 @@ function queueTimeoutError(ms: number): AiError {
     detail: `fila: ${ms} ms`,
   });
 }
+
+/** Resultado da admissão: avisos ou os modelos ociosos a tirar da placa antes de carregar. */
+interface Admission {
+  notices: string[];
+  free?: { idle: string[]; neededMiB: number; reserveMiB: number };
+}
+
+/** O que uma geração deixou para o gateway decidir se precisa pedir a resposta de novo. */
+interface Generation {
+  last: OllamaChatChunk | null;
+  /** A resposta começou (algum texto fora do raciocínio). */
+  answered: boolean;
+  thoughtTokens: number;
+  /** O gateway cortou o raciocínio por passar do orçamento. */
+  cut: boolean;
+}
+
+/** Abaixo disso o raciocínio nem começa direito; o corte usa ao menos este orçamento. */
+const MIN_THINKING_TOKENS = 512;
+
+export const THINKING_EXHAUSTED_NOTICE =
+  'O raciocínio passou do limite antes de a resposta começar; a resposta abaixo foi escrita sem continuar o raciocínio.';
 
 const NS_PER_MS = 1_000_000;
 const UNLOAD_WAIT_MS = 3000;

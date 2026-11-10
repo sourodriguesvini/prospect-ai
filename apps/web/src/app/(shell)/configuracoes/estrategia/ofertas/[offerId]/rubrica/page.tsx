@@ -49,14 +49,15 @@ async function Rubric({ params }: { params: Props['params'] }) {
       <StorageNotice storage={result.storage} />
       {current ? null : (
         <DraftNotice>
-          Critérios e pesos abaixo são uma proposta inicial para branding, sem calibração com
-          resultados reais. Ajuste ao seu método; nada foi salvo ainda.
+          Critérios e pesos abaixo são o padrão do Prospector para branding, ainda sem calibração
+          com resultados reais. Ajuste ao seu método; nada foi salvo ainda.
         </DraftNotice>
       )}
       <Panel aria-label="Critérios da rubrica">
         <RubricEditor
           action={saveRubricAction.bind(null, offer.id)}
           initial={current?.content ?? DRAFT_BRANDING_RUBRIC}
+          saved={current !== null}
           cancelHref={strategyRoutes.offer(offer.id)}
         />
       </Panel>

@@ -6,6 +6,7 @@ import {
   createLocalAiGateway,
   DEFAULT_POLICY,
   noGpu,
+  THINKING_EXHAUSTED_NOTICE,
   UNMEASURED_VRAM_NOTICE,
   type GatewayEvent,
   type GpuProbe,
@@ -184,8 +185,24 @@ describe('LocalAiGateway.chat', () => {
   });
 
   it('cai para o próximo modelo da lista quando o preferido não está instalado', async () => {
+    // Lista com reserva só por configuração (AI_COPILOT_MODELS): o padrão não tem reserva.
+    const policy = policyWith({ models: ['qwen3.5:4b', 'nemotron-3-nano:4b'] });
     const client = fakeClient({ installed: [{ name: 'nemotron-3-nano:4b', sizeBytes: 1 }] });
-    const [first] = await collect(gateway(client).chat('copilot', ask));
+    const [first] = await collect(gateway(client, { policy }).chat('copilot', ask));
+    expect(first).toEqual({ type: 'start', model: 'nemotron-3-nano:4b' });
+  });
+
+  it('o Nemotron não é reserva automática do Copiloto, mas pode ser pedido à mão (KI-034)', async () => {
+    expect(DEFAULT_POLICY.copilot.models).toEqual(['qwen3.5:4b']);
+    const client = fakeClient({ installed: [{ name: 'nemotron-3-nano:4b', sizeBytes: 1 }] });
+    const error = await collect(gateway(client).chat('copilot', ask)).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'model_not_installed' });
+    expect((error as AiError).message).toBe(
+      'O modelo qwen3.5:4b não está instalado. Instale com "ollama pull qwen3.5:4b" ou escolha outro modelo instalado em Modelo.',
+    );
+    const [first] = await collect(
+      gateway(client).chat('copilot', { ...ask, model: 'nemotron-3-nano:4b' }),
+    );
     expect(first).toEqual({ type: 'start', model: 'nemotron-3-nano:4b' });
   });
 
@@ -281,6 +298,109 @@ describe('LocalAiGateway.chat', () => {
       collect(gateway(fakeClient({ chat: chatty }), { policy }).chat('copilot', ask)),
     ).rejects.toMatchObject({ code: 'timeout' });
     expect(performance.now() - started).toBeLessThan(1000);
+  });
+});
+
+describe('LocalAiGateway.chat: raciocínio que esgota o limite (KI-066)', () => {
+  /** Pensa sem parar até o sinal abortar; registra quantos pedaços chegou a enviar. */
+  function endlessThinking(sent: { thinking: number; aborted: boolean }): ChatScript {
+    return async function* (signal) {
+      for (;;) {
+        if (signal.aborted) {
+          sent.aborted = true;
+          return;
+        }
+        sent.thinking += 1;
+        yield { message: { thinking: 'hmm ' } };
+      }
+    };
+  }
+
+  it('corta o raciocínio no orçamento e pede a resposta sem raciocínio', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const sent = { thinking: 0, aborted: false };
+    let call = 0;
+    let firstSignal: AbortSignal | undefined;
+    const thinkingThenAnswer: ChatScript = (signal) => {
+      call += 1;
+      if (call === 1) {
+        firstSignal = signal;
+        return endlessThinking(sent)(signal);
+      }
+      return (async function* () {
+        yield { message: { content: 'Resposta direta.' } };
+        yield { ...DONE, eval_count: 12 };
+      })();
+    };
+    const policy = policyWith({ maxOutputTokensThinking: 1600, answerReserveTokens: 1000 });
+    const events = await collect(
+      gateway(fakeClient({ chat: thinkingThenAnswer, requests }), { policy }).chat('copilot', {
+        ...ask,
+        think: true,
+      }),
+    );
+    const thinking = events.filter((event) => event.type === 'thinking');
+    // Orçamento = num_predict (1.600) − reserva (1.000) = 600 tokens de raciocínio.
+    expect(thinking).toHaveLength(600);
+    expect(requests.map((request) => request.think)).toEqual([true, false]);
+    expect(requests[1]?.options.num_predict).toBe(DEFAULT_POLICY.copilot.maxOutputTokens);
+    const tail = events.slice(thinking.length + 1);
+    expect(tail.map((event) => event.type)).toEqual(['notice', 'delta', 'done']);
+    expect(tail[0]).toEqual({ type: 'notice', message: THINKING_EXHAUSTED_NOTICE });
+    const done = events.at(-1);
+    if (done?.type !== 'done') throw new Error('esperava done');
+    expect(done.usage.outputTokens).toBe(612); // raciocínio cortado + resposta
+    expect(done.usage.loadMs).toBeNull();
+    // A primeira geração foi interrompida de fato (avaliador-ia, IA-1.2): a GPU não segue
+    // pensando enquanto a segunda responde.
+    expect(firstSignal?.aborted).toBe(true);
+    expect(sent.thinking).toBeLessThanOrEqual(601);
+  });
+
+  it('raciocínio que termina por limite sem resposta também ganha a segunda geração', async () => {
+    const requests: OllamaChatRequest[] = [];
+    let call = 0;
+    const script: ChatScript = async function* () {
+      call += 1;
+      if (call === 1) {
+        yield { message: { thinking: 'pensei' } };
+        yield { ...DONE, done_reason: 'length' };
+        return;
+      }
+      yield { message: { content: 'Agora sim.' } };
+      yield DONE;
+    };
+    const events = await collect(
+      gateway(fakeClient({ chat: script, requests })).chat('copilot', { ...ask, think: true }),
+    );
+    expect(requests).toHaveLength(2);
+    expect(events.map((event) => event.type)).toEqual([
+      'start',
+      'thinking',
+      'notice',
+      'delta',
+      'done',
+    ]);
+  });
+
+  it('com a resposta já começada, não corta nem repete', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const script: ChatScript = async function* () {
+      yield { message: { thinking: 'curto' } };
+      yield { message: { content: 'Resposta.' } };
+      yield { ...DONE, done_reason: 'length' };
+    };
+    const events = await collect(
+      gateway(fakeClient({ chat: script, requests })).chat('copilot', { ...ask, think: true }),
+    );
+    expect(requests).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ type: 'done', doneReason: 'length' });
+  });
+
+  it('sem raciocínio, nada muda: uma geração só', async () => {
+    const requests: OllamaChatRequest[] = [];
+    await collect(gateway(fakeClient({ requests })).chat('copilot', ask));
+    expect(requests).toHaveLength(1);
   });
 });
 
@@ -402,7 +522,7 @@ describe('LocalAiGateway.chat: admissão por VRAM', () => {
     const error = await collect(gw.chat('copilot', ask)).catch((caught: unknown) => caught);
     expect(error).toMatchObject({ code: 'insufficient_vram' });
     expect((error as AiError).message).toContain('qwen3.5:4b');
-    expect((error as AiError).message).toContain('3,0 GB ficam reservados');
+    expect((error as AiError).message).toContain('3 GB ficam reservados');
     expect(requests).toEqual([]); // nada foi pedido ao Ollama: o modelo não foi carregado
     // Com uma reserva menor, o mesmo pedido passa.
     const relaxed = gateway(fakeClient({}), { gpu: gpuWithFree(6_144), vramReserveMiB: 1024 });
@@ -453,7 +573,9 @@ describe('LocalAiGateway.chat: admissão por VRAM', () => {
       gateway(client, { gpu: probe, vramReserveMiB: 2048 }).chat('copilot', ask),
     );
     expect(unloaded).toEqual(['nemotron-3-nano:4b']);
-    expect(events.slice(0, 2)).toEqual([
+    expect(events.slice(0, 3)).toEqual([
+      // A tela mostra "Liberando memória da placa de vídeo…" enquanto descarrega (KI-067).
+      { type: 'phase', phase: 'freeing_vram' },
       { type: 'start', model: 'qwen3.5:4b' },
       {
         type: 'notice',

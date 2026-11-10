@@ -55,9 +55,9 @@ LLM (juiz):
 
 Resultado: claims rebaixados (`rejected`/`disputed`) com motivo visível.
 
-### 2.5 Regras implementadas e valores propostos (F3a, 2026-11-09)
+### 2.5 Regras implementadas e valores decididos (F3a)
 
-Código: regras puras em `packages/domain/src/evidence`; contratos em `packages/contracts/src/evidence.ts`. Os itens marcados **proposta** não estavam fixados nas seções acima: valem até a calibração (§3.5) ou uma decisão do usuário.
+Código: regras puras em `packages/domain/src/evidence`; contratos em `packages/contracts/src/evidence.ts`. Os itens da tabela abaixo não estavam fixados nas seções acima: foram propostos na F3a (2026-11-09) e **decididos em 2026-11-10, por delegação do usuário** ([10 D-EVID-1](10-riscos-custos-decisoes.md)). Valem até a calibração com desfechos (§3.5).
 
 **Como o código lê §2.2 e §2.3**
 
@@ -71,9 +71,9 @@ Código: regras puras em `packages/domain/src/evidence`; contratos em `packages/
 - A confiança vale para o momento do cálculo; como a atualidade decai, ela precisa ser recalculada com o tempo (KI-071).
 - Constantes do contrato (mudam só com nova versão do contrato): teto da inferência 0,9, faixa do fator [0,5; 0,9] e faixas da UI (0,6 e 0,8). Calibráveis em `EvidencePolicy`: confiabilidades, validades, bônus de concordância, teto de contestação e categorias que não somam concordância.
 
-**Propostas**
+**Valores decididos**
 
-| Item | Proposta | Motivo |
+| Item | Valor | Motivo |
 |---|---|---|
 | Confiabilidade de anotação do usuário (`user_reported`) | 0,7 | observação de quem usa o app, mas de segunda mão; fica em Média |
 | Categoria de cada fonte | anotação do usuário → `user_reported`; registro de API de provedor oficial → `official_registry`, de outro provedor → `aggregator`; demais pelo endereço: domínio ou perfil do **sujeito do claim** → `company_owned`, lista de imprensa → `recognized_press`, lista de agregadores → `aggregator`, senão `unknown`; resultado de busca nunca passa de `aggregator`. Domínios comparados em minúsculas e punycode, sem `www.`, `m.`, `mobile.` nem ponto final | o tipo sozinho não diz se uma página é da empresa ou da imprensa; a categoria é decidida pelo sistema, nunca pelo modelo |

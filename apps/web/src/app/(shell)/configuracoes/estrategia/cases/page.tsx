@@ -1,4 +1,4 @@
-import { Badge, Button, DemoBadge, Panel, PanelHeader, Well } from '@prospector/ui';
+import { Alert, Badge, Button, DemoBadge, Panel, PanelHeader, Well } from '@prospector/ui';
 import { Plus } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -6,7 +6,7 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { Loading } from '@/components/strategy/loading';
 import { PageHeader, StorageNotice, Unavailable } from '@/components/strategy/page-parts';
-import { strategyRoutes } from '@/lib/strategy-routes';
+import { CASE_ARCHIVED_NOTICE, strategyRoutes } from '@/lib/strategy-routes';
 import { loadStrategy } from '@/server/strategy';
 
 export const metadata: Metadata = { title: 'Cases' };
@@ -98,7 +98,19 @@ async function Cases() {
   );
 }
 
-export default function CasesPage() {
+type Props = PageProps<'/configuracoes/estrategia/cases'>;
+
+/** Confirmação que sobrevive ao redirecionamento depois de arquivar (só o valor conhecido). */
+async function Notice({ searchParams }: { searchParams: Props['searchParams'] }) {
+  if ((await searchParams).aviso !== CASE_ARCHIVED_NOTICE) return null;
+  return (
+    <Alert tone="success" role="status" data-aviso={CASE_ARCHIVED_NOTICE}>
+      Case arquivado. Ele saiu das mensagens e da prontidão e continua na lista de arquivados.
+    </Alert>
+  );
+}
+
+export default function CasesPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <PageHeader
@@ -106,6 +118,9 @@ export default function CasesPage() {
         title="Cases"
         description="Provas de resultado da agência. O redator só cita o que o cliente autorizou."
       />
+      <Suspense fallback={null}>
+        <Notice searchParams={searchParams} />
+      </Suspense>
       <Suspense fallback={<Loading label="Carregando os cases…" />}>
         <Cases />
       </Suspense>

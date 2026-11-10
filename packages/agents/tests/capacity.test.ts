@@ -232,10 +232,25 @@ describe('decideAdmission', () => {
     if (decision.admitted) throw new Error('esperava recusa');
     const error = insufficientVramError('qwen3.5:4b', decision);
     expect(error.code).toBe('insufficient_vram');
-    expect(error.message).toContain('cerca de 4,0 GB');
-    expect(error.message).toContain('6,0 GB disponíveis');
-    expect(error.message).toContain('3,0 GB ficam reservados');
+    expect(error.message).toContain('cerca de 4 GB');
+    expect(error.message).toContain('a placa tem 6 GB livres e 3 GB ficam reservados');
     expect(error.message).toMatch(/Feche o que estiver usando a GPU/);
+  });
+
+  it('a recusa usa os mesmos "livres" do painel e mostra os ociosos à parte (KI-067)', () => {
+    const decision = decideAdmission({
+      neededMiB: 6_000,
+      gpu: { ...gpu, freeMiB: 3_994 },
+      reclaimableMiB: 2_048,
+      reserveMiB: 3072,
+    });
+    if (decision.admitted) throw new Error('esperava recusa');
+    const error = insufficientVramError('qwen3.5:4b', decision);
+    expect(error.message).toContain('cerca de 5,9 GB');
+    expect(error.message).toContain(
+      'a placa tem 3,9 GB livres (mais 2 GB de modelos ociosos, que o Prospector tiraria da memória)',
+    );
+    expect(error.message).not.toMatch(/\d,0 GB/);
   });
 });
 

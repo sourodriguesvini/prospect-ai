@@ -44,14 +44,14 @@ async function Scoring({ params }: { params: Props['params'] }) {
       <PageHeader
         trail={trail}
         title="Modelo de score"
-        description={`${offer.current?.content.name ?? 'Oferta'}: pesos das dimensões e limiares das recomendações (docs/08 §3). Salvar cria uma nova versão.`}
+        description={`${offer.current?.content.name ?? 'Oferta'}: pesos das dimensões e limiares das recomendações (metodologia comercial). Salvar cria uma nova versão.`}
       />
       <StorageNotice storage={result.storage} />
       {current ? null : (
         <DraftNotice>
-          Pesos e limiares de 70, 70 e 40 são a proposta inicial de docs/08 para branding, ainda sem
-          calibração. A cobertura mínima de 50% não tem base em docs/08: é só um ponto de partida.
-          Nada foi salvo ainda.
+          Pesos e limiares de 70, 70 e 40 (metodologia comercial) e cobertura mínima de 50% são o
+          padrão do Prospector para branding, a calibrar com os resultados reais. Nada foi salvo
+          ainda.
         </DraftNotice>
       )}
       <Panel aria-label="Pesos e limiares">

@@ -14,8 +14,10 @@ export function hostnameOf(hostHeader: string): string {
 /**
  * Pedido que muda estado ou gasta recurso (POST de rota) só vale vindo de uma página do próprio
  * app. Um site aberto em outra aba consegue mandar POST para 127.0.0.1 (o `Host` continua
- * local), então conferimos `Sec-Fetch-Site` e `Origin`. Sem nenhum dos dois cabeçalhos não é
- * um navegador (ex.: curl neste computador), e o `Host` local já foi exigido pelo proxy.
+ * local), então conferimos `Sec-Fetch-Site` e `Origin`. O `Origin` é obrigatório (KI-064): todo
+ * navegador atual o manda num POST de `fetch` ou formulário, e um pedido sem ele não veio de uma
+ * página do app. Programas deste computador podem forjar cabeçalhos e já são confiáveis
+ * (ADR-0007); a regra fecha a porta para clientes que não se identificam.
  */
 export function isSameOriginRequest(headers: {
   host: string | null;
@@ -23,8 +25,7 @@ export function isSameOriginRequest(headers: {
   secFetchSite: string | null;
 }): boolean {
   if (headers.secFetchSite !== null && headers.secFetchSite !== 'same-origin') return false;
-  if (headers.origin === null) return true;
-  if (!headers.host) return false;
+  if (headers.origin === null || !headers.host) return false;
   try {
     const origin = new URL(headers.origin);
     return (

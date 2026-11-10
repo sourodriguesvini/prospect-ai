@@ -28,7 +28,10 @@ type Phase =
   | { kind: 'idle' }
   | { kind: 'sending' }
   | { kind: 'queued'; position: number }
+  | { kind: 'freeing' }
   | { kind: 'generating' };
+
+const FREEING_TEXT = 'Liberando memória da placa de vídeo…';
 
 const SUGGESTIONS = [
   'O que o Prospector já faz hoje?',
@@ -61,10 +64,13 @@ const integer = new Intl.NumberFormat('pt-BR');
  */
 export function CopilotChat({
   models,
+  noThinking = [],
   defaultModel,
   unavailable,
 }: {
   models: readonly string[];
+  /** Modelos que o Ollama diz não terem modo de raciocínio (marcados no seletor, KI-067). */
+  noThinking?: readonly string[];
   defaultModel: string | null;
   /** Aviso mostrado antes da primeira pergunta quando o servidor já sabe que não vai responder. */
   unavailable: string | null;
@@ -90,6 +96,10 @@ export function CopilotChat({
   const busy = phase.kind !== 'idle';
   // Um modelo que sumiu da lista depois de "Atualizar" volta para o automático.
   const selectedModel = model && models.includes(model) ? model : '';
+  // Modelo que vai responder: o escolhido ou o automático. Sem raciocínio, a caixa fica travada.
+  const answering = selectedModel || defaultModel;
+  const thinkUnavailable = answering !== null && noThinking.includes(answering);
+  const thinkOn = think && !thinkUnavailable;
 
   useEffect(() => {
     const log = logRef.current;
@@ -115,7 +125,7 @@ export function CopilotChat({
     const body: CopilotRequestInput = {
       schemaVersion: 1,
       messages: buildHistory([...base, user]),
-      think,
+      think: thinkOn,
       ...(selectedModel ? { model: selectedModel } : {}),
     };
     const update = (change: (turn: Turn) => Turn) =>
@@ -164,6 +174,10 @@ export function CopilotChat({
           if (event.type === 'queued') {
             setPhase({ kind: 'queued', position: event.position });
             setAnnouncement(`Na fila, posição ${event.position}.`);
+          }
+          if (event.type === 'phase' && event.phase === 'freeing_vram') {
+            setPhase({ kind: 'freeing' });
+            setAnnouncement(FREEING_TEXT);
           }
           if (event.type === 'start') {
             setPhase({ kind: 'generating' });
@@ -275,6 +289,8 @@ export function CopilotChat({
 
   const last = turns.at(-1);
   const trimmed = historyIsTrimmed(turns);
+  const modelLabel = (name: string) =>
+    noThinking.includes(name) ? `${name} · sem raciocínio` : name;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -429,11 +445,11 @@ export function CopilotChat({
               className="h-8 w-auto min-w-0 max-w-56 text-xs"
             >
               <option value="">
-                {defaultModel ? `Automático (${defaultModel})` : 'Automático'}
+                {defaultModel ? `Automático (${modelLabel(defaultModel)})` : 'Automático'}
               </option>
               {models.map((name) => (
                 <option key={name} value={name}>
-                  {name}
+                  {modelLabel(name)}
                 </option>
               ))}
             </NativeSelect>
@@ -441,12 +457,18 @@ export function CopilotChat({
           <label className="inline-flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={think}
+              checked={thinkOn}
               onChange={(event) => setThink(event.target.checked)}
-              disabled={busy}
-              className="size-4 accent-primary"
+              disabled={busy || thinkUnavailable}
+              className="size-4 accent-primary disabled:opacity-60"
             />
-            Pensar antes de responder <span className="text-muted-foreground">(mais lento)</span>
+            {/* O motivo fica dentro do rótulo: o leitor de tela lê junto com a caixa travada. */}
+            <span className={thinkUnavailable ? 'text-muted-foreground' : undefined}>
+              Pensar antes de responder{' '}
+              <span className="text-muted-foreground">
+                {thinkUnavailable ? `(${answering} não tem raciocínio)` : '(mais lento)'}
+              </span>
+            </span>
           </label>
           <div className="ml-auto flex items-center gap-2">
             <Button
@@ -483,6 +505,8 @@ function Progress({ phase, turn }: { phase: Phase; turn: Turn }) {
   let text: string;
   if (phase.kind === 'queued') {
     text = `Na fila (posição ${phase.position}). Outro pedido está sendo atendido.`;
+  } else if (phase.kind === 'freeing') {
+    text = `${FREEING_TEXT} Outros modelos ociosos saem da memória para este caber.`;
   } else if (turn.content) {
     text = 'Escrevendo…';
   } else if (turn.thinking) {

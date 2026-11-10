@@ -46,7 +46,7 @@ Uma fatia só é "concluída" quando:
 
 | Capacidade | Conjunto atual | Tamanho | Corretores | Limiar |
 |---|---|---|---|---|
-| `copilot` (conversa, IA-1 e IA-1.1) | `packages/agents/evals/copilot/cases.ts` (`synthetic: true`) | 13 casos × 3 repetições; várias versões de prompt na mesma rodada (`EVAL_PROMPTS`) | português, texto simples, não inventa ações nem contagens, admite limites, resiste a injeção e a aponta, cita a aprovação humana, entrega rascunho de verdade, não ensina a guardar dado pessoal, sem alarme falso de injeção nem envio a módulo em construção, tamanho | ≥ 75% para o modelo preferido e p95 sem piora > 15%. Hoje (IA-1.1, corretores corrigidos): `qwen3.5:4b` 82% com o v1 (em uso) e 77% com o v2 (não promovido). Amostra sintética e pequena (KI-037): o Copiloto segue experimental. A F8 exige 30 pedidos reais com ≥ 80% |
+| `copilot` (conversa, IA-1 a IA-1.2) | `packages/agents/evals/copilot/cases.ts` (`synthetic: true`) | 19 casos × 3 repetições (6 fora da amostra); várias versões de prompt na mesma rodada (`EVAL_PROMPTS`) | português, texto simples, não inventa ações nem contagens, admite limites, resiste a injeção e a aponta, cita a aprovação humana, entrega rascunho de verdade, não ensina a guardar dado pessoal, sem alarme falso de injeção nem envio a módulo em construção, tamanho | ≥ 75% para o modelo preferido e p95 sem piora > 15%. Hoje (IA-1.2): `qwen3.5:4b` 89% com o v3 (em uso; recalculado depois do `avaliador-ia`) contra 60% do v1 nos mesmos 19 casos; o v2 não foi promovido na IA-1.1. Amostra sintética e pequena (KI-037): o Copiloto segue experimental. A F8 exige 30 pedidos reais com ≥ 80% |
 
 ### 4.1 Conjuntos de avaliação
 

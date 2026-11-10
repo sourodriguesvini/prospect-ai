@@ -41,9 +41,9 @@ async function Lia() {
       ) : null}
       {latest ? null : (
         <DraftNotice>
-          Texto sugerido para prospecção de empresas sem contato prévio. Não é parecer jurídico:
-          usar o legítimo interesse para isso ainda precisa do parecer de um advogado. A conclusão
-          fica em branco de propósito, para você escrever a sua. Nada foi salvo ainda.
+          Texto padrão para prospecção de empresas sem contato prévio. Não é parecer jurídico: usar
+          o legítimo interesse para isso ainda precisa do parecer de um advogado. A conclusão fica
+          em branco de propósito, para você escrever a sua. Nada foi salvo ainda.
         </DraftNotice>
       )}
       <Panel aria-label="Modelo guiado da LIA">

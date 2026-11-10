@@ -1,5 +1,6 @@
 import {
   ApproachScope,
+  AuditActorFields,
   ContactPolicyContent,
   DiscoveryScope,
   EntityStatus,
@@ -8,11 +9,13 @@ import {
   LiaContent,
   OfferContent,
   ProofAssetInput,
+  RecordAuditInput,
   RubricContent,
   ScoringModelContent,
   Uuid,
   VoiceGuideContent,
   type ApproachClearance,
+  type AuditDiff,
   type ContactPolicyVersion,
   type DiscoveryClearance,
   type IcpProfile,
@@ -54,10 +57,9 @@ import {
   type LiaStatus,
 } from '@prospector/domain';
 import { calendarDate, systemClock, type Clock } from '../clock';
-import type { RequestContext } from '../context';
+import { auditActor, type RequestContext } from '../context';
 import { AppError, assertNoIssues, parseInput } from '../errors';
-import type { StrategyRepository } from '../ports/strategy-repository';
-import type { AuditService } from './audit-service';
+import type { PendingAudit, StrategyRepository } from '../ports/strategy-repository';
 
 /** Resultado de um salvamento versionado: `changed` é falso quando nada mudou (sem nova versão). */
 export interface SaveResult<T> {
@@ -156,14 +158,48 @@ export interface StrategyService {
 
 const notFound = () => new AppError('not_found', 'not_found');
 
+interface AuditFields {
+  action: string;
+  entityType: string;
+  /** Omitido = id da linha gravada (cabeçalho ou versão nova). */
+  entityId?: string;
+  diff?: AuditDiff;
+  /** O número da versão gravada entra no diff (atribuído pela persistência). */
+  withVersion?: boolean;
+}
+
+/**
+ * Registro de auditoria de uma escrita, com ator e traceId do contexto (KI-041). Ator e traceId
+ * fora dos limites do `audit_log` são defeito de quem montou o contexto, não dado digitado: erro
+ * inesperado, igual na memória e no banco.
+ */
+function pendingAudit(ctx: RequestContext, fields: AuditFields): PendingAudit {
+  const input = parseInput(RecordAuditInput, {
+    action: fields.action,
+    entityType: fields.entityType,
+    entityId: fields.entityId ?? null,
+    diff: fields.diff ?? {},
+  });
+  const actor = AuditActorFields.safeParse({ ...auditActor(ctx.actor), traceId: ctx.traceId });
+  if (!actor.success) throw new AppError('unexpected', 'unexpected');
+  return {
+    ...actor.data,
+    action: input.action,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    diff: input.diff,
+    withVersion: fields.withVersion ?? false,
+  };
+}
+
 /**
  * Casos de uso da estratégia (F2). Regras de negócio vêm de @prospector/domain; aqui ficam a
- * validação de entrada (contratos), a orquestração com o repositório e a auditoria.
+ * validação de entrada (contratos), a orquestração com o repositório e o registro de auditoria,
+ * que o repositório grava junto com a escrita (KI-041).
  * A auditoria registra versões e decisões, nunca o conteúdo (KI-015).
  */
 export function createStrategyService(deps: {
   repo: StrategyRepository;
-  audit: AuditService;
   clock?: Clock;
   /**
    * Armazenamento que some ao reiniciar (modo memória, ADR-0009): a barreira de abordagem fica
@@ -171,7 +207,7 @@ export function createStrategyService(deps: {
    */
   ephemeralStorage?: boolean;
 }): StrategyService {
-  const { repo, audit } = deps;
+  const { repo } = deps;
   const clock = deps.clock ?? systemClock;
   const today = () => calendarDate(clock.now());
   const options = { ephemeralStorage: deps.ephemeralStorage ?? false };
@@ -285,14 +321,14 @@ export function createStrategyService(deps: {
     async createOffer(ctx, raw) {
       const content = parseInput(OfferContent, raw);
       assertNoIssues(offerContentIssues(content));
-      const offer = await repo.createOffer(content);
-      await audit.record(ctx, {
-        action: 'strategy.offer.created',
-        entityType: 'offer',
-        entityId: offer.id,
-        diff: { version: offer.current?.version ?? 1 },
-      });
-      return offer;
+      return repo.createOffer(
+        content,
+        pendingAudit(ctx, {
+          action: 'strategy.offer.created',
+          entityType: 'offer',
+          diff: { version: 1 },
+        }),
+      );
     },
 
     async updateOffer(ctx, offerId, raw) {
@@ -310,13 +346,17 @@ export function createStrategyService(deps: {
           });
         }
       }
-      const version = await repo.addOfferVersion(offerId, content);
-      await audit.record(ctx, {
-        action: 'strategy.offer.versioned',
-        entityType: 'offer',
-        entityId: offerId,
-        diff: { version: version.version, previousVersion: offer.current?.version ?? null },
-      });
+      const version = await repo.addOfferVersion(
+        offerId,
+        content,
+        pendingAudit(ctx, {
+          action: 'strategy.offer.versioned',
+          entityType: 'offer',
+          entityId: offerId,
+          diff: { previousVersion: offer.current?.version ?? null },
+          withVersion: true,
+        }),
+      );
       return { value: version, changed: true };
     },
 
@@ -333,13 +373,16 @@ export function createStrategyService(deps: {
           throw new AppError('validation', 'activation_blocked', { fieldErrors: { _form: gaps } });
         }
       }
-      await repo.setOfferStatus(offerId, status);
-      await audit.record(ctx, {
-        action: 'strategy.offer.status_changed',
-        entityType: 'offer',
-        entityId: offerId,
-        diff: { from: offer.status, to: status },
-      });
+      await repo.setOfferStatus(
+        offerId,
+        status,
+        pendingAudit(ctx, {
+          action: 'strategy.offer.status_changed',
+          entityType: 'offer',
+          entityId: offerId,
+          diff: { from: offer.status, to: status },
+        }),
+      );
     },
 
     async saveRubric(ctx, offerId, raw) {
@@ -350,13 +393,17 @@ export function createStrategyService(deps: {
       if (current && sameContent(current.content, content)) {
         return { value: current, changed: false };
       }
-      const version = await repo.addRubricVersion(offerId, content);
-      await audit.record(ctx, {
-        action: 'strategy.rubric.versioned',
-        entityType: 'offer',
-        entityId: offerId,
-        diff: { version: version.version, criteria: content.criteria.length },
-      });
+      const version = await repo.addRubricVersion(
+        offerId,
+        content,
+        pendingAudit(ctx, {
+          action: 'strategy.rubric.versioned',
+          entityType: 'offer',
+          entityId: offerId,
+          diff: { criteria: content.criteria.length },
+          withVersion: true,
+        }),
+      );
       return { value: version, changed: true };
     },
 
@@ -368,13 +415,16 @@ export function createStrategyService(deps: {
       if (current && sameContent(current.content, content)) {
         return { value: current, changed: false };
       }
-      const version = await repo.addScoringModelVersion(offerId, content);
-      await audit.record(ctx, {
-        action: 'strategy.scoring_model.versioned',
-        entityType: 'offer',
-        entityId: offerId,
-        diff: { version: version.version },
-      });
+      const version = await repo.addScoringModelVersion(
+        offerId,
+        content,
+        pendingAudit(ctx, {
+          action: 'strategy.scoring_model.versioned',
+          entityType: 'offer',
+          entityId: offerId,
+          withVersion: true,
+        }),
+      );
       return { value: version, changed: true };
     },
 
@@ -400,14 +450,15 @@ export function createStrategyService(deps: {
       await requireOffer(offerId);
       const content = parseInput(IcpContent, raw);
       assertNoIssues(icpContentIssues(content));
-      const icp = await repo.createIcp(offerId, content);
-      await audit.record(ctx, {
-        action: 'strategy.icp.created',
-        entityType: 'icp_profile',
-        entityId: icp.id,
-        diff: { offerId, version: icp.current?.version ?? 1 },
-      });
-      return icp;
+      return repo.createIcp(
+        offerId,
+        content,
+        pendingAudit(ctx, {
+          action: 'strategy.icp.created',
+          entityType: 'icp_profile',
+          diff: { offerId, version: 1 },
+        }),
+      );
     },
 
     async updateIcp(ctx, icpId, raw) {
@@ -420,13 +471,17 @@ export function createStrategyService(deps: {
       if (icp.status === 'active') {
         assertNoIssues(icpActivationIssues(content), 'icp_active_incomplete');
       }
-      const version = await repo.addIcpVersion(icpId, content);
-      await audit.record(ctx, {
-        action: 'strategy.icp.versioned',
-        entityType: 'icp_profile',
-        entityId: icpId,
-        diff: { version: version.version, previousVersion: icp.current?.version ?? null },
-      });
+      const version = await repo.addIcpVersion(
+        icpId,
+        content,
+        pendingAudit(ctx, {
+          action: 'strategy.icp.versioned',
+          entityType: 'icp_profile',
+          entityId: icpId,
+          diff: { previousVersion: icp.current?.version ?? null },
+          withVersion: true,
+        }),
+      );
       return { value: version, changed: true };
     },
 
@@ -440,13 +495,16 @@ export function createStrategyService(deps: {
       if (status === 'active' && icp.current) {
         assertNoIssues(icpActivationIssues(icp.current.content), 'activation_blocked');
       }
-      await repo.setIcpStatus(icpId, status);
-      await audit.record(ctx, {
-        action: 'strategy.icp.status_changed',
-        entityType: 'icp_profile',
-        entityId: icpId,
-        diff: { from: icp.status, to: status },
-      });
+      await repo.setIcpStatus(
+        icpId,
+        status,
+        pendingAudit(ctx, {
+          action: 'strategy.icp.status_changed',
+          entityType: 'icp_profile',
+          entityId: icpId,
+          diff: { from: icp.status, to: status },
+        }),
+      );
     },
 
     // --- Voz da agência ----------------------------------------------------------
@@ -459,13 +517,14 @@ export function createStrategyService(deps: {
       if (current && sameContent(current.content, content)) {
         return { value: current, changed: false };
       }
-      const version = await repo.addVoiceGuideVersion(content);
-      await audit.record(ctx, {
-        action: 'strategy.voice_guide.versioned',
-        entityType: 'voice_guide',
-        entityId: version.id,
-        diff: { version: version.version },
-      });
+      const version = await repo.addVoiceGuideVersion(
+        content,
+        pendingAudit(ctx, {
+          action: 'strategy.voice_guide.versioned',
+          entityType: 'voice_guide',
+          withVersion: true,
+        }),
+      );
       return { value: version, changed: true };
     },
 
@@ -477,14 +536,14 @@ export function createStrategyService(deps: {
       const input = parseInput(ProofAssetInput, raw);
       assertNoIssues(proofAssetIssues(input));
       if (input.offerId) await requireOffer(input.offerId);
-      const asset = await repo.createProofAsset(input);
-      await audit.record(ctx, {
-        action: 'strategy.proof_asset.created',
-        entityType: 'proof_asset',
-        entityId: asset.id,
-        diff: { publicOk: asset.publicOk },
-      });
-      return asset;
+      return repo.createProofAsset(
+        input,
+        pendingAudit(ctx, {
+          action: 'strategy.proof_asset.created',
+          entityType: 'proof_asset',
+          diff: { publicOk: input.publicOk },
+        }),
+      );
     },
 
     async updateProofAsset(ctx, id, raw) {
@@ -493,32 +552,37 @@ export function createStrategyService(deps: {
       const input = parseInput(ProofAssetInput, raw);
       assertNoIssues(proofAssetIssues(input));
       if (input.offerId) await requireOffer(input.offerId);
-      const asset = await repo.updateProofAsset(id, input);
-      await audit.record(ctx, {
-        action: 'strategy.proof_asset.updated',
-        entityType: 'proof_asset',
-        entityId: id,
-        // Só o fato de a autorização ter mudado, nunca o texto dela (KI-015).
-        diff: {
-          publicOk:
-            before.publicOk === asset.publicOk
-              ? asset.publicOk
-              : { from: before.publicOk, to: asset.publicOk },
-          ...(before.consentRef === asset.consentRef ? {} : { consentRefChanged: true }),
-        },
-      });
-      return asset;
+      return repo.updateProofAsset(
+        id,
+        input,
+        pendingAudit(ctx, {
+          action: 'strategy.proof_asset.updated',
+          entityType: 'proof_asset',
+          entityId: id,
+          // Só o fato de a autorização ter mudado, nunca o texto dela (KI-015).
+          diff: {
+            publicOk:
+              before.publicOk === input.publicOk
+                ? input.publicOk
+                : { from: before.publicOk, to: input.publicOk },
+            ...(before.consentRef === input.consentRef ? {} : { consentRefChanged: true }),
+          },
+        }),
+      );
     },
 
     async archiveProofAsset(ctx, id) {
       const asset = await requireProofAsset(id);
       if (asset.archivedAt) return;
-      await repo.archiveProofAsset(id, clock.now().toISOString());
-      await audit.record(ctx, {
-        action: 'strategy.proof_asset.archived',
-        entityType: 'proof_asset',
-        entityId: id,
-      });
+      await repo.archiveProofAsset(
+        id,
+        clock.now().toISOString(),
+        pendingAudit(ctx, {
+          action: 'strategy.proof_asset.archived',
+          entityType: 'proof_asset',
+          entityId: id,
+        }),
+      );
     },
 
     // --- Conformidade: LIA e política de contato ---------------------------------
@@ -548,13 +612,14 @@ export function createStrategyService(deps: {
       if (latest && !latest.approvedAt && sameContent(latest.content, content)) {
         return { value: latest, changed: false };
       }
-      const version = await repo.addLiaVersion(content);
-      await audit.record(ctx, {
-        action: 'compliance.lia.versioned',
-        entityType: 'legal_basis_assessment',
-        entityId: version.id,
-        diff: { version: version.version },
-      });
+      const version = await repo.addLiaVersion(
+        content,
+        pendingAudit(ctx, {
+          action: 'compliance.lia.versioned',
+          entityType: 'legal_basis_assessment',
+          withVersion: true,
+        }),
+      );
       return { value: version, changed: true };
     },
 
@@ -565,17 +630,17 @@ export function createStrategyService(deps: {
       const target = all.find((v) => v.id === id);
       if (!target) throw notFound();
       assertNoIssues(liaApprovalIssues(target, all, reviewDueOn, today()));
-      const approved = await repo.approveLia(id, {
-        approvedAt: clock.now().toISOString(),
-        reviewDueOn,
-      });
-      await audit.record(ctx, {
-        action: 'compliance.lia.approved',
-        entityType: 'legal_basis_assessment',
-        entityId: id,
-        diff: { version: approved.version, reviewDueOn },
-      });
-      return approved;
+      return repo.approveLia(
+        id,
+        { approvedAt: clock.now().toISOString(), reviewDueOn },
+        pendingAudit(ctx, {
+          action: 'compliance.lia.approved',
+          entityType: 'legal_basis_assessment',
+          entityId: id,
+          diff: { reviewDueOn },
+          withVersion: true,
+        }),
+      );
     },
 
     async revokeLia(ctx, id) {
@@ -584,14 +649,16 @@ export function createStrategyService(deps: {
       const target = all.find((v) => v.id === id);
       if (!target) throw notFound();
       assertNoIssues(liaRevocationIssues(target, all));
-      const revoked = await repo.revokeLia(id, clock.now().toISOString());
-      await audit.record(ctx, {
-        action: 'compliance.lia.revoked',
-        entityType: 'legal_basis_assessment',
-        entityId: id,
-        diff: { version: revoked.version },
-      });
-      return revoked;
+      return repo.revokeLia(
+        id,
+        clock.now().toISOString(),
+        pendingAudit(ctx, {
+          action: 'compliance.lia.revoked',
+          entityType: 'legal_basis_assessment',
+          entityId: id,
+          withVersion: true,
+        }),
+      );
     },
 
     async saveContactPolicy(ctx, raw) {
@@ -600,13 +667,14 @@ export function createStrategyService(deps: {
       if (current && sameContent(current.content, content)) {
         return { value: current, changed: false };
       }
-      const version = await repo.addContactPolicyVersion(content);
-      await audit.record(ctx, {
-        action: 'compliance.contact_policy.versioned',
-        entityType: 'contact_policy',
-        entityId: version.id,
-        diff: { version: version.version },
-      });
+      const version = await repo.addContactPolicyVersion(
+        content,
+        pendingAudit(ctx, {
+          action: 'compliance.contact_policy.versioned',
+          entityType: 'contact_policy',
+          withVersion: true,
+        }),
+      );
       return { value: version, changed: true };
     },
   };

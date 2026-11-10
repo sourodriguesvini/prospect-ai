@@ -152,7 +152,7 @@ export function rubricIssues(content: RubricContent): Issue[] {
       issues.push({
         field: `criteria.${index}.key`,
         code: 'duplicate_key',
-        message: `A chave "${criterion.key}" já é usada por outro critério.`,
+        message: `O identificador "${criterion.key}" já é usado por outro critério.`,
       });
     }
     keys.add(criterion.key);

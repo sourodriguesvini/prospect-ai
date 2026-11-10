@@ -17,12 +17,19 @@ import { formatMunicipality } from '@/lib/form-data';
 import { COMPANY_SIZE_LABELS, ICP_STATUS_LABELS, STATUS_BADGE } from '@/lib/strategy-labels';
 import { icpValues } from '@/lib/strategy-forms';
 import { strategyRoutes } from '@/lib/strategy-routes';
-import { loadStrategy } from '@/server/strategy';
+import { loadStrategy, strategyDetail, strategyTitle } from '@/server/strategy';
 import { changeIcpStatusAction, updateIcpAction } from '../../actions';
 
-export const metadata: Metadata = { title: 'ICP' };
-
 type Props = PageProps<'/configuracoes/estrategia/icp/[icpId]'>;
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { icpId } = await params;
+  const title = await strategyTitle(
+    async (strategy) => (await strategyDetail.icp(strategy, icpId)).icp.current?.content.name,
+    'ICP',
+  );
+  return { title };
+}
 
 const TRANSITIONS: Record<
   EntityStatus,
@@ -101,7 +108,7 @@ function IcpSummary({ content }: { content: IcpContent }) {
 async function IcpDetail({ params }: { params: Props['params'] }) {
   await connection();
   const { icpId } = await params;
-  const result = await loadStrategy((strategy, ctx) => strategy.icpDetail(ctx, icpId));
+  const result = await loadStrategy((strategy) => strategyDetail.icp(strategy, icpId));
   const baseTrail = [
     { href: '/configuracoes', label: 'Configuração' },
     { href: strategyRoutes.overview, label: 'Estratégia' },

@@ -1,5 +1,6 @@
 import {
   COPILOT_HISTORY_LIMIT,
+  formatMiBAsGB,
   type GenerationUsage,
   type LocalModel,
 } from '@prospector/contracts';
@@ -13,8 +14,11 @@ import {
   createEventDecoder,
   describeExpiry,
   describeUsage,
+  formatGigabytes,
+  formatMebibytesAsGigabytes,
   historyIsTrimmed,
   httpFailure,
+  modelsWithoutThinking,
   type Turn,
 } from './copilot';
 
@@ -234,6 +238,29 @@ describe('formatação', () => {
         ['completion'],
       ),
     ).toEqual(['qwen3.5:4b']);
+  });
+
+  it('marca só os modelos que o Ollama diz não terem raciocínio (KI-067)', () => {
+    expect(
+      modelsWithoutThinking([
+        model('qwen3.5:4b', ['completion', 'thinking']),
+        model('gemma-sem-raciocinio:4b', ['completion', 'vision']),
+        model('desconhecido:1b'),
+      ]),
+    ).toEqual(['gemma-sem-raciocinio:4b']);
+  });
+
+  it('GB no mesmo formato das mensagens do servidor: uma casa, sem ",0" (KI-067)', () => {
+    expect(formatMebibytesAsGigabytes(16_311)).toBe('15,9 GB');
+    expect(formatMebibytesAsGigabytes(3072)).toBe('3 GB');
+    expect(formatGigabytes(3_388_000_000)).toBe('3,2 GB');
+    expect(formatGigabytes(2 * 1024 ** 3)).toBe('2 GB');
+    expect(formatMebibytesAsGigabytes(6100)).toBe(formatMiBAsGB(6100));
+  });
+
+  it('a fase "liberando memória" não muda a fala', () => {
+    const current = turn('assistant', 'x');
+    expect(applyEvent(current, { type: 'phase', phase: 'freeing_vram' })).toBe(current);
   });
 
   it('descreve as capacidades em português', () => {

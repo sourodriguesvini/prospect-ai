@@ -115,6 +115,7 @@ describe('loadPrompt', () => {
   it.each([
     [1, '7b9071c2a216c7a9977230194965ea79d889fab6bef61fba554eb3bd2f795660'],
     [2, '732c5282714ab3fb33de0c528d2c9cf8d2e2dd4bb906a235a26b97918cadbd14'],
+    [3, 'bc898da8aa8f5da96050cdec4055f0dd17c66629e3c7484d46a98b3809f00474'],
   ])('copilot/v%i não foi editado depois de avaliado', (version, sha256) => {
     expect(loadPrompt('copilot', version).sha256).toBe(sha256);
   });

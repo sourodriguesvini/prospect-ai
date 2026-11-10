@@ -36,6 +36,7 @@
 | [0007](adr/0007-uso-interno-local-sem-login.md) | **Uso interno, local, sem login e sem multiempresa** (prevalece sobre os demais docs) | Aceito |
 | [0008](adr/0008-ia-local-com-ollama.md) | **IA local com Ollama como provedor padrão** (emenda o 0003) | Aceito |
 | [0009](adr/0009-versionamento-imutavel-da-estrategia.md) | Versionamento imutável da estratégia e modo memória | Proposto |
+| [0010](adr/0010-auditoria-na-mesma-transacao.md) | Auditoria na mesma transação da escrita (cabeçalho + trigger) | Aceito |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 

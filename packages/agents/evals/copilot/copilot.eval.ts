@@ -19,8 +19,9 @@ import { gradeRun, printSummary, summarize, type Run, type SummaryGroup } from '
  *
  * Variáveis: EVAL_MODELS (lista separada por vírgula; padrão = política do Copiloto),
  * EVAL_PROMPTS (versões do prompt, ex.: "1,2"; padrão = a versão em uso), EVAL_REPEAT
- * (repetições por caso; padrão 2, a temperatura não é zero) e EVAL_REGRADE (caminho de um
- * resultado salvo: recalcula as notas com os corretores atuais, sem Ollama).
+ * (repetições por caso; padrão 2, a temperatura não é zero), EVAL_CASES (ids separados por
+ * vírgula; padrão = todos, ex.: "raciocinio-ligado" com EVAL_REPEAT=10) e EVAL_REGRADE (caminho
+ * de um resultado salvo: recalcula as notas com os corretores atuais, sem Ollama).
  */
 const baseUrl = process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_URL;
 const models = process.env.EVAL_MODELS?.split(',').map((name) => name.trim()) ?? [
@@ -30,6 +31,8 @@ const promptVersions = process.env.EVAL_PROMPTS?.split(',').map((value) =>
   Number(value.trim()),
 ) ?? [COPILOT_PROMPT_VERSION];
 const repeat = Math.max(1, Number(process.env.EVAL_REPEAT ?? 2));
+const caseFilter = process.env.EVAL_CASES?.split(',').map((id) => id.trim());
+const selectedCases = caseFilter ? CASES.filter((entry) => caseFilter.includes(entry.id)) : CASES;
 /** Limiar do modelo preferido da política (docs/11 §4.3 para capacidades locais). */
 const MIN_PASS_RATE = 0.75;
 const here = dirname(fileURLToPath(import.meta.url));
@@ -80,6 +83,7 @@ it.runIf(regradeSource)('recalcula um resultado salvo com os corretores atuais',
 });
 
 it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
+  if (selectedCases.length === 0) throw new Error(`EVAL_CASES sem casos conhecidos: ${caseFilter}`);
   const runtime = createLocalAiRuntime({ baseUrl, maxConcurrent: 1, maxQueue: 0 });
   const client = createOllamaClient({ baseUrl });
   const status = await runtime.gateway.status();
@@ -101,7 +105,7 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
       skipped.push(model);
       continue;
     }
-    for (const evalCase of CASES) {
+    for (const evalCase of selectedCases) {
       for (let attempt = 1; attempt <= repeat; attempt += 1) {
         // Versões alternadas na mesma tentativa: a ordem não favorece nenhuma.
         for (const { prompt, copilot } of copilots) {
@@ -136,6 +140,7 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
                 model,
                 caseId: evalCase.id,
                 attempt,
+                think: evalCase.think ?? false,
                 output,
                 error,
                 firstTokenMs,
@@ -176,7 +181,7 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
       repeat,
     },
     modelDigests: Object.fromEntries(evaluated.map((model) => [model, digests.get(model) ?? null])),
-    cases: CASES.map(({ id, goal, input, history, think, database }) => ({
+    cases: selectedCases.map(({ id, goal, input, history, think, database }) => ({
       id,
       goal,
       input,

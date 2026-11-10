@@ -6,8 +6,13 @@ import type { PromptDoc } from '../prompts';
 /**
  * Versão do prompt em uso (`packages/agents/prompts/copilot/v<N>.md`). Trocar exige avaliação
  * (`pnpm evals`) com a nova versão ≥ a anterior (docs/11 §4.3, skill capacidade-ia).
+ * v3 promovido na IA-1.2 (2026-11-10, `evals/copilot/results/2026-11-10-16-44.regraded.json` e
+ * `2026-11-10-16-57.json`): 89% contra 60% do v1 no `qwen3.5:4b` (19 casos × 3, recalculado
+ * depois da revisão do avaliador-ia) e p95 sem raciocínio de 2,6 s contra 3,1 s; com raciocínio
+ * ligado, p95 12% maior (dentro dos 15% do doc 11). O v2 não foi promovido (IA-1.1). Detalhes e
+ * ressalvas (LGPD, rascunhos) no doc 13 §9.
  */
-export const COPILOT_PROMPT_VERSION = 1;
+export const COPILOT_PROMPT_VERSION = 3;
 
 export interface CopilotTurnOptions {
   traceId: string;

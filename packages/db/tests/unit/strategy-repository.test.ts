@@ -1,6 +1,7 @@
-import { AppError } from '@prospector/application';
+import { AppError, type PendingAudit } from '@prospector/application';
 import { describe, expect, it } from 'vitest';
 import { createServerSupabaseClient, createSupabaseStrategyRepository } from '../../src';
+import { AUDIT_HEADER } from '../../src/strategy-repository';
 
 /**
  * Adaptador da estratégia contra respostas do PostgREST simuladas (sem Supabase real): rotas,
@@ -17,7 +18,25 @@ interface Captured {
   url: URL;
   method: string;
   body: unknown;
+  headers: Headers;
 }
+
+const AUDIT: PendingAudit = {
+  actorType: 'user',
+  actorLabel: null,
+  traceId: '55555555-5555-4555-8555-555555555555',
+  action: 'strategy.offer.created',
+  entityType: 'offer',
+  entityId: null,
+  diff: { version: 1 },
+  withVersion: false,
+};
+
+/** Registro de auditoria enviado no cabeçalho (KI-041), decodificado. */
+const sentAudit = (req: Captured | undefined) => {
+  const value = req?.headers.get(AUDIT_HEADER);
+  return value ? (JSON.parse(Buffer.from(value, 'base64').toString('utf8')) as unknown) : null;
+};
 
 function stub(respond: (req: Captured) => Response) {
   const calls: Captured[] = [];
@@ -27,6 +46,7 @@ function stub(respond: (req: Captured) => Response) {
       url: new URL(href),
       method: init?.method ?? 'GET',
       body: typeof init?.body === 'string' ? JSON.parse(init.body) : null,
+      headers: new Headers(init?.headers),
     };
     calls.push(req);
     return respond(req);
@@ -83,18 +103,24 @@ describe('createSupabaseStrategyRepository', () => {
       if (path(req) === 'offers') return json(200, OFFER_ROW);
       return json(200, OFFER_VERSION_ROW);
     });
-    const offer = await repo.createOffer({
-      name: 'Identidade visual',
-      description: '',
-      problems: ['Marca desatualizada'],
-      needSignals: [],
-      disqualifiers: [],
-      deliverables: [],
-      valueProps: [],
-      priceMinCents: 1_500_000,
-      priceMaxCents: 4_000_000,
-    });
+    const offer = await repo.createOffer(
+      {
+        name: 'Identidade visual',
+        description: '',
+        problems: ['Marca desatualizada'],
+        needSignals: [],
+        disqualifiers: [],
+        deliverables: [],
+        valueProps: [],
+        priceMinCents: 1_500_000,
+        priceMaxCents: 4_000_000,
+      },
+      AUDIT,
+    );
     expect(calls[0]).toMatchObject({ method: 'POST' });
+    // O registro vai no mesmo pedido da escrita e vale para o cabeçalho (não para a versão).
+    expect(sentAudit(calls[0])).toEqual({ ...AUDIT, table: 'offers', covers: ['offer_versions'] });
+    expect(calls.slice(1).every((req) => sentAudit(req) === null)).toBe(true);
     expect(path(calls[0]!)).toBe('rpc/create_offer');
     expect(calls[0]?.body).toEqual({
       p_version: {
@@ -135,18 +161,27 @@ describe('createSupabaseStrategyRepository', () => {
         created_at: AT,
       }),
     );
-    const version = await repo.addRubricVersion(OFFER_ID, {
-      criteria: [
-        {
-          key: 'consistencia',
-          label: 'C',
-          description: 'D',
-          weight: 100,
-          evidenceRequired: ['logo'],
-        },
-      ],
-    });
+    const version = await repo.addRubricVersion(
+      OFFER_ID,
+      {
+        criteria: [
+          {
+            key: 'consistencia',
+            label: 'C',
+            description: 'D',
+            weight: 100,
+            evidenceRequired: ['logo'],
+          },
+        ],
+      },
+      { ...AUDIT, action: 'strategy.rubric.versioned', entityId: OFFER_ID, withVersion: true },
+    );
     expect(path(calls[0]!)).toBe('audit_rubrics');
+    expect(sentAudit(calls[0])).toMatchObject({
+      table: 'audit_rubrics',
+      action: 'strategy.rubric.versioned',
+      withVersion: true,
+    });
     expect(calls[0]?.body).not.toHaveProperty('version');
     expect(version.version).toBe(3);
   });
@@ -156,7 +191,7 @@ describe('createSupabaseStrategyRepository', () => {
       req.method === 'PATCH' ? json(200, []) : json(200, LIA_ROW),
     );
     const error = await repo
-      .approveLia(LIA_ID, { approvedAt: AT, reviewDueOn: '2027-11-09' })
+      .approveLia(LIA_ID, { approvedAt: AT, reviewDueOn: '2027-11-09' }, AUDIT)
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(AppError);
     expect(error).toMatchObject({ code: 'conflict', reason: 'lia_decision_locked' });
@@ -165,11 +200,14 @@ describe('createSupabaseStrategyRepository', () => {
     expect(patch?.url.searchParams.get('id')).toBe(`eq.${LIA_ID}`);
     expect(patch?.url.searchParams.get('approved_at')).toBe('is.null');
     expect(patch?.body).toEqual({ approved_at: AT, review_due_on: '2027-11-09' });
+    expect(sentAudit(patch)).toMatchObject({ table: 'legal_basis_assessments' });
+    // A releitura (GET) não leva registro: só escrita é auditada.
+    expect(sentAudit(calls[1])).toBeNull();
   });
 
   it('revokeLia: exige aprovada e não revogada; devolve a versão mapeada', async () => {
     const { repo, calls } = stub(() => json(200, [{ ...LIA_ROW, revoked_at: AT }]));
-    const revoked = await repo.revokeLia(LIA_ID, AT);
+    const revoked = await repo.revokeLia(LIA_ID, AT, AUDIT);
     expect(revoked.revokedAt).toBe(AT);
     expect(calls[0]?.url.searchParams.get('revoked_at')).toBe('is.null');
     expect(calls[0]?.url.searchParams.get('approved_at')).toBe('not.is.null');
@@ -213,17 +251,21 @@ describe('createSupabaseStrategyRepository', () => {
   ])('erro %s do banco vira AppError %s/%s', async (code, appCode, reason) => {
     const { repo } = stub(() => json(409, { code, message: 'detalhe interno', details: null }));
     const error = await repo
-      .addOfferVersion(OFFER_ID, {
-        name: 'x',
-        description: '',
-        problems: [],
-        needSignals: [],
-        disqualifiers: [],
-        deliverables: [],
-        valueProps: [],
-        priceMinCents: null,
-        priceMaxCents: null,
-      })
+      .addOfferVersion(
+        OFFER_ID,
+        {
+          name: 'x',
+          description: '',
+          problems: [],
+          needSignals: [],
+          disqualifiers: [],
+          deliverables: [],
+          valueProps: [],
+          priceMinCents: null,
+          priceMaxCents: null,
+        },
+        AUDIT,
+      )
       .catch((e: unknown) => e);
     expect(error).toMatchObject({ code: appCode, reason });
   });
@@ -231,5 +273,62 @@ describe('createSupabaseStrategyRepository', () => {
   it('linha fora do formato esperado falha alto (mudança de esquema)', async () => {
     const { repo } = stub(() => json(200, [{ ...LIA_ROW, data_categories: 'name' }]));
     await expect(repo.listLiaVersions()).rejects.toThrow();
+  });
+});
+
+/**
+ * Revisão de arquitetura de 2026-11-10: o par `client.from('x')` / registro da tabela `x` é
+ * repetido à mão em cada método. Este teste percorre todas as escritas e confere que o registro
+ * vai no pedido de escrita, com a tabela do próprio caminho (ou, nas RPCs, a tabela que registra
+ * e as que ela cobre). O trigger recusa qualquer outra combinação (`audit_invalid`).
+ */
+describe('registro de auditoria em todas as escritas (KI-041)', () => {
+  const any = {} as never;
+  const nested = { weights: {}, thresholds: {}, filters: {}, exclusions: {} } as never;
+  const writes: [string, (repo: ReturnType<typeof stub>['repo']) => Promise<unknown>][] = [
+    ['createOffer', (r) => r.createOffer(any, AUDIT)],
+    ['addOfferVersion', (r) => r.addOfferVersion(OFFER_ID, any, AUDIT)],
+    ['setOfferStatus', (r) => r.setOfferStatus(OFFER_ID, 'active', AUDIT)],
+    ['addRubricVersion', (r) => r.addRubricVersion(OFFER_ID, { criteria: [] }, AUDIT)],
+    ['addScoringModelVersion', (r) => r.addScoringModelVersion(OFFER_ID, nested, AUDIT)],
+    ['createIcp', (r) => r.createIcp(OFFER_ID, nested, AUDIT)],
+    ['addIcpVersion', (r) => r.addIcpVersion(OFFER_ID, nested, AUDIT)],
+    ['setIcpStatus', (r) => r.setIcpStatus(OFFER_ID, 'archived', AUDIT)],
+    ['addVoiceGuideVersion', (r) => r.addVoiceGuideVersion(any, AUDIT)],
+    ['addContactPolicyVersion', (r) => r.addContactPolicyVersion(any, AUDIT)],
+    ['createProofAsset', (r) => r.createProofAsset(any, AUDIT)],
+    ['updateProofAsset', (r) => r.updateProofAsset(OFFER_ID, any, AUDIT)],
+    ['archiveProofAsset', (r) => r.archiveProofAsset(OFFER_ID, AT, AUDIT)],
+    ['addLiaVersion', (r) => r.addLiaVersion(any, AUDIT)],
+    [
+      'approveLia',
+      (r) => r.approveLia(LIA_ID, { approvedAt: AT, reviewDueOn: '2027-11-09' }, AUDIT),
+    ],
+    ['revokeLia', (r) => r.revokeLia(LIA_ID, AT, AUDIT)],
+  ];
+  const RPC: Record<string, { table: string; covers: string[] }> = {
+    'rpc/create_offer': { table: 'offers', covers: ['offer_versions'] },
+    'rpc/create_icp_profile': { table: 'icp_profiles', covers: ['icp_profile_versions'] },
+  };
+
+  it.each(writes)('%s', async (_name, write) => {
+    // Responde erro na primeira chamada: só interessa o pedido de escrita.
+    const { repo, calls } = stub(() => json(500, { message: 'parar', code: 'XX000' }));
+    await write(repo).catch(() => undefined);
+    const [request] = calls;
+    expect(request?.method).not.toBe('GET');
+    const sent = sentAudit(request) as { table: string; covers: string[] } | null;
+    const target = path(request!);
+    const expected = RPC[target] ?? { table: target, covers: [] };
+    expect({ table: sent?.table, covers: sent?.covers }).toEqual(expected);
+  });
+
+  it('o registro tem limite de tamanho (sem conteúdo, KI-015)', async () => {
+    const { repo, calls } = stub(() => json(200, []));
+    const error = await repo
+      .setOfferStatus(OFFER_ID, 'active', { ...AUDIT, diff: { grande: 'x'.repeat(5000) } })
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'unexpected' });
+    expect(calls).toEqual([]);
   });
 });

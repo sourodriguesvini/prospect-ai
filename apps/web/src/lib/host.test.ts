@@ -41,11 +41,17 @@ describe('isSameOriginRequest', () => {
     secFetchSite: 'same-origin',
   };
 
-  it('aceita a própria página e clientes sem cabeçalhos de navegador', () => {
+  it('aceita a própria página', () => {
     expect(isSameOriginRequest(local)).toBe(true);
+    expect(isSameOriginRequest({ ...local, secFetchSite: null })).toBe(true);
+  });
+
+  it('recusa pedido sem Origin (KI-064), mesmo com Host local e sem Sec-Fetch-Site', () => {
     expect(isSameOriginRequest({ host: '127.0.0.1:3000', origin: null, secFetchSite: null })).toBe(
-      true,
+      false,
     );
+    expect(isSameOriginRequest({ ...local, origin: null })).toBe(false);
+    expect(isSameOriginRequest({ ...local, host: null })).toBe(false);
   });
 
   it('recusa pedido vindo de outro site, mesmo com Host local', () => {

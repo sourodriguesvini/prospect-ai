@@ -36,8 +36,8 @@ Não há banco real configurado nesta máquina (KI-002, KI-008) e o Docker não 
 - (+) Números de versão, datas, imutabilidade e as regras de decisão da LIA são garantidos pelo banco, não só pelo app.
 - (+) Fluxo completo testado em E2E sem banco (`apps/web/e2e/strategy.spec.ts`).
 - (−) Versões acumulam linhas (uma por gravação com mudança). Gravar sem mudança não cria versão.
-- (−) Escrita e auditoria não são atômicas: se a gravação no `audit_log` falhar, a versão já existe (KI-041).
-- (−) O modo memória não exercita o PostgREST: o adaptador Supabase da estratégia só foi testado contra respostas simuladas e o SQL só em PGlite (KI-042).
+- (+) Escrita e auditoria são atômicas desde 2026-11-10: o registro vai no mesmo pedido e o trigger o grava na mesma transação ([ADR-0010](0010-auditoria-na-mesma-transacao.md), KI-041 resolvido).
+- (+) O adaptador Supabase da estratégia foi exercitado no banco real de desenvolvimento em 2026-11-10 (KI-042 resolvido); o modo memória continua sem exercitar o PostgREST.
 - (−) O banco aceita alguns conteúdos que o contrato recusa (ex.: descrição de critério da rubrica vazia). O contrato é a regra; o banco é a barreira mínima (KI-045).
 
 ## Alternativas consideradas

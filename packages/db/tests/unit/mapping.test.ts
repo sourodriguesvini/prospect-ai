@@ -34,6 +34,11 @@ describe('toAppError', () => {
       'unexpected',
     ],
     [{ message: 'algo inesperado', code: 'XX000' }, 'unexpected', 'unexpected'],
+    // Proteções internas do banco nunca viram "Revise os campos" (revisões de 2026-11-10).
+    [{ message: 'audit_invalid', code: 'P0001' }, 'unexpected', 'unexpected'],
+    [{ message: 'audit_invalid', code: '22023' }, 'unexpected', 'unexpected'],
+    [{ message: 'audit_missing', code: '42501' }, 'unexpected', 'unexpected'],
+    [{ message: 'version_immutable', code: 'P0001' }, 'unexpected', 'unexpected'],
   ])('%o → %s/%s', (input, code, reason) => {
     const error = toAppError(input);
     expect(error).toBeInstanceOf(AppError);

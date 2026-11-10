@@ -23,12 +23,19 @@ import {
   THRESHOLD_LABELS,
 } from '@/lib/strategy-labels';
 import { strategyRoutes } from '@/lib/strategy-routes';
-import { loadStrategy } from '@/server/strategy';
+import { loadStrategy, strategyDetail, strategyTitle } from '@/server/strategy';
 import { changeOfferStatusAction } from '../../actions';
 
-export const metadata: Metadata = { title: 'Oferta' };
-
 type Params = PageProps<'/configuracoes/estrategia/ofertas/[offerId]'>['params'];
+
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const { offerId } = await params;
+  const title = await strategyTitle(
+    async (strategy) => (await strategyDetail.offer(strategy, offerId)).offer.current?.content.name,
+    'Oferta',
+  );
+  return { title };
+}
 
 const TRANSITIONS: Record<
   EntityStatus,
@@ -62,7 +69,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 async function OfferDetail({ params }: { params: Params }) {
   await connection();
   const { offerId } = await params;
-  const result = await loadStrategy((strategy, ctx) => strategy.offerDetail(ctx, offerId));
+  const result = await loadStrategy((strategy) => strategyDetail.offer(strategy, offerId));
   if (result.kind === 'unavailable') {
     return (
       <>
@@ -189,7 +196,8 @@ async function OfferDetail({ params }: { params: Params }) {
               </ul>
             ) : (
               <Well className="text-sm text-muted-foreground">
-                Ainda sem rubrica. Há um rascunho sugerido para branding para você revisar.
+                Ainda sem rubrica. Ao abrir, ela vem preenchida com o padrão de branding; revise e
+                salve.
               </Well>
             )}
           </Panel>
@@ -228,7 +236,8 @@ async function OfferDetail({ params }: { params: Params }) {
               </div>
             ) : (
               <Well className="text-sm text-muted-foreground">
-                Ainda sem modelo. Há um rascunho sugerido (pesos de docs/08) para você revisar.
+                Ainda sem modelo. Ao abrir, ele vem preenchido com os pesos da metodologia
+                comercial; revise e salve.
               </Well>
             )}
           </Panel>

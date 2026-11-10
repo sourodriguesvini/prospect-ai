@@ -115,6 +115,11 @@ export const CopilotEvent = z.discriminatedUnion('type', [
   }),
   /** Esperando vaga: a IA local atende um pedido por vez (ADR-0008). */
   z.object({ type: z.literal('queued'), position: z.number().int().positive() }),
+  /**
+   * Etapa demorada antes de o modelo começar (KI-067): `freeing_vram` = tirando modelos ociosos da
+   * placa de vídeo para caber o modelo pedido.
+   */
+  z.object({ type: z.literal('phase'), phase: z.enum(['freeing_vram']) }),
   /** Aviso que não impede a resposta (ex.: modelo não cabe inteiro na GPU livre). */
   z.object({ type: z.literal('notice'), message: z.string() }),
   z.object({ type: z.literal('thinking'), text: z.string() }),
@@ -229,3 +234,13 @@ export const AiRuntimeStatus = z.discriminatedUnion('state', [
   }),
 ]);
 export type AiRuntimeStatus = z.infer<typeof AiRuntimeStatus>;
+
+const GIGABYTES = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+
+/**
+ * Uma só regra para tamanhos de memória na IA local (KI-067): no máximo uma casa decimal e sem
+ * ",0" ("3 GB", "3,9 GB"), a partir de MiB. Usada pelas mensagens do gateway e pela tela.
+ */
+export function formatMiBAsGB(mib: number): string {
+  return `${GIGABYTES.format(mib / 1024)} GB`;
+}

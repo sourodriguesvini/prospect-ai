@@ -29,8 +29,8 @@ async function ContactPolicy() {
       <StorageNotice storage={result.storage} />
       {current ? null : (
         <DraftNotice>
-          O texto de opt-out abaixo é uma sugestão. Nome da agência e canal do titular ficam em
-          branco: só você sabe quais são. Nada foi salvo ainda.
+          O texto de opt-out abaixo é o padrão do Prospector. Nome da agência e canal do titular
+          ficam em branco: só você sabe quais são. Nada foi salvo ainda.
         </DraftNotice>
       )}
       <Panel aria-label="Identificação e opt-out">

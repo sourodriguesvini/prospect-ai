@@ -25,6 +25,18 @@ export const RecordAuditInput = z.object({
 });
 export type RecordAuditInput = z.input<typeof RecordAuditInput>;
 
+/**
+ * Ator e rastreio de um registro, nos limites do `audit_log`: rótulo de 1 a 120 caracteres (ou
+ * nenhum, para o usuário) e traceId UUID. Validados antes de qualquer IO, para a memória e o banco
+ * recusarem o mesmo registro (KI-041).
+ */
+export const AuditActorFields = z.object({
+  actorType: ActorType,
+  actorLabel: z.string().min(1).max(120).nullable(),
+  traceId: z.uuid(),
+});
+export type AuditActorFields = z.infer<typeof AuditActorFields>;
+
 export const AuditLogEntry = z.object({
   id: z.number().int(),
   actorType: ActorType,

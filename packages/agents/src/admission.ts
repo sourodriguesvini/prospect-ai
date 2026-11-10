@@ -1,4 +1,4 @@
-import type { GpuSnapshot } from '@prospector/contracts';
+import { formatMiBAsGB, type GpuSnapshot } from '@prospector/contracts';
 import { AiError } from './errors';
 import { kvCacheBytes, type KvProfile } from './model-catalog';
 
@@ -45,7 +45,12 @@ export type AdmissionDecision =
       admitted: false;
       reason: 'too_big' | 'no_room';
       neededMiB: number;
+      /** Livre agora + memória dos modelos ociosos que o gateway pode tirar. */
       availableMiB: number;
+      /** Livre agora, como o painel IA local mostra ("livres"). */
+      freeMiB: number;
+      /** Ocupada por modelos ociosos do Ollama (pode ser liberada). */
+      reclaimableMiB: number;
       reserveMiB: number;
       totalMiB: number;
     };
@@ -71,33 +76,36 @@ export function decideAdmission(input: {
     reason: input.neededMiB + input.reserveMiB > input.gpu.totalMiB ? 'too_big' : 'no_room',
     neededMiB: input.neededMiB,
     availableMiB,
+    freeMiB: Math.max(0, Math.floor(input.gpu.freeMiB)),
+    reclaimableMiB: Math.max(0, Math.floor(input.reclaimableMiB)),
     reserveMiB: input.reserveMiB,
     totalMiB: input.gpu.totalMiB,
   };
 }
 
-/** "3,9" (GB com uma casa, vírgula decimal), a partir de MiB. */
-export function gigabytes(mib: number): string {
-  return (mib / 1024).toFixed(1).replace('.', ',');
-}
-
 /**
  * Erro mostrado na conversa: diz quanto falta e o que a pessoa pode fazer. Modelo que nunca cabe
  * nesta placa vira `model_too_large` (repetir não adianta); falta de espaço agora, `insufficient_vram`.
+ * "livres" é o mesmo número do painel IA local; a memória dos modelos ociosos aparece à parte
+ * (KI-067), e os tamanhos seguem a regra única de `formatMiBAsGB`.
  */
 export function insufficientVramError(
   model: string,
   decision: Extract<AdmissionDecision, { admitted: false }>,
 ): AiError {
-  const needed = gigabytes(decision.neededMiB);
-  const reserve = gigabytes(decision.reserveMiB);
+  const needed = formatMiBAsGB(decision.neededMiB);
+  const reserve = formatMiBAsGB(decision.reserveMiB);
+  const idle =
+    decision.reclaimableMiB > 0
+      ? ` (mais ${formatMiBAsGB(decision.reclaimableMiB)} de modelos ociosos, que o Prospector tiraria da memória)`
+      : '';
   const message =
     decision.reason === 'too_big'
-      ? `O modelo ${model} precisa de cerca de ${needed} GB de memória de vídeo e não cabe nesta placa (${gigabytes(decision.totalMiB)} GB) sem invadir os ${reserve} GB reservados para os outros programas. Escolha um modelo menor em Modelo (os tamanhos aparecem em Instalados, no painel IA local).`
-      : `O modelo ${model} precisa de cerca de ${needed} GB de memória de vídeo, mas a placa tem ${gigabytes(decision.availableMiB)} GB disponíveis e ${reserve} GB ficam reservados para os outros programas. Feche o que estiver usando a GPU (Figma, Premiere ou After Effects, navegador com muitas abas, jogos) ou escolha um modelo menor, e tente de novo. O Prospector não fecha programas por conta própria.`;
+      ? `O modelo ${model} precisa de cerca de ${needed} de memória de vídeo e não cabe nesta placa (${formatMiBAsGB(decision.totalMiB)}) sem invadir os ${reserve} reservados para os outros programas. Escolha um modelo menor em Modelo (os tamanhos aparecem em Instalados, no painel IA local).`
+      : `O modelo ${model} precisa de cerca de ${needed} de memória de vídeo, mas a placa tem ${formatMiBAsGB(decision.freeMiB)} livres${idle} e ${reserve} ficam reservados para os outros programas. Feche o que estiver usando a GPU (Figma, Premiere ou After Effects, navegador com muitas abas, jogos) ou escolha um modelo menor, e tente de novo. O Prospector não fecha programas por conta própria.`;
   return new AiError(decision.reason === 'too_big' ? 'model_too_large' : 'insufficient_vram', {
     message,
-    detail: `precisa ${decision.neededMiB} MiB + reserva ${decision.reserveMiB} MiB; disponível ${decision.availableMiB} MiB de ${decision.totalMiB} MiB`,
+    detail: `precisa ${decision.neededMiB} MiB + reserva ${decision.reserveMiB} MiB; livre ${decision.freeMiB} MiB + ociosos ${decision.reclaimableMiB} MiB; placa ${decision.totalMiB} MiB`,
   });
 }
 

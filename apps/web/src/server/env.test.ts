@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { LocalAiConfigError, localAiEnv } = await import('./env');
+const { LOCAL_AI_ENV_FORMATS, LocalAiConfigError, localAiEnv } = await import('./env');
 const { getLocalAi } = await import('./container');
 
 const AI_VARS = [
@@ -77,7 +77,10 @@ describe('getLocalAi com configuração inválida', () => {
     const status = await ai.status();
     expect(status).toMatchObject({ state: 'offline', code: 'invalid_config' });
     if (status.state === 'offline') {
-      expect(status.message).toContain('a variável AI_MAX_CONCURRENCY está inválida');
+      // Diz o formato esperado (KI-067), nunca o valor recebido.
+      expect(status.message).toContain(
+        'a variável AI_MAX_CONCURRENCY (número inteiro de 1 a 4) está inválida',
+      );
       expect(status.message).toContain('reinicie o app');
       expect(status.message).not.toContain('99');
     }
@@ -96,6 +99,24 @@ describe('getLocalAi com configuração inválida', () => {
       },
     ]);
     await expect(ai.unload('qwen3.5:4b')).rejects.toMatchObject({ code: 'invalid_config' });
+  });
+
+  it('com várias variáveis inválidas, lista o formato de cada uma', async () => {
+    vi.stubEnv('AI_KEEP_ALIVE', 'sempre');
+    vi.stubEnv('AI_NUM_CTX', 'muito');
+    const status = await getLocalAi().status();
+    expect(status).toMatchObject({ state: 'offline', code: 'invalid_config' });
+    if (status.state === 'offline') {
+      expect(status.message).toContain(
+        'as variáveis AI_KEEP_ALIVE (0 ou um número seguido de ms, s, m ou h, como 5m); AI_NUM_CTX (número inteiro de 2048 a 262144) estão inválidas',
+      );
+      expect(status.message).not.toContain('sempre');
+      expect(status.message).not.toContain('muito');
+    }
+  });
+
+  it('todas as variáveis da IA local têm formato descrito', () => {
+    expect(Object.keys(LOCAL_AI_ENV_FORMATS).sort()).toEqual([...AI_VARS].sort());
   });
 
   it('OLLAMA_BASE_URL fora deste computador também vira invalid_config', async () => {

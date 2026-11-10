@@ -7,6 +7,7 @@ import {
 } from '@prospector/application';
 import { revalidatePath } from 'next/cache';
 import { notFound, redirect, unstable_rethrow } from 'next/navigation';
+import { cache } from 'react';
 import type { FormValues } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
 import { getServices } from './container';
@@ -35,6 +36,41 @@ export async function loadStrategy<T>(
     throw error;
   }
 }
+
+/**
+ * Título da aba para `generateMetadata` (KI-050). Qualquer falha (banco fora do ar, id
+ * inexistente) devolve o título genérico: quem mostra o erro é a própria página.
+ */
+export async function strategyTitle(
+  read: (strategy: StrategyService, ctx: RequestContext) => Promise<string | null | undefined>,
+  fallback: string,
+): Promise<string> {
+  const { strategy } = getServices();
+  if (!strategy) return fallback;
+  try {
+    return (await read(strategy, userContext()))?.trim() || fallback;
+  } catch (error) {
+    unstable_rethrow(error);
+    return fallback;
+  }
+}
+
+/**
+ * Leituras de detalhe memorizadas por pedido (`cache` do React): a página e o `generateMetadata`
+ * pedem o mesmo detalhe, e o banco é consultado uma vez só (revisão de arquitetura, KI-044).
+ * `getServices` também é por pedido, então o serviço é o mesmo objeto nas duas chamadas.
+ */
+export const strategyDetail = {
+  offer: cache((strategy: StrategyService, offerId: string) =>
+    strategy.offerDetail(userContext(), offerId),
+  ),
+  icp: cache((strategy: StrategyService, icpId: string) =>
+    strategy.icpDetail(userContext(), icpId),
+  ),
+  proofAsset: cache((strategy: StrategyService, caseId: string) =>
+    strategy.proofAsset(userContext(), caseId),
+  ),
+};
 
 /** Resultado de uma escrita: caminho para redirecionar, mensagem para mostrar, ou nada ("Salvo."). */
 export type ActionOutcome = string | { message: string; unchanged?: boolean } | void;

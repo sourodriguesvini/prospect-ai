@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { isLocalRequest } from '@/lib/host';
+import { isLocalRequest, isSameOriginRequest } from '@/lib/host';
+
+/** Métodos que só leem: não precisam vir de uma página do app. */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 function buildCsp(nonce: string): string {
   const isDev = process.env.NODE_ENV === 'development';
@@ -19,14 +22,23 @@ function buildCsp(nonce: string): string {
 
 /**
  * Executa antes de cada página: recusa hosts que não sejam este computador (sem login, é a
- * proteção contra DNS rebinding — ADR-0007) e aplica CSP com nonce.
+ * proteção contra DNS rebinding — ADR-0007), recusa escrita que não venha de uma página do
+ * próprio app (Server Actions e rotas POST, KI-064) e aplica CSP com nonce.
  */
 export function proxy(request: NextRequest) {
-  if (!isLocalRequest(request.headers.get('host'), request.headers.get('x-forwarded-host'))) {
-    return new NextResponse('Host não permitido: o Prospector só atende este computador.', {
-      status: 403,
-      headers: { 'content-type': 'text/plain; charset=utf-8' },
-    });
+  const host = request.headers.get('host');
+  if (!isLocalRequest(host, request.headers.get('x-forwarded-host'))) {
+    return refuse('Host não permitido: o Prospector só atende este computador.');
+  }
+  if (
+    !SAFE_METHODS.has(request.method) &&
+    !isSameOriginRequest({
+      host,
+      origin: request.headers.get('origin'),
+      secFetchSite: request.headers.get('sec-fetch-site'),
+    })
+  ) {
+    return refuse('Origem não permitida: só as páginas do próprio Prospector podem gravar.');
   }
 
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
@@ -38,6 +50,13 @@ export function proxy(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', csp);
   return response;
+}
+
+function refuse(message: string) {
+  return new NextResponse(message, {
+    status: 403,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  });
 }
 
 // Todo HTML e toda Server Action passam por aqui; arquivos estáticos (código público do

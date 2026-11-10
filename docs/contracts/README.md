@@ -6,7 +6,7 @@
 
 ## 1. Primitivas compartilhadas e Evidence Ledger
 
-> **Implementado na F3a (2026-11-09)** em `packages/contracts/src/evidence.ts`, com testes em `packages/contracts/tests/evidence.test.ts`. Os contratos fixam só a forma; as regras epistemológicas e o cálculo de confiança ficam em `packages/domain/src/evidence` ([08 §2.5](../08-metodologia-comercial.md#25-regras-implementadas-e-valores-propostos-f3a-2026-11-09)). Os campos são as colunas de [06 §4.4](../06-modelo-de-dados.md#44-evidence-ledger-mvp) em camelCase.
+> **Implementado na F3a (2026-11-09)** em `packages/contracts/src/evidence.ts`, com testes em `packages/contracts/tests/evidence.test.ts`. Os contratos fixam só a forma; as regras epistemológicas e o cálculo de confiança ficam em `packages/domain/src/evidence` ([08 §2.5](../08-metodologia-comercial.md#25-regras-implementadas-e-valores-decididos-f3a)). Os campos são as colunas de [06 §4.4](../06-modelo-de-dados.md#44-evidence-ledger-mvp) em camelCase.
 
 | Contrato | Conteúdo |
 |---|---|

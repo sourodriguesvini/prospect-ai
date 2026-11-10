@@ -12,20 +12,50 @@ import { CheckCheck, Coins, MessagesSquare, ScrollText, Search } from 'lucide-re
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { AuditTable } from '@/components/audit-table';
 import { DATABASE_STATUS_VIEW } from '@/lib/database-status';
 import { greetingFor } from '@/lib/greeting';
 import { loadRecentAudit } from '@/server/audit-entries';
 import { getServices } from '@/server/container';
+import { userContext } from '@/server/context';
 
 export const metadata: Metadata = { title: 'Início' };
 
-/** Fatos fixos desta instalação (ADR-0007, CLAUDE.md), não números de exemplo. */
-const SAFEGUARDS = [
+/**
+ * Registros de demonstração gravados (ofertas, ICPs e cases com `isDemo`), lidos a cada visita.
+ * O app não semeia nada (ADR-0009); se aparecer algum, ele tem selo DEMO nas telas.
+ */
+async function DemoDataValue() {
+  await connection();
+  const { strategy } = getServices();
+  if (!strategy) return <>—</>;
+  let count: number | null = null;
+  try {
+    const { snapshot } = await strategy.overview(userContext());
+    count = [...snapshot.offers, ...snapshot.icps, ...snapshot.proofAssets].filter(
+      (record) => record.isDemo,
+    ).length;
+  } catch {
+    // Banco fora do ar: o cartão do banco já explica; aqui só não afirmamos nada.
+  }
+  if (count === null) return <>—</>;
+  return <>{count === 0 ? 'Nenhum' : count === 1 ? '1 registro' : `${count} registros`}</>;
+}
+
+/** Fatos desta instalação (ADR-0007, CLAUDE.md), não números de exemplo. */
+const SAFEGUARDS: { label: string; value: ReactNode; note: string }[] = [
   { label: 'Onde roda', value: '127.0.0.1', note: 'Só local' },
   { label: 'Aprovação', value: 'Obrigatória', note: 'Nada sai sem você' },
-  { label: 'Dados demo', value: 'Nenhum', note: 'Com selo DEMO' },
+  {
+    label: 'Dados demo',
+    value: (
+      <Suspense fallback={<span role="status">Contando…</span>}>
+        <DemoDataValue />
+      </Suspense>
+    ),
+    note: 'Se houver, com selo DEMO',
+  },
 ];
 
 async function Greeting() {
@@ -124,7 +154,7 @@ export default function Home() {
           <Well className="mt-auto p-3">
             <p className="px-2.5 pb-2 text-xs text-muted-foreground">Proteções desta instalação</p>
             {/* Subgrade: rótulo, valor e nota ficam na mesma linha em todos os cartões. */}
-            <ul className="grid grid-cols-3 gap-x-2 gap-y-0">
+            <ul className="grid grid-cols-1 gap-y-2 sm:grid-cols-3 sm:gap-x-2 sm:gap-y-0">
               {SAFEGUARDS.map((item) => (
                 <li
                   key={item.label}

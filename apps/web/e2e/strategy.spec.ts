@@ -87,9 +87,9 @@ test('configura oferta, rubrica, score e ICP; pesos inválidos são recusados', 
   );
   await expectNoA11yViolations(page);
 
-  // Rubrica: rascunho sugerido; soma diferente de 100 é recusada.
+  // Rubrica: padrão do Prospector; soma diferente de 100 é recusada.
   await page.getByRole('link', { name: 'Criar rubrica' }).click();
-  await expect(page.getByText('Rascunho sugerido — revise antes de salvar')).toBeVisible();
+  await expect(page.getByText('Padrão do Prospector — revise antes de salvar')).toBeVisible();
   const rubricTotal = page.locator('[data-weight-total]');
   await expect(rubricTotal).toHaveAttribute('data-weight-total', '100');
   const firstWeight = page.getByLabel('Peso').first();
@@ -177,7 +177,7 @@ test('com LIA aprovada só falta o banco persistente; revogar bloqueia de novo',
   await expect(page.getByRole('status').filter({ hasText: 'Salvo.' })).toBeVisible();
 
   await page.goto('/configuracoes/conformidade/opt-out');
-  await expect(page.getByText('Rascunho sugerido — revise antes de salvar')).toBeVisible();
+  await expect(page.getByText('Padrão do Prospector — revise antes de salvar')).toBeVisible();
   await page.getByLabel('Nome da agência').fill('Agência E2E');
   await page.getByLabel('Canal do titular').fill('https://agencia.example/privacidade');
   await page.getByRole('button', { name: 'Salvar' }).click();
@@ -193,7 +193,7 @@ test('com LIA aprovada só falta o banco persistente; revogar bloqueia de novo',
 
   // LIA: modelo guiado com conclusão em branco; salvar cria rascunho, não aprova.
   await page.goto('/configuracoes/conformidade/lia');
-  await expect(page.getByText('Rascunho sugerido — revise antes de salvar')).toBeVisible();
+  await expect(page.getByText('Padrão do Prospector — revise antes de salvar')).toBeVisible();
   await expect(page.getByLabel('Conclusão')).toHaveValue('');
   await page.getByRole('button', { name: 'Salvar v1' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'Revise' })).toBeVisible();
@@ -269,4 +269,34 @@ test('voltar a oferta para rascunho bloqueia descoberta e abordagem', async ({ p
   await page.goto('/configuracoes/estrategia');
   const discover = page.locator('section[aria-labelledby="prontidao-descobrir"]');
   await expect(discover).toHaveAttribute('data-gate-ready', 'false');
+});
+
+test('arquivar case pede confirmação; Cancelar e Esc devolvem o foco (KI-050)', async ({
+  page,
+}) => {
+  await page.goto('/configuracoes/estrategia/cases/novo');
+  await page.getByLabel('Título').fill('Case E2E para arquivar');
+  await page.getByLabel('Resumo').fill('Rebranding de uma clínica com identidade nova.');
+  await page.getByRole('button', { name: 'Criar case' }).click();
+  await expect(page).toHaveURL(/\/configuracoes\/estrategia\/cases$/);
+  await page.getByRole('link', { name: 'Case E2E para arquivar' }).click();
+
+  const archive = page.getByRole('button', { name: 'Arquivar case' });
+  const question = page.getByText('Arquivar este case?');
+  await archive.click();
+  await expect(question).toBeFocused();
+  const confirmForm = page.locator('form').filter({ has: question });
+  await confirmForm.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(archive).toBeFocused();
+
+  await archive.click();
+  await expect(question).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(archive).toBeFocused();
+
+  await archive.click();
+  await page.getByRole('button', { name: 'Sim, arquivar case' }).click();
+  await expect(page).toHaveURL(/\/configuracoes\/estrategia\/cases\?aviso=case-arquivado$/);
+  await expect(page.locator('[data-aviso="case-arquivado"]')).toContainText('Case arquivado.');
+  await expectNoA11yViolations(page);
 });

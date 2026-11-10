@@ -1,4 +1,4 @@
-import { AppError, type StrategyRepository } from '@prospector/application';
+import { AppError, type PendingAudit, type StrategyRepository } from '@prospector/application';
 import type { IcpProfile, Offer } from '@prospector/contracts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toAppError } from './errors';
@@ -52,6 +52,62 @@ async function rows(query: PromiseLike<Result>): Promise<unknown[]> {
 const notFound = () => new AppError('not_found', 'not_found');
 
 /**
+ * Cabeçalho com o registro de auditoria da escrita. O trigger `app.audit_write` (migrações
+ * 20261110120000 e 20261110130000) lê o cabeçalho no mesmo pedido e grava o `audit_log` na mesma
+ * transação; pelo PostgREST, escrita sem ele é recusada (`audit_missing`), e registro malformado
+ * ou de outra tabela também (`audit_invalid`). KI-041; regras no ADR-0010.
+ */
+export const AUDIT_HEADER = 'x-prospector-audit';
+
+/** Limite do cabeçalho: o registro leva ids e números, nunca conteúdo (KI-015). */
+export const AUDIT_HEADER_MAX_BYTES = 4096;
+
+/**
+ * Tabelas com o trigger de auditoria. `table` registra; numa RPC que grava várias, as outras vão
+ * em `covers` (lista explícita): qualquer outra tabela gravada no mesmo pedido é recusada.
+ */
+export type AuditedTable =
+  | 'offers'
+  | 'offer_versions'
+  | 'audit_rubrics'
+  | 'scoring_models'
+  | 'icp_profiles'
+  | 'icp_profile_versions'
+  | 'voice_guides'
+  | 'contact_policies'
+  | 'proof_assets'
+  | 'legal_basis_assessments';
+
+/**
+ * JSON em base64: cabeçalho HTTP só aceita ASCII. Sem conteúdo da estratégia (KI-015). `table` e
+ * `covers` vêm por último, para o registro não conseguir trocá-los.
+ */
+export function encodeAuditHeader(
+  table: AuditedTable,
+  audit: PendingAudit,
+  covers: readonly AuditedTable[] = [],
+): string {
+  const encoded = Buffer.from(JSON.stringify({ ...audit, table, covers }), 'utf8').toString(
+    'base64',
+  );
+  if (encoded.length > AUDIT_HEADER_MAX_BYTES) throw new AppError('unexpected', 'unexpected');
+  return encoded;
+}
+
+interface WithHeader<T> {
+  setHeader(name: string, value: string): T;
+}
+
+function audited<T extends WithHeader<T>>(
+  query: T,
+  table: AuditedTable,
+  audit: PendingAudit,
+  covers: readonly AuditedTable[] = [],
+): T {
+  return query.setHeader(AUDIT_HEADER, encodeAuditHeader(table, audit, covers));
+}
+
+/**
  * StrategyRepository via PostgREST (ADR-0009). O banco garante o que importa: versões somente
  * inclusão com número atribuído por trigger, criação atômica de cabeçalho + versão 1 (RPCs
  * `create_offer`/`create_icp_profile`) e decisão da LIA uma vez só. Aqui só há mapeamento.
@@ -95,8 +151,15 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
     };
   }
 
-  async function setStatus(table: 'offers' | 'icp_profiles', id: string, status: string) {
-    const updated = await rows(client.from(table).update({ status }).eq('id', id).select('id'));
+  async function setStatus(
+    table: 'offers' | 'icp_profiles',
+    id: string,
+    status: string,
+    audit: PendingAudit,
+  ) {
+    const updated = await rows(
+      audited(client.from(table).update({ status }).eq('id', id).select('id'), table, audit),
+    );
     if (updated.length === 0) throw notFound();
   }
 
@@ -108,13 +171,18 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
   }
 
   /** Atualização condicional da LIA: nenhuma linha → inexistente ou já decidida. */
-  async function decideLia(id: string, patch: Record<string, string>, guard: 'approve' | 'revoke') {
+  async function decideLia(
+    id: string,
+    patch: Record<string, string>,
+    guard: 'approve' | 'revoke',
+    audit: PendingAudit,
+  ) {
     let query = client.from('legal_basis_assessments').update(patch).eq('id', id);
     query =
       guard === 'approve'
         ? query.is('approved_at', null)
         : query.is('revoked_at', null).not('approved_at', 'is', null);
-    const updated = await rows(query.select(LIA_SELECT));
+    const updated = await rows(audited(query.select(LIA_SELECT), 'legal_basis_assessments', audit));
     const [row] = updated;
     if (row) return mapLia(row);
     if (await liaById(id)) throw new AppError('conflict', 'lia_decision_locked');
@@ -189,21 +257,32 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
 
     getOffer: offerById,
 
-    async createOffer(content) {
-      const id = await run(client.rpc('create_offer', { p_version: offerVersionColumns(content) }));
+    async createOffer(content, audit) {
+      const id = await run(
+        audited(
+          client.rpc('create_offer', { p_version: offerVersionColumns(content) }),
+          'offers',
+          audit,
+          ['offer_versions'],
+        ),
+      );
       const offer = typeof id === 'string' ? await offerById(id) : null;
       if (!offer) throw new AppError('unexpected', 'unexpected');
       return offer;
     },
 
-    async addOfferVersion(offerId, content) {
+    async addOfferVersion(offerId, content, audit) {
       return mapOfferVersion(
         await run(
-          client
-            .from('offer_versions')
-            .insert({ offer_id: offerId, ...offerVersionColumns(content) })
-            .select(OFFER_VERSION_SELECT)
-            .single(),
+          audited(
+            client
+              .from('offer_versions')
+              .insert({ offer_id: offerId, ...offerVersionColumns(content) })
+              .select(OFFER_VERSION_SELECT)
+              .single(),
+            'offer_versions',
+            audit,
+          ),
         ),
       );
     },
@@ -219,7 +298,7 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return list.map(mapOfferVersion);
     },
 
-    setOfferStatus: (offerId, status) => setStatus('offers', offerId, status),
+    setOfferStatus: (offerId, status, audit) => setStatus('offers', offerId, status, audit),
 
     async listRubricVersions(offerId) {
       const list = await rows(
@@ -232,14 +311,18 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return list.map(mapRubric);
     },
 
-    async addRubricVersion(offerId, content) {
+    async addRubricVersion(offerId, content, audit) {
       return mapRubric(
         await run(
-          client
-            .from('audit_rubrics')
-            .insert({ offer_id: offerId, criteria: content.criteria })
-            .select(RUBRIC_SELECT)
-            .single(),
+          audited(
+            client
+              .from('audit_rubrics')
+              .insert({ offer_id: offerId, criteria: content.criteria })
+              .select(RUBRIC_SELECT)
+              .single(),
+            'audit_rubrics',
+            audit,
+          ),
         ),
       );
     },
@@ -255,40 +338,53 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return list.map(mapScoring);
     },
 
-    async addScoringModelVersion(offerId, content) {
+    async addScoringModelVersion(offerId, content, audit) {
       return mapScoring(
         await run(
-          client
-            .from('scoring_models')
-            .insert({ offer_id: offerId, ...scoringColumns(content) })
-            .select(SCORING_SELECT)
-            .single(),
+          audited(
+            client
+              .from('scoring_models')
+              .insert({ offer_id: offerId, ...scoringColumns(content) })
+              .select(SCORING_SELECT)
+              .single(),
+            'scoring_models',
+            audit,
+          ),
         ),
       );
     },
 
     getIcp: icpById,
 
-    async createIcp(offerId, content) {
+    async createIcp(offerId, content, audit) {
       const id = await run(
-        client.rpc('create_icp_profile', {
-          p_offer_id: offerId,
-          p_version: icpVersionColumns(content),
-        }),
+        audited(
+          client.rpc('create_icp_profile', {
+            p_offer_id: offerId,
+            p_version: icpVersionColumns(content),
+          }),
+          'icp_profiles',
+          audit,
+          ['icp_profile_versions'],
+        ),
       );
       const icp = typeof id === 'string' ? await icpById(id) : null;
       if (!icp) throw new AppError('unexpected', 'unexpected');
       return icp;
     },
 
-    async addIcpVersion(icpId, content) {
+    async addIcpVersion(icpId, content, audit) {
       return mapIcpVersion(
         await run(
-          client
-            .from('icp_profile_versions')
-            .insert({ icp_id: icpId, ...icpVersionColumns(content) })
-            .select(ICP_VERSION_SELECT)
-            .single(),
+          audited(
+            client
+              .from('icp_profile_versions')
+              .insert({ icp_id: icpId, ...icpVersionColumns(content) })
+              .select(ICP_VERSION_SELECT)
+              .single(),
+            'icp_profile_versions',
+            audit,
+          ),
         ),
       );
     },
@@ -304,7 +400,7 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return list.map(mapIcpVersion);
     },
 
-    setIcpStatus: (icpId, status) => setStatus('icp_profiles', icpId, status),
+    setIcpStatus: (icpId, status, audit) => setStatus('icp_profiles', icpId, status, audit),
 
     async listVoiceGuideVersions() {
       const list = await rows(
@@ -313,10 +409,14 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return list.map(mapVoice);
     },
 
-    async addVoiceGuideVersion(content) {
+    async addVoiceGuideVersion(content, audit) {
       return mapVoice(
         await run(
-          client.from('voice_guides').insert(voiceColumns(content)).select(VOICE_SELECT).single(),
+          audited(
+            client.from('voice_guides').insert(voiceColumns(content)).select(VOICE_SELECT).single(),
+            'voice_guides',
+            audit,
+          ),
         ),
       );
     },
@@ -331,14 +431,18 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return list.map(mapContactPolicy);
     },
 
-    async addContactPolicyVersion(content) {
+    async addContactPolicyVersion(content, audit) {
       return mapContactPolicy(
         await run(
-          client
-            .from('contact_policies')
-            .insert(contactPolicyColumns(content))
-            .select(CONTACT_POLICY_SELECT)
-            .single(),
+          audited(
+            client
+              .from('contact_policies')
+              .insert(contactPolicyColumns(content))
+              .select(CONTACT_POLICY_SELECT)
+              .single(),
+            'contact_policies',
+            audit,
+          ),
         ),
       );
     },
@@ -350,33 +454,45 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return row ? mapProofAsset(row) : null;
     },
 
-    async createProofAsset(input) {
+    async createProofAsset(input, audit) {
       return mapProofAsset(
         await run(
-          client
-            .from('proof_assets')
-            .insert(proofAssetColumns(input))
-            .select(PROOF_ASSET_SELECT)
-            .single(),
+          audited(
+            client
+              .from('proof_assets')
+              .insert(proofAssetColumns(input))
+              .select(PROOF_ASSET_SELECT)
+              .single(),
+            'proof_assets',
+            audit,
+          ),
         ),
       );
     },
 
-    async updateProofAsset(id, input) {
+    async updateProofAsset(id, input, audit) {
       const [row] = await rows(
-        client
-          .from('proof_assets')
-          .update(proofAssetColumns(input))
-          .eq('id', id)
-          .select(PROOF_ASSET_SELECT),
+        audited(
+          client
+            .from('proof_assets')
+            .update(proofAssetColumns(input))
+            .eq('id', id)
+            .select(PROOF_ASSET_SELECT),
+          'proof_assets',
+          audit,
+        ),
       );
       if (!row) throw notFound();
       return mapProofAsset(row);
     },
 
-    async archiveProofAsset(id, archivedAt) {
+    async archiveProofAsset(id, archivedAt, audit) {
       const updated = await rows(
-        client.from('proof_assets').update({ archived_at: archivedAt }).eq('id', id).select('id'),
+        audited(
+          client.from('proof_assets').update({ archived_at: archivedAt }).eq('id', id).select('id'),
+          'proof_assets',
+          audit,
+        ),
       );
       if (updated.length === 0) throw notFound();
     },
@@ -391,21 +507,25 @@ export function createSupabaseStrategyRepository(client: SupabaseClient): Strate
       return list.map(mapLia);
     },
 
-    async addLiaVersion(content) {
+    async addLiaVersion(content, audit) {
       return mapLia(
         await run(
-          client
-            .from('legal_basis_assessments')
-            .insert(liaColumns(content))
-            .select(LIA_SELECT)
-            .single(),
+          audited(
+            client
+              .from('legal_basis_assessments')
+              .insert(liaColumns(content))
+              .select(LIA_SELECT)
+              .single(),
+            'legal_basis_assessments',
+            audit,
+          ),
         ),
       );
     },
 
-    approveLia: (id, { approvedAt, reviewDueOn }) =>
-      decideLia(id, { approved_at: approvedAt, review_due_on: reviewDueOn }, 'approve'),
+    approveLia: (id, { approvedAt, reviewDueOn }, audit) =>
+      decideLia(id, { approved_at: approvedAt, review_due_on: reviewDueOn }, 'approve', audit),
 
-    revokeLia: (id, revokedAt) => decideLia(id, { revoked_at: revokedAt }, 'revoke'),
+    revokeLia: (id, revokedAt, audit) => decideLia(id, { revoked_at: revokedAt }, 'revoke', audit),
   };
 }

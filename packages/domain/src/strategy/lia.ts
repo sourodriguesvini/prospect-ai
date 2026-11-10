@@ -8,9 +8,9 @@ import type { Issue } from './rules';
  * Datas de calendário em AAAA-MM-DD, comparadas como texto.
  */
 
-/** Prazo máximo entre a aprovação e a próxima revisão (proposta; decisão do usuário). */
+/** Teto técnico entre a aprovação e a próxima revisão (igual ao do banco; decidido em 2026-11-10). */
 export const MAX_LIA_REVIEW_MONTHS = 24;
-/** Prazo sugerido no formulário de aprovação (proposta; decisão do usuário). */
+/** Prazo padrão no formulário de aprovação (decidido em 2026-11-10; até haver parecer, até 12). */
 export const DEFAULT_LIA_REVIEW_MONTHS = 12;
 
 export type LiaStatus = 'draft' | 'approved' | 'expired' | 'revoked' | 'superseded';

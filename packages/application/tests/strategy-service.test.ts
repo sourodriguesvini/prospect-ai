@@ -1,13 +1,7 @@
 import type { OfferContentInput } from '@prospector/contracts';
 import { DRAFT_BRANDING_RUBRIC, DRAFT_LIA, DRAFT_SCORING_MODEL } from '@prospector/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  AppError,
-  createAuditService,
-  createStrategyService,
-  type RequestContext,
-  type StrategyService,
-} from '../src';
+import { AppError, createStrategyService, type RequestContext, type StrategyService } from '../src';
 import {
   createMemoryAuditRepository,
   createMemoryStrategyRepository,
@@ -15,7 +9,8 @@ import {
 } from '../src/memory';
 import { seedStrategyDemo } from './support/demo-seed';
 
-const ctx: RequestContext = { actor: { type: 'user' }, traceId: 'trace-f2' };
+const TRACE_ID = '7d0e8f1a-3b2c-4d5e-8f6a-1b2c3d4e5f60';
+const ctx: RequestContext = { actor: { type: 'user' }, traceId: TRACE_ID };
 
 const completeOffer: OfferContentInput = {
   name: 'Identidade visual para clínicas',
@@ -54,9 +49,9 @@ describe('StrategyService', () => {
   beforeEach(() => {
     now = new Date('2026-11-09T15:00:00Z');
     const clock = { now: () => now };
-    repo = createMemoryStrategyRepository({ clock });
     auditRepo = createMemoryAuditRepository({ clock });
-    service = createStrategyService({ repo, audit: createAuditService(auditRepo), clock });
+    repo = createMemoryStrategyRepository({ clock, audit: auditRepo });
+    service = createStrategyService({ repo, clock });
   });
 
   async function readyOffer() {
@@ -93,9 +88,23 @@ describe('StrategyService', () => {
         action: 'strategy.offer.created',
         entityId: offer.id,
         diff: { version: 1 },
-        traceId: 'trace-f2',
+        traceId: TRACE_ID,
       });
       expect(JSON.stringify(entry?.diff)).not.toContain('clínicas');
+    });
+
+    it('ator ou traceId fora dos limites do audit_log: erro inesperado, sem gravar (KI-041)', async () => {
+      for (const bad of [
+        { actor: { type: 'user' }, traceId: 'trace-sem-uuid' },
+        { actor: { type: 'system', component: 'x'.repeat(121) }, traceId: TRACE_ID },
+        { actor: { type: 'agent', agent: '', runId: 'r1' }, traceId: TRACE_ID },
+      ] satisfies RequestContext[]) {
+        await expect(service.createOffer(bad, completeOffer)).rejects.toMatchObject({
+          code: 'unexpected',
+        });
+      }
+      expect(auditRepo.entries()).toEqual([]);
+      expect((await service.overview(ctx)).snapshot.offers).toEqual([]);
     });
 
     it('editar cria nova versão e a anterior fica igual; salvar sem mudança não cria versão', async () => {
@@ -363,7 +372,6 @@ describe('StrategyService', () => {
     it('no modo memória (armazenamento que some) a abordagem nunca é liberada', async () => {
       service = createStrategyService({
         repo,
-        audit: createAuditService(auditRepo),
         clock: { now: () => now },
         ephemeralStorage: true,
       });

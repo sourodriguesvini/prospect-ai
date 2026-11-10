@@ -81,7 +81,7 @@ Comandos de 2026-11-09: `pnpm typecheck`, `pnpm lint`, `pnpm test` (154 testes),
 - configuração inválida sem erro 500;
 - `Origin` obrigatório na rota do Copiloto.
 
-O `copilot/v2` foi avaliado contra o v1 e ficou abaixo dele no `qwen3.5:4b`: 77% contra 82%, com os corretores corrigidos depois da revisão do `avaliador-ia`. Também recusou redigir mensagens e dobrou o p95. O v1 continua em uso e o Copiloto segue experimental. Detalhes e números em [13 §9](13-auditoria-e-evolucao.md#ia-11-2026-11-09-admissão-por-vram-capacidades-e-prompt-v2).
+O `copilot/v2` foi avaliado contra o v1 e ficou abaixo dele no `qwen3.5:4b`: 77% contra 82%, com os corretores corrigidos depois da revisão do `avaliador-ia`. Também recusou redigir mensagens e dobrou o p95. O v1 seguiu em uso até a IA-1.2, que promoveu o v3. Detalhes e números em [13 §9](13-auditoria-e-evolucao.md#ia-11-2026-11-09-admissão-por-vram-capacidades-e-prompt-v2).
 
 | Critério | Situação | Evidência |
 |---|---|---|
@@ -92,9 +92,19 @@ O `copilot/v2` foi avaliado contra o v1 e ficou abaixo dele no `qwen3.5:4b`: 77%
 
 Comandos de 2026-11-09: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` (228), `E2E_PORT=3101 pnpm test:e2e` (22 passaram, 3 pulados: banco e Ollama real), `pnpm ai:live` (5), `pnpm evals` (v1 × v2, 156 respostas) e recálculo sem GPU.
 
-### IA-1.2 — Prompt v3 do Copiloto (P, proposta)
+### IA-1.2 — Prompt v3 do Copiloto (P)
 
-Prompt v3 com os ganhos do v2 e sem as falhas dele (KI-036), casos fora da amostra (KI-037, KI-063), raciocínio que não esgota o limite (KI-066) e uma reserva que não oriente guardar dados pessoais (KI-034). Aceite: v3 ≥ v1 sem regredir o p95, aprovado pelo `avaliador-ia`.
+**Status em 2026-11-10: concluída; v3 promovido com ressalvas; o Copiloto segue experimental.** O `copilot/v3` fez 89% (51/57; IC 79–95%) contra 60% do v1 (34/57; 47–71%) no `qwen3.5:4b`, em 19 casos sintéticos × 3, seis deles fora da amostra (recalculado depois da revisão do `avaliador-ia`). O p95 sem raciocínio caiu de 3,1 s para 2,6 s. Com raciocínio ligado, o p95 subiu 12% (49,5 → 55,7 s, 10 repetições), dentro da tolerância de 15% do doc 11. O `nemotron-3-nano:4b` saiu da reserva automática (KI-034). O raciocínio tem orçamento e não devolve mais resposta vazia (KI-066). A tela do Copiloto recebeu os ajustes do KI-067. Detalhes em [13 §9](13-auditoria-e-evolucao.md#ia-12-2026-11-10-prompt-v3-nemotron-fora-da-reserva-e-raciocínio-com-orçamento).
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. v3 ≥ v1 sem regredir o p95 | Atendido | `evals/copilot/results/2026-11-10-16-44.regraded.json` e `2026-11-10-16-57.json` |
+| 2. Casos fora da amostra (KI-037, KI-063) | Atendido | 6 casos novos em `evals/copilot/cases.ts`, contraexemplos em `eval-graders.test.ts` |
+| 3. Raciocínio não esgota o limite (KI-066) | Atendido | `gateway.test.ts`; 0 respostas vazias em 20 com raciocínio |
+| 4. Reserva não orienta guardar dados pessoais (KI-034) | Atendido para a reserva; ressalva no padrão | Nemotron fora da lista automática (`model-policy.ts`). O próprio v3 orientou guardar "essas informações" fora do sistema em 1 de 3 respostas (corretor corrigido; fica para o v4, KI-034) |
+| 5. Aprovado pelo `avaliador-ia` | Atendido com ressalvas | Revisão de 2026-11-10: "promover com ressalvas"; achados e o que foi feito no [doc 13 §9](13-auditoria-e-evolucao.md#ia-12-2026-11-10-prompt-v3-nemotron-fora-da-reserva-e-raciocínio-com-orçamento) |
+
+Comandos de 2026-11-10: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` (653), `pnpm ai:live` (5) e `pnpm evals` (v1 × v3: 114 respostas, recálculo sem GPU e mais 20 respostas com raciocínio). `pnpm test:e2e` rodou na integração (ver doc 13 §11).
 
 ### F2 — Estratégia: ofertas, rubrica, ICP, voz (M)
 - CRUD versionado de ofertas, rubrica de auditoria (modelo padrão de branding editável), ICP (filtros CNAE/UF/município/porte/idade + exclusões), modelo de score (pesos/limiares), voz da agência, cases com `public_ok`.
@@ -107,12 +117,24 @@ Prompt v3 com os ganhos do v2 e sem as falhas dele (KI-036), casos fora da amost
 3. Sem LIA aprovada e oferta ativa, ações de abordagem ficam bloqueadas com explicação.
 4. Seeds de demonstração (se usados) aparecem com selo DEMO.
 
-**Status em 2026-11-09: implementada localmente; NÃO concluída.** Migração aplicada no Supabase real; o SQL das versões passou lá numa transação desfeita e as telas leem do banco real. Falta gravar pelo adaptador no banco real (KI-042) e o CI (KI-009). Decisões de produto pendentes: rubrica, pesos e limiares, texto da LIA e do opt-out estão como **rascunhos sugeridos** nas telas (KI-046). Decisões técnicas: [ADR-0009](adr/0009-versionamento-imutavel-da-estrategia.md).
+**Status em 2026-11-10: concluída e verificada no banco real; falta só o CI (KI-009), como no resto da F1.** A gravação pelo app no Supabase real foi feita e conferida (KI-042), com a auditoria na mesma transação da escrita (KI-041). Os padrões de rubrica, score, LIA e opt-out viraram decisão registrada, por delegação do usuário ([10 D-PROD-2](10-riscos-custos-decisoes.md)). Decisões técnicas: [ADR-0009](adr/0009-versionamento-imutavel-da-estrategia.md).
+
+Estratégia montada no `prospector-dev` em 2026-11-10 (pelo agente, pelo app, com autorização do usuário) e completada no mesmo dia, depois que o usuário aprovou os textos propostos e pediu para preencher o resto:
+
+| Item | Situação |
+|---|---|
+| Ofertas | Identidade visual, Rebranding e Site institucional, cada uma com a rubrica e o score padrão, **ativas** (v2). Faixas de investimento estimadas pelo agente: R$ 6.000–25.000, R$ 20.000–80.000 e R$ 8.000–30.000 ([10 D-PROD-2](10-riscos-custos-decisoes.md)) |
+| ICPs | Um por oferta, todos **ativos**. "Brasil todo" = as 27 UFs (a ativação exige ao menos um CNAE, UF ou município). Portes e idade mínima: ME+EPP; EPP+demais com 5+ anos; todos com 1+ ano. CNAEs escolhidos pelo agente (v2): 20, 18 e 18 subclasses de saúde, beleza, alimentação, varejo, serviços profissionais, educação, imóveis, hotelaria, tecnologia e indústria de bens de consumo |
+| Voz da agência | v1 salva, baseada nas regras de mensagem de [08 §5](08-metodologia-comercial.md) |
+| LIA | v2 salva em **rascunho**, com a conclusão que registra a aprovação do usuário e mantém o parecer jurídico antes do primeiro envio (KI-051). **Falta o clique do usuário**: marcar "Revisei a LIA v2 e assumo esta avaliação" e aprovar, com revisão em 10/11/2027 (a confirmação é declaração dele; o agente não a marca) |
+| Opt-out e canal do titular | v1 salva: agência Found Studio, canal do titular por e-mail informado pelo usuário, texto de opt-out padrão |
+
+Prontidão no banco real: a descoberta está **liberada**. A abordagem só espera a LIA aprovada; case citável é recomendado e não foi criado (exige um case real com autorização do cliente).
 
 | Critério | Situação | Evidência |
 |---|---|---|
-| 1. Oferta + rubrica + ICP + score; pesos inválidos rejeitados | **Atendido (memória e PGlite)** | Domínio: `packages/domain/tests/strategy/rules.test.ts`. Contratos: `packages/contracts/tests/strategy.test.ts`. Banco: checks de soma 100 e de formatos em `packages/db/tests/db/strategy.test.ts`. E2E: `apps/web/e2e/strategy.spec.ts` (rubrica e score com soma 105 recusados; oferta, ICP e ativação). Tela vista em `http://127.0.0.1:3000` com `PROSPECTOR_STORAGE=memory pnpm dev`: "Os pesos somam 105; precisam somar exatamente 100." |
-| 2. Versão usada fica imutável; editar cria nova versão | **Atendido (PGlite e memória)** | Toda versão é imutável, usada ou não (ADR-0009): `packages/db/tests/db/strategy.test.ts` (update/delete/truncate recusados para dono e `service_role`; número e data da versão atribuídos pelo banco em oferta, score, ICP, voz e política de contato; cabeçalho nasce rascunho). Ida e volta das colunas: `packages/db/tests/unit/strategy-rows.test.ts`. Serviço: `packages/application/tests/strategy-service.test.ts` (editar cria v2; salvar sem mudança não cria versão em oferta, rubrica, score, voz e opt-out). As barreiras devolvem os ids das versões em vigor para F4/F7/F10 gravarem (ADR-0009 §7). E2E: editar a oferta gera v2 e mantém v1 no histórico. Nunca executado num Supabase real. |
+| 1. Oferta + rubrica + ICP + score; pesos inválidos rejeitados | **Atendido (memória, PGlite e Supabase real)** | Domínio: `packages/domain/tests/strategy/rules.test.ts`. Contratos: `packages/contracts/tests/strategy.test.ts`. Banco: checks de soma 100 e de formatos em `packages/db/tests/db/strategy.test.ts`. E2E: `apps/web/e2e/strategy.spec.ts` (rubrica e score com soma 105 recusados; oferta, ICP e ativação). Tela vista em `http://127.0.0.1:3000` com `PROSPECTOR_STORAGE=memory pnpm dev`: "Os pesos somam 105; precisam somar exatamente 100." |
+| 2. Versão usada fica imutável; editar cria nova versão | **Atendido (PGlite e memória)** | Toda versão é imutável, usada ou não (ADR-0009): `packages/db/tests/db/strategy.test.ts` (update/delete/truncate recusados para dono e `service_role`; número e data da versão atribuídos pelo banco em oferta, score, ICP, voz e política de contato; cabeçalho nasce rascunho). Ida e volta das colunas: `packages/db/tests/unit/strategy-rows.test.ts`. Serviço: `packages/application/tests/strategy-service.test.ts` (editar cria v2; salvar sem mudança não cria versão em oferta, rubrica, score, voz e opt-out). As barreiras devolvem os ids das versões em vigor para F4/F7/F10 gravarem (ADR-0009 §7). E2E: editar a oferta gera v2 e mantém v1 no histórico. Supabase real (2026-11-10): as versões gravadas pelo app levam o número dado pelo banco, e cada gravação tem um registro de auditoria. |
 | 3. Sem LIA aprovada e oferta ativa, abordagem bloqueada com explicação | **Atendido para a barreira** | `StrategyService.assertReadyToApproach({ offerId, icpId })` confere a oferta e o ICP da ação (`readiness.test.ts`, `strategy-service.test.ts`: bloqueado sem LIA, com oferta em rascunho, arquivada ou de outra oferta, com ICP pausado, sem voz ou opt-out; liberado com tudo; bloqueado de novo ao vencer, no fuso de São Paulo, ou revogar; renovação depois da revogação). Banco: só a versão mais recente pode ser aprovada, datas e instantes do banco (`strategy.test.ts`). Tela `/abordagens` mostra o que falta, com link para resolver. E2E: bloqueado → LIA aprovada (só falta o banco persistente, porque o modo memória nunca libera) → revogada → renovada como v2 → oferta volta a rascunho e bloqueia descoberta e abordagem. A liberação completa (`ready = true`) só foi verificada nos testes de domínio e serviço. As ações de abordagem só existem na F10, que deve chamar a barreira antes de agir (KI-047). |
 | 4. Seeds de demonstração com selo DEMO | **Atendido (sem seeds)** | Não há seed na UI (ADR-0009). Ofertas, ICPs e cases com `is_demo` mostram `DemoBadge` nas listas e no detalhe, e " (demo)" nos seletores; demo não conta na prontidão (`readiness.test.ts`, `strategy-service.test.ts`). O seed vive só nos testes (`packages/application/tests/support/demo-seed.ts`). O selo não foi visto na tela nem tem teste de componente, porque nenhum dado demo é criado. |
 
@@ -131,7 +153,7 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 4. Toda informação exibida no dossiê abre a evidência (fonte, data, trecho).
 5. Custo da consulta registrado em `provider_usage`.
 
-**Status em 2026-11-09: regras do ledger prontas (F3a); F3 NÃO concluída.** A F3a adiantou, em paralelo à F2, o que não depende da estratégia: contratos e regras puras do Evidence Ledger, sem banco e sem tela. Valores propostos em [08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-propostos-f3a-2026-11-09).
+**Status em 2026-11-09: regras do ledger prontas (F3a); F3 NÃO concluída.** A F3a adiantou, em paralelo à F2, o que não depende da estratégia: contratos e regras puras do Evidence Ledger, sem banco e sem tela. Valores propostos em [08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-decididos-f3a).
 
 - **Pronto:** contratos `packages/contracts/src/evidence.ts` (fonte, claim, entrada de claim, evidência com trecho ou região, dependência, erros codificados) e regras `packages/domain/src/evidence` (validação de fato, inferência e hipótese; classificação de fontes por claim, com o que a própria empresa publica contando como uma origem só; confiança com concordância, conflito e teto de inferência; atualidade, `stale` e estado efetivo com relógio injetado; recálculo que preserva `rejected` e `superseded`; rótulos Alta, Média, Baixa e A verificar). O critério 3 está coberto nas regras puras (testes em `packages/domain/tests/evidence`); falta o `EvidenceService` aplicá-las.
 - **Falta (F3, depois de juntar a F2):** migração do ledger, `EvidenceService` em `packages/application`, repositórios em `packages/db`, empresas e deduplicação, adaptador de CNPJ, dossiê v0 e componentes `ClaimChip`, `EvidencePopover` e `ConfidenceMeter`; conferência de trechos e recálculo da confiança com o tempo (KI-071 a KI-073).
@@ -260,7 +282,7 @@ flowchart LR
 
 F6 e partes de F9 podem correr em paralelo a F7 se houver mais de um desenvolvedor.
 
-Trilha de IA local (doc 13 §7): IA-1 (feita) → IA-1.1 (feita: admissão por VRAM; prompt v2 não promovido) → IA-1.2 (prompt v3) → IA-2 (histórico e ferramentas de leitura, depende do banco da F1) → IA-3 (fila durável local, antes da F4/F5) → IA-4 (auditoria visual local, junto da F6) → IA-5 (memória semântica, depois da F3). Onde as fatias F citam modelos Claude, vale o modelo local definido pelo ADR-0008 até que uma avaliação justifique outro.
+Trilha de IA local (doc 13 §7): IA-1 (feita) → IA-1.1 (feita: admissão por VRAM; prompt v2 não promovido) → IA-1.2 (feita: prompt v3 promovido) → IA-2 (histórico e ferramentas de leitura, depende do banco da F1) → IA-3 (fila durável local, antes da F4/F5) → IA-4 (auditoria visual local, junto da F6) → IA-5 (memória semântica, depois da F3). Onde as fatias F citam modelos Claude, vale o modelo local definido pelo ADR-0008 até que uma avaliação justifique outro.
 
 ## 4. Pós-MVP
 

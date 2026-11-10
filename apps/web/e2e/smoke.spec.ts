@@ -115,6 +115,20 @@ test.describe('proteção (ADR-0007)', () => {
     expect(local.status).toBe(200);
   });
 
+  test('escrita sem Origin ou de outro site é recusada (KI-064)', async ({ request, baseURL }) => {
+    // Server Actions e rotas POST passam pelo mesmo filtro; o navegador sempre manda Origin.
+    const variants: Record<string, string>[] = [
+      {},
+      { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' },
+      { origin: baseURL!, 'sec-fetch-site': 'cross-site' },
+    ];
+    for (const headers of variants) {
+      const response = await request.post('/configuracoes', { headers, data: 'x' });
+      expect(response.status()).toBe(403);
+      expect(await response.text()).toContain('Origem não permitida');
+    }
+  });
+
   test('CSP com nonce e proteção contra enquadramento', async ({ request }) => {
     const response = await request.get('/');
     const headers = response.headers();

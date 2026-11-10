@@ -45,8 +45,8 @@ export default function ShellLayout({ children }: LayoutProps<'/'>) {
         </header>
 
         <div className="flex flex-1 flex-col gap-4 md:flex-row">
-          <aside className="flex gap-2 md:w-12 md:shrink-0 md:flex-col md:justify-between">
-            <div className="flex gap-2 md:flex-col">
+          <aside className="flex flex-wrap gap-2 md:w-12 md:shrink-0 md:flex-col md:flex-nowrap md:justify-between">
+            <div className="flex flex-wrap gap-2 md:flex-col">
               <ThemeSwitcher />
               <nav aria-label="Apoio" className="rounded-full bg-surface p-1">
                 <ul className="flex gap-1 md:flex-col">

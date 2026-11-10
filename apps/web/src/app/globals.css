@@ -3,3 +3,18 @@
 
 /* Componentes do pacote de UI usam classes do Tailwind: inclua-os na varredura. */
 @source '../../../../packages/ui/src';
+
+/*
+ * Barra de ações fixa no rodapé (editor da rubrica). Só em telas a partir de 40rem de largura e
+ * 36rem de altura: no celular ela tomaria boa parte da tela. A folga de rolagem impede que o campo
+ * que recebe o foco fique escondido atrás dela (WCAG 2.4.11).
+ */
+@media (min-width: 40rem) and (min-height: 36rem) {
+  [data-sticky-actions] {
+    position: sticky;
+    bottom: 0;
+  }
+  html:has([data-sticky-actions]) {
+    scroll-padding-bottom: 7rem;
+  }
+}

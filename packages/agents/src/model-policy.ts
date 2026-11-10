@@ -13,6 +13,12 @@ export interface TaskPolicy {
   maxOutputTokens: number;
   /** Mesmo limite quando o raciocínio está ligado: o raciocínio também conta. */
   maxOutputTokensThinking: number;
+  /**
+   * Com o raciocínio ligado, tokens guardados para a resposta (KI-066): se o raciocínio passar de
+   * `num_predict` menos esta reserva sem começar a resposta, o gateway corta o raciocínio e pede
+   * a resposta sem ele, em vez de devolver resposta vazia.
+   */
+  answerReserveTokens: number;
   /** Quanto tempo o modelo fica na memória depois do último uso (`keep_alive`). */
   keepAlive: string;
   /** Inclui o carregamento do modelo do disco para a GPU. */
@@ -31,6 +37,7 @@ const BASE = {
   temperature: 0.4,
   maxOutputTokens: 1024,
   maxOutputTokensThinking: 4096,
+  answerReserveTokens: 1024,
   keepAlive: '5m',
   firstTokenTimeoutMs: 120_000,
   idleTimeoutMs: 60_000,
@@ -40,23 +47,23 @@ const BASE = {
 
 /**
  * Padrão até existir `agent_configs` no banco (KI-031); a lista do Copiloto é sobrescrita por
- * `AI_COPILOT_MODELS`. Avaliação local de 2026-11-09, recalculada com os corretores corrigidos
- * (`evals/copilot/results/2026-11-09-15-40.regraded.json`, 8 casos sintéticos × 2): qwen3.5:4b
- * 69% e nemotron-3-nano:4b 56%, intervalos sobrepostos. O Nemotron leu a injeção como conteúdo,
- * trocou o nome do produto e o cartão declara suporte só a inglês; o qwen3.5:4b também tem
- * visão, então um único modelo carregado atende conversa e imagens. Por isso qwen3.5 primeiro,
- * Nemotron de reserva. Na IA-1.1 (`2026-11-09-17-30.regraded.json`, 13 casos × 3, prompt v1):
- * qwen3.5:4b 82% e nemotron-3-nano:4b 67%; o Nemotron orientou guardar CPF e endereço de casa
- * no caso de LGPD (KI-034), risco aceito até o prompt v3 (IA-1.2).
+ * `AI_COPILOT_MODELS`. Avaliações locais de 2026-11-09 (`evals/copilot/results/`): na IA-1,
+ * qwen3.5:4b 69% e nemotron-3-nano:4b 56%; na IA-1.1 (13 casos × 3, prompt v1), 82% e 67%. O
+ * qwen3.5:4b também tem visão, então um único modelo carregado atende conversa e imagens.
+ * Decisão de 2026-11-10 (KI-034): o Nemotron saiu da reserva automática. Ele orientou guardar
+ * CPF, endereço de casa e celular no caso de LGPD com os prompts v1 e v2, nunca apontou a
+ * injeção, trocou o nome do produto e o cartão declara suporte só a inglês. Continua escolhível
+ * à mão em Modelo (pedido explícito), mas nunca é usado sozinho; sem o qwen3.5:4b instalado, o
+ * Copiloto pede para instalá-lo (`model_not_installed`).
  * `vision` e `embedding` ainda não têm consumidor (chegam nas fatias IA-4 e IA-5).
  */
 export const DEFAULT_POLICY: ModelPolicy = {
-  copilot: { ...BASE, requires: ['completion'], models: ['qwen3.5:4b', 'nemotron-3-nano:4b'] },
+  copilot: { ...BASE, requires: ['completion'], models: ['qwen3.5:4b'] },
   reasoning: {
     ...BASE,
     temperature: 0.2,
     requires: ['completion', 'thinking'],
-    models: ['qwen3.5:4b', 'nemotron-3-nano:4b'],
+    models: ['qwen3.5:4b'],
   },
   vision: {
     ...BASE,

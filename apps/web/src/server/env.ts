@@ -91,6 +91,21 @@ export interface LocalAiSettings {
   vramReserveMiB: number | undefined;
 }
 
+/**
+ * Formato esperado de cada variável da IA local, para a mensagem de configuração inválida
+ * (KI-067). Espelha as regras de `LocalAiEnv`; mostra o formato, nunca o valor recebido.
+ */
+export const LOCAL_AI_ENV_FORMATS: Record<string, string> = {
+  // Sem o número da porta no texto: o endereço do Ollama só aparece em packages/agents (ADR-0008).
+  OLLAMA_BASE_URL: 'endereço http deste computador (127.0.0.1 ou localhost), com a porta do Ollama',
+  AI_COPILOT_MODELS: 'nomes de modelo separados por vírgula, como qwen3.5:4b',
+  AI_KEEP_ALIVE: '0 ou um número seguido de ms, s, m ou h, como 5m',
+  AI_NUM_CTX: 'número inteiro de 2048 a 262144',
+  AI_MAX_CONCURRENCY: 'número inteiro de 1 a 4',
+  AI_MAX_QUEUE: 'número inteiro de 0 a 20',
+  AI_VRAM_RESERVE_MIB: 'número inteiro de MiB, de 0 a 65536 (0 desliga a reserva)',
+};
+
 /** Variável da IA local inválida. Leva só os nomes, nunca os valores. */
 export class LocalAiConfigError extends Error {
   readonly variables: string[];

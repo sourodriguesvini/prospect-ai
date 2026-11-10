@@ -272,11 +272,11 @@ export function CheckboxField({
 /** Resultado do envio: erro geral (com itens de `_form`) ou confirmação. */
 export { FormMessage } from './form-message';
 
-/** Aviso de rascunho sugerido: o conteúdo pré-preenchido é proposta, nada foi salvo. */
+/** Aviso de valores padrão: o conteúdo pré-preenchido é o padrão do app, nada foi salvo ainda. */
 export function DraftNotice({ children }: { children: ReactNode }) {
   return (
     <Alert tone="info" role="note" className="border border-dashed border-border">
-      <p className="font-medium">Rascunho sugerido — revise antes de salvar</p>
+      <p className="font-medium">Padrão do Prospector — revise antes de salvar</p>
       <p className="mt-0.5 text-muted-foreground">{children}</p>
     </Alert>
   );

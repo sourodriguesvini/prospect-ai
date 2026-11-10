@@ -8,6 +8,8 @@ export interface Run {
   model: string;
   caseId: string;
   attempt: number;
+  /** Raciocínio ligado nesta resposta (resultados antigos não têm: vale o caso). */
+  think?: boolean;
   output: string;
   error: string | null;
   firstTokenMs: number | null;
@@ -25,6 +27,9 @@ export interface ModelSummary {
   passRate95: [number, number];
   medianTotalMs: number | null;
   p95TotalMs: number | null;
+  /** p95 separado (KI-037): o raciocínio multiplica o tempo e distorce o p95 geral. */
+  p95TotalMsNoThinking: number | null;
+  p95TotalMsThinking: number | null;
   medianFirstTokenMs: number | null;
   medianTokensPerSecond: number | null;
   /** Respostas longas demoram mais: compare latência junto com o tamanho. */
@@ -69,6 +74,7 @@ export function wilson(pass: number, total: number): [number, number] {
 /** Aplica os corretores atuais de cada caso a uma resposta gravada. */
 export function gradeRun(run: Run, cases: readonly EvalCase[]): Run {
   const evalCase = cases.find((entry) => entry.id === run.caseId);
+  run = { ...run, think: run.think ?? evalCase?.think ?? false };
   if (!evalCase || run.error) return { ...run, grades: [], pass: false };
   // Resposta vazia (ex.: o raciocínio gastou todo o limite) é falha própria, não de "português".
   if (run.output.trim() === '') {
@@ -94,6 +100,10 @@ export function summarize(runs: readonly Run[], groups: readonly SummaryGroup[])
           return value == null ? [] : [value];
         });
       const totals = pick((run) => run.usage?.totalMs);
+      const totalsBy = (thinking: boolean) =>
+        mine.flatMap((run) =>
+          Boolean(run.think) === thinking && run.usage?.totalMs != null ? [run.usage.totalMs] : [],
+        );
       const passed = mine.filter((run) => run.pass).length;
       const byCriterion: ModelSummary['byCriterion'] = {};
       for (const run of mine) {
@@ -117,6 +127,8 @@ export function summarize(runs: readonly Run[], groups: readonly SummaryGroup[])
         passRate95: wilson(passed, mine.length),
         medianTotalMs: percentile(totals, 50),
         p95TotalMs: percentile(totals, 95),
+        p95TotalMsNoThinking: percentile(totalsBy(false), 95),
+        p95TotalMsThinking: percentile(totalsBy(true), 95),
         medianFirstTokenMs: percentile(
           pick((run) => run.firstTokenMs),
           50,
@@ -152,7 +164,7 @@ export function printSummary(file: string, summary: readonly ModelSummary[]): vo
   for (const row of summary) {
     const [low, high] = row.passRate95.map((value) => Math.round(value * 100));
     console.info(
-      `[evals] ${row.promptId ?? '?'} · ${row.model}: ${Math.round(row.passRate * 100)}% (${row.runs} respostas; IC95 ${low}–${high}%) · mediana ${Math.round(row.medianTotalMs ?? 0)} ms (p95 ${Math.round(row.p95TotalMs ?? 0)} ms), ${Math.round(row.medianOutputTokens ?? 0)} tokens de saída, ${Math.round(row.medianTokensPerSecond ?? 0)} tokens/s`,
+      `[evals] ${row.promptId ?? '?'} · ${row.model}: ${Math.round(row.passRate * 100)}% (${row.runs} respostas; IC95 ${low}–${high}%) · mediana ${Math.round(row.medianTotalMs ?? 0)} ms (p95 ${Math.round(row.p95TotalMs ?? 0)} ms; sem raciocínio ${Math.round(row.p95TotalMsNoThinking ?? 0)} ms, com ${Math.round(row.p95TotalMsThinking ?? 0)} ms), ${Math.round(row.medianOutputTokens ?? 0)} tokens de saída, ${Math.round(row.medianTokensPerSecond ?? 0)} tokens/s`,
     );
     for (const failure of row.failures) console.info(`[evals]   ✗ ${failure}`);
   }

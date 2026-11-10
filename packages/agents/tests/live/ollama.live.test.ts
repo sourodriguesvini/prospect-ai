@@ -1,5 +1,6 @@
 import type { CopilotEvent } from '@prospector/contracts';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { COPILOT_PROMPT_VERSION } from '../../src/copilot/copilot';
 import { createOllamaClient, DEFAULT_OLLAMA_URL } from '../../src/ollama/client';
 import { createLocalAiRuntime } from '../../src/runtime';
 
@@ -55,7 +56,11 @@ describe('Ollama real', () => {
     );
     const errors = events.filter((event) => event.type === 'error');
     expect(errors).toEqual([]);
-    expect(events[0]).toMatchObject({ type: 'start', model, promptVersion: 'copilot/v1' });
+    expect(events[0]).toMatchObject({
+      type: 'start',
+      model,
+      promptVersion: `copilot/v${COPILOT_PROMPT_VERSION}`,
+    });
     const text = events
       .filter((event) => event.type === 'delta')
       .map((event) => event.text)

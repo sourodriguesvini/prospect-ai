@@ -33,6 +33,7 @@ import { cache } from 'react';
 import {
   databaseEnv,
   databaseEnvPresent,
+  LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
   localAiEnv,
   storageMode,
@@ -61,10 +62,14 @@ interface MemoryStores {
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
 function memoryStores(): MemoryStores {
   const holder = globalThis as { __prospectorMemoryStores?: MemoryStores };
-  holder.__prospectorMemoryStores ??= {
-    audit: createMemoryAuditRepository(),
-    strategy: createMemoryStrategyRepository(),
-  };
+  if (!holder.__prospectorMemoryStores) {
+    const audit = createMemoryAuditRepository();
+    // A estratégia grava a auditoria junto com cada escrita (KI-041), na mesma trilha.
+    holder.__prospectorMemoryStores = {
+      audit,
+      strategy: createMemoryStrategyRepository({ audit }),
+    };
+  }
   return holder.__prospectorMemoryStores;
 }
 
@@ -90,7 +95,7 @@ export const getServices = cache((): Services => {
       system: createSystemService({ check: async () => 'memory' }),
       audit,
       // LIA e auditoria somem ao reiniciar: a barreira de abordagem nunca libera (ADR-0009).
-      strategy: createStrategyService({ repo: stores.strategy, audit, ephemeralStorage: true }),
+      strategy: createStrategyService({ repo: stores.strategy, ephemeralStorage: true }),
     };
   }
   const credentials = databaseEnv();
@@ -103,7 +108,7 @@ export const getServices = cache((): Services => {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
     audit,
-    strategy: createStrategyService({ repo: createSupabaseStrategyRepository(client), audit }),
+    strategy: createStrategyService({ repo: createSupabaseStrategyRepository(client) }),
   };
 });
 
@@ -162,13 +167,20 @@ export function getLocalAi(): LocalAi {
   };
 }
 
-/** Texto para a tela: nomes das variáveis e o que fazer, nunca os valores. */
+/**
+ * Texto para a tela: nomes das variáveis, o formato esperado de cada uma e o que fazer, nunca
+ * os valores (KI-067).
+ */
 function invalidConfigMessage(error: unknown): string {
+  const expected = (name: string) => {
+    const format = LOCAL_AI_ENV_FORMATS[name];
+    return format ? `${name} (${format})` : name;
+  };
   const what =
     error instanceof LocalAiConfigError
       ? error.variables.length === 1
-        ? `a variável ${error.variables.join('')} está inválida`
-        : `as variáveis ${error.variables.join(', ')} estão inválidas`
+        ? `a variável ${error.variables.map(expected).join('')} está inválida`
+        : `as variáveis ${error.variables.map(expected).join('; ')} estão inválidas`
       : isAiError(error)
         ? error.message.replace(/\.$/, '')
         : 'não foi possível ler as variáveis AI_* e OLLAMA_BASE_URL';

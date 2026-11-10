@@ -4,7 +4,7 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CopilotChat } from '@/components/copilot/copilot-chat';
 import { LocalAiStatus } from '@/components/copilot/local-ai-status';
-import { chatModelOptions } from '@/lib/copilot';
+import { chatModelOptions, modelsWithoutThinking } from '@/lib/copilot';
 import { getLocalAi } from '@/server/container';
 
 export const metadata: Metadata = { title: 'Copiloto' };
@@ -37,6 +37,7 @@ async function Workspace() {
           models={
             online && copilotRoute ? chatModelOptions(status.installed, copilotRoute.requires) : []
           }
+          noThinking={online ? modelsWithoutThinking(status.installed) : []}
           defaultModel={copilotRoute?.resolved ?? null}
           unavailable={unavailable}
         />

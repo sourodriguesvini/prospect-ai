@@ -15,11 +15,13 @@ import type {
 } from '@prospector/contracts';
 import { systemClock, type Clock } from '../clock';
 import { AppError } from '../errors';
-import type { StrategyRepository } from '../ports/strategy-repository';
+import type { AuditRepository } from '../ports/audit-repository';
+import type { PendingAudit, StrategyRepository } from '../ports/strategy-repository';
 
 /**
  * StrategyRepository em memória (ADR-0009): mesmo comportamento observável do banco — versões
- * somente inclusão numeradas pela persistência, decisão da LIA uma vez só — sem IO.
+ * somente inclusão numeradas pela persistência, decisão da LIA uma vez só, registro de auditoria
+ * gravado junto com cada escrita (KI-041) — sem IO.
  * Usado nos testes de serviço e no modo local sem banco (`PROSPECTOR_STORAGE=memory`).
  * Os dados somem quando o processo termina.
  */
@@ -39,6 +41,13 @@ interface IcpHeader extends Header {
 export interface MemoryStrategyOptions {
   clock?: Clock;
   newId?: () => string;
+  /**
+   * Trilha onde os registros das escritas vão parar; obrigatória, para não registrar num lugar
+   * que a tela de auditoria não lê. Use a trilha em memória (`createMemoryAuditRepository`): ela
+   * não falha, e é isso que torna seguro gravar antes de registrar (no banco, a transação
+   * garante os dois juntos). Uma trilha que possa falhar exigiria registrar antes de gravar.
+   */
+  audit: AuditRepository;
 }
 
 export interface MemoryStrategyRepository extends StrategyRepository {
@@ -52,11 +61,32 @@ const byVersionDesc = <T extends { version: number }>(list: readonly T[]) =>
 const clone = <T>(value: T): T => structuredClone(value);
 
 export function createMemoryStrategyRepository(
-  options: MemoryStrategyOptions = {},
+  options: MemoryStrategyOptions,
 ): MemoryStrategyRepository {
   const clock = options.clock ?? systemClock;
   const newId = options.newId ?? (() => crypto.randomUUID());
   const now = () => clock.now().toISOString();
+  const auditLog = options.audit;
+
+  /** Mesmo preenchimento do trigger do banco: id da linha gravada e número da versão. */
+  async function audited<T extends { id: string; version?: number }>(
+    audit: PendingAudit,
+    row: T,
+  ): Promise<T> {
+    await auditLog.append({
+      actorType: audit.actorType,
+      actorLabel: audit.actorLabel,
+      action: audit.action,
+      entityType: audit.entityType,
+      entityId: audit.entityId ?? row.id,
+      diff:
+        audit.withVersion && row.version !== undefined
+          ? { ...audit.diff, version: row.version }
+          : { ...audit.diff },
+      traceId: audit.traceId,
+    });
+    return row;
+  }
 
   const offers = new Map<string, Header>();
   const offerVersions: OfferVersion[] = [];
@@ -154,7 +184,7 @@ export function createMemoryStrategyRepository(
       return header ? toOffer(header) : null;
     },
 
-    async createOffer(content) {
+    async createOffer(content, audit) {
       const at = now();
       const header: Header = {
         id: newId(),
@@ -165,29 +195,31 @@ export function createMemoryStrategyRepository(
       };
       offers.set(header.id, header);
       pushOfferVersion(header.id, content);
+      await audited(audit, { id: header.id });
       return toOffer(header);
     },
 
-    async addOfferVersion(offerId, content) {
+    async addOfferVersion(offerId, content, audit) {
       requireOfferHeader(offerId);
-      return pushOfferVersion(offerId, content);
+      return audited(audit, pushOfferVersion(offerId, content));
     },
 
     async listOfferVersions(offerId) {
       return byVersionDesc(offerVersions.filter((v) => v.offerId === offerId)).map(clone);
     },
 
-    async setOfferStatus(offerId, status) {
+    async setOfferStatus(offerId, status, audit) {
       const header = requireOfferHeader(offerId);
       header.status = status;
       header.updatedAt = now();
+      await audited(audit, { id: offerId });
     },
 
     async listRubricVersions(offerId) {
       return byVersionDesc(rubrics.filter((v) => v.offerId === offerId)).map(clone);
     },
 
-    async addRubricVersion(offerId, content) {
+    async addRubricVersion(offerId, content, audit) {
       requireOfferHeader(offerId);
       const version: RubricVersion = {
         id: newId(),
@@ -197,14 +229,14 @@ export function createMemoryStrategyRepository(
         createdAt: now(),
       };
       rubrics.push(version);
-      return clone(version);
+      return audited(audit, clone(version));
     },
 
     async listScoringModelVersions(offerId) {
       return byVersionDesc(scoringModels.filter((v) => v.offerId === offerId)).map(clone);
     },
 
-    async addScoringModelVersion(offerId, content) {
+    async addScoringModelVersion(offerId, content, audit) {
       requireOfferHeader(offerId);
       const version: ScoringModelVersion = {
         id: newId(),
@@ -214,7 +246,7 @@ export function createMemoryStrategyRepository(
         createdAt: now(),
       };
       scoringModels.push(version);
-      return clone(version);
+      return audited(audit, clone(version));
     },
 
     async getIcp(id) {
@@ -222,7 +254,7 @@ export function createMemoryStrategyRepository(
       return header ? toIcp(header) : null;
     },
 
-    async createIcp(offerId, content) {
+    async createIcp(offerId, content, audit) {
       requireOfferHeader(offerId);
       const at = now();
       const header: IcpHeader = {
@@ -235,29 +267,31 @@ export function createMemoryStrategyRepository(
       };
       icps.set(header.id, header);
       pushIcpVersion(header.id, content);
+      await audited(audit, { id: header.id });
       return toIcp(header);
     },
 
-    async addIcpVersion(icpId, content) {
+    async addIcpVersion(icpId, content, audit) {
       requireIcpHeader(icpId);
-      return pushIcpVersion(icpId, content);
+      return audited(audit, pushIcpVersion(icpId, content));
     },
 
     async listIcpVersions(icpId) {
       return byVersionDesc(icpVersions.filter((v) => v.icpId === icpId)).map(clone);
     },
 
-    async setIcpStatus(icpId, status) {
+    async setIcpStatus(icpId, status, audit) {
       const header = requireIcpHeader(icpId);
       header.status = status;
       header.updatedAt = now();
+      await audited(audit, { id: icpId });
     },
 
     async listVoiceGuideVersions() {
       return byVersionDesc(voiceGuides).map(clone);
     },
 
-    async addVoiceGuideVersion(content) {
+    async addVoiceGuideVersion(content, audit) {
       const version: VoiceGuideVersion = {
         id: newId(),
         version: nextVersion(voiceGuides),
@@ -265,14 +299,14 @@ export function createMemoryStrategyRepository(
         createdAt: now(),
       };
       voiceGuides.push(version);
-      return clone(version);
+      return audited(audit, clone(version));
     },
 
     async listContactPolicyVersions() {
       return byVersionDesc(contactPolicies).map(clone);
     },
 
-    async addContactPolicyVersion(content) {
+    async addContactPolicyVersion(content, audit) {
       const version: ContactPolicyVersion = {
         id: newId(),
         version: nextVersion(contactPolicies),
@@ -280,7 +314,7 @@ export function createMemoryStrategyRepository(
         createdAt: now(),
       };
       contactPolicies.push(version);
-      return clone(version);
+      return audited(audit, clone(version));
     },
 
     async getProofAsset(id) {
@@ -288,7 +322,7 @@ export function createMemoryStrategyRepository(
       return asset ? clone(asset) : null;
     },
 
-    async createProofAsset(input) {
+    async createProofAsset(input, audit) {
       if (input.offerId) requireOfferHeader(input.offerId);
       const at = now();
       const asset: ProofAsset = {
@@ -300,29 +334,30 @@ export function createMemoryStrategyRepository(
         updatedAt: at,
       };
       proofAssets.set(asset.id, asset);
-      return clone(asset);
+      return audited(audit, clone(asset));
     },
 
-    async updateProofAsset(id, input) {
+    async updateProofAsset(id, input, audit) {
       const existing = proofAssets.get(id);
       if (!existing) throw new AppError('not_found', 'not_found');
       if (input.offerId) requireOfferHeader(input.offerId);
       const updated: ProofAsset = { ...existing, ...clone(input), updatedAt: now() };
       proofAssets.set(id, updated);
-      return clone(updated);
+      return audited(audit, clone(updated));
     },
 
-    async archiveProofAsset(id, archivedAt) {
+    async archiveProofAsset(id, archivedAt, audit) {
       const existing = proofAssets.get(id);
       if (!existing) throw new AppError('not_found', 'not_found');
       proofAssets.set(id, { ...existing, archivedAt, updatedAt: now() });
+      await audited(audit, { id });
     },
 
     async listLiaVersions() {
       return byVersionDesc(liaVersions).map(clone);
     },
 
-    async addLiaVersion(content) {
+    async addLiaVersion(content, audit) {
       const version: LiaVersion = {
         id: newId(),
         version: nextVersion(liaVersions),
@@ -333,24 +368,24 @@ export function createMemoryStrategyRepository(
         revokedAt: null,
       };
       liaVersions.push(version);
-      return clone(version);
+      return audited(audit, clone(version));
     },
 
-    async approveLia(id, { approvedAt, reviewDueOn }) {
+    async approveLia(id, { approvedAt, reviewDueOn }, audit) {
       const lia = requireLia(id);
       if (lia.approvedAt) throw new AppError('conflict', 'lia_decision_locked');
       lia.approvedAt = approvedAt;
       lia.reviewDueOn = reviewDueOn;
-      return clone(lia);
+      return audited(audit, clone(lia));
     },
 
-    async revokeLia(id, revokedAt) {
+    async revokeLia(id, revokedAt, audit) {
       const lia = requireLia(id);
       if (!lia.approvedAt || lia.revokedAt) {
         throw new AppError('conflict', 'lia_decision_locked');
       }
       lia.revokedAt = revokedAt;
-      return clone(lia);
+      return audited(audit, clone(lia));
     },
 
     markOfferAsDemo(offerId) {

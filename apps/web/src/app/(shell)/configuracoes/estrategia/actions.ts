@@ -3,7 +3,7 @@
 import { formValues } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
 import { icpInput, offerInput, proofAssetInput, voiceInput } from '@/lib/strategy-forms';
-import { strategyRoutes } from '@/lib/strategy-routes';
+import { CASE_ARCHIVED_NOTICE, strategyRoutes } from '@/lib/strategy-routes';
 import { NOTHING_CHANGED, runStrategyAction } from '@/server/strategy';
 
 /**
@@ -121,6 +121,6 @@ export async function updateProofAssetAction(id: string, _prev: FormState, formD
 export async function archiveProofAssetAction(id: string, _prev: FormState, formData: FormData) {
   return runStrategyAction(formValues(formData), async (strategy, ctx) => {
     await strategy.archiveProofAsset(ctx, id);
-    return strategyRoutes.cases;
+    return `${strategyRoutes.cases}?aviso=${CASE_ARCHIVED_NOTICE}`;
   });
 }

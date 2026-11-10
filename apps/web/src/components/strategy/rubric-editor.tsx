@@ -4,7 +4,15 @@ import { BrandAssetKind, RUBRIC_SCALE, type RubricContent } from '@prospector/co
 import { Button, Checkbox, FieldError, Input, Label, Textarea, cn } from '@prospector/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { startTransition, useActionState, useId, useState, type FormEvent } from 'react';
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import { FormMessage, fieldId } from '@/components/forms/fields';
 import type { FormAction } from '@/components/forms/use-action-form';
 import { errorsFor, IDLE } from '@/lib/form-state';
@@ -18,6 +26,8 @@ interface CriterionDraft {
   description: string;
   weight: string;
   evidenceRequired: string[];
+  /** Identificador já usado numa versão salva: fica fixo (as auditorias o referenciam). */
+  keyLocked: boolean;
 }
 
 /** Identificador estável a partir do rótulo: minúsculas, sem acento, com _ (ex.: consistencia_canais). */
@@ -34,24 +44,47 @@ function keyFromLabel(label: string): string {
 
 /**
  * Editor da rubrica de auditoria visual (escala fixa de 1 a 5). Pesos inteiros somam 100;
- * a soma aparece enquanto se edita, e o servidor confere de novo. Salvar cria nova versão.
+ * a soma fica numa barra fixa junto do botão de salvar, e o servidor confere de novo. Salvar cria
+ * nova versão. `saved`: a rubrica inicial já é uma versão salva, então os identificadores dela
+ * ficam fixos.
  */
 export function RubricEditor({
   action,
   initial,
+  saved,
   cancelHref,
 }: {
   action: FormAction;
   initial: RubricContent;
+  saved: boolean;
   cancelHref: string;
 }) {
   const [state, formAction, pending] = useActionState(action, IDLE);
   const [nextUid, setNextUid] = useState(initial.criteria.length);
   const [criteria, setCriteria] = useState<CriterionDraft[]>(() =>
-    initial.criteria.map((c, uid) => ({ ...c, uid, weight: String(c.weight) })),
+    initial.criteria.map((c, uid) => ({ ...c, uid, weight: String(c.weight), keyLocked: saved })),
   );
+  // Depois de adicionar ou remover, o foco vai para um lugar previsível (KI-050).
+  const focusTarget = useRef<string | null>(null);
+  // Os erros do servidor vêm por posição (`criteria.2.weight`): depois de remover um critério,
+  // ficam escondidos até o próximo envio, para não aparecerem no critério errado.
+  const [errorsHiddenUntil, setErrorsHiddenUntil] = useState<number | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+  const visibleState =
+    errorsHiddenUntil !== null && (state.at ?? 0) <= errorsHiddenUntil
+      ? { ...state, fieldErrors: undefined }
+      : state;
   const baseId = useId();
   const total = criteria.reduce((sum, c) => sum + (parseWeight(c.weight) ?? 0), 0);
+  const addButtonId = `${baseId}-adicionar`;
+  const headingId = (uid: number) => `${baseId}-${uid}-titulo`;
+
+  // Roda depois de cada renderização: se adicionar ou remover pediu foco, aplica e limpa o pedido.
+  useEffect(() => {
+    if (!focusTarget.current) return;
+    document.getElementById(focusTarget.current)?.focus();
+    focusTarget.current = null;
+  });
 
   function update(uid: number, patch: Partial<CriterionDraft>) {
     setCriteria((list) => list.map((c) => (c.uid === uid ? { ...c, ...patch } : c)));
@@ -60,9 +93,28 @@ export function RubricEditor({
   function add() {
     setCriteria((list) => [
       ...list,
-      { uid: nextUid, key: '', label: '', description: '', weight: '0', evidenceRequired: [] },
+      {
+        uid: nextUid,
+        key: '',
+        label: '',
+        description: '',
+        weight: '0',
+        evidenceRequired: [],
+        keyLocked: false,
+      },
     ]);
+    focusTarget.current = `${baseId}-${nextUid}-label`;
     setNextUid((n) => n + 1);
+  }
+
+  function remove(uid: number) {
+    const index = criteria.findIndex((c) => c.uid === uid);
+    const neighbour = criteria[index + 1] ?? criteria[index - 1];
+    setCriteria((list) => list.filter((c) => c.uid !== uid));
+    setErrorsHiddenUntil(state.at ?? 0);
+    const left = criteria.length - 1;
+    setAnnouncement(`Critério removido. ${left === 1 ? 'Resta 1.' : `Restam ${left}.`}`);
+    focusTarget.current = neighbour ? headingId(neighbour.uid) : addButtonId;
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -84,6 +136,9 @@ export function RubricEditor({
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
       <FormMessage state={state} />
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
       <p className="text-sm text-muted-foreground">
         Cada critério é avaliado pelo auditor visual de {RUBRIC_SCALE.min} a {RUBRIC_SCALE.max}, com
         base nas capturas marcadas como evidência.
@@ -92,13 +147,17 @@ export function RubricEditor({
         {criteria.map((c, index) => {
           const path = `criteria.${index}`;
           const id = (field: string) => `${baseId}-${c.uid}-${field}`;
-          const errors = (field: string) => errorsFor(state, `${path}.${field}`);
+          const errors = (field: string) => errorsFor(visibleState, `${path}.${field}`);
           const weightErrors = errors('weight');
           const which = <span className="sr-only"> do critério {index + 1}</span>;
           return (
             <li key={c.uid} className="space-y-4 rounded-[var(--radius-tile)] border p-4">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold">
+                <h3
+                  id={headingId(c.uid)}
+                  tabIndex={-1}
+                  className="rounded-sm text-sm font-semibold outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
                   Critério {index + 1}
                   {c.label ? (
                     <span className="font-normal text-muted-foreground"> — {c.label}</span>
@@ -107,7 +166,7 @@ export function RubricEditor({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setCriteria((list) => list.filter((x) => x.uid !== c.uid))}
+                  onClick={() => remove(c.uid)}
                   disabled={criteria.length === 1}
                 >
                   <Trash2 aria-hidden="true" className="size-4" />
@@ -134,12 +193,16 @@ export function RubricEditor({
                     id={id('key')}
                     value={c.key}
                     maxLength={40}
+                    readOnly={c.keyLocked}
+                    className={c.keyLocked ? 'bg-muted text-muted-foreground' : undefined}
                     onChange={(e) => update(c.uid, { key: e.target.value })}
                     aria-invalid={errors('key') ? true : undefined}
                     aria-describedby={`${id('key')}-ajuda${errors('key') ? ` ${id('key')}-erro` : ''}`}
                   />
                   <p id={`${id('key')}-ajuda`} className="text-xs text-muted-foreground">
-                    Fixo entre versões; as auditorias usam este nome.
+                    {c.keyLocked
+                      ? 'Já salvo: não muda mais, porque as auditorias usam este nome.'
+                      : 'Fica fixo depois de salvo; as auditorias usam este nome.'}
                   </p>
                   <FieldError id={`${id('key')}-erro`} messages={errors('key')} />
                 </div>
@@ -194,21 +257,32 @@ export function RubricEditor({
           );
         })}
       </ol>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button variant="secondary" onClick={add} disabled={criteria.length >= 15}>
-          <Plus aria-hidden="true" className="size-4" />
-          Adicionar critério
-        </Button>
+      <Button id={addButtonId} variant="secondary" onClick={add} disabled={criteria.length >= 15}>
+        <Plus aria-hidden="true" className="size-4" />
+        Adicionar critério
+      </Button>
+      <FieldError id={fieldId('criteria')} messages={visibleState.fieldErrors?.criteria} />
+      {/*
+        Barra de ações: fica fixa no rodapé em telas a partir de sm com altura suficiente
+        (globals.css, `data-sticky-actions`), com folga de rolagem para o campo focado não ficar
+        atrás dela (WCAG 2.4.11). No celular, fica no fim do formulário (KI-050).
+      */}
+      <div
+        data-sticky-actions=""
+        className={cn(
+          'z-10 flex flex-wrap items-center justify-between gap-3',
+          'rounded-[var(--radius-tile)] border bg-surface px-4 py-3 shadow-sm',
+        )}
+      >
         <WeightTotal total={total} />
-      </div>
-      <FieldError id={fieldId('criteria')} messages={state.fieldErrors?.criteria} />
-      <div className={cn('flex flex-wrap gap-2')}>
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Salvando…' : 'Salvar rubrica'}
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href={cancelHref}>Cancelar</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="ghost">
+            <Link href={cancelHref}>Cancelar</Link>
+          </Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Salvando…' : 'Salvar rubrica'}
+          </Button>
+        </div>
       </div>
     </form>
   );

@@ -4,7 +4,7 @@ import {
   type AppErrorCode,
   type ErrorReason,
 } from '@prospector/application';
-import { isMissingRelation } from './sql-errors';
+import { INTERNAL_DB_ERROR_KEYS, isMissingRelation } from './sql-errors';
 
 /** Chaves levantadas por funções SQL (`raise exception '<chave>'`) → código de erro da aplicação. */
 const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
@@ -30,6 +30,11 @@ export function toAppError(error: DbErrorLike): AppError {
   if (isKnownReason(message)) {
     const code = REASON_TO_CODE[message];
     if (code) return new AppError(code, message, { cause: error });
+  }
+  // Proteções internas (auditoria, imutabilidade): só disparam por defeito do servidor, nunca
+  // por dado digitado, então não podem virar "Revise os campos" (revisões de 2026-11-10).
+  if (INTERNAL_DB_ERROR_KEYS.includes(message)) {
+    return new AppError('unexpected', 'unexpected', { cause: error });
   }
   if (isMissingRelation(error)) {
     return new AppError('unavailable', 'database_schema_missing', { cause: error });

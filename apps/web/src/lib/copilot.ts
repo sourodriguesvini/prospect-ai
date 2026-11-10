@@ -3,6 +3,7 @@ import {
   COPILOT_HISTORY_LIMIT,
   CopilotEvent,
   MODEL_CAPABILITY_LABELS,
+  formatMiBAsGB,
   type AiErrorCode,
   type ChatMessage,
   type GenerationUsage,
@@ -103,6 +104,7 @@ export function applyEvent(turn: Turn, event: CopilotEvent): Turn {
     case 'start':
       return { ...turn, model: event.model };
     case 'queued':
+    case 'phase':
       return turn;
     case 'notice':
       return { ...turn, notices: [...(turn.notices ?? []), event.message] };
@@ -126,12 +128,16 @@ export function httpFailure(status: number, message: string | undefined): Turn['
 const decimal = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 const integer = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 
+/**
+ * Tamanhos em GB no mesmo formato das mensagens do servidor (`formatMiBAsGB`, KI-067): uma casa
+ * decimal, vírgula e sem ",0".
+ */
 export function formatGigabytes(bytes: number): string {
-  return `${decimal.format(bytes / 1024 ** 3)} GB`;
+  return formatMiBAsGB(bytes / 1024 ** 2);
 }
 
 export function formatMebibytesAsGigabytes(mib: number): string {
-  return `${decimal.format(mib / 1024)} GB`;
+  return formatMiBAsGB(mib);
 }
 
 function seconds(ms: number): string {
@@ -187,6 +193,16 @@ export function chatModelOptions(
     )
     .map((model) => model.name)
     .sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Modelos que o Ollama diz não ter modo de raciocínio (KI-067). Sem a leitura das capacidades,
+ * o modelo não entra: a tela não afirma o que não sabe, e o servidor avisa se for o caso.
+ */
+export function modelsWithoutThinking(installed: readonly LocalModel[]): string[] {
+  return installed
+    .filter((model) => model.capabilities !== null && !model.capabilities.includes('thinking'))
+    .map((model) => model.name);
 }
 
 /** "conversa · imagens · raciocínio" para o painel; null quando o Ollama não informou. */

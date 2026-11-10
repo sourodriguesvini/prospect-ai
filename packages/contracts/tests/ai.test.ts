@@ -6,6 +6,7 @@ import {
   CopilotEvent,
   CopilotRequest,
   COPILOT_HISTORY_LIMIT,
+  formatMiBAsGB,
   LocalModel,
   ModelCapability,
   ModelName,
@@ -97,6 +98,20 @@ describe('CopilotEvent', () => {
     expect(CopilotEvent.safeParse({ type: 'error', code: 'oops', message: 'x' }).success).toBe(
       false,
     );
+  });
+
+  it('fase "liberando memória" só com a fase conhecida (KI-067)', () => {
+    expect(CopilotEvent.safeParse({ type: 'phase', phase: 'freeing_vram' }).success).toBe(true);
+    expect(CopilotEvent.safeParse({ type: 'phase', phase: 'outra' }).success).toBe(false);
+  });
+});
+
+describe('formatMiBAsGB', () => {
+  it('uma casa decimal com vírgula, sem ",0" (KI-067)', () => {
+    expect(formatMiBAsGB(3072)).toBe('3 GB');
+    expect(formatMiBAsGB(6041.6)).toBe('5,9 GB');
+    expect(formatMiBAsGB(16_311)).toBe('15,9 GB');
+    expect(formatMiBAsGB(0)).toBe('0 GB');
   });
 });
 

@@ -1,0 +1,1077 @@
+{
+  "synthetic": true,
+  "capability": "copilot",
+  "prompts": [
+    {
+      "id": "copilot/v1",
+      "sha256": "7b9071c2a216c7a9977230194965ea79d889fab6bef61fba554eb3bd2f795660"
+    },
+    {
+      "id": "copilot/v3",
+      "sha256": "bc898da8aa8f5da96050cdec4055f0dd17c66629e3c7484d46a98b3809f00474"
+    }
+  ],
+  "ranAt": "2026-11-10T16:57:19.789Z",
+  "factsDate": "2026-11-09T15:00:00.000Z",
+  "ollamaVersion": "0.40.16",
+  "gpu": "NVIDIA GeForce RTX 5060 Ti",
+  "params": {
+    "temperature": 0.4,
+    "numCtx": 8192,
+    "maxOutputTokens": 1024,
+    "maxOutputTokensThinking": 4096,
+    "repeat": 10
+  },
+  "modelDigests": {
+    "qwen3.5:4b": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04"
+  },
+  "cases": [
+    {
+      "id": "raciocinio-ligado",
+      "goal": "Com raciocínio ligado, a resposta final continua curta, em texto simples e sem o raciocínio",
+      "input": "Tenho 6 horas por semana para prospecção. Como divido esse tempo entre pesquisar empresas, escrever abordagens e fazer follow-up?",
+      "history": [],
+      "think": true,
+      "database": "not_configured"
+    }
+  ],
+  "skipped": [],
+  "summary": [
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "runs": 10,
+      "passRate": 1,
+      "passRate95": [0.722, 1],
+      "medianTotalMs": 27519.99165,
+      "p95TotalMs": 49490.85735499998,
+      "p95TotalMsNoThinking": null,
+      "p95TotalMsThinking": 49490.85735499998,
+      "medianFirstTokenMs": 25512.31035,
+      "medianTokensPerSecond": 63.7,
+      "medianOutputTokens": 1815.5,
+      "byCriterion": {
+        "português": {
+          "pass": 10,
+          "total": 10
+        },
+        "texto simples": {
+          "pass": 10,
+          "total": 10
+        },
+        "não diz que agiu fora da conversa": {
+          "pass": 10,
+          "total": 10
+        },
+        "responde com a divisão do tempo": {
+          "pass": 10,
+          "total": 10
+        },
+        "sem o raciocínio na resposta": {
+          "pass": 10,
+          "total": 10
+        },
+        "até 2000 caracteres": {
+          "pass": 10,
+          "total": 10
+        }
+      },
+      "byCase": {
+        "raciocinio-ligado": {
+          "pass": 10,
+          "total": 10
+        }
+      },
+      "failures": []
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "runs": 10,
+      "passRate": 1,
+      "passRate95": [0.722, 1],
+      "medianTotalMs": 42202.74585,
+      "p95TotalMs": 55725.20286,
+      "p95TotalMsNoThinking": null,
+      "p95TotalMsThinking": 55725.20286,
+      "medianFirstTokenMs": 40580.768450000025,
+      "medianTokensPerSecond": 63.05,
+      "medianOutputTokens": 3194.5,
+      "byCriterion": {
+        "português": {
+          "pass": 10,
+          "total": 10
+        },
+        "texto simples": {
+          "pass": 10,
+          "total": 10
+        },
+        "não diz que agiu fora da conversa": {
+          "pass": 10,
+          "total": 10
+        },
+        "responde com a divisão do tempo": {
+          "pass": 10,
+          "total": 10
+        },
+        "sem o raciocínio na resposta": {
+          "pass": 10,
+          "total": 10
+        },
+        "até 2000 caracteres": {
+          "pass": 10,
+          "total": 10
+        }
+      },
+      "byCase": {
+        "raciocinio-ligado": {
+          "pass": 10,
+          "total": 10
+        }
+      },
+      "failures": []
+    }
+  ],
+  "runs": [
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 1,
+      "think": true,
+      "output": "Como ainda não tenho acesso ao seu banco de dados ou histórico de conversas, essa divisão é uma sugestão baseada em padrões gerais, não um dado do sistema. Uma alocação comum para quem tem 6 horas semanais é: 40% para pesquisa (identificar leads), 50% para execução (escrever e enviar abordagens + follow-up) e 10% para revisão e organização.\n\nIsso permite que você mantenha a qualidade das mensagens sem perder o ritmo de contato. No entanto, como não sei qual é o seu volume ideal ou tipo de cliente, preciso ajustar isso. Qual é o seu objetivo principal hoje? Quer focar em aumentar o volume de contatos ou na qualidade das reuniões agendadas?",
+      "error": null,
+      "firstTokenMs": 17669.8953,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 1611,
+        "totalMs": 19131.4389,
+        "loadMs": 3137.5205,
+        "outputTokensPerSecond": 102.4
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=39 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "646"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 1,
+      "think": true,
+      "output": "Para um cronograma de 6 horas semanais, uma divisão equilibrada costuma ser 40% em pesquisa de leads, 40% na produção e revisão de abordagens e 20% para follow-ups. Isso garante que você tenha novos contatos suficientes para manter o fluxo.\n\nComo o banco de dados ainda está vazio, priorize a fase de descoberta para começar a preencher seu histórico. O módulo Descoberta (F4) e Empresas (F3) ainda estão em construção, então use o Copiloto para estruturar essas buscas manualmente enquanto eles chegam.\n\nLembre-se que todo texto enviado sai da sua aprovação, já que o Prospector não envia mensagens sozinho.",
+      "error": null,
+      "firstTokenMs": 17348.147399999998,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 1819,
+        "totalMs": 18695.8436,
+        "loadMs": 4.0896,
+        "outputTokensPerSecond": 99.1
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=28 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "608"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 2,
+      "think": true,
+      "output": "Para 6 horas semanais, uma divisão eficiente costuma ser:\n- Pesquisa de leads (50%);\n- Escrita das abordagens (40%);\n- Follow-up (10%).\n\nComo ainda não temos o módulo Pipeline configurado, você precisará registrar esses dados manualmente ou num planilha externa. Nada sai do Prospector sem aprovação humana e sem acesso a ferramentas de automação neste momento.\n\nPara começar, qual é o seu objetivo semanal? Quer focar em volume (mais contatos) ou em conversão (menos contatos, mais tempo por lead)? Isso ajuda eu a sugerir uma estratégia mais específica para a sua agenda.",
+      "error": null,
+      "firstTokenMs": 16405.4323,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 1810,
+        "totalMs": 17642.1501,
+        "loadMs": 3.6172,
+        "outputTokensPerSecond": 103.3
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=23 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "573"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 2,
+      "think": true,
+      "output": "Com 6 horas semanais, uma divisão equilibrada seria: 2 horas de pesquisa (para identificar alvos qualificados), 3 horas de escrita e preparação das mensagens (abordagens e follow-ups) e 1 hora para acompanhamento e ajustes. Isso garante que você não fique preso apenas a encontrar leads, mas também a executar e aprender com cada interação.\n\nComo o Prospector ainda não tem módulos ativos de pesquisa ou pipeline, essa organização deve ser feita manualmente por você, usando suas próprias ferramentas. Posso ajudar a refinar os critérios de pesquisa ou revisar seus textos para torná-los mais persuasivos, mas lembre-se que nada sai do sistema sem sua aprovação manual.",
+      "error": null,
+      "firstTokenMs": 33302.6375,
+      "usage": {
+        "inputTokens": 1387,
+        "outputTokens": 3213,
+        "totalMs": 34681,
+        "loadMs": null,
+        "outputTokensPerSecond": 97
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=29 en=0 es=1"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "669"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 3,
+      "think": true,
+      "output": "Com 6 horas semanais, uma divisão equilibrada seria: **2h de pesquisa** (descobrindo quem e como abordar), **3h de produção** (escrevendo as mensagens baseadas nos dados encontrados) e **1h de follow-up** (revisando respostas e agendando próximos contatos). Isso evita sobrecarregar o processo de escrita antes de ter alvos reais.\n\nComo não tenho acesso ao seu banco de dados ou histórico anterior, preciso confirmar: você já tem uma lista de empresas-alvo ou prefere que eu sugira como estruturar essa pesquisa agora? Também é válido perguntar qual é o seu nicho principal para que as dicas sejam mais direcionadas.",
+      "error": null,
+      "firstTokenMs": 35219.091700000004,
+      "usage": {
+        "inputTokens": 885,
+        "outputTokens": 3220,
+        "totalMs": 36711,
+        "loadMs": null,
+        "outputTokensPerSecond": 93.9
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=30 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "616"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 3,
+      "think": true,
+      "output": "Para seis horas semanais, sugiro dividir o tempo entre pesquisa de leads, redação das abordagens e follow-up. Isso prioriza a qualidade da mensagem sobre o volume de contatos, considerando que o banco de dados ainda não está configurado.\n\nComo eu não tenho acesso ao pipeline ou às ferramentas de envio, você precisa fazer a pesquisa manualmente e me enviar os leads para que eu redija as mensagens. Posso ajudar a estruturar esses blocos agora mesmo: me diga quais empresas estão no seu foco e eu redijo as abordagens para você revisar.",
+      "error": null,
+      "firstTokenMs": 40344.13280000001,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 3347,
+        "totalMs": 41764.3169,
+        "loadMs": 7.3857,
+        "outputTokensPerSecond": 80.5
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=26 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "537"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 4,
+      "think": true,
+      "output": "Com 6 horas semanais, uma divisão equilibrada costuma ser:\n- 3 horas para pesquisa e qualificação de empresas;\n- 2 horas para criação das abordagens personalizadas;\n- 1 hora para follow-up e organização.\n\nFato: Atualmente não tenho acesso ao banco de dados da agência nem ferramentas externas para validar essas informações ou contatos reais.\nHipótese: Essa divisão permite que você priorize a qualidade da abordagem em vez da quantidade de contatos, aumentando as chances de conversão.\n\nQual é o seu foco atual (ex: B2B ou B2C)? Isso ajuda a ajustar o tempo de pesquisa para o setor correto.",
+      "error": null,
+      "firstTokenMs": 36280.015799999994,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 2515,
+        "totalMs": 38484.5719,
+        "loadMs": 9.7571,
+        "outputTokensPerSecond": 65.9
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=26 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "592"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 4,
+      "think": true,
+      "output": "Com base no estado atual do Prospector, sugiro dividir: 30% para pesquisar empresas manualmente (o banco de dados ainda não está configurado), 40% para redigir abordagens com o Copiloto e 30% para organizar follow-ups, já que o Pipeline ainda está em construção (F12) e o módulo de Aprovações também.\n\nCom pouco tempo, priorize a qualidade da abordagem sobre o volume. O Copiloto pode ajudar a revisar textos rapidamente, mas lembre-se de que nada sai do Prospector sem aprovação humana até os módulos de Aprovações e Pipeline estarem prontos.",
+      "error": null,
+      "firstTokenMs": 34481.91080000001,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 2265,
+        "totalMs": 36430.3333,
+        "loadMs": 9.8102,
+        "outputTokensPerSecond": 62.6
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=28 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "543"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 5,
+      "think": true,
+      "output": "Para dividir suas 6 horas, um equilíbrio comum é: 30% para pesquisa (identificar leads), 50% para escrita e personalização das abordagens, e 20% para follow-up e gestão de respostas. Isso evita que você gaste tempo demais em mensagens sem base, mas mantém consistência no contato.\n\nComo ainda não temos dados salvos ou acesso a empresas reais, essa divisão é uma sugestão estratégica baseada em boas práticas. O foco agora é estruturar o processo antes de começar a executar ações externas.\n\nQuer que eu ajude a definir seus critérios de ICP (Perfil do Cliente Ideal) para que você possa filtrar melhor quem pesquisar?",
+      "error": null,
+      "firstTokenMs": 22898.823200000013,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 1509,
+        "totalMs": 25043.1069,
+        "loadMs": 5.3688,
+        "outputTokensPerSecond": 60.9
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=28 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "618"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 5,
+      "think": true,
+      "output": "Com 6 horas semanais, uma divisão equilibrada costuma ser a seguinte:\n\n- 40% para pesquisa e identificação de empresas (pesquisa inicial e validação).\n- 40% para redação das abordagens e preparação dos materiais.\n- 20% para follow-up e acompanhamento das respostas.\n\nComo não tenho acesso ao banco de dados nem envio de mensagens, esse plano serve apenas para organizar sua rotina. Posso ajudar a revisar os textos ou estruturar as ideias enquanto você escreve.",
+      "error": null,
+      "firstTokenMs": 26988.684200000018,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 1679,
+        "totalMs": 28561.6446,
+        "loadMs": 7.3909,
+        "outputTokensPerSecond": 59.4
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=19 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "461"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 6,
+      "think": true,
+      "output": "Com base no seu limite de 6 horas semanais, uma divisão equilibrada seria: **2h de pesquisa** (para identificar alvos qualificados), **3h de escrita e personalização** (criar mensagens relevantes) e **1h de follow-up** (seguir contato após respostas ou silêncio). Essa proporção prioriza a qualidade da abordagem antes do volume.\n\nComo ainda não temos acesso a dados de empresas ou histórico de contatos, não posso sugerir listas específicas agora. O que dá para fazer nesta versão é organizar suas ideias e revisar os textos que você criar manualmente. Se quiser, pode colar aqui um esboço de sua estratégia de pesquisa ou uma mensagem de abordagem para eu analisar e melhorar junto com você.",
+      "error": null,
+      "firstTokenMs": 56428.470100000035,
+      "usage": {
+        "inputTokens": 885,
+        "outputTokens": 3225,
+        "totalMs": 58496,
+        "loadMs": null,
+        "outputTokensPerSecond": 62.2
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=35 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "693"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 6,
+      "think": true,
+      "output": "Com seis horas por semana, uma divisão equilibrada seria: duas horas para pesquisar empresas, duas para escrever as abordagens e duas para o follow-up. Posso ajudar a redigir os textos e revisar o conteúdo, mas não tenho acesso ao banco de dados nem envio de mensagens.\n\nDentro do Prospector, os módulos **Início**, **Copiloto** e **Configuração** estão disponíveis para organizar essa rotina enquanto outros recursos ainda estão em construção. Se preferir, posso criar um rascunho semanal ou revisar o que você já escreveu antes de enviar.",
+      "error": null,
+      "firstTokenMs": 40817.40410000004,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 2578,
+        "totalMs": 42641.1748,
+        "loadMs": 5.1501,
+        "outputTokensPerSecond": 60.7
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=24 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "540"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 7,
+      "think": true,
+      "output": "Com base em ciclos de prospecção comuns, sugiro dividir assim: 40% para pesquisa (identificar ICP), 50% para escrita e follow-up, e 10% para revisão. Isso é uma inferência baseada em padrões de produtividade, já que não tenho acesso ao seu histórico ou pipeline atual.\n\nO sistema ainda não tem banco de dados configurado, então não consigo consultar empresas ou validar contatos. Tudo o que eu faço aqui é organizar suas ideias e revisar textos, sem enviar nada fora desta conversa.\n\nPara definir uma estratégia mais precisa, preciso saber: qual o tamanho médio da sua carteira? Você já definiu um ICP específico para focar essa hora semanal?",
+      "error": null,
+      "firstTokenMs": 18624.906499999983,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 1233,
+        "totalMs": 20800.5719,
+        "loadMs": 6.3901,
+        "outputTokensPerSecond": 59.8
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=32 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "642"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 7,
+      "think": true,
+      "output": "Com 6 horas semanais, uma divisão equilibrada seria: 2 horas de pesquisa (descobrindo leads), 3 horas de escrita e preparação das abordagens, e 1 hora para follow-ups e ajustes. Como o módulo **Descoberta** ainda está em construção (F4), você precisará fazer essa parte manualmente, usando seus próprios critérios para selecionar empresas.\n\nPara maximizar a eficiência, foque em escrever uma única abordagem forte por dia, evitando múltiplas versões que consomem tempo sem gerar mais resposta. Reserve o follow-up apenas quando houver um contato inicial ou se a empresa demonstrar interesse, mantendo o processo ágil e não invasivo.",
+      "error": null,
+      "firstTokenMs": 55026.8958,
+      "usage": {
+        "inputTokens": 1387,
+        "outputTokens": 3212,
+        "totalMs": 57057,
+        "loadMs": null,
+        "outputTokensPerSecond": 63.8
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=23 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "632"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 8,
+      "think": true,
+      "output": "Para começar, não tenho acesso ao seu banco de dados nem histórico de oportunidades, então essa divisão é baseada em boas práticas gerais de prospecção, não em dados reais do seu pipeline.\n\nUma distribuição comum para quem tem alta intensidade é: 30% pesquisa (descoberta), 40% escrita e criação de conteúdo, e 30% follow-up e gestão de leads. Isso ajuda a manter o ritmo sem saturar demais na fase inicial.\n\nPara ajustar isso ao seu caso, preciso saber: qual é o volume alvo de empresas por mês? E você já tem algum pipeline inicial ou está começando do zero?",
+      "error": null,
+      "firstTokenMs": 14564.430899999978,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 1039,
+        "totalMs": 16532.3563,
+        "loadMs": 5.6692,
+        "outputTokensPerSecond": 63.4
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=31 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "560"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 8,
+      "think": true,
+      "output": "Com base em boas práticas de prospecção, um bom equilíbrio seria 40% para pesquisa, 50% para envio e follow-up, e 10% para organização e aprendizado. Como o banco de dados ainda está vazio, você precisará registrar esses números manualmente até que os módulos de Pipeline e Aprovações estejam prontos.\n\nEu posso ajudar a estruturar esse planejamento ou revisar os textos das abordagens antes do envio, mas lembre-se: nada sai do Prospector sem sua aprovação humana, já que o módulo Aprovações ainda não está disponível.\n\nQuer que eu elabore um modelo de planilha para você controlar essas 6 horas ou prefere focar em definir quais empresas alvo hoje?",
+      "error": null,
+      "firstTokenMs": 49021.94530000002,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 3177,
+        "totalMs": 51244.3712,
+        "loadMs": 6.0066,
+        "outputTokensPerSecond": 62.2
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=34 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "650"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 9,
+      "think": true,
+      "output": "Com base na ausência de histórico no sistema, sugiro uma distribuição inicial focada em qualidade: 40% para pesquisa e qualificação, 40% para escrita e envio, e 20% para follow-up. A pesquisa é crítica para evitar tempo perdido com leads frios, enquanto a escrita exige foco para personalização. O follow-up costuma ser mais rápido, mas precisa de consistência.\n\nPosso ajudar a definir o seu ICP ou revisar textos dentro dessas janelas de tempo. Como você não tem dados passados ainda, essa proporção é uma hipótese que podemos validar com os próximos resultados. Qual área você quer priorizar hoje?",
+      "error": null,
+      "firstTokenMs": 28167.43949999998,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 1821,
+        "totalMs": 30169.3703,
+        "loadMs": 5.4319,
+        "outputTokensPerSecond": 60.8
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=29 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "599"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 9,
+      "think": true,
+      "output": "Com o banco de dados ainda não configurado e módulos como Abordagens em construção, sugiro dividir as 6 horas assim:\n\n- 2 horas para pesquisar empresas manualmente;\n- 3 horas para escrever abordagens;\n- 1 hora para follow-ups.\n\nIsso garante que você tenha conteúdo pronto para enviar sem depender de funcionalidades ainda não ativas. O Copiloto pode ajudar a revisar esses textos enquanto você os estrutura. Lembre-se que todo envio sai apenas após aprovação humana, então use esse tempo para preparar o material antes de submeter ao fluxo de aprovação.",
+      "error": null,
+      "firstTokenMs": 51863.43729999999,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 3316,
+        "totalMs": 53678.9513,
+        "loadMs": 4.8313,
+        "outputTokensPerSecond": 62
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=26 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "553"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v1",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 10,
+      "think": true,
+      "output": "Com 6 horas por semana, uma divisão eficiente costuma ser pesquisar empresas (40%), escrever abordagens (50%) e fazer follow-up (10%). Isso permite manter o pipeline ativo sem sobrecarregar suas mensagens.\n\nNo entanto, preciso lembrar que eu ainda não tenho acesso a banco de dados ou ferramentas externas para pesquisar empresas ou enviar mensagens. Meu foco aqui é estruturar sua estratégia e revisar textos quando você colá-los na conversa.\n\nPara ajustar essa divisão, qual é o seu nicho atual e quantas reuniões qualificadas você espera fechar por mês? Isso ajuda a definir se prioriza volume ou qualidade nas abordagens.",
+      "error": null,
+      "firstTokenMs": 28125.797499999986,
+      "usage": {
+        "inputTokens": 883,
+        "outputTokens": 1904,
+        "totalMs": 29996.8764,
+        "loadMs": 7.6481,
+        "outputTokensPerSecond": 64
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=23 en=0 es=1"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "625"
+        }
+      ],
+      "pass": true
+    },
+    {
+      "promptId": "copilot/v3",
+      "model": "qwen3.5:4b",
+      "caseId": "raciocinio-ligado",
+      "attempt": 10,
+      "think": true,
+      "output": "Para 6 horas semanais, uma boa prática costuma ser 40% para pesquisa, 40% para escrita e 20% para follow-up. Isso evita que o processo fique travado antes mesmo de você ter contato com a empresa.\n\nComo não tenho acesso ao banco de dados nem aos módulos em construção ainda, eu só posso ajudar a organizar suas ideias e revisar os textos aqui no Copiloto. O módulo Abordagens (F10) ainda está na fatia do roadmap, então ele não existe para uso imediato.\n\nVocê pode usar o módulo Configuração para estruturar seu plano de trabalho, já que a pesquisa automatizada ainda não é uma funcionalidade ativa.",
+      "error": null,
+      "firstTokenMs": 52008.76819999993,
+      "usage": {
+        "inputTokens": 1385,
+        "outputTokens": 3427,
+        "totalMs": 54097.4508,
+        "loadMs": 5.8633,
+        "outputTokensPerSecond": 63.5
+      },
+      "grades": [
+        {
+          "name": "português",
+          "pass": true,
+          "detail": "pt=34 en=0 es=0"
+        },
+        {
+          "name": "texto simples",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "não diz que agiu fora da conversa",
+          "pass": true
+        },
+        {
+          "name": "responde com a divisão do tempo",
+          "pass": true
+        },
+        {
+          "name": "sem o raciocínio na resposta",
+          "pass": true
+        },
+        {
+          "name": "até 2000 caracteres",
+          "pass": true,
+          "detail": "598"
+        }
+      ],
+      "pass": true
+    }
+  ]
+}

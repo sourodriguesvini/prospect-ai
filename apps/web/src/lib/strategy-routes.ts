@@ -2,6 +2,9 @@
 const STRATEGY = '/configuracoes/estrategia';
 const COMPLIANCE = '/configuracoes/conformidade';
 
+/** Valor de `?aviso=` na lista de cases depois de arquivar um (KI-050). */
+export const CASE_ARCHIVED_NOTICE = 'case-arquivado';
+
 export const strategyRoutes = {
   overview: STRATEGY,
   newOffer: `${STRATEGY}/ofertas/nova`,
