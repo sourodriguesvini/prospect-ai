@@ -47,14 +47,23 @@ No PowerShell: `$env:PROSPECTOR_STORAGE = 'memory'; pnpm dev`. Prefira a variáv
 
 ## 3. Banco: projeto Supabase de desenvolvimento (recomendado)
 
-> Não executado ainda. Criar o projeto é feito por você no painel (pode ter custo); o agente não cria contas nem projetos. Ao executar pela primeira vez, registre o resultado em `docs/known-issues.md`.
+> **Feito em 2026-11-09.** Com a autorização do usuário, o agente usou o Supabase MCP para:
+> - criar o projeto `prospector-dev` (organização "Prospect AI", plano gratuito, US$ 0, `sa-east-1`);
+> - aplicar `foundation` e `strategy`;
+> - conferir o catálogo: 11 tabelas, todas com RLS, nenhuma política e nenhum privilégio para `anon`/`authenticated`.
+>
+> As regras da estratégia foram testadas numa transação desfeita, e o banco continua vazio. O `apps/web/.env.local` foi criado só com a URL; a secret key é colada pelo usuário (passo 3).
+>
+> O `apply_migration` do MCP grava a hora da aplicação como versão. Por isso o histórico foi alinhado aos nomes dos arquivos com um `update` em `supabase_migrations.schema_migrations`; pela CLI, o equivalente é `supabase migration repair`.
+>
+> O agente só cria projeto com autorização explícita do usuário e depois de mostrar o custo.
 
 1. Crie um projeto em https://supabase.com (região `sa-east-1`, São Paulo). Use só para desenvolvimento.
-2. Aplique a migração `supabase/migrations/20261109130000_foundation.sql`:
-   - pelo **SQL Editor** do painel (cole o arquivo e execute), ou
+2. Aplique as migrações de `supabase/migrations/`, em ordem:
+   - pelo **SQL Editor** do painel (cole cada arquivo e execute), ou
    - pela CLI: `supabase link --project-ref <ref>` e `supabase db push`.
 
-   Pelo agente, só com sua confirmação explícita (skill `migracao-supabase`).
+   Pelo agente, só com sua confirmação explícita (skill `migracao-supabase`). Migração nova: aplique também no projeto de desenvolvimento antes de usar a tela que depende dela.
 3. Em Project Settings → API Keys, crie uma **secret key** (`sb_secret_…`). Ela ignora o RLS: trate como senha.
 4. Crie `apps/web/.env.local` a partir de `apps/web/.env.example`:
    - `SUPABASE_URL` = Project URL (`https://<ref>.supabase.co`)

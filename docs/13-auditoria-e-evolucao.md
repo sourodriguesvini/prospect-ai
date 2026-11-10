@@ -12,7 +12,7 @@
 - **Entregue nesta rodada (IA-1):** o pacote `packages/agents` conversa com o Ollama local (detecção, modelos instalados, escolha por tarefa, limite de concorrência e fila, VRAM, descarregar sob demanda, erros tipados), e o **Copiloto responde de verdade, em streaming**, com o `qwen3.5:4b`. Verificado com testes unitários, testes contra o Ollama real, avaliação local e uso no navegador.
 - **Entregue na IA-1.1:** admissão por VRAM antes de carregar um modelo (reserva de 3 GB para os outros programas, recusa com orientação), escolha de modelo pelas capacidades lidas do Ollama (`/api/show`), corte do histórico no servidor para caber no contexto, fila com posição atualizada e tempo máximo, configuração inválida sem erro 500, rota do Copiloto exigindo `Origin`. O **prompt `copilot/v2` foi avaliado e não promovido**: com os corretores corrigidos depois da revisão do `avaliador-ia`, ficou abaixo do v1 no `qwen3.5:4b` (77% contra 82%, 13 casos sintéticos × 3), passou a recusar a redação de mensagens e dobrou o p95 com raciocínio ligado. O `copilot/v1` continua em uso; o v3 fica para a IA-1.2. Detalhes na seção 9.
 - O Copiloto ainda **não consulta o banco nem usa ferramentas**: isso depende do banco configurado e é a próxima fatia de IA (IA-2).
-- Maior bloqueio do produto: configurar o banco de desenvolvimento (D-INFRA-2). Sem ele não há histórico de conversas, tarefas, empresas nem evidências.
+- Maior bloqueio do produto: configurar o banco de desenvolvimento (D-INFRA-2). Sem ele não há histórico de conversas, tarefas, empresas nem evidências. **Resolvido em 2026-11-09** (§11).
 
 ## 2. Ambiente diagnosticado (2026-11-09)
 
@@ -177,7 +177,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 **Banco de dados — Integração**
 1. Funcionalidades: migração da fundação, RLS fechado, trigger append-only, teste de catálogo que barra tabela aberta.
 2. Evidências: `supabase/migrations/20261109130000_foundation.sql`; `pnpm test:db` (13 testes em PGlite).
-3. Limitações: nunca aplicado em Supabase real (KI-008); sem as tabelas de negócio.
+3. Limitações: aplicado no Supabase real de desenvolvimento em 2026-11-09; `pnpm test:db` em modo real não roda nele (destrutivo, KI-008).
 4. Dependências: projeto Supabase de desenvolvimento (ação do usuário) ou Docker.
 5. Próximas melhorias: aplicar a migração com confirmação; depois as migrações de IA-2 e F2/F3.
 6. Prioridade: **alta, bloqueia o resto**.
@@ -339,7 +339,7 @@ Ordem por dependência técnica e valor. Cada item é uma fatia vertical (skill 
 | Ordem | Fatia | Entrega | Depende de | Aceite resumido |
 |---|---|---|---|---|
 | ✓ | **IA-1** | Conversa real com IA local no Copiloto | Ollama | Ver seção 9 |
-| 1 | **F1 (fechamento)** | Banco de desenvolvimento configurado e migração aplicada | Ação do usuário (D-INFRA-2) | Início mostra "Conectado"; `E2E_SUPABASE=1` verde |
+| ✓ | **F1 (fechamento)** | Banco de desenvolvimento configurado e migração aplicada (2026-11-09) | Ação do usuário (D-INFRA-2) | Início mostra "Conectado"; `E2E_SUPABASE=1` verde |
 | ✓ | **IA-1.1** | Admissão por VRAM, escolha por capacidade (`/api/show`), prompt v2 com avaliação | IA-1 | Ver seção 9 (IA-1.1). Admissão e capacidade prontas; o v2 **não** passou (ficou abaixo do v1) e não foi promovido |
 | 2a | **IA-1.2** | Prompt v3 com as correções do v2; casos fora da amostra; reserva do Copiloto sem orientar a guardar dados pessoais | IA-1.1 | v3 ≥ v1 sem regredir o p95; `avaliador-ia` aprova; avaliação com aviso ao usuário antes |
 | 3 | **IA-2** | Histórico persistente, ferramentas de leitura (estado, auditoria), `llm_calls`, avaliação de chamadas de ferramenta | F1 | Conversa sobrevive ao recarregar; respostas sobre o sistema vêm de ferramenta; argumentos inválidos rejeitados |
@@ -549,3 +549,22 @@ Ajuste de integração: a F2 acrescentou o estado de banco `memory` (modo memór
 | `pnpm test:e2e` | 28 passaram, 3 pulados (2 exigem banco real, 1 exige Ollama real) |
 
 Não rodados na integração: `pnpm ai:live` e `E2E_OLLAMA=1` (a parte de IA não mudou no merge além do texto do estado `memory`), `E2E_SUPABASE=1` (sem banco configurado, KI-008).
+
+### Banco de desenvolvimento (fechamento da F1)
+
+Com autorização do usuário, o agente usou o Supabase MCP para:
+- criar o projeto `prospector-dev` (gratuito, `sa-east-1`);
+- aplicar `foundation` e `strategy`.
+
+O usuário colou a secret key no `.env.local`, que o agente não lê.
+
+| Checagem | Resultado |
+|---|---|
+| Catálogo no banco real | 11 tabelas com RLS, 0 políticas, 0 privilégios de tabela, coluna ou função para `anon`/`authenticated` |
+| SQL da F2 no Postgres real (transação desfeita) | Versão 1 → 2, cabeçalho nasce rascunho, ICP v1, `update`/`delete` em versão recusados, rubrica que não soma 100 recusada; banco continua vazio |
+| Tela Início | "Conectado: o banco responde e as migrações estão aplicadas" |
+| Telas Estratégia e Conformidade | Leem do banco real (vazio) e mostram a prontidão |
+| `E2E_SUPABASE=1 pnpm test:e2e` | 28 passaram, 3 pulados; antes falhavam 2 testes de fumaça que exigiam "não configurado", agora pulados com o banco ligado |
+| `pnpm test:e2e` sem banco | 28 passaram, 3 pulados |
+
+Não feito: gravar pelo app no banco real (KI-042), porque versões e auditoria não podem ser apagadas; fica para o primeiro cadastro real do usuário.

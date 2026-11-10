@@ -78,6 +78,6 @@ Decisão: `docs/adr/0008-ia-local-com-ollama.md`. Configuração do Ollama: `doc
 
 - Windows 11; shell padrão PowerShell (Bash disponível). Node 24, pnpm 11.
 - Repositório em `C:\dev\prospector`, fora do OneDrive (R-OPS-1). A cópia antiga em `OneDrive\APP Prospector` não é mais a fonte da verdade.
-- Banco: projeto Supabase de desenvolvimento acessado só pelo servidor (URL + secret key em `apps/web/.env.local`) — **ainda não configurado** nesta máquina (KI-008). Docker não está instalado; `pnpm test:db` roda em PGlite.
+- Banco: projeto Supabase de desenvolvimento `prospector-dev` (gratuito, `sa-east-1`), acessado só pelo servidor (URL + secret key em `apps/web/.env.local`, que você não lê). Ele guarda dados do usuário: nunca rode `pnpm test:db` em modo real contra ele, e migração nova só com confirmação (skill `migracao-supabase`). Docker não está instalado; `pnpm test:db` roda em PGlite.
 - IA: Ollama 0.40.15 em `D:\ollama` (modelos em D:); RTX 5060 Ti 16 GB (≈ 12 GB livres em repouso); 40 GB de RAM; disco C: quase cheio (KI-017). Abra o app sempre com `pnpm dev` (escuta só em `127.0.0.1`).
 - TypeScript fixado em 6.0.x enquanto o typescript-eslint não suportar a 7 (`docs/known-issues.md`).

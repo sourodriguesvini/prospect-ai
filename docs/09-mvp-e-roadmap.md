@@ -38,15 +38,15 @@ Pós-MVP (Fase 2/3) na seção 4.
 
 **Depende de:** projeto Supabase de desenvolvimento ou Docker (D-INFRA-2) para os critérios com banco real; GitHub para o CI (D-INFRA-1); R-OPS-1 (pasta fora do OneDrive).
 
-**Status em 2026-11-09: implementada localmente; NÃO concluída.** Falta executar contra um banco Supabase real e rodar o CI.
+**Status em 2026-11-09: banco real configurado e verificado; falta só o CI.** Projeto Supabase de desenvolvimento `prospector-dev` (gratuito, `sa-east-1`) com as migrações aplicadas; o Início mostra "Conectado" e `E2E_SUPABASE=1 pnpm test:e2e` passa (28 passaram, 3 pulados). O CI continua sem rodar (KI-009).
 
 | Critério | Situação | Evidência |
 |---|---|---|
-| 1. App local sem login, estado do banco, recusa de host externo | **Atendido sem banco** | `apps/web/e2e/smoke.spec.ts` (14 testes, incluindo 403 para `Host` externo e acessibilidade axe); `apps/web/src/lib/host.test.ts`. Estado "Conectado" só em `e2e/database.spec.ts`, **nunca executado** (exige banco). |
-| 2. Teste de catálogo do banco | **Atendido (PGlite)** | `packages/db/tests/db/catalog.test.ts`, com auto-provas (tabela nova nasce fechada; política ou privilégio concedido é detectado). Nunca executado contra Supabase real (KI-008). |
+| 1. App local sem login, estado do banco, recusa de host externo | **Atendido** | `apps/web/e2e/smoke.spec.ts` (14 testes, incluindo 403 para `Host` externo e acessibilidade axe); `apps/web/src/lib/host.test.ts`. Estado "Conectado": `e2e/database.spec.ts`, executado contra o Supabase real em 2026-11-09. |
+| 2. Teste de catálogo do banco | **Atendido** | `packages/db/tests/db/catalog.test.ts`, com auto-provas (tabela nova nasce fechada; política ou privilégio concedido é detectado). No Supabase real, conferido por consulta em 2026-11-09 (11 tabelas com RLS, 0 políticas, 0 privilégios para `anon`/`authenticated`); o teste automatizado roda em PGlite porque o modo real cria e apaga tabelas (KI-008). |
 | 3. Secret key só no servidor; Supabase fora da web | **Atendido** | `scripts/check-boundaries.mjs` (credenciais só em `src/server/env.ts`, sem `NEXT_PUBLIC_*`, sem `@supabase/*` na web) e `eslint.config.mjs`; `pnpm lint` verde. |
 | 4. CI verde | **Não atendido** | `.github/workflows/ci.yml` escrito, nunca executado; sem repositório remoto (KI-003, KI-009). Localmente: typecheck, lint, format, unit, db (PGlite) e e2e smoke verdes. |
-| 5. `audit_log` com ator e trace, append-only, tela | **Parcial** | Banco: `packages/db/tests/db/audit-log.test.ts` (PGlite). Serviço: `packages/application/tests/audit-service.test.ts`. Adaptador PostgREST: `packages/db/tests/unit/supabase-adapters.test.ts` (respostas simuladas). Tela: só o estado "não configurado" foi visto; lista real nunca executada. Nada na F1 grava no `audit_log` ainda (os produtores chegam com F2+). |
+| 5. `audit_log` com ator e trace, append-only, tela | **Parcial** | Banco: `packages/db/tests/db/audit-log.test.ts` (PGlite). Serviço: `packages/application/tests/audit-service.test.ts`. Adaptador PostgREST: `packages/db/tests/unit/supabase-adapters.test.ts` (respostas simuladas). Tela: lida do banco real em 2026-11-09, ainda sem registros. Nada na F1 grava no `audit_log` ainda (os produtores chegam com F2+). |
 
 Pendências: `docs/known-issues.md`.
 
@@ -107,7 +107,7 @@ Prompt v3 com os ganhos do v2 e sem as falhas dele (KI-036), casos fora da amost
 3. Sem LIA aprovada e oferta ativa, ações de abordagem ficam bloqueadas com explicação.
 4. Seeds de demonstração (se usados) aparecem com selo DEMO.
 
-**Status em 2026-11-09: implementada localmente; NÃO concluída.** Falta rodar a migração e o adaptador contra um Supabase real (KI-008, KI-042) e o CI (KI-009). Decisões de produto pendentes: rubrica, pesos e limiares, texto da LIA e do opt-out estão como **rascunhos sugeridos** nas telas (KI-046). Decisões técnicas: [ADR-0009](adr/0009-versionamento-imutavel-da-estrategia.md).
+**Status em 2026-11-09: implementada localmente; NÃO concluída.** Migração aplicada no Supabase real; o SQL das versões passou lá numa transação desfeita e as telas leem do banco real. Falta gravar pelo adaptador no banco real (KI-042) e o CI (KI-009). Decisões de produto pendentes: rubrica, pesos e limiares, texto da LIA e do opt-out estão como **rascunhos sugeridos** nas telas (KI-046). Decisões técnicas: [ADR-0009](adr/0009-versionamento-imutavel-da-estrategia.md).
 
 | Critério | Situação | Evidência |
 |---|---|---|

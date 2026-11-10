@@ -20,8 +20,13 @@ function getWithHost(baseURL: string, host: string): Promise<{ status: number; b
   });
 }
 
+/** Com E2E_SUPABASE=1 o servidor usa o banco real; o estado "conectado" é coberto por database.spec.ts. */
+const withDatabase = process.env.E2E_SUPABASE === '1';
+const DATABASE_ON = 'com E2E_SUPABASE=1 o banco está ligado (ver database.spec.ts)';
+
 test.describe('telas (sem banco configurado)', () => {
   test('início mostra o estado do banco e passa na acessibilidade', async ({ page }) => {
+    test.skip(withDatabase, DATABASE_ON);
     await page.goto('/');
     await expect(
       page.getByRole('heading', { level: 1, name: /^(Bom dia|Boa tarde|Boa noite)$/ }),
@@ -59,6 +64,7 @@ test.describe('telas (sem banco configurado)', () => {
   test('configuração leva à auditoria, que avisa que o banco não está configurado', async ({
     page,
   }) => {
+    test.skip(withDatabase, DATABASE_ON);
     await page.goto('/configuracoes');
     await expect(page.getByRole('heading', { level: 1, name: 'Configuração' })).toBeVisible();
     await page.getByRole('link', { name: /Auditoria/ }).click();
