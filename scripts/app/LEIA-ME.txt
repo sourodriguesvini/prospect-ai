@@ -1,0 +1,28 @@
+PROSPECTOR — aplicativo instalado neste computador
+
+Abrir
+  Atalho "Prospector" na Área de Trabalho ou no Menu Iniciar.
+  Na primeira vez do dia o servidor leva alguns segundos para subir; depois a janela abre na hora.
+  O app roda em http://127.0.0.1:3210 e só atende este computador (sem login, sem acesso pela rede).
+  Se o Ollama estiver fechado, o atalho abre o Ollama também (para o Copiloto).
+
+Fechar
+  Fechar a janela não desliga o servidor (ele fica leve, esperando).
+  Para desligar: Menu Iniciar > Prospector > "Parar Prospector".
+
+Dados
+  Os dados ficam no banco Supabase configurado em app\apps\web\.env.local (cópia do
+  C:\dev\prospector\apps\web\.env.local feita na instalação). Não compartilhe essa pasta.
+
+Atualizar depois de mudar o código
+  Em C:\dev\prospector, rode:  pnpm app:install
+  O instalador para o app, gera o build, troca os arquivos e recria os atalhos.
+
+Problemas
+  Registros do servidor: pasta logs (servidor.log e servidor-erros.log).
+  Porta 3210 ocupada: feche o programa que a usa e abra o Prospector de novo.
+  Versão instalada: versao.txt.
+
+Desinstalar
+  Menu Iniciar > Prospector > "Desinstalar Prospector". Remove esta pasta e os atalhos;
+  os dados no Supabase e o código em C:\dev\prospector não são tocados.

@@ -1,4 +1,12 @@
+import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
+
+/**
+ * Build para a instalação local (scripts/app/instalar.mjs, `pnpm app:install`): servidor
+ * autônomo que roda fora do repositório. Fora disso, `next dev`/`next start` seguem iguais.
+ */
+const standalone = process.env.PROSPECTOR_STANDALONE === '1';
+const monorepoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 /**
  * Cabeçalhos de segurança estáticos. A Content-Security-Policy usa nonce por requisição e
@@ -18,6 +26,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  ...(standalone ? { output: 'standalone' as const, outputFileTracingRoot: monorepoRoot } : {}),
   // Pacotes internos são publicados como código-fonte TypeScript (ADR-0001).
   transpilePackages: [
     '@prospector/agents',

@@ -29,7 +29,10 @@ pnpm test:db        # migrações + RLS; PGlite por padrão, Postgres real com T
 pnpm test:e2e       # next build + start em 127.0.0.1:3100 + Playwright (sem Ollama; com banco real: E2E_SUPABASE=1; com Ollama real: E2E_OLLAMA=1)
 pnpm ai:live        # testes contra o Ollama real (gera respostas de verdade; ocupa a GPU por alguns minutos)
 pnpm evals          # avaliações locais da IA (packages/agents/evals); grátis em dinheiro, ocupam a GPU — avise antes de rodar o conjunto completo
+pnpm app:install    # instala/atualiza o app do usuário em D:\Prospector (build autônomo, porta 3210, atalhos); não rode junto com test:e2e
 ```
+
+O app instalado em `D:\Prospector` é uma cópia: mudança de código, prompt ou `.env.local` só chega lá com `pnpm app:install` (runbook §7, KI-075).
 
 ## Regras inegociáveis
 

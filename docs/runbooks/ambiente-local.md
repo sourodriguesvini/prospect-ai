@@ -141,3 +141,39 @@ No PowerShell: `$env:PROSPECTOR_STORAGE = 'memory'; pnpm dev`. Prefira a variáv
 | Copiloto: "o modelo escolhido não tem o que esta tarefa precisa" | Modelo escolhido em Modelo não conversa (ex.: embeddings) | Escolha outro ou deixe em Automático |
 | Primeira resposta demora vários segundos | O modelo está sendo carregado do disco para a GPU | Normal na primeira pergunta; a tela mostra o tempo de carga |
 | Página não reage aos cliques em `127.0.0.1` | Servidor iniciado sem `--hostname 127.0.0.1` (o Next bloqueia recursos de desenvolvimento de outra origem) | Pare o servidor e use `pnpm dev` |
+
+## 7. App instalado neste computador (`D:\Prospector`)
+
+Para usar o Prospector no dia a dia, sem terminal: um servidor de produção (Next em modo autônomo) instalado no disco D, com atalhos. O código continua em `C:\dev\prospector`; a instalação é uma cópia.
+
+```bash
+pnpm app:install
+```
+
+O instalador (`scripts/app/instalar.mjs`):
+1. para o app instalado, se estiver aberto (só o `node` do `server.js` dele);
+2. roda `next build` em `apps/web` com `PROSPECTOR_STANDALONE=1` (ver `apps/web/next.config.ts`; sem a variável, `pnpm dev`, `next start` e os e2e não mudam);
+3. copia para `D:\Prospector\app`:
+   - o servidor (mantendo os links simbólicos relativos do pnpm) e `.next/static`;
+   - `packages/agents/prompts` e `pnpm-workspace.yaml`, que o Copiloto lê do disco (KI-035);
+   - `apps/web/.env.local`, copiado sem ser lido;
+4. grava `iniciar.ps1`, `parar.ps1`, `desinstalar.ps1`, `LEIA-ME.txt` e `versao.txt` (commit de origem) e cria os atalhos.
+
+Outra pasta: variável `PROSPECTOR_INSTALL_DIR`. O instalador recusa uma pasta existente que não tenha o arquivo `.prospector-instalacao`. Não rode junto com outro `next build` ou com os e2e no mesmo checkout: eles usam a mesma pasta `apps/web/.next`.
+
+| Atalho | O que faz |
+|---|---|
+| **Prospector** (Área de Trabalho e Menu Iniciar) | Sobe o servidor sem janela em `http://127.0.0.1:3210` (só este computador), se ainda não estiver no ar; abre o Ollama se ele estiver fechado; abre o app numa janela própria do Chrome (ou do Edge) |
+| **Parar Prospector** (Menu Iniciar) | Encerra só o servidor do app. Fechar a janela não desliga o servidor |
+| **Desinstalar Prospector** (Menu Iniciar) | Pede confirmação, para o servidor e remove a pasta e os atalhos. Não toca no banco nem no código |
+
+- **Atualizar:** depois de mudar código, prompts (por exemplo, uma versão nova do Copiloto) ou o `.env.local`, rode `pnpm app:install` de novo. O app instalado não vê nada disso até lá.
+- **Registros:** `D:\Prospector\logs\servidor.log` e `servidor-erros.log`. O PID do servidor fica em `servidor.pid`.
+- **Banco:** o mesmo do `.env.local` (o `prospector-dev`). O app instalado e o `pnpm dev` gravam nos mesmos dados.
+- **Requisitos:** Node 24 no `PATH` e links simbólicos permitidos no Windows (o build do Next já os cria; se o instalador acusar `EPERM`, ative o Modo de Desenvolvedor).
+
+| Sintoma | O que fazer |
+|---|---|
+| Aviso "A porta 3210 está ocupada por outro programa" | Feche o programa indicado e abra o Prospector de novo. O atalho não encerra outros programas |
+| Aviso "O servidor do Prospector parou ao iniciar" | Veja `logs\servidor-erros.log`; se faltar arquivo, rode `pnpm app:install` |
+| Copiloto do app instalado: "Pasta packages/agents/prompts não encontrada" | Instalação feita antes da correção de 2026-11-10: rode `pnpm app:install` |
