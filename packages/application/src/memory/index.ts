@@ -3,6 +3,7 @@
  * observável dos adaptadores de banco. Servem aos testes de serviço e ao modo local sem banco.
  */
 export { createMemoryAuditRepository } from './audit-repository';
+export { createMemoryCompanyRepository } from './company-repository';
 export { createMemoryCopilotRepository } from './copilot-repository';
 export {
   createMemoryStrategyRepository,

@@ -140,7 +140,6 @@ export function createCopilot(deps: {
         for (round = 1; round <= MAX_COPILOT_ROUNDS; round += 1) {
           const offer = toolbox && round < MAX_COPILOT_ROUNDS ? toolbox.specs : undefined;
           let calls: ToolCallRequest[] = [];
-          let roundText = '';
           let separated = !wroteText;
           roundOpen = true;
           roundModel = null;
@@ -175,7 +174,6 @@ export function createCopilot(deps: {
                   separated = true;
                   yield { type: 'delta', text: '\n\n' };
                 }
-                roundText += event.text;
                 wroteText = true;
                 yield event;
                 break;
@@ -213,7 +211,9 @@ export function createCopilot(deps: {
             return id === call.id ? call : { ...call, id };
           });
 
-          conversation.push({ role: 'assistant', content: roundText, toolCalls: calls });
+          // O texto escrito antes da consulta não volta ao modelo: devolvido como turno anterior, o
+          // modelo de 4B o repetia na rodada seguinte (revisão do avaliador-ia, KI-076 A4).
+          conversation.push({ role: 'assistant', content: '', toolCalls: calls });
           for (const call of calls) {
             const spec = toolbox.specs.find((tool) => tool.name === call.name);
             yield {

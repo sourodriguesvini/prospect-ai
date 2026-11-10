@@ -4,7 +4,8 @@
  *  1. dependências declaradas entre pacotes do workspace (package.json);
  *  2. dependências externas proibidas em pacotes puros;
  *  3. imports relativos que escapam da pasta do pacote (atalho para burlar as regras acima);
- *  4. `@prospector/db` e `@prospector/agents` na web só na raiz de composição;
+ *  4. `@prospector/db`, `@prospector/agents` e `@prospector/integrations` na web só na raiz de
+ *     composição;
  *  5. nenhum `@supabase/*` na web (nem no package.json nem em imports): o Supabase fica dentro
  *     de @prospector/db (ADR-0007);
  *  6. credenciais do banco (`process.env.SUPABASE_*`) só são lidas em src/server/env.ts, e a web não usa
@@ -25,6 +26,8 @@ const ALLOWED_INTERNAL = {
   '@prospector/application': ['@prospector/domain', '@prospector/contracts'],
   '@prospector/db': ['@prospector/application', '@prospector/contracts'],
   '@prospector/agents': ['@prospector/application', '@prospector/contracts'],
+  // Adaptadores de serviços externos (CNPJ, captura, busca): implementam portas da aplicação.
+  '@prospector/integrations': ['@prospector/application', '@prospector/contracts'],
   '@prospector/ui': [],
   '@prospector/config': [],
   '@prospector/web': [
@@ -34,6 +37,7 @@ const ALLOWED_INTERNAL = {
     '@prospector/ui',
     '@prospector/db',
     '@prospector/agents',
+    '@prospector/integrations',
   ],
 };
 
@@ -44,6 +48,8 @@ const ALLOWED_EXTERNAL = {
   '@prospector/application': ['zod'],
   // IA local sem SDK (ADR-0008): fala com o Ollama por `fetch`. SDK de IA novo passa por aqui.
   '@prospector/agents': ['zod'],
+  // Integrações por `fetch` nativo; SDK de terceiro novo passa por aqui (skill integracao-externa).
+  '@prospector/integrations': ['zod'],
 };
 
 const WEB_SRC = join('apps', 'web', 'src');
@@ -151,7 +157,7 @@ for (const dir of workspaceDirs()) {
       }
       if (
         name === '@prospector/web' &&
-        /^@prospector\/(db|agents)(\/|$)/.test(spec) &&
+        /^@prospector\/(db|agents|integrations)(\/|$)/.test(spec) &&
         fileRel !== COMPOSITION_ROOT
       ) {
         violations.push(`${fileRel}: ${spec} só pode ser importado em ${COMPOSITION_ROOT}.`);

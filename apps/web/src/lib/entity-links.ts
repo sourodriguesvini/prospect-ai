@@ -22,6 +22,8 @@ export function entityHref(ref: EntityRef): string | null {
       return strategyRoutes.compliance;
     case 'audit':
       return '/configuracoes/auditoria';
+    case 'company':
+      return ref.id ? `/empresas/${encodeURIComponent(ref.id)}` : '/empresas';
     case 'conversation':
       return ref.id ? `/copiloto?conversa=${encodeURIComponent(ref.id)}` : '/copiloto';
     default:

@@ -23,17 +23,20 @@ import { userContext } from '@/server/context';
 export const metadata: Metadata = { title: 'Início' };
 
 /**
- * Registros de demonstração gravados (ofertas, ICPs e cases com `isDemo`), lidos a cada visita.
- * O app não semeia nada (ADR-0009); se aparecer algum, ele tem selo DEMO nas telas.
+ * Registros de demonstração gravados (ofertas, ICPs, cases e empresas com `isDemo`), lidos a cada
+ * visita. O app não semeia nada (ADR-0009); se aparecer algum, ele tem selo DEMO nas telas.
  */
 async function DemoDataValue() {
   await connection();
-  const { strategy } = getServices();
+  const { strategy, companies } = getServices();
   if (!strategy) return <>—</>;
   let count: number | null = null;
   try {
     const { snapshot } = await strategy.overview(userContext());
-    count = [...snapshot.offers, ...snapshot.icps, ...snapshot.proofAssets].filter(
+    const companyList = companies
+      ? await companies.list(userContext(), { includeArchived: true, limit: 200 })
+      : [];
+    count = [...snapshot.offers, ...snapshot.icps, ...snapshot.proofAssets, ...companyList].filter(
       (record) => record.isDemo,
     ).length;
   } catch {
@@ -41,6 +44,30 @@ async function DemoDataValue() {
   }
   if (count === null) return <>—</>;
   return <>{count === 0 ? 'Nenhum' : count === 1 ? '1 registro' : `${count} registros`}</>;
+}
+
+/** Teto da contagem do cartão: acima disso mostra "200+" em vez de ler o banco inteiro. */
+const INVESTIGATED_LIMIT = 200;
+
+/** Empresas em acompanhamento (sem as arquivadas) com pelo menos uma consulta (M2). */
+async function InvestigatedValue() {
+  await connection();
+  const { companies } = getServices();
+  if (!companies) return <>—</>;
+  let count: number | null = null;
+  let capped = false;
+  try {
+    const list = await companies.list(userContext(), {
+      includeArchived: false,
+      limit: INVESTIGATED_LIMIT,
+    });
+    count = list.filter((company) => company.lastInvestigatedAt !== null).length;
+    capped = list.length === INVESTIGATED_LIMIT;
+  } catch {
+    // Banco fora do ar: o cartão do banco já explica; aqui só não afirmamos nada.
+  }
+  if (count === null) return <>—</>;
+  return <>{capped ? `${count}+` : count}</>;
 }
 
 /** Fatos desta instalação (ADR-0007, CLAUDE.md), não números de exemplo. */
@@ -182,9 +209,17 @@ export default function Home() {
               icon={<CheckCheck className="size-4" />}
             />
             <StatTile
-              label="Empresas investigadas"
-              value="—"
-              note="Chega na F3"
+              label="Empresas consultadas"
+              value={
+                <Suspense fallback={<span role="status">Contando…</span>}>
+                  <InvestigatedValue />
+                </Suspense>
+              }
+              note={
+                <Link href="/empresas" className="underline underline-offset-4">
+                  Ver empresas
+                </Link>
+              }
               icon={<Search className="size-4" />}
             />
             <StatTile

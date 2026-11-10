@@ -43,6 +43,10 @@
 
 > **Com IA local (2026-11-09):** `web_search` e `web_fetch` da Claude só funcionam com a Claude API. Com o Ollama como padrão, busca e leitura de páginas viram portas próprias (`WebSearch`, `PageFetcher`, `ScreenCapture`) com leitor próprio, Playwright e um provedor de busca a decidir (D-AI-4: Ollama Web Search ou Brave, ambos com termos e cotas **não verificados** em página oficial). Opções e fontes: [13 §6.7](13-auditoria-e-evolucao.md#67-pesquisa-externa).
 
+> **D-AI-4 decidida (2026-11-10):** buscador principal **Tavily Search API**, só no plano gratuito (sem plano pago nem cobrança automática), com limite de consumo configurável que interrompe as chamadas ao atingir o orçamento e chave em variável de ambiente criada pelo usuário; navegação e análise de páginas com **Playwright**; **SearXNG local** como secundário opcional, depois de avaliação. Implementação no M3 ([doc 14](14-execucao-e-conclusao.md)). Passa pelo checklist de termos abaixo antes de ir para o app instalado.
+
+> **Consulta de CNPJ implementada no M2 (2026-11-10)** em `packages/integrations/src/cnpj`: **OpenCNPJ** como padrão e **Minha Receita** como reserva (a BrasilAPI republica a mesma base), sem chave nem cadastro, só por pedido do usuário (cadastro ou nova consulta no dossiê), com cache de um dia por CNPJ, tempo limite, limite de 256 KB por resposta e conferência de que o registro devolvido é do CNPJ pedido. Guardamos só o registro minimizado: sem sócios (QSA), e-mail, telefone nem endereço de rua; CPF no nome empresarial é recusado. **MEI e empresa individual** entram (a restrição "sem MEI" acima vale para a varredura em massa da descoberta, M3): o nome da pessoa titular fica só no cadastro da empresa, fora do ledger, e o dossiê avisa o dado pessoal. Empresa que pediu anonimização na base pública não é importada. Termos dos dois provedores verificados só em parte (KI-088); confiabilidade como agregador (KI-080, D-EVID-2).
+
 ## 3. Explicitamente evitados
 
 | Fonte/serviço | Motivo |

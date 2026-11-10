@@ -31,6 +31,24 @@ export function storageMode(): StorageMode {
   throw new Error('PROSPECTOR_STORAGE inválida: use "memory" ou deixe vazia.');
 }
 
+export type CnpjLookupMode = 'on' | 'off' | 'fixture';
+
+/**
+ * Consulta de CNPJ na internet (OpenCNPJ, com a Minha Receita de reserva; M2). Ligada por padrão,
+ * sem chave. `PROSPECTOR_CNPJ_LOOKUP=off` desliga (uso sem internet); `fixture` usa registros
+ * SINTÉTICOS, só no modo memória (testes de ponta a ponta).
+ */
+export function cnpjLookupMode(): CnpjLookupMode {
+  const value = readVar('PROSPECTOR_CNPJ_LOOKUP');
+  if (value === undefined || value === 'on') return 'on';
+  if (value === 'off' || value === 'fixture') return value;
+  throw new Error('PROSPECTOR_CNPJ_LOOKUP inválida: use "on", "off", "fixture" ou deixe vazia.');
+}
+
+export function cnpjLookupEnabled(): boolean {
+  return cnpjLookupMode() !== 'off';
+}
+
 /** Alguma variável do banco definida (sem ler nem validar o valor). */
 export function databaseEnvPresent(): boolean {
   return readVar('SUPABASE_URL') !== undefined || readVar('SUPABASE_SECRET_KEY') !== undefined;

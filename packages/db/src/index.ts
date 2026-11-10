@@ -1,6 +1,7 @@
 export { createSupabaseAuditRepository } from './audit-repository';
 export { AUDIT_SELECT, mapAuditRow } from './audit-rows';
 export { createServerSupabaseClient, type ServerClientOptions } from './client';
+export { createSupabaseCompanyRepository, searchTerm } from './company-repository';
 export { createSupabaseCopilotRepository } from './copilot-repository';
 export { createSupabaseDatabaseHealth } from './database-health';
 export { toAppError } from './errors';

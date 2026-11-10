@@ -10,8 +10,11 @@ import {
 /** Texto dos fatos do sistema para o Copiloto (função pura do pacote de IA). */
 export { buildCopilotSystemFacts } from '@prospector/agents';
 import {
+  companyTools,
   createAuditService,
+  createCompanyService,
   createCopilotService,
+  createEvidenceService,
   createStrategyService,
   createSystemService,
   createToolRegistry,
@@ -19,8 +22,12 @@ import {
   type AiTelemetryRepository,
   type AuditRepository,
   type AuditService,
+  type CnpjLookup,
+  type CompanyRepository,
+  type CompanyService,
   type CopilotRepository,
   type CopilotService,
+  type EvidenceRepository,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
@@ -28,18 +35,23 @@ import {
 } from '@prospector/application';
 import {
   createMemoryAuditRepository,
+  createMemoryCompanyRepository,
   createMemoryCopilotRepository,
   createMemoryStrategyRepository,
 } from '@prospector/application/memory';
 import {
   createServerSupabaseClient,
   createSupabaseAuditRepository,
+  createSupabaseCompanyRepository,
   createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
   createSupabaseStrategyRepository,
 } from '@prospector/db';
+import { createCnpjLookup } from '@prospector/integrations';
 import { cache } from 'react';
+import { syntheticCnpjLookup } from './cnpj-fixture';
 import {
+  cnpjLookupMode,
   databaseEnv,
   databaseEnvPresent,
   LOCAL_AI_ENV_FORMATS,
@@ -51,7 +63,8 @@ import {
 
 /**
  * Raiz de composição da aplicação web: o único lugar que liga serviços de aplicação a
- * adaptadores concretos (`@prospector/db`, `@prospector/agents`) e o único que lê a secret key
+ * adaptadores concretos (`@prospector/db`, `@prospector/agents`, `@prospector/integrations`) e o
+ * único que lê a secret key
  * (ADR-0007, ADR-0008). Telas, rotas e Server Actions recebem serviços daqui.
  */
 export interface Services {
@@ -63,6 +76,8 @@ export interface Services {
   strategy: StrategyService | null;
   /** Conversas persistentes do Copiloto e telemetria da IA local (IA-2). */
   copilot: CopilotService | null;
+  /** Empresas, consulta de CNPJ e dossiês (M2); null sem banco. */
+  companies: CompanyService | null;
   /** Ferramentas de leitura oferecidas ao Copiloto; null sem banco. */
   tools: ToolRegistry | null;
 }
@@ -71,6 +86,7 @@ interface MemoryStores {
   audit: AuditRepository;
   strategy: StrategyRepository;
   copilot: CopilotRepository & AiTelemetryRepository;
+  companies: CompanyRepository & EvidenceRepository;
 }
 
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
@@ -83,9 +99,40 @@ function memoryStores(): MemoryStores {
       audit,
       strategy: createMemoryStrategyRepository({ audit }),
       copilot: createMemoryCopilotRepository({ audit }),
+      companies: createMemoryCompanyRepository({ audit }),
     };
   }
   return holder.__prospectorMemoryStores;
+}
+
+/**
+ * Consulta de CNPJ: uma instância por processo, para o cache (um dia por CNPJ) valer entre
+ * pedidos e poupar os provedores gratuitos. null quando desligada por variável. A consulta
+ * sintética (testes) só existe no modo memória: registro de teste nunca chega ao banco.
+ */
+function cnpjLookup(): CnpjLookup | null {
+  const mode = cnpjLookupMode();
+  if (mode === 'off') return null;
+  if (mode === 'fixture') {
+    if (storageMode() !== 'memory') {
+      throw new Error(
+        'PROSPECTOR_CNPJ_LOOKUP=fixture só funciona com PROSPECTOR_STORAGE=memory (registros de teste nunca vão para o banco).',
+      );
+    }
+    return syntheticCnpjLookup;
+  }
+  const holder = globalThis as { __prospectorCnpjLookup?: CnpjLookup };
+  holder.__prospectorCnpjLookup ??= createCnpjLookup();
+  return holder.__prospectorCnpjLookup;
+}
+
+function companyServices(repo: CompanyRepository & EvidenceRepository): CompanyService {
+  return createCompanyService({
+    companies: repo,
+    evidence: repo,
+    evidenceService: createEvidenceService({ evidence: repo }),
+    cnpjLookup: cnpjLookup(),
+  });
 }
 
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
@@ -107,14 +154,16 @@ export const getServices = cache((): Services => {
     const audit = createAuditService(stores.audit);
     // LIA e auditoria somem ao reiniciar: a barreira de abordagem nunca libera (ADR-0009).
     const strategy = createStrategyService({ repo: stores.strategy, ephemeralStorage: true });
+    const companies = companyServices(stores.companies);
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
       audit,
       strategy,
       copilot: createCopilotService({ repo: stores.copilot, telemetry: stores.copilot }),
+      companies,
       tools: createToolRegistry({
-        tools: strategyTools({ strategy, audit }),
+        tools: [...strategyTools({ strategy, audit }), ...companyTools({ companies })],
         telemetry: stores.copilot,
       }),
     };
@@ -127,6 +176,7 @@ export const getServices = cache((): Services => {
       audit: null,
       strategy: null,
       copilot: null,
+      companies: null,
       tools: null,
     };
   }
@@ -134,14 +184,16 @@ export const getServices = cache((): Services => {
   const audit = createAuditService(createSupabaseAuditRepository(client));
   const strategy = createStrategyService({ repo: createSupabaseStrategyRepository(client) });
   const copilotRepo = createSupabaseCopilotRepository(client);
+  const companies = companyServices(createSupabaseCompanyRepository(client));
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
     audit,
     strategy,
     copilot: createCopilotService({ repo: copilotRepo, telemetry: copilotRepo }),
+    companies,
     tools: createToolRegistry({
-      tools: strategyTools({ strategy, audit }),
+      tools: [...strategyTools({ strategy, audit }), ...companyTools({ companies })],
       telemetry: copilotRepo,
     }),
   };

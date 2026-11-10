@@ -117,18 +117,18 @@ Estados: **Funcional** (implementado e funcional) · **Parcial** (implementado p
 | Copiloto | Funcional (IA-2, 2026-11-10): conversas salvas no banco, ferramentas de leitura da estratégia, telemetria; prompt `copilot-tools/v2` com ressalvas (KI-076) | **Alta** | IA-2 → F8 |
 | IA local (gateway, gerenciador de modelos) | Funcional para conversa; Parcial para as demais tarefas | **Alta** | IA-1 → IA-5 |
 | Configurações e auditoria | Funcional: estratégia e conformidade gravam no banco real com auditoria na mesma transação (ADR-0010) | Média | F1, F2 |
-| Banco de dados | Funcional (desenvolvimento): 5 migrações no `prospector-dev` (a 5ª, do Copiloto, em 2026-11-10); `pnpm test:db` real e CI não executados | Média | F1, F2 |
+| Banco de dados | Funcional (desenvolvimento): 6 migrações no `prospector-dev` (a 6ª, de empresas e evidências, em 2026-11-10); `pnpm test:db` real e CI não executados | Média | F1, F2 |
 | Segurança local | Funcional | — | F1 |
 | Testes e qualidade | Funcional (local); CI não executado | Média | F1 |
 | Descoberta | Não implementado | Alta | F4 |
-| Empresas (dossiê, evidências) | Parcial: contratos e regras do Evidence Ledger (F3a); sem banco, serviço nem tela | Alta | F3 |
+| Empresas (dossiê, evidências) | Funcional (M2, 2026-11-10): cadastro manual e pelo CNPJ, Evidence Ledger no banco (fontes, claims, evidências, substituição por versão), conferência de trechos, dossiê, situação, ferramentas do Copiloto. Falta edição do cadastro, recálculo de confiança (KI-071) e investigação (M4) | Média | F3 |
 | Abordagens | Não implementado | Média | F10 |
 | Aprovações | Não implementado | Média | F10 |
 | Conversas | Não implementado | Baixa | F11 |
 | Pipeline | Não implementado | Baixa | F12 |
 | Monitoramento | Não implementado | Baixa | Fase 2 |
 | Inteligência (métricas, aprendizado) | Não implementado | Baixa | F13 |
-| Integrações externas | Não implementado | Média | F3–F6 |
+| Integrações externas | Parcial: consulta de CNPJ gratuita (OpenCNPJ, reserva Minha Receita) em `packages/integrations` | Média | F3–F6 |
 
 Nenhum módulo está "Só interface": os futuros mostram uma página de aviso com a fatia que os entrega, sem dados simulados (`apps/web/src/lib/modules.ts`, `apps/web/src/app/(shell)/[modulo]/page.tsx`).
 
@@ -215,7 +215,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 | Copiloto com ferramentas | Ausente | Contratos Zod, `RequestContext`, serviços de application, limites de autonomia (doc 04 §5) | Registro de ferramentas, laço de chamada de ferramentas no gateway, avaliação de chamadas |
 | Histórico de conversas | Só na aba | `CopilotTurn`/`CopilotRequest` | Tabelas `copilot_threads`/`copilot_messages` |
 | Tarefas e acompanhamento | Ausente | Fila em memória (padrão), ADR-0004 (requisitos de durabilidade) | Fila durável local no Postgres + processo worker local |
-| Evidências tipadas | Contratos e regras puras (F3a) | `packages/contracts/src/evidence.ts`, `packages/domain/src/evidence`, [08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-decididos-f3a) | Migração, `EvidenceService`, repositórios, conferência de trechos, recálculo, UI (F3) |
+| Evidências tipadas | Funcional (M2): migração, `EvidenceService`, repositórios, conferência de trechos, dossiê | `packages/application/src/services/evidence-service.ts`, `packages/domain/src/evidence`, migração `20261110170000` | Recálculo e decaimento da confiança (KI-071), juiz de contradição (KI-073) |
 | Pesquisa externa | Ausente | Pesquisas `research/01–02`, catálogo do doc 05 | Portas `WebSearch`, `PageFetcher`, `ScreenCapture`; decisão do provedor de busca (D-AI-4) |
 | Auditoria visual | Ausente | Playwright e Chromium já instalados (e2e); `qwen3.5:4b` tem visão | Captura em worker, contrato `VisualFinding`, avaliação com 30 marcas |
 | Memória semântica | Ausente | Supabase + pgvector | Migração com `vector`, embeddings via `/api/embed`, busca híbrida |
@@ -311,7 +311,7 @@ Prioridade a fontes gratuitas e autorizadas. Tudo que for usado em diagnóstico 
 | Dados empresariais | Dados abertos do CNPJ (Receita) | BrasilAPI / OpenCNPJ para consulta pontual | Gratuito; APIs públicas com poucas requisições por minuto | Pesquisado em [research/01](research/01-dados-empresas-e-decisores.md); licença de redistribuição não verificada (KI-004) |
 | Leitura de páginas públicas | Leitor próprio (HTTP + extração de texto) respeitando robots.txt, com bloqueio de IPs privados, tempo limite e user-agent identificado | Playwright para páginas que exigem JavaScript | Gratuito | Planejado (F5) |
 | Análise de sites | Playwright (captura desktop/celular), PageSpeed Insights API, Wayback CDX | — | Gratuito; Playwright já instalado | Planejado (F6) |
-| Mecanismo de busca | **Decisão D-AI-4.** Ollama Web Search API: conta gratuita, cota não publicada, consultas vão para a nuvem da Ollama | Brave Search API: segundo fontes secundárias, sem plano gratuito desde fev/2026, US$ 5 por 1.000 buscas com US$ 5 de crédito mensal (≈ 1.000 buscas) | Ver colunas | **Não verificado** em página oficial; conferir antes de integrar ([Ollama](https://registry.ollama.ai/blog/web-search), [Brave](https://www.implicator.ai/brave-drops-free-search-api-tier-puts-all-developers-on-metered-billing.md)) |
+| Mecanismo de busca | **D-AI-4 decidida (2026-11-10): Tavily Search API**, só no plano gratuito, com limite de consumo configurável que para as chamadas ao atingir o orçamento; chave em variável de ambiente, criada pelo usuário | SearXNG local, opcional, só depois de avaliação | Gratuito (plano gratuito da Tavily; sem cobrança automática) | Implementação no M3 ([14](14-execucao-e-conclusao.md)); as opções antes avaliadas (Ollama Web Search, Brave) ficaram de fora |
 | Localização empresarial | Endereço do CNPJ (gratuito) | Google Places (New): só `place_id` armazenável, pago acima da cota (doc 05) | — | Pesquisado (doc 05) |
 | Notícias | GDELT DOC 2.0 | Feeds RSS de veículos | Gratuito | Fase 2 |
 | Concorrentes | Mesmo CNAE + município nos dados do CNPJ; sites públicos pelo leitor | Instagram Graph (conta profissional da agência) | Gratuito | F6 / Fase 2 |
@@ -359,7 +359,7 @@ Registradas também em [10 §1](10-riscos-custos-decisoes.md#1-decisões-pendent
 | ID | Pergunta | Opções | Quem decide |
 |---|---|---|---|
 | D-AI-1 | Usar a Claude API como reserva para tarefas que o modelo local não resolver bem? | Não (só local) · Sim, por capacidade e com orçamento | Usuário, com resultado de avaliação |
-| D-AI-4 | Provedor de busca web | Ollama Web Search · Brave · nenhum (só fontes diretas) | Usuário, após conferir termos e cota |
+| D-AI-4 | Provedor de busca web | **Decidida em 2026-11-10:** Tavily (plano gratuito, com teto de consumo) + Playwright para páginas; SearXNG local opcional depois de avaliação | Usuário |
 | D-AI-5 | Orquestração de tarefas | Fila no Postgres + worker local · Trigger.dev com worker local | Técnica (proposta: Postgres), registrar em ADR na IA-3 |
 
 ## 8. Decisões técnicas desta rodada

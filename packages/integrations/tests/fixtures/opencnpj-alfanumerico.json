@@ -1,0 +1,20 @@
+{
+  "_synthetic": true,
+  "cnpj": "12ABC34501DE35",
+  "razao_social": "ESTUDIO EXEMPLO ALFANUMERICO LTDA",
+  "nome_fantasia": null,
+  "situacao_cadastral": "Ativa",
+  "data_situacao_cadastral": "2026-08-15",
+  "matriz_filial": "Filial",
+  "data_inicio_atividade": "2026-08-15",
+  "cnae_principal": "7319004",
+  "cnaes_secundarios": [],
+  "natureza_juridica": "Sociedade Empresária Limitada",
+  "uf": "SC",
+  "municipio": "FLORIANOPOLIS",
+  "capital_social": "",
+  "porte_empresa": "Micro Empresa",
+  "opcao_simples": "",
+  "opcao_mei": "",
+  "updated_at": "não é data"
+}

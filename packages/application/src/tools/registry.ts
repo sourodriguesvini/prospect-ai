@@ -17,6 +17,11 @@ export interface ToolOutput {
   /** Dados para o modelo: nomes de campos em português, listas já limitadas. */
   data: unknown;
   refs?: EntityRef[];
+  /**
+   * Resumo gravado na telemetria (`tool_calls`, só inclusão), quando o da tela traz dado que não
+   * deve ficar guardado (ex.: nome de empresa individual, que é o nome de uma pessoa).
+   */
+  telemetrySummary?: string;
 }
 
 /**
@@ -33,6 +38,8 @@ export interface ToolDefinition<S extends z.ZodType = z.ZodType> {
   input: S;
   kind: 'read';
   run(ctx: RequestContext, input: z.output<S>): Promise<ToolOutput>;
+  /** Argumentos gravados na telemetria; sem isto, os argumentos cortados (`redact`). */
+  telemetryInput?(input: z.output<S>): Record<string, unknown>;
 }
 
 /** Ajuda de tipo: o `run` recebe a entrada já validada pelo esquema da própria ferramenta. */
@@ -136,6 +143,8 @@ export function createToolRegistry(deps: {
       let refs: EntityRef[] = [];
       let errorCode: string | null = null;
       let input: unknown = call.success ? call.data.arguments : {};
+      let telemetryInput: Record<string, unknown> | null = null;
+      let telemetrySummary: string | null = null;
 
       if (!tool) {
         status = 'error';
@@ -149,6 +158,7 @@ export function createToolRegistry(deps: {
           summary = `Argumentos inválidos: ${issuesText(parsed.error)}`.slice(0, 500);
         } else {
           input = parsed.data;
+          telemetryInput = tool.telemetryInput ? tool.telemetryInput(parsed.data) : null;
           let timer: ReturnType<typeof setTimeout> | undefined;
           try {
             const output = await Promise.race([
@@ -158,6 +168,7 @@ export function createToolRegistry(deps: {
               }),
             ]);
             summary = output.summary.slice(0, 500);
+            telemetrySummary = output.telemetrySummary?.slice(0, 500) ?? null;
             data = output.data;
             refs = (output.refs ?? []).slice(0, 20);
           } catch (error) {
@@ -187,8 +198,8 @@ export function createToolRegistry(deps: {
             threadId: options.threadId ?? null,
             jobId: options.jobId ?? null,
             tool: /^[a-z][a-z0-9_]{1,63}$/.test(name) ? name : 'unknown_tool',
-            inputRedacted: redactedInput(input),
-            outputSummary: summary.slice(0, 500),
+            inputRedacted: telemetryInput ?? redactedInput(input),
+            outputSummary: telemetrySummary ?? summary.slice(0, 500),
             status,
             errorCode,
             durationMs,

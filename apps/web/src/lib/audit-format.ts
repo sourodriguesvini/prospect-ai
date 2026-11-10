@@ -22,6 +22,11 @@ const ACTION_LABELS: Record<string, string> = {
   'compliance.lia.approved': 'LIA aprovada',
   'compliance.lia.revoked': 'LIA revogada',
   'compliance.contact_policy.versioned': 'Nova versão do opt-out',
+  // M2 — Empresas e evidências
+  'prospect.company.created': 'Empresa cadastrada',
+  'prospect.company.lifecycle_changed': 'Etapa da empresa alterada',
+  'prospect.company.registry_refreshed': 'Cadastro da Receita consultado de novo',
+  'prospect.evidence.recorded': 'Evidências registradas',
 };
 
 export interface AuditDescription {

@@ -34,6 +34,9 @@ export const ERROR_MESSAGES = {
   approach_blocked:
     'Abordagem bloqueada: conclua o checklist de prontidão (estratégia e conformidade).',
   discovery_blocked: 'Descoberta bloqueada: conclua o checklist de prontidão da estratégia.',
+  // M2 — empresas e evidências
+  company_duplicate: 'Essa empresa já está cadastrada (mesmo CNPJ ou domínio).',
+  company_archived: 'Empresa arquivada não pode ser alterada. Reative-a primeiro.',
 } as const;
 
 export type ErrorReason = keyof typeof ERROR_MESSAGES;

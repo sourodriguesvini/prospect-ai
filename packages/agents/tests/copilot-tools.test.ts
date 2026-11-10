@@ -242,6 +242,26 @@ describe('Copiloto com ferramentas', () => {
     expect(text).toBe('Vou consultar.\n\nVocê tem 1 oferta.');
   });
 
+  it('o texto escrito antes da consulta não volta ao modelo na rodada seguinte', async () => {
+    const { gateway, inputs } = scriptedGateway([
+      { text: 'Vou consultar.', calls: [call('c1')] },
+      { text: 'Você tem 1 oferta.' },
+    ]);
+    await collect(
+      createCopilot({ gateway, prompt, toolsPrompt }).reply(ask, {
+        traceId: 't',
+        systemFacts: [],
+        tools: toolbox(),
+      }),
+    );
+    const assistantTurns = (inputs[1]?.messages ?? []).filter(
+      (message) => (message as { role: string }).role === 'assistant',
+    ) as Array<{ content: string; toolCalls?: unknown[] }>;
+    const last = assistantTurns.at(-1);
+    expect(last?.content).toBe('');
+    expect(last?.toolCalls).toHaveLength(1);
+  });
+
   it('fechar a resposta no meio da geração registra a rodada como cancelada', async () => {
     const gateway = {
       chat: async function* () {

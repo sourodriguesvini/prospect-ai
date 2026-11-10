@@ -12,6 +12,8 @@ export const INTERNAL_DB_ERROR_KEYS: readonly string[] = [
   'audit_invalid',
   // IA-2 em diante: registros de execução (mensagens, llm_calls, tool_calls) são só inclusão.
   'append_only',
+  // M2: o app só substitui claims em vigor; o trigger impede reabrir um substituído ou rejeitado.
+  'claim_final_status',
 ];
 
 /** Códigos de "tabela não existe": PostgREST (cache de esquema) e Postgres. */
