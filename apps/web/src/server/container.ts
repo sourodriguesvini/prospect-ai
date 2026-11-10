@@ -18,6 +18,7 @@ import {
   createStrategyService,
   createSystemService,
   createToolRegistry,
+  createWebResearchService,
   strategyTools,
   type AiTelemetryRepository,
   type AuditRepository,
@@ -31,13 +32,17 @@ import {
   type StrategyRepository,
   type StrategyService,
   type SystemService,
+  type ToolDefinition,
   type ToolRegistry,
+  type WebResearchService,
+  type WebResearchUsageStore,
 } from '@prospector/application';
 import {
   createMemoryAuditRepository,
   createMemoryCompanyRepository,
   createMemoryCopilotRepository,
   createMemoryStrategyRepository,
+  createMemoryWebResearchUsage,
 } from '@prospector/application/memory';
 import {
   createServerSupabaseClient,
@@ -46,8 +51,9 @@ import {
   createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
   createSupabaseStrategyRepository,
+  createSupabaseWebResearchUsage,
 } from '@prospector/db';
-import { createCnpjLookup } from '@prospector/integrations';
+import { createCnpjLookup, createPageReader, createTavilySearch } from '@prospector/integrations';
 import { cache } from 'react';
 import { syntheticCnpjLookup } from './cnpj-fixture';
 import {
@@ -58,6 +64,8 @@ import {
   LocalAiConfigError,
   localAiEnv,
   storageMode,
+  WebResearchConfigError,
+  webResearchEnv,
   type StorageMode,
 } from './env';
 
@@ -78,7 +86,12 @@ export interface Services {
   copilot: CopilotService | null;
   /** Empresas, consulta de CNPJ e dossiês (M2); null sem banco. */
   companies: CompanyService | null;
-  /** Ferramentas de leitura oferecidas ao Copiloto; null sem banco. */
+  /**
+   * Pesquisa na internet (ADR-0012): busca Tavily e leitura de páginas; null sem banco. As
+   * ferramentas do Copiloto para ela (`webResearchTools`) ainda não entram: ver `copilotTools`.
+   */
+  research: WebResearchService | null;
+  /** Ferramentas oferecidas ao Copiloto; null sem banco. */
   tools: ToolRegistry | null;
 }
 
@@ -135,6 +148,60 @@ function companyServices(repo: CompanyRepository & EvidenceRepository): CompanyS
   });
 }
 
+/**
+ * Pesquisa na internet (ADR-0012): uma instância por processo, porque o cache, o orçamento de
+ * créditos (trava e reserva), as filas, o cache de robots.txt, a lista de endereços vindos de
+ * busca e o navegador valem para todos os pedidos. Sem banco (`usage` null) a busca fica
+ * desligada: o contador em memória zeraria a cada reinício e o teto mensal deixaria de valer.
+ * Configuração inválida desliga a pesquisa e avisa no log (só nomes e formatos, nunca valores).
+ */
+function webResearch(
+  repo: CompanyRepository & EvidenceRepository,
+  usage: WebResearchUsageStore | null,
+): WebResearchService {
+  const holder = globalThis as { __prospectorWebResearch?: WebResearchService };
+  if (holder.__prospectorWebResearch) return holder.__prospectorWebResearch;
+  let env: ReturnType<typeof webResearchEnv> | null = null;
+  try {
+    env = webResearchEnv();
+  } catch (error) {
+    if (!(error instanceof WebResearchConfigError)) throw error;
+    console.error(`[pesquisa-web] ${error.message}`);
+  }
+  holder.__prospectorWebResearch = createWebResearchService({
+    search:
+      !env || !env.searchEnabled || !usage
+        ? 'disabled'
+        : env.tavilyApiKey
+          ? createTavilySearch({ apiKey: env.tavilyApiKey })
+          : 'not_configured',
+    pages: env?.pageReaderEnabled ? createPageReader() : 'disabled',
+    // Sem banco, o contador em memória só alimenta o estado: a busca já está desligada.
+    usage: usage ?? createMemoryWebResearchUsage(),
+    companies: repo,
+    evidence: repo,
+    evidenceService: createEvidenceService({ evidence: repo }),
+    monthlyCreditBudget: env?.WEB_SEARCH_MONTHLY_CREDITS ?? 0,
+    maxConcurrentSearches: env?.WEB_SEARCH_MAX_CONCURRENCY,
+    maxConcurrentPages: env?.PAGE_READER_MAX_CONCURRENCY,
+    searchCacheTtlMs: env ? env.WEB_SEARCH_CACHE_HOURS * 60 * 60 * 1000 : undefined,
+  });
+  return holder.__prospectorWebResearch;
+}
+
+/**
+ * Ferramentas oferecidas ao Copiloto. As da pesquisa na internet (`webResearchTools`) ficam de
+ * fora até existir o prompt `copilot-tools/v3`, avaliado e aprovado pelo usuário: o v2 diz ao
+ * modelo que nenhuma ferramenta acessa a internet (KI-096).
+ */
+function copilotTools(
+  strategy: StrategyService,
+  audit: AuditService,
+  companies: CompanyService,
+): ToolDefinition[] {
+  return [...strategyTools({ strategy, audit }), ...companyTools({ companies })];
+}
+
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
 function warnIgnoredDatabase(): void {
   const holder = globalThis as { __prospectorMemoryWarned?: boolean };
@@ -155,6 +222,7 @@ export const getServices = cache((): Services => {
     // LIA e auditoria somem ao reiniciar: a barreira de abordagem nunca libera (ADR-0009).
     const strategy = createStrategyService({ repo: stores.strategy, ephemeralStorage: true });
     const companies = companyServices(stores.companies);
+    const research = webResearch(stores.companies, null);
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
@@ -162,8 +230,9 @@ export const getServices = cache((): Services => {
       strategy,
       copilot: createCopilotService({ repo: stores.copilot, telemetry: stores.copilot }),
       companies,
+      research,
       tools: createToolRegistry({
-        tools: [...strategyTools({ strategy, audit }), ...companyTools({ companies })],
+        tools: copilotTools(strategy, audit, companies),
         telemetry: stores.copilot,
       }),
     };
@@ -177,6 +246,7 @@ export const getServices = cache((): Services => {
       strategy: null,
       copilot: null,
       companies: null,
+      research: null,
       tools: null,
     };
   }
@@ -184,7 +254,9 @@ export const getServices = cache((): Services => {
   const audit = createAuditService(createSupabaseAuditRepository(client));
   const strategy = createStrategyService({ repo: createSupabaseStrategyRepository(client) });
   const copilotRepo = createSupabaseCopilotRepository(client);
-  const companies = companyServices(createSupabaseCompanyRepository(client));
+  const companyRepo = createSupabaseCompanyRepository(client);
+  const companies = companyServices(companyRepo);
+  const research = webResearch(companyRepo, createSupabaseWebResearchUsage(client));
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
@@ -192,8 +264,9 @@ export const getServices = cache((): Services => {
     strategy,
     copilot: createCopilotService({ repo: copilotRepo, telemetry: copilotRepo }),
     companies,
+    research,
     tools: createToolRegistry({
-      tools: [...strategyTools({ strategy, audit }), ...companyTools({ companies })],
+      tools: copilotTools(strategy, audit, companies),
       telemetry: copilotRepo,
     }),
   };

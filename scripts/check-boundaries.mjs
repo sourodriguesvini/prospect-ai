@@ -49,7 +49,8 @@ const ALLOWED_EXTERNAL = {
   // IA local sem SDK (ADR-0008): fala com o Ollama por `fetch`. SDK de IA novo passa por aqui.
   '@prospector/agents': ['zod'],
   // Integrações por `fetch` nativo; SDK de terceiro novo passa por aqui (skill integracao-externa).
-  '@prospector/integrations': ['zod'],
+  // playwright-core: leitor de páginas da pesquisa na internet (ADR-0012), sem baixar navegador.
+  '@prospector/integrations': ['zod', 'playwright-core'],
 };
 
 const WEB_SRC = join('apps', 'web', 'src');

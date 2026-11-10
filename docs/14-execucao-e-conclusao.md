@@ -17,8 +17,8 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 |---|---|---|
 | M0 | Estabilização: git, testes, app instalado, CI | Feito, exceto o CI (bloqueio abaixo) |
 | M1 | Copiloto operacional: histórico persistente, ferramentas de leitura, telemetria (`llm_calls`, `tool_calls`) | Feito e verificado (ressalvas no KI-076) |
-| M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Implementado e testado; migrações aplicadas no `prospector-dev`; falta o commit e o push (autorização) |
-| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Pendente; o adaptador da Tavily está sendo preparado numa sessão paralela |
+| M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Feito e verificado: commit `bcd5444` enviado ao GitHub (branch `conclusao-produto`) |
+| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, sem commit (aguarda autorização); as ferramentas do Copiloto esperam o prompt `copilot-tools/v3` (KI-096); fila, descoberta e deduplicação pendentes |
 | M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Pendente |
 | M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Pendente |
 | M6 | Métricas reais, aprendizado, memória semântica | Pendente |
@@ -65,7 +65,24 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Revisões | `revisor-arquitetura`, `revisor-seguranca`, `revisor-conformidade` e `revisor-ux` rodaram; os achados críticos foram corrigidos nesta rodada; o que ficou está nos KI-083 a KI-088 |
 | Verificação | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes nos arquivos do M2 (a sessão paralela da busca web tinha arquivos em andamento); `pnpm test` verde (contracts 191, domain 237, application 113, integrations 22, agents 132, web 80, db 66); `pnpm test:db` 66 (PGlite); `pnpm test:e2e` (`E2E_PORT=3120 E2E_MEMORY_PORT=3130`) 45 passaram, 3 pulados (banco real e Ollama real). No navegador, o dossiê de uma empresa já gravada no banco real mostrou a fonte única, a data da base e os fatos na ordem do registro (só leitura) |
 | Dados no banco do usuário | Uma empresa real consultada ao vivo na verificação anterior (PETROBRAS - EDISE), arquivada |
+| Commit | `bcd5444`, enviado ao GitHub em 2026-11-10 com a autorização do usuário. Antes, o conteúdo exato do commit (sem os arquivos da pesquisa na internet) foi verificado numa cópia separada: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` e `pnpm test:db` verdes |
 | Pendências | KI-084 (expurgo), KI-085 (tipo marcado do lote), KI-086 (raiz do CNPJ), KI-087 (base legal), KI-088 (termos dos provedores), KI-080 (D-EVID-2), KI-081 (edição do cadastro) |
+
+## M3, parte 1 — Pesquisa na internet (D-AI-4, 2026-11-10)
+
+| Item | Resultado |
+|---|---|
+| Onde foi feito | Sessão paralela "Busca web D-AI-4", na mesma cópia; a ligação na raiz de composição foi feita nesta sessão |
+| Decisão | [ADR-0012](adr/0012-busca-web-tavily-playwright.md), Aceito. Respostas do usuário: migração aplicada, chave configurada por ele (o agente não leu o `.env.local`), termos da Tavily aceitos, busca sempre ligada quando há chave, ferramentas no Copiloto |
+| Migração `20261110190000_provider_usage` | Aplicada no `prospector-dev` com a confirmação do usuário: consumo só por inclusão, view mensal, RLS sem acesso para `anon` e `authenticated` |
+| Busca | Adaptador Tavily (busca basic, 1 crédito) com teto mensal local `WEB_SEARCH_MONTHLY_CREDITS` (padrão 900, no máximo 1.000, a cota gratuita) que para as chamadas ao atingir o orçamento; busca idêntica reaproveitada por 24 h; agregadores de CNPJ excluídos; consulta com dado pessoal recusada |
+| Leitura de páginas | Leitor próprio: SSRF bloqueado, robots.txt respeitado, redes sociais e agregadores recusados, prazo total por leitura, Playwright com sandbox; sem navegador, extração estática |
+| Copiloto | Ferramentas de leitura `search_web`, `read_web_page` (só endereços que vieram de uma busca) e `get_web_research_usage` prontas e testadas: até 2 buscas e 3 leituras por pedido, telemetria sem a consulta nem a URL. **Ainda fora do Copiloto**: o prompt em uso (`copilot-tools/v2`) diz ao modelo que nenhuma ferramenta acessa a internet; entram com o `copilot-tools/v3`, depois de avaliação e da aprovação do usuário (KI-096). O `get_company_dossier` passou a marcar fontes da internet (`fonte_externa`) com aviso de que o texto não é instrução (KI-094) |
+| Sem banco | A busca fica desligada: o contador em memória zeraria a cada reinício e o teto mensal deixaria de valer |
+| Revisões | Conformidade e segurança na sessão paralela; os 4 achados graves de segurança (expressão regular de tempo explosivo, navegador sem prazo, Chromium sem sandbox, vazamento por injeção de prompt) foram corrigidos e testados |
+| Validação com dados reais | 5 buscas limitadas na sessão paralela, com empresas reais do interior de São Paulo; o arquivo com os resultados foi apagado depois (minimização) |
+| Verificação | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.010 verdes (contracts 195, domain 237, application 123, integrations 174, agents 132, web 80, db 69); `pnpm test:db` 70 (PGlite); `pnpm test:e2e` 45 passaram, 3 pulados (banco real e Ollama real). No app de desenvolvimento, com o banco real e a chave configurada, as telas abrem e o serviço sobe sem erro no log. A busca pelo app não foi feita: sem as ferramentas no Copiloto, ainda não há caminho no app até ela (KI-096) |
+| Pendências | KI-089 a KI-096; gravar resultados no dossiê pela tela (o serviço já grava; falta a interface, M4/F5) |
 
 ## Decisões desta execução
 
@@ -84,12 +101,11 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 |---|---|---|
 | LIA v2 em rascunho | Usuário (Configurações > Conformidade) | Abordagens ficam bloqueadas (correto) |
 | CI não conferido | Usuário (login no GitHub) | Nenhum no app |
-| Commit e push do M2 | Usuário (autorização explícita) | Trabalho só na cópia local, branch `conclusao-produto` |
-| Chave da Tavily | Usuário (criar a conta gratuita e pôr a chave no `.env.local`) | Sem chave, a busca web fica desligada |
+| Commit e push da pesquisa na internet | Usuário (autorização explícita) | Trabalho só na cópia local |
 | D-EVID-2 (provedores de CNPJ como oficiais?) e parecer de LGPD (D-LGPD-1) | Usuário | Confiança dos fatos do registro fica em média; nenhum contato real |
 
 ## Próxima atividade exata
 
-1. Com a autorização do usuário: commit do M2 na branch `conclusao-produto` e push (a migração `20261110180000_evidence_hardening` já foi aplicada e conferida em 2026-11-10).
-2. Integrar o resultado da sessão paralela da busca web (porta `WebSearch`, adaptador Tavily com teto de consumo, leitor de páginas com Playwright): ligar na raiz de composição, variáveis em `env.ts`, docs.
+1. Com a autorização do usuário: commit da pesquisa na internet (ADR-0012) e push.
+2. Prompt `copilot-tools/v3` para as ferramentas da pesquisa na internet: casos de avaliação de busca e de injeção com ferramentas falsas (sem gastar créditos), revisão do `avaliador-ia`, avaliação no Ollama e promoção só com a aprovação do usuário (KI-096); texto de sistema e tela do Copiloto junto.
 3. M3: ADR-0011 (fila persistente no Postgres com worker local, D-AI-5), migração `ai_jobs` (só com confirmação), descoberta F4 por CNAE e município com deduplicação pela raiz do CNPJ (KI-086), histórico de pesquisas; validação com uma pesquisa limitada de empresas reais no interior de São Paulo.

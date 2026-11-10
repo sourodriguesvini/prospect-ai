@@ -10,3 +10,4 @@ export {
   type MemoryStrategyOptions,
   type MemoryStrategyRepository,
 } from './strategy-repository';
+export { createMemoryWebResearchUsage } from './web-research-usage';

@@ -26,6 +26,8 @@ const ACTION_LABELS: Record<string, string> = {
   'prospect.company.created': 'Empresa cadastrada',
   'prospect.company.lifecycle_changed': 'Etapa da empresa alterada',
   'prospect.company.registry_refreshed': 'Cadastro da Receita consultado de novo',
+  'prospect.company.web_search_recorded': 'Resultados da busca na internet registrados',
+  'prospect.company.web_page_recorded': 'Página da internet registrada',
   'prospect.evidence.recorded': 'Evidências registradas',
 };
 

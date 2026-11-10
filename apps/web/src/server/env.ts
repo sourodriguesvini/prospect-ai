@@ -1,6 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { ModelName } from '@prospector/contracts';
+import { ModelName, WEB_RESEARCH_ENV_FORMATS, WebResearchEnv } from '@prospector/contracts';
 
 const DatabaseEnv = z.object({
   SUPABASE_URL: z.url({ protocol: /^https?$/ }),
@@ -160,5 +160,50 @@ export function localAiEnv(): LocalAiSettings {
     maxConcurrent: env.AI_MAX_CONCURRENCY,
     maxQueue: env.AI_MAX_QUEUE,
     vramReserveMiB: env.AI_VRAM_RESERVE_MIB,
+  };
+}
+
+/** Configuração da pesquisa na internet (ADR-0012). A chave só existe no servidor. */
+export interface WebResearchSettings extends WebResearchEnv {
+  /** Chave da Tavily; null = não configurada. Nunca vai para log, tela ou trace. */
+  tavilyApiKey: string | null;
+  searchEnabled: boolean;
+  pageReaderEnabled: boolean;
+}
+
+/** Variável da pesquisa na internet inválida. Leva só os nomes e o formato, nunca os valores. */
+export class WebResearchConfigError extends Error {
+  constructor(variables: string[]) {
+    const expected = variables.map((name) => {
+      const format = WEB_RESEARCH_ENV_FORMATS[name as keyof WebResearchEnv];
+      return format ? `${name} (${format})` : name;
+    });
+    super(
+      `Pesquisa na internet desligada: variáveis inválidas: ${expected.join('; ')}. Corrija em apps/web/.env.local (veja docs/adr/0012-busca-web-tavily-playwright.md) e reinicie o app.`,
+    );
+    this.name = 'WebResearchConfigError';
+  }
+}
+
+/**
+ * Pesquisa na internet (ADR-0012). Sem TAVILY_API_KEY a busca responde "não configurada";
+ * PROSPECTOR_WEB_SEARCH=off desliga mesmo com chave (padrão: ligada). O teto mensal de créditos
+ * nunca passa da cota gratuita (D-AI-4).
+ */
+export function webResearchEnv(): WebResearchSettings {
+  const raw = Object.fromEntries(
+    Object.keys(WebResearchEnv.shape).map((name) => [name, readVar(name)]),
+  );
+  const parsed = WebResearchEnv.safeParse(raw);
+  if (!parsed.success) {
+    throw new WebResearchConfigError([
+      ...new Set(parsed.error.issues.map((issue) => issue.path.join('.'))),
+    ]);
+  }
+  return {
+    ...parsed.data,
+    tavilyApiKey: readVar('TAVILY_API_KEY') ?? null,
+    searchEnabled: parsed.data.PROSPECTOR_WEB_SEARCH !== 'off',
+    pageReaderEnabled: parsed.data.PROSPECTOR_PAGE_READER !== 'off',
   };
 }
