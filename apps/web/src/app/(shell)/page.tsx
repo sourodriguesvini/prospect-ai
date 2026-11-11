@@ -153,7 +153,10 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-12">
+      {/* grid-cols-1 (minmax(0, 1fr)): sem ele a coluna única do celular cresce até a largura
+          mínima da tabela de atividade (40rem) e a página rola para o lado; com ele a tabela
+          rola dentro do próprio painel. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <Panel aria-labelledby="estado" className="flex flex-col gap-5 lg:col-span-4">
           <div className="space-y-4">
             <PanelHeader titleId="estado" title="Banco de dados" className="mb-0" />
