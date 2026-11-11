@@ -34,7 +34,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | `pnpm test:db` | Verde (PGlite) |
 | `pnpm test:e2e` (`E2E_PORT=3120 E2E_MEMORY_PORT=3130`) | 30 passaram, 3 pulados |
 | App instalado | `pnpm app:install` instala e atualiza; o Copiloto instalado não achava o prompt (KI-035): corrigido, o instalador copia `packages/agents/prompts` e o `pnpm-workspace.yaml`; busca conferida a partir de `D:\Prospector\app\apps\web` |
-| CI (GitHub Actions) | **Verde no `main`** (conferido pelo agente no Chrome do usuário em 2026-11-10): execução #2, commit `24a0f87`, 3 min 29 s; jobs `checks` e `supabase` passaram (`pnpm test:db` num Supabase local de verdade e e2e com banco). A execução #1 foi cancelada pela #2. A branch `conclusao-produto` não roda CI: o workflow só dispara em push no `main` e em pull request (KI-009) |
+| CI (GitHub Actions) | **Verde no `main`** (conferido pelo agente no Chrome do usuário em 2026-11-10): execução #2, commit `24a0f87`, 3 min 29 s; jobs `checks` e `supabase` passaram (`pnpm test:db` num Supabase local de verdade e e2e com banco). A execução #1 foi cancelada pela #2. A branch `conclusao-produto` só roda CI por pull request (o workflow dispara em push no `main` e em pull request): PR #1 aberto em 2026-11-10 com a autorização do usuário. Execução #3 (`b5501d9`): `checks` verde (um teste de acessibilidade instável passou na nova tentativa); no `supabase`, `pnpm test:db` 70 de 70 num Postgres real (as migrações do M1 ao M3 passaram), mas 2 testes de ponta a ponta do Copiloto falharam só com banco. Corrigido depois: o topo do painel deixava um título sem espaço (URL colada) alargar a página no celular (`PanelHeader`, com teste novo no modo memória); os testes do Copiloto que mandam pergunta não rodam com `E2E_SUPABASE=1` (gravariam no banco); o teste de acessibilidade espera o `<title>` voltar (KI-009) |
 | Prompt `copilot/v4` | Avaliado numa sessão separada (worktree `claude/hopeful-leavitt-bec23b`); revisão do `avaliador-ia` em andamento lá. **Não promovido** |
 
 ## M1 — Copiloto operacional (2026-11-10)
@@ -118,7 +118,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Bloqueio | Quem resolve | Impacto |
 |---|---|---|
 | LIA v2 em rascunho | Usuário (Configurações > Conformidade) | Abordagens ficam bloqueadas (correto) |
-| CI da branch `conclusao-produto` (M1 a M3, 6 commits à frente do `main`) não rodou | Usuário (pull request para o `main` ou mescla) | As migrações do M1 em diante ainda não passaram por `pnpm test:db` em Postgres real; nenhum no app |
+| CI do PR #1 com a correção ainda não conferido | Usuário (autorizar commit e push da correção) | Nenhum no app; as migrações já passaram em Postgres real na execução #3 |
 | D-EVID-2 (provedores de CNPJ como oficiais?) e parecer de LGPD (D-LGPD-1) | Usuário | Confiança dos fatos do registro fica em média; nenhum contato real |
 
 ## Próxima atividade exata

@@ -2,6 +2,14 @@ import { expect, test } from '@playwright/test';
 import { expectNoA11yViolations } from './support';
 
 const withOllama = process.env.E2E_OLLAMA === '1';
+/**
+ * Com E2E_SUPABASE=1 o servidor principal salva cada pergunta no banco. Os testes que mandam
+ * pergunta ficam no servidor sem banco (e as conversas salvas, em copilot-history.spec.ts, no
+ * modo memória): teste que grava dados não grava no banco real.
+ */
+const withDatabase = process.env.E2E_SUPABASE === '1';
+const SAVES_TO_DATABASE =
+  'com E2E_SUPABASE=1 a pergunta seria salva no banco (ver copilot-history.spec.ts)';
 const ask = { schemaVersion: 2, threadId: null, message: 'oi' };
 
 test.describe('Copiloto: rota protegida', () => {
@@ -55,6 +63,7 @@ test.describe('Copiloto sem Ollama', () => {
   });
 
   test('a rota responde em NDJSON com erro tratado', async ({ request, baseURL }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     const response = await request.post('/api/copiloto', {
       data: ask,
       headers: { origin: baseURL!, 'sec-fetch-site': 'same-origin' },
@@ -73,6 +82,7 @@ test.describe('Copiloto sem Ollama', () => {
   });
 
   test('enviar uma pergunta mostra o erro na conversa, sem travar a tela', async ({ page }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     await page.goto('/copiloto');
     const input = page.getByRole('textbox', { name: 'Mensagem para o Copiloto' });
     await input.fill('Que dia é hoje?');
@@ -91,6 +101,7 @@ test.describe('Copiloto no celular e no tema escuro', () => {
   test('no celular nada transborda e a pergunta volta para o campo depois do erro', async ({
     page,
   }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/copiloto');
     await expect(page.getByRole('heading', { level: 1, name: 'Copiloto' })).toBeVisible();

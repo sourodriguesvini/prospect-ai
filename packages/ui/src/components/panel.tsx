@@ -30,8 +30,9 @@ export function PanelHeader({
 }) {
   return (
     <div className={cn('mb-5 flex flex-wrap items-start justify-between gap-3', className)}>
-      <div className="space-y-1">
-        <h2 id={titleId} className="text-balance text-lg">
+      {/* min-w-0 e quebra de palavra: um título sem espaço (uma URL colada) não alarga a página. */}
+      <div className="min-w-0 space-y-1">
+        <h2 id={titleId} className="text-balance break-words text-lg">
           {title}
         </h2>
         {description ? (

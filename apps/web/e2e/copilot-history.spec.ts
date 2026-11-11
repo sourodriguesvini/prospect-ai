@@ -48,6 +48,26 @@ test.describe('Copiloto: conversas salvas', () => {
     await expect(list.getByRole('link', { name: /Ofertas — teste e2e/ })).toHaveCount(0);
   });
 
+  test('no celular, o título longo da conversa salva não transborda', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/copiloto');
+    // Título sem espaço (uma URL longa): só quebra se o topo do painel deixar.
+    const question = `https://exemplo.invalid/${'a'.repeat(300)}`;
+    const input = page.getByRole('textbox', { name: 'Mensagem para o Copiloto' });
+    await input.fill(question);
+    await input.press('Enter');
+    const log = page.getByRole('log', { name: 'Conversa com o Copiloto' });
+    await expect(log.getByRole('alert')).toContainText('Ollama não está respondendo');
+    await expect(page).toHaveURL(/\/copiloto\?conversa=[0-9a-f-]{36}$/);
+    await page.goto(page.url());
+    await expect(page.getByRole('heading', { level: 2, name: /^https:\/\/exemplo/ })).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    await expectNoA11yViolations(page);
+  });
+
   test('conversa inexistente avisa e oferece começar outra', async ({ page }) => {
     await page.goto('/copiloto?conversa=0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f');
     await expect(page.getByRole('note').filter({ hasText: 'não existe mais' })).toBeVisible();
