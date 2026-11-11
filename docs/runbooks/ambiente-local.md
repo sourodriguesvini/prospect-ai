@@ -124,6 +124,20 @@ No PowerShell: `$env:PROSPECTOR_STORAGE = 'memory'; pnpm dev`. Prefira a variáv
    No PowerShell: `$env:E2E_OLLAMA = '1'` antes do comando. `pnpm evals` aceita `EVAL_MODELS` (lista separada por vírgula), `EVAL_PROMPTS` (versões do prompt a comparar, ex.: `1,2`; padrão: a versão em uso) e `EVAL_REPEAT` (padrão 2) e grava o resultado em `packages/agents/evals/copilot/results/`. `EVAL_REGRADE=<arquivo>.json` recalcula as notas de um resultado salvo sem usar a GPU. Sem `E2E_OLLAMA`, o e2e aponta o app para um endereço sem Ollama e testa os estados de erro.
 7. Para liberar a GPU na hora (Figma, edição de vídeo): botão **Descarregar** no painel do Copiloto, ou `ollama stop <modelo>`. O app nunca encerra outros programas.
 
+## 5a. Descoberta (pesquisa de empresas, M3)
+
+A Descoberta usa a pesquisa na internet (Tavily, mesma chave e mesmo teto mensal do Copiloto) e a IA local. Precisa do banco com a migração `20261111120000_discovery.sql` (aplicada no `prospector-dev` em 2026-11-11); sem banco, as telas explicam o que falta.
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `PROSPECTOR_DISCOVERY` | `on` | `off` desliga o módulo e o trabalhador; `fixture` usa buscador e IA SINTÉTICOS (só com `PROSPECTOR_STORAGE=memory`, tudo com selo DEMO) |
+| `DISCOVERY_DAILY_AUTO_CREDITS` | `12` | Créditos da Tavily por dia para monitoramentos (0 a 200; 0 = só "Rodar agora") |
+| `PROSPECTOR_JOB_WORKER` | `on` | `off` deixa as telas funcionando sem o trabalhador da fila nem o agendador neste processo |
+
+- **Um trabalhador por banco.** O `pnpm dev` e o app instalado (`D:\Prospector`) apontam para o mesmo banco: se os dois ficarem abertos, os dois pegam pesquisas e disputam a GPU. O agendador não cria a mesma execução duas vezes (ADR-0013 §7), mas para desenvolver com o app instalado aberto use `PROSPECTOR_JOB_WORKER=off` no `pnpm dev`.
+- **Testes de ponta a ponta com o banco real** (`E2E_SUPABASE=1`): o servidor principal do e2e sobe com `PROSPECTOR_JOB_WORKER=off`, para não pegar as pesquisas e os monitoramentos do usuário.
+- Para ver as telas sem internet nem GPU: `PROSPECTOR_STORAGE=memory PROSPECTOR_DISCOVERY=fixture pnpm dev` (dados de demonstração).
+
 ## 6. Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |

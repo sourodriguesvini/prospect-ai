@@ -178,6 +178,12 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 3. Estimativa de custo exibida antes de rodar; custo real registrado depois.
 4. Nenhuma chamada ao Claude fora do gateway (verificado por lint/teste).
 
+**Estado (2026-11-11, M3 — Módulo 01, ADR-0013):** implementada como pesquisa em linguagem natural pela internet (Tavily, ADR-0012) com a IA local, em vez da base CNPJ por filtros (fora do escopo: precisa de fonte autorizada de dados em massa). Fila durável com trabalhador local (ADR-0011). Migração aplicada no `prospector-dev` em 2026-11-11; primeira pesquisa real feita ("Encontre 15 clínicas de saúde em Ribeirão Preto e região.", profundidade rápida: 1 crédito, 6 empresas reais com fonte, persistidas depois de reiniciar o app; achados no KI-117).
+1. **Atendido em memória e PGlite:** cada pesquisa guarda o pedido, a interpretação, o plano e cada busca com os resultados (`discovery_run_queries`); empresas deduplicadas pelo CNPJ do site, pelo domínio ou pelo nome com cidade; a mesma empresa em outra pesquisa é atualizada. Testes: `packages/application/tests/discovery-service.test.ts`, `packages/domain/tests/discovery/`, `packages/db/tests/db/discovery.test.ts`; e2e `apps/web/e2e/discovery.spec.ts` (buscador e IA sintéticos).
+2. **Parcial:** cada empresa tem prioridade por regras com motivos e fontes (rubrica `discovery-triage/v1`), e a IA tem avaliação própria (`packages/agents/evals/discovery`: intérprete v1 90 de 90, extrator v2 89 de 90, sem falha de tolerância zero), mas sobre casos SINTÉTICOS, não sobre um conjunto real anotado; o `avaliador-ia` achou falhas que os corretores não medem (setor estreitado e UF inventada pelo intérprete, data de hoje em texto sem data), corrigidas no servidor e registradas nos KI-115 e KI-119.
+3. **Atendido:** o gasto máximo aparece antes de rodar (profundidade com o número de buscas, rascunho do Copiloto com o teto) e os créditos de cada busca aparecem depois. Custo da IA local é zero em dinheiro.
+4. **Atendido:** a IA da Descoberta passa pelo gateway de `packages/agents` (`pnpm lint` com `check-boundaries`).
+
 ### F5 — Investigação L1 (G)
 - Trigger.dev configurado (ADR-0004); workflow `investigate` com passos idempotentes, timeouts e progresso via Realtime.
 - Resolução de presença digital, captura de site (desktop/mobile/logo), `site_extractor`.

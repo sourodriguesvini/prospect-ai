@@ -37,7 +37,9 @@
 | [0008](adr/0008-ia-local-com-ollama.md) | **IA local com Ollama como provedor padrão** (emenda o 0003) | Aceito |
 | [0009](adr/0009-versionamento-imutavel-da-estrategia.md) | Versionamento imutável da estratégia e modo memória | Proposto |
 | [0010](adr/0010-auditoria-na-mesma-transacao.md) | Auditoria na mesma transação da escrita (cabeçalho + trigger) | Aceito |
+| [0011](adr/0011-fila-duravel-no-postgres.md) | Fila durável no Postgres com trabalhador local (emenda o 0004 para o uso local) | Aceito |
 | [0012](adr/0012-busca-web-tavily-playwright.md) | Pesquisa na internet: Tavily para busca e Playwright para ler páginas | Aceito |
+| [0013](adr/0013-descoberta-inteligente.md) | Descoberta inteligente: pedido em linguagem natural, sinais com trecho conferido e triagem por regras | Aceito |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 
