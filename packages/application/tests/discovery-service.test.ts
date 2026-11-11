@@ -299,6 +299,7 @@ function fakeWeb(now: () => Date) {
         fetchedAt: now().toISOString(),
         renderer: 'http',
         noArchive: false,
+        links: [],
       };
       return { ok: true as const, page, fromCache: false };
     },

@@ -4,6 +4,7 @@ import { formValues, text } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
 import { COMPANY_NOTICES, companyRoutes } from '@/lib/company-routes';
 import { runCompanyAction } from '@/server/companies';
+import { runInvestigationAction } from '@/server/investigations';
 
 /**
  * Server Actions de Empresas (M2). Só convertem o formulário e chamam o CompanyService;
@@ -77,5 +78,57 @@ export async function refreshRegistryAction(
       return companyRoutes.company(companyId, COMPANY_NOTICES.unchanged);
     }
     return companyRoutes.company(companyId, COMPANY_NOTICES.refreshed, result.changed);
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Investigação (ADR-0015): só enfileiram e conferem; a execução roda no servidor, uma por vez.
+// -----------------------------------------------------------------------------
+
+/** Põe a investigação na fila. `force`: coleta tudo de novo, sem reaproveitar dados válidos. */
+export async function startInvestigationAction(
+  companyId: string,
+  force: boolean,
+  _prev: FormState,
+  formData: FormData,
+) {
+  return runInvestigationAction(formValues(formData), async (investigations, ctx) => {
+    await investigations.start(ctx, { companyId, trigger: 'user', force });
+    return companyRoutes.company(companyId, COMPANY_NOTICES.investigationStarted);
+  });
+}
+
+export async function cancelInvestigationAction(
+  companyId: string,
+  investigationId: string,
+  _prev: FormState,
+  formData: FormData,
+) {
+  return runInvestigationAction(formValues(formData), async (investigations, ctx) => {
+    const cancelled = await investigations.cancel(ctx, investigationId);
+    if (!cancelled) return { error: 'A investigação já tinha terminado; nada foi cancelado.' };
+    return companyRoutes.company(companyId, COMPANY_NOTICES.investigationCancelled);
+  });
+}
+
+/** Retoma sem repetir as etapas concluídas. */
+export async function resumeInvestigationAction(
+  companyId: string,
+  investigationId: string,
+  _prev: FormState,
+  formData: FormData,
+) {
+  return runInvestigationAction(formValues(formData), async (investigations, ctx) => {
+    await investigations.resume(ctx, investigationId);
+    return companyRoutes.company(companyId, COMPANY_NOTICES.investigationResumed);
+  });
+}
+
+/** Confirma o site oficial (candidato da investigação ou digitado), com auditoria. */
+export async function confirmSiteAction(companyId: string, _prev: FormState, formData: FormData) {
+  const values = formValues(formData);
+  return runInvestigationAction(values, async (investigations, ctx) => {
+    await investigations.confirmSite(ctx, { companyId, domain: text(values, 'domain') });
+    return companyRoutes.company(companyId, COMPANY_NOTICES.siteConfirmed);
   });
 }

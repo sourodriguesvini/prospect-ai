@@ -50,6 +50,7 @@ e&nbsp;azulejos.</p><ul><li>Linha A</li><li>Linha B</li></ul>
       lang: null,
       robots: [],
       text: '',
+      links: [],
     });
   });
 });
@@ -102,5 +103,24 @@ describe('HTML hostil (tempo linear)', () => {
 
   it('<head> sem fechamento não apaga o corpo', () => {
     expect(extractFromHtml('<html><head><title>T</title><body><p>corpo</p>').text).toBe('corpo');
+  });
+});
+
+describe('links da página', () => {
+  it('tira href e texto, inclusive relativo, sem seguir comentários', () => {
+    const extracted = extractFromHtml(
+      `<nav><a href="/quem-somos">Quem <b>somos</b></a> <a class="x" href='https://outra.com/p?q=1#a'>Outra</a>
+      <!-- <a href="/escondido">x</a> --><a>sem destino</a><a href="/sem-fim">aberto`,
+    );
+    expect(extracted.links).toEqual([
+      { href: '/quem-somos', text: 'Quem somos' },
+      { href: 'https://outra.com/p?q=1#a', text: 'Outra' },
+      { href: '/sem-fim', text: '' },
+    ]);
+  });
+
+  it('para em 300 links', () => {
+    const html = Array.from({ length: 400 }, (_, i) => `<a href="/p${i}">p</a>`).join('');
+    expect(extractFromHtml(html).links).toHaveLength(300);
   });
 });

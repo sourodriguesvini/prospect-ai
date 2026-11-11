@@ -265,3 +265,47 @@ export function webResearchEnv(): WebResearchSettings {
     pageReaderEnabled: parsed.data.PROSPECTOR_PAGE_READER !== 'off',
   };
 }
+
+/**
+ * Investigação de empresas (ADR-0015). `PROSPECTOR_CAPTURES_DIR`: pasta absoluta das capturas de
+ * marca, fora do disco do sistema (C: quase cheio, KI-017); vazia = as imagens são analisadas,
+ * mas não ficam guardadas (o dossiê mostra só as medições). `PROSPECTOR_BRAND_CAPTURE=off`
+ * desliga a captura de tela (padrão: ligada).
+ */
+export interface InvestigationSettings {
+  capturesDir: string | null;
+  captureEnabled: boolean;
+  /** Motivo de a pasta ter sido ignorada (texto para o log, sem o valor). */
+  capturesDirProblem: string | null;
+}
+
+export function investigationEnv(): InvestigationSettings {
+  const capture = readVar('PROSPECTOR_BRAND_CAPTURE');
+  const dir = readVar('PROSPECTOR_CAPTURES_DIR');
+  let capturesDir: string | null = null;
+  let capturesDirProblem: string | null = null;
+  if (dir !== undefined) {
+    const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(dir);
+    const posixAbsolute = /^\/(?![\\/])/.test(dir);
+    if (/^[\\/]{2}/.test(dir)) {
+      // Compartilhamento de rede (\\servidor\pasta ou //servidor): a imagem sairia do computador.
+      capturesDirProblem =
+        'PROSPECTOR_CAPTURES_DIR não pode ser uma pasta de rede: as capturas ficam neste computador';
+    } else if (!windowsAbsolute && !posixAbsolute) {
+      capturesDirProblem =
+        'PROSPECTOR_CAPTURES_DIR precisa ser um caminho absoluto com letra de unidade (ex.: D:\\Prospector-dados\\capturas)';
+    } else if (/^[Cc]:/.test(dir)) {
+      capturesDirProblem =
+        'PROSPECTOR_CAPTURES_DIR não pode ficar no disco C: (quase cheio, KI-017)';
+    } else if (/(^|[\\/])\.\.([\\/]|$)/.test(dir)) {
+      capturesDirProblem = 'PROSPECTOR_CAPTURES_DIR não pode ter ".." no caminho';
+    } else if (/onedrive|dropbox|google ?drive|icloud ?drive|meu drive|my drive/i.test(dir)) {
+      // Pasta sincronizada copia as imagens para a nuvem (ADR-0015 §8, R-OPS-1).
+      capturesDirProblem =
+        'PROSPECTOR_CAPTURES_DIR não pode ficar numa pasta sincronizada com a nuvem (OneDrive, Dropbox, Google Drive, iCloud)';
+    } else {
+      capturesDir = dir;
+    }
+  }
+  return { capturesDir, captureEnabled: capture !== 'off', capturesDirProblem };
+}

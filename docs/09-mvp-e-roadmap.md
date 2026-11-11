@@ -197,6 +197,16 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 4. Orçamento excedido interrompe com resultado parcial salvo e aviso.
 5. Avaliação do investigador no conjunto inicial: claims sem suporte ≤ 2%.
 
+**Status em 2026-11-11: versão local feita no Módulo 02, sem commit; aceite parcial.** Implementada na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), registro em [doc 14 §M4](14-execucao-e-conclusao.md)). A migração `20261111150000` não está aplicada no banco do usuário e os prompts das análises são v1, sem avaliação. No lugar do Trigger.dev há uma fila em processo com retomada e cancelamento (ADR-0015 §5), até a migração para `ai_jobs` (ADR-0011, outra frente).
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. ≤ 5 min p90 com progresso | Parcial | Progresso por etapa na tela; duas empresas reais terminaram em poucos minutos no modo memória; p90 não medido |
+| 2. Claims com evidência; trecho inexistente rejeitado | Parcial | Conclusões só pelo `EvidenceService`, com fonte; afirmação da IA sem base ou com referência inventada é descartada (`packages/domain/tests/investigation/qualification.test.ts`); teste com caso real gravado ainda não existe |
+| 3. Reexecutar não duplica claims nem custos | Atendido (memória) | Teste "cenário H" em `packages/application/tests/investigation-service.test.ts`: segunda rodada sem crédito nem GPU |
+| 4. Orçamento excedido interrompe com parcial | Parcial | Limite de buscas da Tavily (ADR-0012) vira lacuna `search_budget` e a investigação termina "com lacunas"; não há orçamento por investigação em tempo de GPU |
+| 5. Avaliação do investigador | Não feito | Sem conjunto de avaliação para as análises (KI-131) |
+
 ### F6 — Auditoria visual (M)
 - `brand_assets`, extração de paleta, capacidade `visual_auditor` com rubrica da oferta.
 - Aba **Marca**: capturas lado a lado com achados sobrepostos às regiões.
@@ -205,6 +215,14 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 1. Todo achado aponta para pelo menos um asset; achados sem asset são descartados.
 2. Empresa sem site recebe auditoria `partial` explícita, nunca nota zero.
 3. Concordância com o diretor de criação ≥ 75% (±1 ponto) no conjunto de 30 marcas.
+
+**Status em 2026-11-11: versão local feita no Módulo 02, sem commit; aceite parcial.** Implementada na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), registro em [doc 14 §M4](14-execucao-e-conclusao.md)). A migração `20261111150000` não está aplicada no banco do usuário e os prompts das análises são v1, sem avaliação. Capturas em JPEG fora do C: (ADR-0015 §6), sem `brand_assets` nem achados sobrepostos às regiões.
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. Todo achado aponta para um asset | Parcial | Achados da IA ligados às medições e às capturas da execução; referência inventada é descartada; sem marcação de região na imagem |
+| 2. Empresa sem site: `partial` explícita | Atendido | Etapas de site, captura e marca ficam "puladas" com o motivo `no_site` e o próximo passo pede para confirmar o site; nenhuma nota zero |
+| 3. Concordância com o diretor de criação | Não feito | Sem conjunto de 30 marcas (KI-131) |
 
 ### F7 — Qualificação (M)
 - Motor de score no `domain` (dimensões, gates, confiança, acesso), `need_assessor`, recomendação e "o que mudaria a decisão".
@@ -216,6 +234,15 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 2. Toda recomendação traz 1–5 motivos, cada um com claims.
 3. Concordância com decisões humanas ≥ 80% em 40 empresas reais.
 4. Necessidade sustentada só por hipóteses nunca resulta em `pursue` (teste).
+
+**Status em 2026-11-11: versão local feita no Módulo 02, sem commit; aceite parcial.** Implementada na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), registro em [doc 14 §M4](14-execucao-e-conclusao.md)). A migração `20261111150000` não está aplicada no banco do usuário e os prompts das análises são v1, sem avaliação. Fit, Oportunidade e Confiança separados por oferta ativa, no domínio puro; sem feedback concordo/discordo na tela.
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. Gates antes do score, com motivo codificado | Atendido | `packages/domain/tests/investigation/qualification.test.ts` (situação inativa, exclusão do ICP, filial, rebranding recente; desqualificador apontado só pela IA pede no máximo "Acompanhar", KI-133) |
+| 2. Recomendação com 1–5 motivos ligados a claims | Parcial | Motivos e lacunas em texto do sistema, com a leitura por oferta como claim (`readingClaimId`); Fit 100 com um critério conhecido ainda aparece (KI-132) |
+| 3. Concordância com decisões humanas | Não feito | Duas empresas reais avaliadas; sem as 40 |
+| 4. Necessidade só por hipóteses nunca é `pursue` | Atendido | "necessidade sem claim que sustente não passa de 30" e "bom Fit sem necessidade observada: acompanhar" |
 
 ### F8 — Copiloto v1 (M)
 - Thread com streaming; painel contextual (`⌘K`) nas telas; ferramentas de leitura (buscar, dossiê, explicar avaliação, métricas básicas) e de disparo (descoberta, investigação) com estimativa e confirmação.

@@ -18,6 +18,8 @@ export const INTERNAL_DB_ERROR_KEYS: readonly string[] = [
   'invalid_job_claim',
   'invalid_job_heartbeat',
   'invalid_job_status',
+  // Módulo 02: o resultado de uma investigação encerrada não é reescrito.
+  'investigation_finished',
 ];
 
 /** Códigos de "tabela não existe": PostgREST (cache de esquema) e Postgres. */

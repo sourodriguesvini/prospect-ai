@@ -19,7 +19,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | M1 | Copiloto operacional: histórico persistente, ferramentas de leitura, telemetria (`llm_calls`, `tool_calls`) | Feito e verificado (ressalvas no KI-076) |
 | M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Feito e verificado: commit `bcd5444` enviado ao GitHub (branch `conclusao-produto`) |
 | M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, commit `c165448` enviado; o Copiloto pesquisa na internet com o prompt `copilot-tools/v3`, promovido com a aprovação do usuário e instalado em `D:\Prospector`, commit `f57f2e7` enviado; fila durável e Descoberta (Módulo 01) implementadas e testadas na branch `claude/descoberta-m3-a3e577`, sem commit; migração aplicada no `prospector-dev` e primeira pesquisa real feita (parte 3 abaixo) |
-| M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Pendente |
+| M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Em andamento: Módulo 02 implementado e testado na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md)); validado com duas empresas reais no modo memória; migração, pasta das capturas, prompts e commit esperam o usuário |
 | M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Em andamento: módulo Relacionamento pronto e testado na branch `claude/relacionamento-102b59`, sem commit; migração não aplicada (KI-120); prompts sem conjunto de avaliação (KI-124); ferramentas do Copiloto esperando o `copilot-tools/v4` (KI-121) |
 | M6 | Métricas reais, aprendizado, memória semântica | Pendente |
 | M7 | Testes completos, revisão de segurança, app instalado, relatório de aceite | Pendente |
@@ -155,6 +155,63 @@ Feito na worktree `relacionamento-102b59` (branch `claude/relacionamento-102b59`
 | Banco | Migração `20261111170000_relationship.sql` (8 tabelas, 2 views, 5 RPCs), RLS sem políticas, travas de colunas e de status final. Testada em PGlite; **não aplicada** ao `prospector-dev` (KI-120) |
 | Testes | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.177 verdes (contracts 195, domain 297, application 161, agents 173, web 84, db 93, integrations 174); `pnpm test:db` (PGlite) 93 verdes; `pnpm test:e2e` 55 passaram e 3 pulados (banco real e Ollama real), com `E2E_PORT=3220 E2E_MEMORY_PORT=3230`, incluindo os 9 cenários do Relacionamento (A, B e J, C, D, E, F, celular, pedido para parar) |
 | Pendências | KI-120 a KI-129 |
+
+## M4 — Investigação de empresas e Brand Intelligence (Módulo 02, 2026-11-11)
+
+| Item | Resultado |
+|---|---|
+| Onde foi feito | Sessão "Empresas e Brand Intelligence", worktree `claude/empresas-brand-714583`. A Descoberta (fila `ai_jobs`, ADR-0011 e ADR-0013) é de outra sessão: aqui não há segunda fila nem segunda tabela de empresas |
+| Decisão | [ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), Proposto |
+| Migração `20261111150000_company_investigations` | Escrita e testada em PGlite; **não aplicada** no `prospector-dev` (precisa de confirmação). `company_investigations` (etapas, consumo, retrato da coleta, mudanças, composição do diagnóstico; uma ativa por empresa; dono e batimento), view `company_investigation_summaries`, `confirm_company_site`; auditoria na mesma transação; RLS sem acesso para `anon` e `authenticated` |
+| Investigação | 11 etapas idempotentes (contexto, site, páginas, captura, negócio, marca, sinais, concorrentes, comparação, diagnóstico, qualificação), cada uma `done`, `reused`, `skipped` ou `failed` com o motivo em pt-BR; fila em processo com cancelamento e retomada (`interrupted` na subida); conclusões só no ledger (fato, inferência, hipótese) |
+| Auditoria visual | Captura real com Playwright (computador 1280 px e celular 390 px, JPEG com altura limitada), medições no DOM e análise com visão pelo gateway (`qwen3.5:4b`, `num_ctx` 12.288, `keep_alive` 2 min) contra a rubrica da oferta. Imagens guardadas só com `PROSPECTOR_CAPTURES_DIR` (pasta local fora do C:, sem rede nem nuvem), uma por janela e por empresa; site que pede para não guardar cópia (`noarchive`) não tem imagem guardada |
+| Qualificação | Domínio puro: Fit, Oportunidade e Confiança separados, gates, potencial, prioridade e recomendação por oferta ativa (doc 08 §3) |
+| Telas | Dossiê com Diagnóstico, Marca e site, Investigação (etapas, custo, cancelar, investigar de novo) e Histórico de mudanças; lista de empresas com a última investigação; rota local das capturas |
+| Copiloto | `get_company_investigation`, `list_company_opportunities`, `start_company_investigation` (põe na fila uma tarefa interna; não envia nada a ninguém). Registradas, mas fora do app até ser promovida uma versão de `copilot-tools` que as declare em `TOOLS_PROMPT_CAPABILITIES`. O trecho do prompt ficou em rascunho (`docs/rascunhos/copilot-tools-empresas.md`), não promovido: o `copilot-tools/v4` unificado é montado depois da mesclagem (KI-130) |
+| Revisões (2026-11-11) | Arquitetura, segurança, conformidade, UX e IA. Corrigido com teste: leitura da IA por oferta como claim no ledger (`readingClaimId`); execução encerrada imutável no banco (`investigation_finished`); rota das capturas confere o Host local e lê pelo serviço, só imagem apontada por claim da própria empresa, `no-store`; captura antiga apagada quando entra a nova e quando o site passa a pedir `noarchive`; pasta das capturas recusa rede, nuvem e `..`; empresa arquivada não é investigada (`company_archived`); registros vindos da web marcados `fonte_externa`; resultados das ferramentas sem ordens ao modelo; gate do Copiloto por capacidade declarada; `qwen3-vl` fora da lista de visão; padrão de orçamento e sinais de prêmio e aniversário mais estreitos; decodificação de URL que não quebra com `%`. O que ficou aberto está nos KI-138 a KI-146 |
+
+### Validação com empresas reais (2026-11-11)
+
+Feita no app de desenvolvimento em **modo memória** (sem banco: a migração não está aplicada), porta 3196, com as 3 ofertas e os 3 ICPs reais do usuário recriados iguais na memória (lidos do `prospector-dev` só para leitura; rubrica e modelo de score iguais ao padrão). Sem banco a busca da Tavily fica desligada, então sinais e concorrentes não rodaram. Nenhum crédito gasto, nenhum contato, nada gravado no banco do usuário.
+
+| Empresa | O que rodou | Resultado |
+|---|---|---|
+| Dpot (`dpot.com.br`, design de móveis, São Paulo/SP, cadastro manual sem CNPJ) | 1 página lida, 2 capturas, 16 fatos medidos, 3 análises da IA local (70 s de GPU), 0 buscas | "Concluída com lacunas". Recomendação **Sem base suficiente**, próximo passo "Investigar mais", confiança geral 44. Ofertas: Site institucional (prioridade 29; Fit 100 com 1 de 4 critérios conhecidos, Oportunidade 62, Confiança 44), Identidade visual (27) e Rebranding (25). Leitura central como inferência de confiança baixa (54%); 3 hipóteses "a verificar"; 4 conclusões da IA descartadas na verificação; lacunas listadas (sem concorrentes, sem sinais, sem decisor, sem CNPJ, poucas fontes) |
+| Lattoog (`lattoog.com`, design autoral de móveis, Rio de Janeiro/RJ conforme o próprio site) | 2 páginas lidas, 2 capturas, 3 análises da IA local, 0 buscas | Recomendação **Acompanhar**, confiança geral 41. Identidade visual (prioridade 24; Fit 100 com 1 de 3, Oportunidade 42, Confiança 41; desqualificador "Já tem manual de marca recente" acionado sem fato que o sustente, KI-133); Rebranding e Site institucional "Sem base suficiente" (17). 4 hipóteses, uma interrompida no meio da frase |
+| Dpot, reinvestigação | Páginas iguais; as 2 análises da IA foram recusadas pela admissão de memória de vídeo (precisava de 4,1 GB + 3 GB de reserva, havia 6,9 GB livres: a GPU estava em uso por outro programa do usuário) | "Concluída com lacunas" em cerca de 1 min; diagnóstico reaproveitado da anterior; Histórico: "Nenhuma mudança encontrada". Paradas aqui as rodadas de IA para não disputar a placa com o usuário |
+
+O que a validação mostrou e foi corrigido na hora (com teste): a seleção de páginas não reconhecia "a dpot" (institucional) nem "coleção" (produtos); o contraste de texto sobre imagem de fundo contava como baixo (KI-137); afirmação interrompida pelo modelo virava claim (agora é descartada); o aviso de pasta das capturas dizia que a marca fora analisada só pelo texto (as imagens vão ao modelo, só não ficam guardadas).
+
+O que continua (sem correção nesta entrega): o modelo de 4B exagera nas inferências e chegou a contradizer uma medição ("falta de imagens" com 5 imagens medidas) (KI-131); Fit 100 com um critério conhecido (KI-132, decisão de metodologia); desqualificador sustentado por fato sem relação (KI-133).
+
+### Cenários da especificação
+
+| Cenário | Situação |
+|---|---|
+| A — Investigação real | Parcial: duas empresas reais, fontes e síntese gravadas (na memória); sem Receita (cadastro manual) e sem busca |
+| B — Auditoria visual | Feito com ressalvas: capturas reais, análise com visão e conclusões ligadas às medições e às imagens; qualidade do modelo em KI-131; imagens não guardadas na validação (sem pasta; guardar e apagar coberto por testes, KI-136) |
+| C — Concorrência | Não verificado com empresa real (precisa de busca, logo de banco); coberto por testes com fixtures |
+| D — Diagnóstico | Feito: fatos, inferências e hipóteses com fonte e confiança no dossiê |
+| E — Serviço recomendado | Feito com ressalvas: recomendação conservadora e justificada, sem afirmação comercial inventada; KI-132 e KI-133 |
+| F — Informações insuficientes | Feito: "Sem base suficiente", lacunas listadas, nada completado por imaginação; IA indisponível tratada sem quebrar |
+| G — Persistência | Não verificado no app (modo memória); coberto por testes de banco (PGlite). Depende da migração |
+| H — Atualização | Parcial: reinvestigação reaproveitou o diagnóstico e não achou mudança; mudança real não observada (coberta por testes, inclusive "cenário H" sem crédito nem GPU na segunda rodada) |
+| I — Copiloto | Não verificado no app (o prompt com as ferramentas ficou em rascunho até o v4 unificado); coberto por testes das ferramentas (estado real da tarefa, nunca "concluída" ao pôr na fila) e por avaliações pequenas (KI-130) |
+| J — Integração com a Descoberta | Não verificado no app (a Descoberta está em outra branch, sem botão ligando as duas telas); a investigação recebe o id da empresa já cadastrada (gatilho `discovery`), sem recadastro; teste "cenário J" |
+
+### Testes e avaliação
+
+| Item | Resultado |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | Verdes |
+| `pnpm test` (fixtures, sem rede nem Ollama) | 1.148 verdes: contracts 195, domain 288, application 148, integrations 189 (inclui captura em Chromium real sem rede), agents 159, web 91, db 78 |
+| `pnpm test:db` (PGlite) | 76 verdes, inclusive a guarda que recusa mudar execução encerrada |
+| `pnpm test:e2e` (`E2E_PORT=3180 E2E_MEMORY_PORT=3190`, modo memória, sem Ollama) | 47 passaram, 3 pulados (precisam de banco real ou Ollama real); inclui investigar uma empresa pela tela até o fim |
+| Avaliação do rascunho (avaliado com o id "v4", hoje em `docs/rascunhos/copilot-tools-empresas.md`) | Oito rodadas pequenas (`EVAL_WEB=1 EVAL_PROMPTS=3,4`, `qwen3.5:4b`, até 3 repetições), internet e empresas SINTÉTICAS, com 7 textos diferentes sob o id "v4". O texto que está no disco só foi avaliado numa rodada (17-33: comuns 4 de 9, investigação 7 de 9, `pedido-de-envio` 0 de 3) e depois ganhou uma correção de texto sem nova rodada. Melhor rodada dos comuns: 15/21 contra 18/21 do v3. Não promovido (KI-130). `pnpm evals` completo não rodou |
+| Prompts das análises | v1, sem conjunto de avaliação (KI-131) |
+
+| Pendências | KI-130 a KI-146 |
+|---|---|
 
 ## Decisões desta execução
 

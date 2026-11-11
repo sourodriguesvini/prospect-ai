@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import type { PageFetcher, PageFetchFailure, PageFetchResult } from '@prospector/application';
-import { WEB_PAGE_TEXT_MAX_CHARS, WebPage, webHostRestriction } from '@prospector/contracts';
+import {
+  WEB_PAGE_LINKS_MAX,
+  WEB_PAGE_TEXT_MAX_CHARS,
+  WebPage,
+  webHostRestriction,
+  type PageLink,
+} from '@prospector/contracts';
 import {
   createPlaywrightRenderer,
   type BrowserRenderer,
@@ -87,7 +93,7 @@ export interface PageReaderOptions {
 
 const HTML_TYPES = new Set(['text/html', 'application/xhtml+xml']);
 
-function mimeOf(contentType: string | undefined): { mime: string; charset: string | null } {
+export function mimeOf(contentType: string | undefined): { mime: string; charset: string | null } {
   const [mime = '', ...params] = (contentType ?? '').split(';');
   const charset = params
     .map((param) => /^\s*charset\s*=\s*"?([^";]+)"?/i.exec(param)?.[1] ?? null)
@@ -95,7 +101,7 @@ function mimeOf(contentType: string | undefined): { mime: string; charset: strin
   return { mime: mime.trim().toLowerCase(), charset: charset ?? null };
 }
 
-function decode(body: Uint8Array, charset: string | null, sniffHtml: boolean): string {
+export function decode(body: Uint8Array, charset: string | null, sniffHtml: boolean): string {
   let label = charset;
   if (!label && sniffHtml) {
     const head = new TextDecoder('latin1').decode(body.subarray(0, 2048));
@@ -108,11 +114,38 @@ function decode(body: Uint8Array, charset: string | null, sniffHtml: boolean): s
   }
 }
 
+/** Links absolutos http(s), sem âncora, um por endereço, na ordem da página. */
+export function absoluteLinks(
+  links: ReadonlyArray<{ href: string; text: string }>,
+  base: URL,
+): PageLink[] {
+  const seen = new Set<string>();
+  const result: PageLink[] = [];
+  for (const link of links) {
+    if (result.length >= WEB_PAGE_LINKS_MAX) break;
+    let url: URL;
+    try {
+      url = new URL(link.href, base);
+    } catch {
+      continue;
+    }
+    if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username || url.password) {
+      continue;
+    }
+    url.hash = '';
+    const href = url.toString();
+    if (href.length > 2048 || seen.has(href)) continue;
+    seen.add(href);
+    result.push({ url: href, text: link.text.replace(/\s+/g, ' ').trim().slice(0, 120) });
+  }
+  return result;
+}
+
 function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function statusFailure(status: number): PageFetchFailure | null {
+export function statusFailure(status: number): PageFetchFailure | null {
   if ([401, 402, 403, 407, 451].includes(status)) return 'access_denied';
   if (status === 404 || status === 410) return 'not_found';
   if (status === 429) return 'rate_limited';
@@ -265,6 +298,7 @@ export function createPageReader(options: PageReaderOptions = {}): PageFetcher &
         lang: null,
         robots: [],
         text: decode(response.body, charset, false),
+        links: [],
       };
     } else {
       return failed('unsupported_content', response.status);
@@ -295,6 +329,7 @@ export function createPageReader(options: PageReaderOptions = {}): PageFetcher &
       fetchedAt: now().toISOString(),
       renderer,
       noArchive,
+      links: absoluteLinks(content.links, url),
     });
     if (!page.success) {
       log('[leitor] página fora do contrato depois da extração');

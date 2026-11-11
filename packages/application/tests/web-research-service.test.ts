@@ -98,6 +98,7 @@ function page(url: string, overrides: Partial<WebPage> = {}): WebPage {
     contentHash: 'b'.repeat(64),
     fetchedAt: '2026-11-10T12:00:00.000Z',
     renderer: 'browser',
+    links: [],
     noArchive: false,
     ...overrides,
   };

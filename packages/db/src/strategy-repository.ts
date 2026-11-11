@@ -95,7 +95,9 @@ export type AuditedTable =
   | 'approvals'
   | 'interactions'
   | 'tasks'
-  | 'suppression_entries';
+  | 'suppression_entries'
+  // Empresas (ADR-0015)
+  | 'company_investigations';
 
 /**
  * JSON em base64: cabeçalho HTTP só aceita ASCII. Sem conteúdo da estratégia (KI-015). `table` e

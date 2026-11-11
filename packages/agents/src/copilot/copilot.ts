@@ -35,22 +35,51 @@ export const COPILOT_PROMPT_VERSION = 3;
  */
 export const COPILOT_TOOLS_PROMPT_VERSION = 3;
 
+type ToolsPromptCapability = 'web' | 'investigation' | 'discovery' | 'relationship';
+
+/**
+ * O que cada versão de `prompts/copilot-tools/` conhece, declarado aqui. Versão nova declara as
+ * suas; versão sem declaração não recebe nenhuma ferramenta além das de leitura do banco. Por
+ * declaração, e não por "versão >= N": várias frentes criam ferramentas em paralelo (Empresas,
+ * Descoberta, Relacionamento), e uma versão que não fala de uma ferramenta não pode recebê-la.
+ * Nenhuma versão declara 'investigation', 'discovery' nem 'relationship' ainda: os trechos estão
+ * em `docs/rascunhos/` (copilot-tools-empresas, -v4-descoberta e -v4-relacionamento), e o v4
+ * unificado, montado e avaliado depois da mesclagem das branches, declara aqui o que ensinar
+ * (KI-110, KI-121, KI-130).
+ */
+const TOOLS_PROMPT_CAPABILITIES: Readonly<Record<number, readonly ToolsPromptCapability[]>> = {
+  1: [],
+  2: [],
+  3: ['web'],
+};
+
+function toolsPromptKnows(promptVersion: number, capability: ToolsPromptCapability): boolean {
+  return TOOLS_PROMPT_CAPABILITIES[promptVersion]?.includes(capability) ?? false;
+}
+
 /**
  * As ferramentas que pesquisam na internet (ADR-0012) só entram com um prompt que as conhece: até
  * o v2, o prompt diz ao modelo que nenhuma ferramenta acessa a internet (KI-096).
  */
 export function copilotPromptSupportsWebTools(promptVersion: number): boolean {
-  return promptVersion >= 3;
+  return toolsPromptKnows(promptVersion, 'web');
 }
 
 /**
- * As ferramentas da Descoberta (M3) só entram com um prompt que as conhece (`copilot-tools/v4` em
- * diante): até o v3, o prompt diz que as ferramentas só leem e não sabe do rascunho de pesquisa.
- * O v4 ainda não existe: ele junta Descoberta, Empresas e Relacionamento e é montado e avaliado
- * depois da mesclagem das branches (trecho proposto em `docs/rascunhos/copilot-tools-v4-descoberta.md`).
+ * As ferramentas da investigação de empresas (ADR-0015), inclusive a que põe uma investigação na
+ * fila, só entram com um prompt que as conhece: até o v3, o prompt diz que toda ferramenta só lê.
+ */
+export function copilotPromptSupportsInvestigationTools(promptVersion: number): boolean {
+  return toolsPromptKnows(promptVersion, 'investigation');
+}
+
+/**
+ * As ferramentas da Descoberta (M3) só entram com um prompt que as conhece: até o v3, o prompt diz
+ * que as ferramentas só leem e não sabe do rascunho de pesquisa (trecho proposto em
+ * `docs/rascunhos/copilot-tools-v4-descoberta.md`, KI-110).
  */
 export function copilotPromptSupportsDiscoveryTools(promptVersion: number): boolean {
-  return promptVersion >= 4;
+  return toolsPromptKnows(promptVersion, 'discovery');
 }
 
 /**
@@ -61,7 +90,7 @@ export function copilotPromptSupportsDiscoveryTools(promptVersion: number): bool
  * KI-121).
  */
 export function copilotPromptSupportsRelationshipTools(promptVersion: number): boolean {
-  return promptVersion >= 4;
+  return toolsPromptKnows(promptVersion, 'relationship');
 }
 
 /**

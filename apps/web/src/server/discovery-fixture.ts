@@ -102,6 +102,7 @@ export function syntheticDiscoveryWeb(
         fetchedAt: now().toISOString(),
         renderer: 'http',
         noArchive: false,
+        links: [],
       };
       return { ok: true as const, page, fromCache: false };
     },

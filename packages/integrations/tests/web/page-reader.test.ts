@@ -336,6 +336,11 @@ describe('createPageReader', () => {
       lang: 'pt-BR',
       robots: [],
       text: 'Conteúdo montado pelo JavaScript. Contato: (20) 9 9999-0000',
+      links: [
+        { href: 'https://empresa.example.com/sobre#time', text: 'Sobre' },
+        { href: 'https://empresa.example.com/sobre', text: 'Sobre nós' },
+        { href: 'mailto:contato@empresa.example.com', text: 'E-mail' },
+      ],
     }));
     const ok = reader(routes, {
       renderer: 'browser',
@@ -347,6 +352,7 @@ describe('createPageReader', () => {
       title: 'SPA',
       description: 'montado por JS',
       text: 'Conteúdo montado pelo JavaScript. Contato: (20) 9 9999-0000',
+      links: [{ url: 'https://empresa.example.com/sobre', text: 'Sobre' }],
     });
     const main = render.mock.calls[0]?.[0];
     expect(main?.url).toBe('https://empresa.example.com/');
@@ -381,6 +387,7 @@ describe('createPageReader', () => {
             lang: null,
             robots: ['noai'],
             text: 'x',
+            links: [],
           }),
           close: async () => undefined,
         },
@@ -421,5 +428,28 @@ describe('createPageReader: prazo total', () => {
     const pending = pages.fetchPage('https://empresa.example.com/', { signal: controller.signal });
     controller.abort(new Error('cancelado'));
     await expect(pending).rejects.toThrow('cancelado');
+  });
+});
+
+describe('absoluteLinks', () => {
+  it('resolve relativos, tira âncora, credenciais, outros esquemas e repetições', async () => {
+    const { absoluteLinks } = await import('../../src/web/page-reader');
+    const base = new URL('https://empresa.example.com/servicos/');
+    expect(
+      absoluteLinks(
+        [
+          { href: 'implante', text: '  Implante  dentário ' },
+          { href: '/sobre#equipe', text: 'Sobre' },
+          { href: '/sobre', text: 'Sobre de novo' },
+          { href: 'javascript:void(0)', text: 'x' },
+          { href: 'https://user:senha@empresa.example.com/', text: 'x' },
+          { href: 'tel:+554199999999', text: 'Ligar' },
+        ],
+        base,
+      ),
+    ).toEqual([
+      { url: 'https://empresa.example.com/servicos/implante', text: 'Implante dentário' },
+      { url: 'https://empresa.example.com/sobre', text: 'Sobre' },
+    ]);
   });
 });

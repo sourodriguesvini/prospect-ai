@@ -11,6 +11,8 @@ import {
   DEFAULT_OLLAMA_URL,
   isAiError,
   toAiError,
+  copilotPromptSupportsInvestigationTools,
+  createLocalBrandAnalysisAi,
   type LocalAiGateway,
   type LocalAiRuntime,
 } from '@prospector/agents';
@@ -29,6 +31,7 @@ import {
   createEvidenceService,
   createJobWorker,
   createRelationshipService,
+  createInvestigationService,
   createStrategyService,
   createSystemService,
   createToolRegistry,
@@ -36,7 +39,9 @@ import {
   DiscoveryAiError,
   discoveryJobHandler,
   relationshipTools,
+  investigationTools,
   strategyTools,
+  systemClock,
   webResearchTools,
   type AiTelemetryRepository,
   type AuditRepository,
@@ -55,6 +60,8 @@ import {
   type RelationshipAi,
   type RelationshipRepository,
   type RelationshipService,
+  type InvestigationRepository,
+  type InvestigationService,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
@@ -69,8 +76,10 @@ import {
   createMemoryCopilotRepository,
   createMemoryDiscoveryStore,
   createMemoryRelationshipRepository,
+  createMemoryInvestigationRepository,
   createMemoryStrategyRepository,
   createMemoryWebResearchUsage,
+  type MemoryCompanyRepository,
 } from '@prospector/application/memory';
 import {
   createServerSupabaseClient,
@@ -81,10 +90,20 @@ import {
   createSupabaseDiscoveryRepository,
   createSupabaseJobQueue,
   createSupabaseRelationshipRepository,
+  createSupabaseInvestigationRepository,
   createSupabaseStrategyRepository,
   createSupabaseWebResearchUsage,
 } from '@prospector/db';
-import { createCnpjLookup, createPageReader, createTavilySearch } from '@prospector/integrations';
+import {
+  createBrandCapturer,
+  createCnpjLookup,
+  createFileCaptureStore,
+  createPageReader,
+  createPlaywrightRenderer,
+  createTavilySearch,
+  subresourceFetcher,
+  systemResolver,
+} from '@prospector/integrations';
 import { cache } from 'react';
 import { syntheticCnpjLookup } from './cnpj-fixture';
 import { syntheticDiscoveryAi, syntheticDiscoveryWeb } from './discovery-fixture';
@@ -96,6 +115,7 @@ import {
   jobWorkerEnabled,
   discoveryMode,
   databaseEnvPresent,
+  investigationEnv,
   LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
   localAiEnv,
@@ -124,6 +144,11 @@ export interface Services {
   /** Empresas, consulta de CNPJ e dossiês (M2); null sem banco. */
   companies: CompanyService | null;
   /**
+   * Investigação de empresas e auditoria de marca (Módulo 02, ADR-0015): fila do processo,
+   * capturas, análises da IA local e diagnóstico; null sem banco.
+   */
+  investigations: InvestigationService | null;
+  /**
    * Pesquisa na internet (ADR-0012): busca Tavily e leitura de páginas; null sem banco. As
    * ferramentas do Copiloto para ela entram conforme `copilotTools`.
    */
@@ -143,7 +168,7 @@ interface MemoryStores {
   audit: AuditRepository;
   strategy: StrategyRepository;
   copilot: CopilotRepository & AiTelemetryRepository;
-  companies: CompanyRepository & EvidenceRepository;
+  companies: MemoryCompanyRepository;
   discovery: { repository: DiscoveryRepository; queue: JobQueue };
   relationship: RelationshipRepository;
 }
@@ -165,6 +190,16 @@ function memoryStores(): MemoryStores {
     };
   }
   return holder.__prospectorMemoryStores;
+}
+
+/** Investigações em memória: mesma trilha de auditoria e mesmas empresas do modo memória. */
+function memoryInvestigations(stores: MemoryStores): InvestigationRepository {
+  const holder = globalThis as { __prospectorMemoryInvestigations?: InvestigationRepository };
+  holder.__prospectorMemoryInvestigations ??= createMemoryInvestigationRepository({
+    audit: stores.audit,
+    companies: stores.companies,
+  });
+  return holder.__prospectorMemoryInvestigations;
 }
 
 /**
@@ -259,6 +294,7 @@ function copilotTools(
   research: WebResearchSetup,
   discovery: DiscoveryService | null,
   relationship: RelationshipService,
+  investigations: InvestigationService | null,
 ): ToolDefinition[] {
   const web =
     research.searchOn && copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)
@@ -273,9 +309,16 @@ function copilotTools(
   const followUp = copilotPromptSupportsRelationshipTools(COPILOT_TOOLS_PROMPT_VERSION)
     ? relationshipTools({ relationship, companies })
     : [];
+  // Investigação (ADR-0015): só com um prompt que declara conhecer a ferramenta que põe na fila
+  // (`TOOLS_PROMPT_CAPABILITIES` em `@prospector/agents`), nunca pelo número da versão.
+  const investigation =
+    investigations && copilotPromptSupportsInvestigationTools(COPILOT_TOOLS_PROMPT_VERSION)
+      ? investigationTools({ investigations, companies })
+      : [];
   return [
     ...strategyTools({ strategy, audit }),
     ...companyTools({ companies }),
+    ...investigation,
     ...followUp,
     ...web,
     ...found,
@@ -493,6 +536,90 @@ function copilotContextTokens(): number | undefined {
   return (globalThis as LocalAiHolder)[LOCAL_AI_KEY]?.policy.copilot.numCtx;
 }
 
+/**
+ * Investigação de empresas (ADR-0015): uma instância por processo, porque a fila (uma
+ * investigação por vez), o batimento e o navegador da captura valem para todos os pedidos. Fica
+ * em `globalThis` pelo mesmo motivo da IA local. Na criação, execuções sem batimento recente
+ * (app fechado no meio) passam a `interrupted` e podem ser retomadas pela tela.
+ */
+const INVESTIGATIONS_KEY = '__prospectorInvestigations';
+type InvestigationsHolder = typeof globalThis & { [INVESTIGATIONS_KEY]?: InvestigationService };
+
+/** Prazo de uma captura (documento, navegador, medições e imagem) por janela. */
+const CAPTURE_TIMEOUT_MS = 30_000;
+
+function investigationService(parts: {
+  repo: InvestigationRepository;
+  companies: CompanyRepository & EvidenceRepository;
+  strategy: StrategyRepository;
+  research: WebResearchSetup;
+  telemetry: AiTelemetryRepository;
+}): InvestigationService {
+  const holder = globalThis as InvestigationsHolder;
+  const existing = holder[INVESTIGATIONS_KEY];
+  if (existing) return existing;
+  const settings = investigationEnv();
+  const log = (message: string) => console.warn(`[investigacao] ${message}`);
+  if (settings.capturesDirProblem) log(settings.capturesDirProblem);
+  // Navegador próprio da captura: imagens e fontes entram (o do leitor de páginas as bloqueia),
+  // sempre pelo cliente seguro (SSRF, sites restritos, robots.txt).
+  const capturer = settings.captureEnabled
+    ? createBrandCapturer({
+        browser: createPlaywrightRenderer({
+          log,
+          fetchResource: subresourceFetcher({
+            resolver: systemResolver,
+            timeoutMs: CAPTURE_TIMEOUT_MS,
+          }),
+        }),
+        timeoutMs: CAPTURE_TIMEOUT_MS,
+        log,
+      })
+    : null;
+  const service = createInvestigationService(
+    {
+      investigations: parts.repo,
+      companies: parts.companies,
+      evidence: parts.companies,
+      evidenceService: createEvidenceService({ evidence: parts.companies }),
+      strategy: parts.strategy,
+      webResearch: parts.research.service,
+      capturer,
+      captureStore: settings.capturesDir
+        ? createFileCaptureStore({ dir: settings.capturesDir })
+        : null,
+      // Mesmo gateway (e mesma fila de inferências) do Copiloto: uma inferência por vez.
+      ai: createLocalBrandAnalysisAi({
+        gateway: {
+          chat: (...args: Parameters<LocalAiGateway['chat']>) =>
+            localAiRuntime().gateway.chat(...args),
+        },
+        log,
+      }),
+      telemetry: parts.telemetry,
+      clock: systemClock,
+      newId: () => crypto.randomUUID(),
+      log,
+    },
+    { runnerId: `web-${process.pid}-${crypto.randomUUID().slice(0, 8)}` },
+  );
+  holder[INVESTIGATIONS_KEY] = service;
+  service.recoverInterrupted().then(
+    (count) => {
+      if (count > 0) log(`${count} investigação(ões) interrompida(s) marcada(s) para retomar.`);
+    },
+    (error: unknown) =>
+      log(`não foi possível recuperar investigações interrompidas: ${String(error)}`),
+  );
+  return service;
+}
+
+/** Imagens das capturas para a rota que as serve; null = pasta não configurada. */
+export function getCaptureStore(): ReturnType<typeof createFileCaptureStore> | null {
+  const settings = investigationEnv();
+  return settings.capturesDir ? createFileCaptureStore({ dir: settings.capturesDir }) : null;
+}
+
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
 function warnIgnoredDatabase(): void {
   const holder = globalThis as { __prospectorMemoryWarned?: boolean };
@@ -528,6 +655,13 @@ export const getServices = cache((): Services => {
       telemetry: stores.copilot,
       syntheticAi: relationshipAiSetup.synthetic,
     });
+    const investigations = investigationService({
+      repo: memoryInvestigations(stores),
+      companies: stores.companies,
+      strategy: stores.strategy,
+      research,
+      telemetry: stores.copilot,
+    });
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
@@ -535,9 +669,18 @@ export const getServices = cache((): Services => {
       strategy,
       copilot: createCopilotService({ repo: stores.copilot, telemetry: stores.copilot }),
       companies,
+      investigations,
       research: research.service,
       tools: createToolRegistry({
-        tools: copilotTools(strategy, audit, companies, research, discovery, relationship),
+        tools: copilotTools(
+          strategy,
+          audit,
+          companies,
+          research,
+          discovery,
+          relationship,
+          investigations,
+        ),
         telemetry: stores.copilot,
       }),
       discovery,
@@ -553,6 +696,7 @@ export const getServices = cache((): Services => {
       strategy: null,
       copilot: null,
       companies: null,
+      investigations: null,
       research: null,
       tools: null,
       discovery: null,
@@ -587,6 +731,13 @@ export const getServices = cache((): Services => {
     telemetry: copilotRepo,
     syntheticAi: relationshipAiSetup.synthetic,
   });
+  const investigations = investigationService({
+    repo: createSupabaseInvestigationRepository(client),
+    companies: companyRepo,
+    strategy: createSupabaseStrategyRepository(client),
+    research,
+    telemetry: copilotRepo,
+  });
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
@@ -594,9 +745,18 @@ export const getServices = cache((): Services => {
     strategy,
     copilot: createCopilotService({ repo: copilotRepo, telemetry: copilotRepo }),
     companies,
+    investigations,
     research: research.service,
     tools: createToolRegistry({
-      tools: copilotTools(strategy, audit, companies, research, discovery, relationship),
+      tools: copilotTools(
+        strategy,
+        audit,
+        companies,
+        research,
+        discovery,
+        relationship,
+        investigations,
+      ),
       telemetry: copilotRepo,
     }),
     discovery,

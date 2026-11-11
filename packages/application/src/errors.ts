@@ -64,6 +64,13 @@ export const ERROR_MESSAGES = {
   suppression_inherited:
     'Esta supressão veio de outra empresa (mesma raiz de CNPJ ou mesmo domínio). Retire-a no dossiê da empresa que pediu.',
   suppression_locked: 'Supressão por pedido de titular (LGPD) não pode ser retirada pelo app.',
+  // Módulo 02 — investigação (ADR-0015)
+  investigation_running:
+    'Já há uma investigação em andamento para esta empresa. Acompanhe o progresso ou cancele antes de começar outra.',
+  investigation_queue_full:
+    'A fila de investigações está cheia. Espere algumas terminarem e tente de novo.',
+  investigation_not_resumable:
+    'Só investigações interrompidas ou com falha podem ser retomadas. Para atualizar, comece uma nova.',
 } as const;
 
 export type ErrorReason = keyof typeof ERROR_MESSAGES;

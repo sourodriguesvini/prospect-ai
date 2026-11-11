@@ -4,6 +4,8 @@ import {
   COPILOT_TOOL_RESULTS_MAX_CHARS,
   COPILOT_TOOLS_PROMPT_VERSION,
   MAX_COPILOT_ROUNDS,
+  copilotPromptSupportsDiscoveryTools,
+  copilotPromptSupportsInvestigationTools,
   copilotPromptSupportsRelationshipTools,
   copilotPromptSupportsWebTools,
   createCopilot,
@@ -357,15 +359,26 @@ describe('Copiloto com ferramentas', () => {
   });
 });
 
-describe('ferramentas por versão do prompt', () => {
-  it('internet a partir do v3; Relacionamento só com um v4 que as conheça (ADR-0014)', () => {
-    expect(copilotPromptSupportsWebTools(2)).toBe(false);
-    expect(copilotPromptSupportsWebTools(3)).toBe(true);
-    expect(copilotPromptSupportsRelationshipTools(3)).toBe(false);
-    expect(copilotPromptSupportsRelationshipTools(4)).toBe(true);
-    // O prompt em produção ainda é o v3: as ferramentas do Relacionamento ficam de fora.
-    expect(copilotPromptSupportsRelationshipTools(COPILOT_TOOLS_PROMPT_VERSION)).toBe(
-      COPILOT_TOOLS_PROMPT_VERSION >= 4,
-    );
+describe('ferramentas por versão do prompt copilot-tools (declaradas, não por número)', () => {
+  it('cada versão recebe só o que conhece; versão sem declaração não recebe nada a mais', () => {
+    expect([1, 2, 3, 4, 5].map(copilotPromptSupportsWebTools)).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
+    ]);
+    // Nenhuma versão declara investigação, Descoberta nem Relacionamento: o v4 unificado vem
+    // depois da mesclagem das branches (KI-110, KI-121, KI-130).
+    for (const supports of [
+      copilotPromptSupportsInvestigationTools,
+      copilotPromptSupportsDiscoveryTools,
+      copilotPromptSupportsRelationshipTools,
+    ]) {
+      expect([1, 2, 3, 4, 5].map(supports)).toEqual([false, false, false, false, false]);
+      // A versão em uso hoje (v3) não recebe essas ferramentas.
+      expect(supports(COPILOT_TOOLS_PROMPT_VERSION)).toBe(false);
+    }
+    expect(copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)).toBe(true);
   });
 });

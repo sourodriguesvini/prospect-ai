@@ -111,7 +111,9 @@ export interface OllamaTool {
 
 /** Mensagem no formato do `/api/chat`, inclusive pedidos e resultados de ferramentas. */
 export type OllamaChatMessage =
-  | { role: 'system' | 'user'; content: string }
+  | { role: 'system'; content: string }
+  /** `images`: imagens em base64 (só para modelo com visão). */
+  | { role: 'user'; content: string; images?: string[] }
   | {
       role: 'assistant';
       content: string;

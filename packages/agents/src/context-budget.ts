@@ -15,12 +15,35 @@ export interface BudgetMessage {
   /** Mensagem `tool`: qual ferramenta e qual chamada ela responde. */
   toolName?: string;
   toolCallId?: string;
+  /** Imagens da mensagem do usuário (modelo com visão), com as dimensões para a conta. */
+  images?: readonly GatewayImage[];
 }
 
-/** Custo de uma mensagem: o texto e, se houver, os pedidos de ferramenta em JSON. */
+/** Imagem em base64 (JPEG ou PNG) e seu tamanho em pixels. */
+export interface GatewayImage {
+  base64: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * Teto do custo de uma imagem: um token a cada 28×28 pixels (o recorte dos modelos de visão da
+ * família Qwen) mais as marcas de início e fim. Errar para cima corta texto antes, nunca a imagem.
+ */
+export function estimateImageTokens(image: Pick<GatewayImage, 'width' | 'height'>): number {
+  const width = Math.max(1, Math.round(image.width));
+  const height = Math.max(1, Math.round(image.height));
+  return Math.ceil((width * height) / (28 * 28)) + 16;
+}
+
+/** Custo de uma mensagem: o texto, as imagens e, se houver, os pedidos de ferramenta em JSON. */
 export function estimateMessageTokens(message: BudgetMessage): number {
   const calls = message.toolCalls?.length ? estimateTokens(JSON.stringify(message.toolCalls)) : 0;
-  return estimateTokens(message.content) + calls;
+  const images = (message.images ?? []).reduce(
+    (total, image) => total + estimateImageTokens(image),
+    0,
+  );
+  return estimateTokens(message.content) + calls + images;
 }
 
 /**

@@ -1,8 +1,13 @@
 import {
+  ACTIVE_INVESTIGATION_STATUSES,
   COMPANY_LIFECYCLE_LABELS,
   CompanyLifecycle,
   formatCnpj,
+  INVESTIGATION_STATUS_LABELS,
+  Recommendation,
+  RECOMMENDATION_LABELS,
   type Company,
+  type CompanyInvestigationSummary,
 } from '@prospector/contracts';
 import { Badge, Button, DemoBadge, Input, Label, NativeSelect, Panel, Well } from '@prospector/ui';
 import { Plus, Search } from 'lucide-react';
@@ -15,6 +20,7 @@ import { PageHeader, StorageNotice, Unavailable } from '@/components/strategy/pa
 import { companyRoutes } from '@/lib/company-routes';
 import { formatDate } from '@/lib/format';
 import { loadCompanies } from '@/server/companies';
+import { loadInvestigationSummaries } from '@/server/investigations';
 
 export const metadata: Metadata = { title: 'Empresas' };
 
@@ -25,24 +31,73 @@ const FILTER_OPTIONS = [
   ...CompanyLifecycle.options.map((value) => ({ value, label: COMPANY_LIFECYCLE_LABELS[value] })),
 ];
 
+/** Filtro pela última investigação: recomendação do diagnóstico, em andamento ou nenhuma. */
+const INVESTIGATION_FILTERS = ['sem', 'andamento', ...Recommendation.options] as const;
+type InvestigationFilter = (typeof INVESTIGATION_FILTERS)[number];
+
+const INVESTIGATION_FILTER_OPTIONS = [
+  { value: '', label: 'Todas' },
+  { value: 'sem', label: 'Sem investigação' },
+  { value: 'andamento', label: 'Investigação em andamento' },
+  ...Recommendation.options.map((value) => ({ value, label: RECOMMENDATION_LABELS[value] })),
+];
+
 type Props = PageProps<'/empresas'>;
 
 interface Filter {
   search: string;
   lifecycle: CompanyLifecycle | null;
+  investigation: InvestigationFilter | null;
+  byPriority: boolean;
 }
 
 function readFilter(params: Awaited<Props['searchParams']>): Filter {
   const one = (value: string | string[] | undefined) =>
     (Array.isArray(value) ? value[0] : value) ?? '';
   const lifecycle = CompanyLifecycle.safeParse(one(params.etapa));
+  const investigation = INVESTIGATION_FILTERS.find((value) => value === one(params.investigacao));
   return {
     search: one(params.busca).trim().slice(0, 120),
     lifecycle: lifecycle.success ? lifecycle.data : null,
+    investigation: investigation ?? null,
+    byPriority: one(params.ordem) === 'prioridade',
   };
 }
 
-function CompanyRow({ company }: { company: Company }) {
+function matches(summary: CompanyInvestigationSummary | undefined, filter: InvestigationFilter) {
+  if (filter === 'sem') return summary === undefined;
+  if (!summary) return false;
+  if (filter === 'andamento') return ACTIVE_INVESTIGATION_STATUSES.includes(summary.status);
+  return summary.recommendation === filter;
+}
+
+/** Última investigação: recomendação e prioridade do diagnóstico ou o estado da execução. */
+function InvestigationSummary({ summary }: { summary: CompanyInvestigationSummary | undefined }) {
+  if (!summary) return <span>Não investigada</span>;
+  if (!summary.recommendation) {
+    return <Badge variant="outline">{INVESTIGATION_STATUS_LABELS[summary.status]}</Badge>;
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <Badge variant={summary.recommendation === 'pursue' ? 'success' : 'neutral'}>
+        {RECOMMENDATION_LABELS[summary.recommendation]}
+      </Badge>
+      {summary.priority !== null ? <span>Prioridade {summary.priority}</span> : null}
+      {summary.recommendedOfferName ? <span>· {summary.recommendedOfferName}</span> : null}
+      {ACTIVE_INVESTIGATION_STATUSES.includes(summary.status) ? (
+        <span>· {INVESTIGATION_STATUS_LABELS[summary.status].toLowerCase()}</span>
+      ) : null}
+    </span>
+  );
+}
+
+function CompanyRow({
+  company,
+  summary,
+}: {
+  company: Company;
+  summary: CompanyInvestigationSummary | undefined;
+}) {
   const place = [company.city, company.uf].filter(Boolean).join('/');
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -63,10 +118,11 @@ function CompanyRow({ company }: { company: Company }) {
         </span>
       </span>
       <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <InvestigationSummary summary={summary} />
         {company.lastInvestigatedAt ? (
-          <span>Consultada em {formatDate(company.lastInvestigatedAt)}</span>
+          <span>Última coleta em {formatDate(company.lastInvestigatedAt)}</span>
         ) : (
-          <span>Sem consulta</span>
+          <span>Sem coleta</span>
         )}
         <Badge variant={company.lifecycle === 'archived' ? 'outline' : 'neutral'}>
           {COMPANY_LIFECYCLE_LABELS[company.lifecycle]}
@@ -88,8 +144,19 @@ async function CompanyList({ searchParams }: { searchParams: Props['searchParams
     }),
   );
   if (result.kind === 'unavailable') return <Unavailable message={result.message} />;
-  const companies = result.data;
-  const filtered = filter.search !== '' || filter.lifecycle !== null;
+  const loaded = result.data;
+  const summaries = await loadInvestigationSummaries(loaded.map((company) => company.id));
+  const investigationFilter = filter.investigation;
+  const selected = investigationFilter
+    ? loaded.filter((company) => matches(summaries.get(company.id), investigationFilter))
+    : loaded;
+  const companies = filter.byPriority
+    ? [...selected].sort(
+        (a, b) => (summaries.get(b.id)?.priority ?? -1) - (summaries.get(a.id)?.priority ?? -1),
+      )
+    : selected;
+  const filtered =
+    filter.search !== '' || filter.lifecycle !== null || investigationFilter !== null;
 
   return (
     <>
@@ -124,6 +191,31 @@ async function CompanyList({ searchParams }: { searchParams: Props['searchParams
                   {option.label}
                 </option>
               ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="investigacao-empresas">Investigação</Label>
+            <NativeSelect
+              id="investigacao-empresas"
+              name="investigacao"
+              defaultValue={filter.investigation ?? ''}
+            >
+              {INVESTIGATION_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ordem-empresas">Ordem</Label>
+            <NativeSelect
+              id="ordem-empresas"
+              name="ordem"
+              defaultValue={filter.byPriority ? 'prioridade' : ''}
+            >
+              <option value="">Mais recentes</option>
+              <option value="prioridade">Maior prioridade</option>
             </NativeSelect>
           </div>
           <Button type="submit" variant="secondary">
@@ -163,13 +255,19 @@ async function CompanyList({ searchParams }: { searchParams: Props['searchParams
         ) : (
           <>
             <p className="text-sm text-muted-foreground" role="status">
-              {companies.length === LIMIT
-                ? `Mostrando as ${LIMIT} mais recentes. Use a busca para achar outras.`
+              {loaded.length === LIMIT
+                ? investigationFilter
+                  ? `${companies.length} entre as ${LIMIT} mais recentes. Use a busca para achar outras.`
+                  : `Mostrando as ${LIMIT} mais recentes. Use a busca para achar outras.`
                 : `${companies.length} ${companies.length === 1 ? 'empresa' : 'empresas'}.`}
             </p>
             <ul className="divide-y">
               {companies.map((company) => (
-                <CompanyRow key={company.id} company={company} />
+                <CompanyRow
+                  key={company.id}
+                  company={company}
+                  summary={summaries.get(company.id)}
+                />
               ))}
             </ul>
           </>

@@ -289,20 +289,26 @@ export function createLocalAiGateway(deps: {
       const taskPolicy = policy[task];
       const installed = await client.listModels();
       const details = await describeCandidates(taskPolicy, installed, input.model);
+      // Imagem só vai para modelo com visão: sem isso o Ollama a ignoraria em silêncio.
+      const withImages = input.messages.some((message) => (message.images?.length ?? 0) > 0);
+      const requires =
+        withImages && !taskPolicy.requires.includes('vision')
+          ? [...taskPolicy.requires, 'vision' as const]
+          : taskPolicy.requires;
       const choice = chooseModel({
         preferred: taskPolicy.models,
         installed: installed.map((model) => ({
           name: model.name,
           capabilities: details.get(model.name)?.capabilities ?? null,
         })),
-        requires: taskPolicy.requires,
+        requires,
         wants: [
           ...(input.think ? (['thinking'] as const) : []),
           ...(input.tools?.length ? (['tools'] as const) : []),
         ],
         requested: input.model,
       });
-      if (choice.kind !== 'ok') throw choiceError(choice, input.model, taskPolicy);
+      if (choice.kind !== 'ok') throw choiceError(choice, input.model, { ...taskPolicy, requires });
       const model = choice.model;
       const info = installed.find((entry) => entry.name === model);
       if (!info) throw new AiError('model_not_installed');
@@ -656,6 +662,14 @@ function toOllamaMessage(message: GatewayMessage): OllamaChatMessage {
             })),
           }
         : { role: 'assistant', content: message.content };
+    case 'user':
+      return message.images?.length
+        ? {
+            role: 'user',
+            content: message.content,
+            images: message.images.map((image) => image.base64),
+          }
+        : { role: 'user', content: message.content };
     default:
       return { role: message.role, content: message.content };
   }

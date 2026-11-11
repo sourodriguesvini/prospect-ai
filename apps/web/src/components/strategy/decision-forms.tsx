@@ -20,6 +20,7 @@ export function StatusButton({
   pendingLabel = 'Aplicando…',
   showSuccess = false,
   announcePending = false,
+  dismissLabel = 'Cancelar',
 }: {
   action: FormAction;
   label: string;
@@ -30,6 +31,8 @@ export function StatusButton({
   showSuccess?: boolean;
   /** Avisa o leitor de tela durante a espera (ações demoradas, como a IA local). */
   announcePending?: boolean;
+  /** Botão que fecha a pergunta sem agir (quando "Cancelar" confundiria com a própria ação). */
+  dismissLabel?: string;
 }) {
   const { state, formAction } = useActionForm(action, {});
   const [asking, setAsking] = useState(false);
@@ -102,7 +105,7 @@ export function StatusButton({
         </SubmitButton>
         {confirm ? (
           <Button variant="ghost" onClick={cancel}>
-            Cancelar
+            {dismissLabel}
           </Button>
         ) : null}
       </div>

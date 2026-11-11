@@ -5,9 +5,11 @@
  * M2: empresas — registro da Receita transformado em fatos com trecho verificável.
  * F4: descoberta — hosts, nomes, deduplicação, sinais e triagem `discovery-triage/v1`.
  * Relacionamento (ADR-0014): opt-out, aprovação de uso, base da abordagem e atenção.
+ * Módulo 02: investigação — páginas, medições da marca, verificação, qualificação e mudanças.
  */
 export * from './company/registry';
 export * from './evidence';
+export * from './investigation';
 export * from './relationship/rules';
 export * from './strategy/drafts';
 export * from './strategy/lia';

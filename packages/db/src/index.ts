@@ -6,6 +6,11 @@ export { createSupabaseCopilotRepository } from './copilot-repository';
 export { createSupabaseDatabaseHealth } from './database-health';
 export { createSupabaseRelationshipRepository } from './relationship-repository';
 export { toAppError } from './errors';
+export {
+  createSupabaseInvestigationRepository,
+  mapInvestigation,
+  mapInvestigationSummary,
+} from './investigation-repository';
 export { INTERNAL_DB_ERROR_KEYS, isMissingRelation } from './sql-errors';
 export { createSupabaseStrategyRepository } from './strategy-repository';
 export { createSupabaseWebResearchUsage } from './web-research-usage-repository';

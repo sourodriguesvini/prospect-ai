@@ -15,6 +15,40 @@ export interface ExtractedHtml {
   /** Diretivas de `<meta name="robots">` e `<meta name="prospector">`, em minúsculas. */
   robots: string[];
   text: string;
+  /** `href` como está no HTML (relativo ou absoluto) e o texto do link. */
+  links: RawLink[];
+}
+
+export interface RawLink {
+  href: string;
+  text: string;
+}
+
+const MAX_LINKS = 300;
+
+/**
+ * Links `<a href>` com o texto visível. Linear: cada abertura é lida uma vez e o fechamento é
+ * procurado com `indexOf` numa janela curta (link sem fechamento fica sem texto).
+ */
+function extractLinks(html: string): RawLink[] {
+  const links: RawLink[] = [];
+  const open = /<a\b[^<>]*>/gi;
+  for (
+    let match = open.exec(html);
+    match !== null && links.length < MAX_LINKS;
+    match = open.exec(html)
+  ) {
+    if (match[0].length > 8192) continue;
+    const href = attribute(match[0], 'href');
+    if (!href) continue;
+    const start = open.lastIndex;
+    const window = html.slice(start, start + 2000);
+    const end = window.toLowerCase().indexOf('</a');
+    const inner = end === -1 ? '' : window.slice(0, end);
+    const text = normalizeText(decodeEntities(inner.replace(/<[^<>]*>/g, ' '))).replace(/\n/g, ' ');
+    links.push({ href: href.slice(0, 2048), text: text.slice(0, 120) });
+  }
+  return links;
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -188,6 +222,7 @@ export function extractFromHtml(html: string): ExtractedHtml {
     lang: lang ? lang.slice(0, 35) : null,
     robots,
     text: normalizeText(decodeEntities(body)),
+    links: extractLinks(stripComments(html)),
   };
 }
 

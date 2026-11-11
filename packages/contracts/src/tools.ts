@@ -100,5 +100,10 @@ export const ToolSpec = z.object({
    * na tela (nada roda nem gasta crédito antes). Também não vai para o modelo como campo.
    */
   draft: z.boolean().optional(),
+  /**
+   * true quando a ferramenta põe uma tarefa interna na fila do app (ex.: investigar uma empresa,
+   * ADR-0015), sem enviar nada a ninguém. Também só serve aos fatos do sistema e à tela.
+   */
+  queue: z.boolean().optional(),
 });
 export type ToolSpec = z.infer<typeof ToolSpec>;

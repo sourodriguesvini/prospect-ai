@@ -23,6 +23,9 @@ const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
   approval_invalid: 'conflict',
   approval_used: 'conflict',
   suppression_locked: 'conflict',
+  // Módulo 02: estado final não volta; segunda investigação ativa da mesma empresa.
+  investigation_not_resumable: 'conflict',
+  investigation_running: 'conflict',
 };
 
 interface DbErrorLike {

@@ -43,6 +43,8 @@ export interface CopilotToolFact {
   title: string;
   internet?: boolean;
   draft?: boolean;
+  /** Põe uma tarefa interna na fila do app (ADR-0015); não envia nada. */
+  queue?: boolean;
 }
 
 /**
@@ -66,10 +68,24 @@ function toolsFact(tools: readonly CopilotToolFact[]): string {
   }
   const listed = `Ferramentas de leitura disponíveis nesta conversa: ${tools.map((tool) => `${tool.name} (${tool.title})`).join('; ')}.`;
   const internet = tools.filter((tool) => tool.internet === true).map((tool) => tool.name);
-  if (internet.length === 0) {
-    return `${listed} Nenhuma altera dados, envia mensagens ou acessa a internet.${draftFact(tools)}`;
-  }
-  return `${listed} Pesquisam na internet pública: ${internet.join(', ')}; o que elas acham não entra no dossiê nem nas evidências, fica só nesta conversa. As demais leem só o que está salvo no Prospector. Nenhuma altera dados nem envia mensagens.${draftFact(tools)}`;
+  const base =
+    internet.length === 0
+      ? `${listed} Nenhuma altera dados, envia mensagens ou acessa a internet.`
+      : `${listed} Pesquisam na internet pública: ${internet.join(', ')}; o que elas acham não entra no dossiê nem nas evidências, fica só nesta conversa. As demais leem só o que está salvo no Prospector. Nenhuma altera dados nem envia mensagens.`;
+  return `${base}${draftFact(tools)}${queueFact(tools)}`;
+}
+
+/**
+ * Ferramenta que põe tarefa na fila (investigação, ADR-0015; rascunho em `docs/rascunhos/copilot-tools-empresas.md`): uma frase a
+ * mais no fim, dizendo qual é, o que ela faz (lê o site, pesquisa e grava no dossiê), que não
+ * envia nada e que o resultado só existe quando a consulta mostrar o fim. O texto antes dela fica
+ * idêntico ao das versões anteriores: a rodada de 2026-11-11 mostrou que reescrevê-lo enfraquecia
+ * a explicação do limite de envio.
+ */
+function queueFact(tools: readonly CopilotToolFact[]): string {
+  const queued = tools.filter((tool) => tool.queue === true).map((tool) => tool.name);
+  if (queued.length === 0) return '';
+  return ` Exceção: ${queued.join(', ')} põe na fila do Prospector uma tarefa interna que lê o site da empresa, pesquisa na internet e grava o resultado no dossiê, sem enviar nada a ninguém; o resultado só existe quando a consulta da tarefa mostrar que terminou.`;
 }
 
 const TODAY = new Intl.DateTimeFormat('pt-BR', {

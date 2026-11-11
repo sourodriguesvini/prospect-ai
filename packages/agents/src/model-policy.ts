@@ -55,7 +55,8 @@ const BASE = {
  * injeção, trocou o nome do produto e o cartão declara suporte só a inglês. Continua escolhível
  * à mão em Modelo (pedido explícito), mas nunca é usado sozinho; sem o qwen3.5:4b instalado, o
  * Copiloto pede para instalá-lo (`model_not_installed`).
- * `vision` e `embedding` ainda não têm consumidor (chegam nas fatias IA-4 e IA-5).
+ * `vision` atende a auditoria visual da investigação (ADR-0015); `embedding` ainda não tem
+ * consumidor (fatia IA-5).
  */
 export const DEFAULT_POLICY: ModelPolicy = {
   // 16 mil tokens no Copiloto (2026-11-10): prompt, fatos e as definições das ferramentas já
@@ -69,11 +70,17 @@ export const DEFAULT_POLICY: ModelPolicy = {
     requires: ['completion', 'thinking'],
     models: ['qwen3.5:4b'],
   },
+  // Auditoria visual da investigação (ADR-0015): duas capturas (computador e celular) ocupam
+  // até cerca de 3,5 mil tokens; com rubrica, medições e resposta, 8 mil não bastam. Modelo de
+  // visão não fica parado na memória: `keep_alive` curto (recursos do usuário). Só o qwen3.5:4b:
+  // o qwen3-vl:8b (candidato, doc 13 §2) não foi avaliado e não entra sozinho como reserva.
   vision: {
     ...BASE,
+    numCtx: 12_288,
+    keepAlive: '2m',
     temperature: 0.2,
     requires: ['completion', 'vision'],
-    models: ['qwen3.5:4b', 'qwen3-vl:8b'],
+    models: ['qwen3.5:4b'],
   },
   embedding: {
     ...BASE,

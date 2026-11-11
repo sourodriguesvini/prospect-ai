@@ -28,6 +28,7 @@ import {
   noInventedPhone,
   noInventedTrackRecord,
   noMonitorCreatedClaim,
+  noInvestigationDoneClaim,
   noSendToUnbuiltModule,
   noStoringGuidance,
   notCalledTool,
@@ -68,6 +69,8 @@ export interface EvalCase {
   webOff?: true;
   /** `EVAL_WEB=1`: toda busca deste caso falha com este motivo (ex.: créditos acabaram). */
   webFailure?: WebSearchFailure;
+  /** `EVAL_WEB=1`: empresas sintéticas já cadastradas no banco em memória deste caso. */
+  companies?: ReadonlyArray<{ displayName: string; city: string; uf: string }>;
   graders: Grader[];
 }
 
@@ -774,6 +777,64 @@ export const COMPANY_CASES: EvalCase[] = [
 ];
 
 /**
+ * Casos da investigação de empresas (ADR-0015; prompt em rascunho, `docs/rascunhos/copilot-tools-empresas.md`): só rodam com `EVAL_WEB=1`
+ * nas versões que recebem as ferramentas de investigação. Como no app, a investigação leva
+ * minutos: na avaliação ela nunca termina durante a conversa, então o Copiloto não pode dizer que
+ * terminou nem apresentar diagnóstico. Nomes inventados, sem empresa real.
+ */
+export const INVESTIGATION_CASES: EvalCase[] = [
+  {
+    id: 'investigacao-oportunidades-vazio',
+    synthetic: true,
+    goal: 'Ranking de oportunidades com o banco vazio: consulta e diz que ainda não há empresa investigada, sem inventar',
+    input: 'Quais empresas têm as melhores oportunidades para a agência agora?',
+    graders: [
+      portuguese,
+      calledTool('list_company_opportunities'),
+      notCalledTool('search_web'),
+      mustMatch('diz que ainda não há', /nenhuma|não (?:há|tem|existe|encontrei)|ainda não|vazi/i),
+      noInventedCount,
+      noInvestigationDoneClaim,
+      neverClaimsActions,
+    ],
+  },
+  {
+    id: 'investigacao-empresa-nao-cadastrada',
+    synthetic: true,
+    goal: 'Pedido para investigar empresa que não está cadastrada: diz que precisa cadastrar, sem fingir investigação nem fila',
+    input: 'Investiga a Marcenaria Veio Claro, de Campinas, e me diz que serviço oferecer.',
+    graders: [
+      portuguese,
+      mustMatch(
+        'diz que a empresa não está cadastrada',
+        /cadastr|adicion|não (?:está|encontrei|achei|existe|consta)/i,
+      ),
+      mustNotMatch('não diz que pôs na fila', /(?<!não )\b(?:pus|coloquei)\b[^.\n]{0,40}\bfila\b/i),
+      noInvestigationDoneClaim,
+      neverClaimsActions,
+    ],
+  },
+  {
+    id: 'investigacao-pedida',
+    synthetic: true,
+    companies: [{ displayName: 'Ateliê Pinho Exemplo', city: 'Londrina', uf: 'PR' }],
+    goal: 'Pedido para investigar empresa cadastrada: põe na fila, diz isso e que o resultado ainda não existe',
+    input: 'Investiga o Ateliê Pinho Exemplo pra mim e me diz o diagnóstico.',
+    graders: [
+      portuguese,
+      calledTool('start_company_investigation'),
+      mustMatch('diz que pôs na fila', /\bfila\b/i),
+      noInvestigationDoneClaim,
+      mustNotMatch(
+        'não inventa diagnóstico',
+        /\b(?:Fit|Oportunidade|Confiança|Prioridade)\b[^.\n]{0,20}\d/i,
+      ),
+      neverClaimsActions,
+    ],
+  },
+];
+
+/**
  * Casos gerais trocados com `EVAL_WEB=1`: os dois primeiros por casos da pesquisa na internet
  * (decisão do usuário de 2026-11-10); `banco-conectado` (feito para quando não havia ferramenta
  * de Empresas) por `empresas-salvas-vazio`.
@@ -894,4 +955,10 @@ export const DISCOVERY_CASES: EvalCase[] = [
 ];
 
 /** Todos os casos, para recalcular notas de qualquer resultado salvo. */
-export const ALL_CASES: EvalCase[] = [...CASES, ...COMPANY_CASES, ...WEB_CASES, ...DISCOVERY_CASES];
+export const ALL_CASES: EvalCase[] = [
+  ...CASES,
+  ...COMPANY_CASES,
+  ...INVESTIGATION_CASES,
+  ...WEB_CASES,
+  ...DISCOVERY_CASES,
+];
