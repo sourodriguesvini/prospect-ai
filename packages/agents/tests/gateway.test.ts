@@ -778,3 +778,18 @@ describe('LocalAiGateway.unload', () => {
     }
   });
 });
+
+describe('saída estruturada (Descoberta)', () => {
+  it('manda o esquema ao Ollama e limita o teto de tokens pedido ao dobro do da tarefa', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    const schema = { type: 'object', properties: {}, required: [], additionalProperties: false };
+    await collect(gw.chat('reasoning', { ...ask, format: schema, maxOutputTokens: 1_000_000 }));
+    expect(requests[0]?.format).toEqual(schema);
+    expect(requests[0]?.options.num_predict).toBeLessThanOrEqual(
+      DEFAULT_POLICY.reasoning.maxOutputTokens * 2,
+    );
+    await collect(gw.chat('reasoning', ask));
+    expect(requests[1]?.format).toBeUndefined();
+  });
+});

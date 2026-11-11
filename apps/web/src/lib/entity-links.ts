@@ -1,4 +1,5 @@
 import type { EntityRef, InternalLink } from '@prospector/contracts';
+import { discoveryRoutes } from './discovery-routes';
 import { strategyRoutes } from './strategy-routes';
 
 /**
@@ -24,6 +25,12 @@ export function entityHref(ref: EntityRef): string | null {
       return '/configuracoes/auditoria';
     case 'company':
       return ref.id ? `/empresas/${encodeURIComponent(ref.id)}` : '/empresas';
+    case 'discovery_run':
+      return ref.id ? discoveryRoutes.run(ref.id) : discoveryRoutes.home;
+    case 'discovery_monitor':
+      return discoveryRoutes.monitors;
+    case 'opportunity':
+      return ref.id ? discoveryRoutes.prospect(ref.id) : discoveryRoutes.prospects;
     case 'conversation':
       return ref.id ? `/copiloto?conversa=${encodeURIComponent(ref.id)}` : '/copiloto';
     default:

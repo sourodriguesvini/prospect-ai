@@ -44,6 +44,16 @@ export function copilotPromptSupportsWebTools(promptVersion: number): boolean {
 }
 
 /**
+ * As ferramentas da Descoberta (M3) só entram com um prompt que as conhece (`copilot-tools/v4` em
+ * diante): até o v3, o prompt diz que as ferramentas só leem e não sabe do rascunho de pesquisa.
+ * O v4 ainda não existe: ele junta Descoberta, Empresas e Relacionamento e é montado e avaliado
+ * depois da mesclagem das branches (trecho proposto em `docs/rascunhos/copilot-tools-v4-descoberta.md`).
+ */
+export function copilotPromptSupportsDiscoveryTools(promptVersion: number): boolean {
+  return promptVersion >= 4;
+}
+
+/**
  * Rodadas de geração por pergunta: até 7 com ferramentas e a última obrigatoriamente sem. A
  * pesquisa aprofundada (várias buscas e páginas) precisa de mais que as 4 rodadas da IA-2.
  */

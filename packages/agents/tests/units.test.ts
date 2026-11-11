@@ -120,6 +120,19 @@ describe('loadPrompt', () => {
     expect(loadPrompt('copilot', version).sha256).toBe(sha256);
   });
 
+  /** Descoberta (M3): sha dos resultados em `evals/discovery`. */
+  it.each([
+    [
+      'discovery-interpreter',
+      1,
+      '1b53a1c07c115fafc75e6ae20503ea60145a579b5390c8a1f57a4ad97cf3b44b',
+    ],
+    ['discovery-extractor', 1, '306cf77b8496089317996b0a89a4ad79a02eda7f72fd069af52db0d8fe4054f6'],
+    ['discovery-extractor', 2, 'c57fdde2337c8e8984d56990c7f68167b75766d14f77e4903e73f7f75b5e00b3'],
+  ])('%s/v%i não foi editado depois de avaliado', (agent, version, sha256) => {
+    expect(loadPrompt(agent, version).sha256).toBe(sha256);
+  });
+
   it('a versão em uso pelo Copiloto existe', () => {
     expect(loadPrompt('copilot', COPILOT_PROMPT_VERSION).id).toBe(
       `copilot/v${COPILOT_PROMPT_VERSION}`,

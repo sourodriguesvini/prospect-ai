@@ -4,6 +4,10 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = `http://127.0.0.1:${PORT}`;
 const MEMORY_PORT = Number(process.env.E2E_MEMORY_PORT ?? 3110);
 const memoryURL = `http://127.0.0.1:${MEMORY_PORT}`;
+/** Descoberta (F4): servidor próprio, para as empresas que ela cria não aparecerem nos outros specs. */
+const DISCOVERY_PORT = Number(process.env.E2E_DISCOVERY_PORT ?? MEMORY_PORT + 5);
+const discoveryURL = `http://127.0.0.1:${DISCOVERY_PORT}`;
+const DISCOVERY_SPEC = /discovery\.spec\.ts$/;
 const withDatabase = process.env.E2E_SUPABASE === '1';
 const withOllama = process.env.E2E_OLLAMA === '1';
 /** Specs que gravam dados: rodam no servidor em modo memória (sem banco real). */
@@ -43,11 +47,20 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL, trace: 'retain-on-failure', locale: 'pt-BR' },
   projects: [
-    { name: 'chromium', testIgnore: STRATEGY_SPEC, use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      testIgnore: [STRATEGY_SPEC, DISCOVERY_SPEC],
+      use: { ...devices['Desktop Chrome'] },
+    },
     {
       name: 'estrategia-memoria',
       testMatch: STRATEGY_SPEC,
       use: { ...devices['Desktop Chrome'], baseURL: memoryURL },
+    },
+    {
+      name: 'descoberta-memoria',
+      testMatch: DISCOVERY_SPEC,
+      use: { ...devices['Desktop Chrome'], baseURL: discoveryURL },
     },
   ],
   // Os servidores sobem em sequência: o segundo reaproveita o build feito pelo primeiro.
@@ -59,6 +72,9 @@ export default defineConfig({
       timeout: 300_000,
       env: {
         NEXT_TELEMETRY_DISABLED: '1',
+        // Com E2E_SUPABASE=1 este servidor usa o banco real: sem trabalhador da fila, ele não pega
+        // as pesquisas nem os monitoramentos do usuário (e não gasta créditos nem GPU sozinho).
+        PROSPECTOR_JOB_WORKER: 'off',
         ...(withDatabase ? {} : { SUPABASE_URL: '', SUPABASE_SECRET_KEY: '' }),
         ...ollamaEnv,
         ...offlineEnv,
@@ -72,6 +88,24 @@ export default defineConfig({
       env: {
         NEXT_TELEMETRY_DISABLED: '1',
         PROSPECTOR_STORAGE: 'memory',
+        PROSPECTOR_JOB_WORKER: 'off',
+        SUPABASE_URL: '',
+        SUPABASE_SECRET_KEY: '',
+        ...ollamaEnv,
+        ...fixtureEnv,
+      },
+    },
+    {
+      // Buscador e IA SINTÉTICOS (src/server/discovery-fixture.ts): sem internet, sem créditos
+      // e sem GPU; tudo sai marcado DEMO.
+      command: `pnpm exec next start --hostname 127.0.0.1 --port ${DISCOVERY_PORT}`,
+      url: `${discoveryURL}/configuracoes`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        NEXT_TELEMETRY_DISABLED: '1',
+        PROSPECTOR_STORAGE: 'memory',
+        PROSPECTOR_DISCOVERY: 'fixture',
         SUPABASE_URL: '',
         SUPABASE_SECRET_KEY: '',
         ...ollamaEnv,

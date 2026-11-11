@@ -1,11 +1,15 @@
 import 'server-only';
 import {
   COPILOT_TOOLS_PROMPT_VERSION,
+  copilotPromptSupportsDiscoveryTools,
   copilotPromptSupportsWebTools,
   createLocalAiRuntime,
+  createLocalDiscoveryAi,
   createUnavailableLocalAi,
   DEFAULT_OLLAMA_URL,
   isAiError,
+  toAiError,
+  type LocalAiGateway,
   type LocalAiRuntime,
 } from '@prospector/agents';
 
@@ -13,14 +17,21 @@ import {
 export { buildCopilotSystemFacts } from '@prospector/agents';
 import {
   companyTools,
+  discoveryTools,
   createAuditService,
   createCompanyService,
   createCopilotService,
+  createDiscoveryEngine,
+  createDiscoveryScheduler,
+  createDiscoveryService,
   createEvidenceService,
+  createJobWorker,
   createStrategyService,
   createSystemService,
   createToolRegistry,
   createWebResearchService,
+  DiscoveryAiError,
+  discoveryJobHandler,
   strategyTools,
   webResearchTools,
   type AiTelemetryRepository,
@@ -31,7 +42,12 @@ import {
   type CompanyService,
   type CopilotRepository,
   type CopilotService,
+  type DiscoveryAi,
+  type DiscoveryRepository,
+  type DiscoveryService,
   type EvidenceRepository,
+  type JobQueue,
+  type JobWorker,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
@@ -44,6 +60,7 @@ import {
   createMemoryAuditRepository,
   createMemoryCompanyRepository,
   createMemoryCopilotRepository,
+  createMemoryDiscoveryStore,
   createMemoryStrategyRepository,
   createMemoryWebResearchUsage,
 } from '@prospector/application/memory';
@@ -53,15 +70,21 @@ import {
   createSupabaseCompanyRepository,
   createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
+  createSupabaseDiscoveryRepository,
+  createSupabaseJobQueue,
   createSupabaseStrategyRepository,
   createSupabaseWebResearchUsage,
 } from '@prospector/db';
 import { createCnpjLookup, createPageReader, createTavilySearch } from '@prospector/integrations';
 import { cache } from 'react';
 import { syntheticCnpjLookup } from './cnpj-fixture';
+import { syntheticDiscoveryAi, syntheticDiscoveryWeb } from './discovery-fixture';
 import {
   cnpjLookupMode,
   databaseEnv,
+  discoveryDailyAutoCredits,
+  jobWorkerEnabled,
+  discoveryMode,
   databaseEnvPresent,
   LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
@@ -96,6 +119,11 @@ export interface Services {
   research: WebResearchService | null;
   /** Ferramentas oferecidas ao Copiloto; null sem banco. */
   tools: ToolRegistry | null;
+  /**
+   * Descoberta (ADR-0013): pesquisas, empresas encontradas, sinais e monitoramentos; null sem
+   * banco ou com `PROSPECTOR_DISCOVERY=off`. Quem executa é o trabalhador da fila.
+   */
+  discovery: DiscoveryService | null;
 }
 
 interface MemoryStores {
@@ -103,6 +131,7 @@ interface MemoryStores {
   strategy: StrategyRepository;
   copilot: CopilotRepository & AiTelemetryRepository;
   companies: CompanyRepository & EvidenceRepository;
+  discovery: { repository: DiscoveryRepository; queue: JobQueue };
 }
 
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
@@ -116,6 +145,7 @@ function memoryStores(): MemoryStores {
       strategy: createMemoryStrategyRepository({ audit }),
       copilot: createMemoryCopilotRepository({ audit }),
       companies: createMemoryCompanyRepository({ audit }),
+      discovery: createMemoryDiscoveryStore({ audit }),
     };
   }
   return holder.__prospectorMemoryStores;
@@ -203,19 +233,208 @@ function webResearch(
 /**
  * Ferramentas oferecidas ao Copiloto. As da pesquisa na internet (`webResearchTools`) só entram
  * com a busca ligada e com um prompt que as conhece (`copilot-tools/v3` em diante): o v2 diz ao
- * modelo que nenhuma ferramenta acessa a internet (KI-096).
+ * modelo que nenhuma ferramenta acessa a internet (KI-096). As da Descoberta (M3) só entram com a
+ * Descoberta ligada e um prompt que conhece o rascunho de pesquisa (`copilot-tools/v4` em diante).
  */
 function copilotTools(
   strategy: StrategyService,
   audit: AuditService,
   companies: CompanyService,
   research: WebResearchSetup,
+  discovery: DiscoveryService | null,
 ): ToolDefinition[] {
   const web =
     research.searchOn && copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)
       ? webResearchTools({ research: research.service })
       : [];
-  return [...strategyTools({ strategy, audit }), ...companyTools({ companies }), ...web];
+  const found =
+    discovery && copilotPromptSupportsDiscoveryTools(COPILOT_TOOLS_PROMPT_VERSION)
+      ? discoveryTools({ discovery })
+      : [];
+  return [...strategyTools({ strategy, audit }), ...companyTools({ companies }), ...web, ...found];
+}
+
+/**
+ * Peças da Descoberta para o serviço (telas) e para o trabalhador da fila. No modo `fixture`
+ * buscador e IA são SINTÉTICOS e tudo sai com selo DEMO; registro de demonstração nunca chega ao
+ * banco. null = Descoberta desligada.
+ */
+interface DiscoveryWiring {
+  repo: DiscoveryRepository;
+  queue: JobQueue;
+  web: Pick<WebResearchService, 'status' | 'search' | 'readPage'>;
+  ai: DiscoveryAi;
+  demo: boolean;
+}
+
+function discoveryWiring(
+  storage: StorageMode,
+  store: { repository: DiscoveryRepository; queue: JobQueue },
+  research: WebResearchSetup,
+): DiscoveryWiring | null {
+  const mode = discoveryMode();
+  if (mode === 'off') return null;
+  if (mode === 'fixture') {
+    if (storage !== 'memory') {
+      throw new Error(
+        'PROSPECTOR_DISCOVERY=fixture só funciona com PROSPECTOR_STORAGE=memory (pesquisas de demonstração nunca vão para o banco).',
+      );
+    }
+    return {
+      repo: store.repository,
+      queue: store.queue,
+      web: syntheticDiscoveryWeb(),
+      ai: syntheticDiscoveryAi,
+      demo: true,
+    };
+  }
+  return {
+    repo: store.repository,
+    queue: store.queue,
+    web: research.service,
+    ai: discoveryAi(),
+    demo: false,
+  };
+}
+
+function discoveryService(
+  wiring: DiscoveryWiring | null,
+  repo: CompanyRepository & EvidenceRepository,
+  companies: CompanyService,
+): DiscoveryService | null {
+  if (!wiring) return null;
+  ensureDiscoveryWorker();
+  return createDiscoveryService({
+    repo: wiring.repo,
+    web: wiring.web,
+    companies,
+    companyRepo: repo,
+    evidenceService: createEvidenceService({ evidence: repo }),
+    demo: wiring.demo,
+  });
+}
+
+/**
+ * IA local da Descoberta: mesmo gateway (e mesma fila de inferências) do Copiloto, porque o
+ * computador roda uma inferência por vez. Erros viram `DiscoveryAiError` com o código do gateway.
+ */
+function discoveryAi(): DiscoveryAi {
+  const holder = globalThis as { __prospectorDiscoveryAi?: DiscoveryAi };
+  if (holder.__prospectorDiscoveryAi) return holder.__prospectorDiscoveryAi;
+  const local = createLocalDiscoveryAi({
+    gateway: {
+      chat: (...args: Parameters<LocalAiGateway['chat']>) => localAiRuntime().gateway.chat(...args),
+    },
+  });
+  async function guarded<T>(work: () => Promise<T>): Promise<T> {
+    try {
+      return await work();
+    } catch (error) {
+      throw new DiscoveryAiError(toAiError(error).code);
+    }
+  }
+  holder.__prospectorDiscoveryAi = {
+    promptIds: local.promptIds,
+    interpret: (input, signal) => guarded(() => local.interpret(input, signal)),
+    extract: (input, signal) => guarded(() => local.extract(input, signal)),
+  };
+  return holder.__prospectorDiscoveryAi;
+}
+
+/** Peças do trabalhador, montadas uma vez por processo (fora do ciclo de uma requisição). */
+function workerParts(): {
+  wiring: DiscoveryWiring;
+  strategy: StrategyService;
+  companies: CompanyRepository;
+} | null {
+  if (storageMode() === 'memory') {
+    const stores = memoryStores();
+    const wiring = discoveryWiring('memory', stores.discovery, webResearch(stores.companies, null));
+    if (!wiring) return null;
+    return {
+      wiring,
+      strategy: createStrategyService({ repo: stores.strategy, ephemeralStorage: true }),
+      companies: stores.companies,
+    };
+  }
+  const credentials = databaseEnv();
+  if (!credentials) return null;
+  const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
+  const companyRepo = createSupabaseCompanyRepository(client);
+  const wiring = discoveryWiring(
+    'supabase',
+    {
+      repository: createSupabaseDiscoveryRepository(client),
+      queue: createSupabaseJobQueue(client),
+    },
+    webResearch(companyRepo, createSupabaseWebResearchUsage(client)),
+  );
+  if (!wiring) return null;
+  return {
+    wiring,
+    strategy: createStrategyService({ repo: createSupabaseStrategyRepository(client) }),
+    companies: companyRepo,
+  };
+}
+
+/** Intervalo mínimo entre duas passadas do agendador de monitoramentos. */
+const SCHEDULER_INTERVAL_MS = 60_000;
+const DISCOVERY_WORKER_KEY = '__prospectorDiscoveryWorker';
+type DiscoveryWorkerHolder = typeof globalThis & { [DISCOVERY_WORKER_KEY]?: JobWorker | null };
+
+/**
+ * Trabalhador da fila durável (ADR-0011): um por processo do servidor, iniciado na abertura do
+ * app (`instrumentation.ts`) e, por garantia, na primeira tela que usa a Descoberta. Roda uma
+ * tarefa por vez; o agendador de monitoramentos passa no máximo uma vez por minuto. Pesquisa
+ * interrompida (app fechado no meio) volta à fila quando o lease vence e é retomada.
+ */
+export function ensureDiscoveryWorker(): void {
+  const holder = globalThis as DiscoveryWorkerHolder;
+  if (holder[DISCOVERY_WORKER_KEY] !== undefined) return;
+  holder[DISCOVERY_WORKER_KEY] = null;
+  try {
+    if (!jobWorkerEnabled()) return; // PROSPECTOR_JOB_WORKER=off: outro processo cuida da fila
+    const parts = workerParts();
+    if (!parts) return;
+    const { wiring } = parts;
+    const engine = createDiscoveryEngine({
+      repo: wiring.repo,
+      ai: wiring.ai,
+      web: wiring.web,
+      strategy: parts.strategy,
+      companies: parts.companies,
+    });
+    const scheduler = createDiscoveryScheduler({
+      repo: wiring.repo,
+      web: wiring.web,
+      dailyAutoCredits: discoveryDailyAutoCredits(),
+    });
+    let lastSchedule = 0;
+    const worker = createJobWorker({
+      queue: wiring.queue,
+      workerId: `web-${process.pid}-${crypto.randomUUID().slice(0, 8)}`,
+      handlers: { discovery_run: discoveryJobHandler(engine) },
+      idleMs: 10_000,
+      onIdle: async () => {
+        if (Date.now() - lastSchedule < SCHEDULER_INTERVAL_MS) return;
+        lastSchedule = Date.now();
+        try {
+          await scheduler.tick();
+        } catch (error) {
+          console.error(`[descoberta] agendador de monitoramentos falhou: ${String(error)}`);
+        }
+      },
+    });
+    worker.start();
+    holder[DISCOVERY_WORKER_KEY] = worker;
+  } catch (error) {
+    console.error(`[descoberta] o trabalhador da fila não iniciou: ${String(error)}`);
+  }
+}
+
+/** Pesquisa nova na fila: acorda o trabalhador em vez de esperar o intervalo ocioso. */
+export function pokeDiscoveryWorker(): void {
+  (globalThis as DiscoveryWorkerHolder)[DISCOVERY_WORKER_KEY]?.poke();
 }
 
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
@@ -239,6 +458,11 @@ export const getServices = cache((): Services => {
     const strategy = createStrategyService({ repo: stores.strategy, ephemeralStorage: true });
     const companies = companyServices(stores.companies);
     const research = webResearch(stores.companies, null);
+    const discovery = discoveryService(
+      discoveryWiring('memory', stores.discovery, research),
+      stores.companies,
+      companies,
+    );
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
@@ -248,9 +472,10 @@ export const getServices = cache((): Services => {
       companies,
       research: research.service,
       tools: createToolRegistry({
-        tools: copilotTools(strategy, audit, companies, research),
+        tools: copilotTools(strategy, audit, companies, research, discovery),
         telemetry: stores.copilot,
       }),
+      discovery,
     };
   }
   const credentials = databaseEnv();
@@ -264,6 +489,7 @@ export const getServices = cache((): Services => {
       companies: null,
       research: null,
       tools: null,
+      discovery: null,
     };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
@@ -273,6 +499,18 @@ export const getServices = cache((): Services => {
   const companyRepo = createSupabaseCompanyRepository(client);
   const companies = companyServices(companyRepo);
   const research = webResearch(companyRepo, createSupabaseWebResearchUsage(client));
+  const discovery = discoveryService(
+    discoveryWiring(
+      'supabase',
+      {
+        repository: createSupabaseDiscoveryRepository(client),
+        queue: createSupabaseJobQueue(client),
+      },
+      research,
+    ),
+    companyRepo,
+    companies,
+  );
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
@@ -282,9 +520,10 @@ export const getServices = cache((): Services => {
     companies,
     research: research.service,
     tools: createToolRegistry({
-      tools: copilotTools(strategy, audit, companies, research),
+      tools: copilotTools(strategy, audit, companies, research, discovery),
       telemetry: copilotRepo,
     }),
+    discovery,
   };
 });
 
@@ -304,7 +543,7 @@ export interface LocalAi {
 const LOCAL_AI_KEY = '__prospectorLocalAi';
 type LocalAiHolder = typeof globalThis & { [LOCAL_AI_KEY]?: LocalAiRuntime };
 
-export function getLocalAi(): LocalAi {
+function localAiRuntime(): Pick<LocalAiRuntime, 'gateway' | 'copilot'> {
   const holder = globalThis as LocalAiHolder;
   let runtime: Pick<LocalAiRuntime, 'gateway' | 'copilot'> | undefined = holder[LOCAL_AI_KEY];
   if (!runtime) {
@@ -335,7 +574,11 @@ export function getLocalAi(): LocalAi {
       runtime = createUnavailableLocalAi('invalid_config', invalidConfigMessage(error));
     }
   }
-  const { gateway, copilot } = runtime;
+  return runtime;
+}
+
+export function getLocalAi(): LocalAi {
+  const { gateway, copilot } = localAiRuntime();
   return {
     status: () => gateway.status(),
     unload: (model) => gateway.unload(model),

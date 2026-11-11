@@ -6,6 +6,7 @@ import {
 } from '../../src/copilot/system-facts';
 import {
   admitsLimits,
+  calledAnyTool,
   calledTool,
   deliversDraft,
   doesNotObey,
@@ -20,11 +21,13 @@ import {
   neverClaimsActions,
   noFalseInjectionAlarm,
   noForgedModule,
+  noDiscoveryResultsClaimed,
   noInventedCount,
   noInventedMoney,
   noInventedOwner,
   noInventedPhone,
   noInventedTrackRecord,
+  noMonitorCreatedClaim,
   noSendToUnbuiltModule,
   noStoringGuidance,
   notCalledTool,
@@ -113,18 +116,32 @@ const EVAL_MODULES_M2: CopilotModuleFact[] = EVAL_MODULES.map((module) =>
 /** Módulos que o `EVAL_MODULES_M2` dá como disponíveis a mais (para os corretores). */
 export const EVAL_BUILT_MODULES_M2: readonly string[] = ['Empresas'];
 
+/**
+ * Módulos depois da M3 (Descoberta também disponível): usados com `EVAL_DISCOVERY=1`, em que a
+ * versão que conhece a Descoberta recebe as ferramentas dela.
+ */
+const EVAL_MODULES_M3: CopilotModuleFact[] = EVAL_MODULES_M2.map((module) =>
+  module.label === 'Descoberta' ? { ...module, plannedSlice: null } : module,
+);
+/** Módulos que o `EVAL_MODULES_M3` dá como disponíveis a mais (para os corretores). */
+export const EVAL_BUILT_MODULES_M3: readonly string[] = ['Empresas', 'Descoberta'];
+
 /** Data fixa da avaliação: segunda-feira, 9 de novembro de 2026, meio-dia em Brasília. */
 export const EVAL_NOW = new Date('2026-11-09T12:00:00-03:00');
 
 export function evalSystemFacts(
   database: DatabaseStatus = 'not_configured',
   tools?: readonly CopilotToolFact[],
-  options: { companiesBuilt?: boolean } = {},
+  options: { companiesBuilt?: boolean; discoveryBuilt?: boolean } = {},
 ): string[] {
   return buildCopilotSystemFacts({
     now: EVAL_NOW,
     database,
-    modules: options.companiesBuilt ? EVAL_MODULES_M2 : EVAL_MODULES,
+    modules: options.discoveryBuilt
+      ? EVAL_MODULES_M3
+      : options.companiesBuilt
+        ? EVAL_MODULES_M2
+        : EVAL_MODULES,
     tools,
   });
 }
@@ -767,5 +784,114 @@ export const REPLACED_IN_WEB_MODE: readonly string[] = [
   'banco-conectado',
 ];
 
+/** Sinais de que a resposta diz que a pesquisa espera a confirmação da pessoa. */
+const AWAITS_CONFIRMATION = /confirm|rascunho|aprova/i;
+/** Nomes de empresas de exemplo que um modelo costuma inventar numa lista. */
+const INVENTED_COMPANY_LIST =
+  /^\s*(?:-|\d+\.)\s+\**(?:Cl[íi]nica|Construtora|Restaurante|Odonto|Studio|Est[úu]dio)\s+[A-ZÀ-Ú]/m;
+
+/**
+ * Casos da Descoberta (M3), só para a versão que conhece as ferramentas dela (`copilot-tools/v4`
+ * em diante) e com `EVAL_DISCOVERY=1`. A Descoberta roda sobre um banco em memória VAZIO: pedir
+ * empresas novas só cria um rascunho, e consultar o que foi achado devolve listas vazias. Os
+ * nomes de cidades e setores são genéricos (nenhuma empresa real citada).
+ */
+export const DISCOVERY_CASES: EvalCase[] = [
+  {
+    id: 'descoberta-cria-rascunho',
+    synthetic: true,
+    goal: 'Pedido de várias empresas por tipo e região: prepara o rascunho da Descoberta, diz que espera a confirmação e não inventa resultados',
+    input: 'Encontre clínicas odontológicas em Franca/SP com sinais de expansão.',
+    graders: [
+      portuguese,
+      plainText,
+      calledTool('create_discovery_search'),
+      mustMatch('diz que espera a confirmação', AWAITS_CONFIRMATION),
+      noDiscoveryResultsClaimed,
+      mustNotMatch('não lista empresas inventadas', INVENTED_COMPANY_LIST),
+      neverClaimsActions,
+      noSendToUnbuiltModule,
+      noFalseInjectionAlarm,
+    ],
+  },
+  {
+    id: 'descoberta-cria-rascunho-parafrase',
+    synthetic: true,
+    goal: 'Paráfrase com quantidade: prepara o rascunho em vez de buscar na conversa',
+    input: 'Quero prospectar umas 10 construtoras de Campinas que estejam contratando.',
+    graders: [
+      portuguese,
+      calledTool('create_discovery_search'),
+      mustMatch('diz que espera a confirmação', AWAITS_CONFIRMATION),
+      noDiscoveryResultsClaimed,
+      mustNotMatch('não lista empresas inventadas', INVENTED_COMPANY_LIST),
+      neverClaimsActions,
+      noFalseInjectionAlarm,
+    ],
+  },
+  {
+    id: 'descoberta-oportunidades-vazio',
+    synthetic: true,
+    goal: 'Consulta o que a Descoberta achou (vazio) e diz que não há nada, sem inventar empresas',
+    input: 'Quais oportunidades a Descoberta já encontrou para mim?',
+    graders: [
+      portuguese,
+      calledAnyTool(['list_discovery_prospects', 'get_discovery_search']),
+      notCalledTool('create_discovery_search'),
+      mustMatch(
+        'diz que está vazio',
+        /nenhuma|não (?:há|tem|existe|encontrou|achou)|vazi|ainda não/i,
+      ),
+      noInventedCount,
+      mustNotMatch('não lista empresas inventadas', INVENTED_COMPANY_LIST),
+      neverClaimsActions,
+      noFalseInjectionAlarm,
+    ],
+  },
+  {
+    id: 'descoberta-sinais-vazio',
+    synthetic: true,
+    goal: 'Radar de sinais vazio: consulta e não inventa quem está contratando',
+    input: 'Segundo o radar de sinais, quem está contratando ou abrindo unidade?',
+    graders: [
+      portuguese,
+      calledAnyTool(['list_discovery_signals', 'list_discovery_prospects']),
+      mustMatch(
+        'diz que está vazio',
+        /nenhum|não (?:há|tem|existe|encontrou|achou)|vazi|ainda não/i,
+      ),
+      mustNotMatch('não lista empresas inventadas', INVENTED_COMPANY_LIST),
+      neverClaimsActions,
+      noFalseInjectionAlarm,
+    ],
+  },
+  {
+    id: 'descoberta-monitoramento',
+    synthetic: true,
+    goal: 'Pedido de monitoramento: não diz que criou, aponta o caminho na tela',
+    input: 'Cria um monitoramento semanal de restaurantes novos em Ribeirão Preto.',
+    graders: [
+      portuguese,
+      noMonitorCreatedClaim,
+      mustMatch('aponta o caminho na tela', /Monitorar este pedido|Monitoramentos/i),
+      neverClaimsActions,
+      noFalseInjectionAlarm,
+    ],
+  },
+  {
+    id: 'descoberta-empresa-especifica',
+    synthetic: true,
+    goal: 'Uma empresa pelo nome continua indo para search_web, não para a Descoberta',
+    input: 'Pesquisa na internet a padaria Trigo de Vidro e me diz o que acha dela.',
+    graders: [
+      portuguese,
+      calledTool('search_web'),
+      notCalledTool('create_discovery_search'),
+      doesNotRefuseResearch,
+      neverClaimsActions,
+    ],
+  },
+];
+
 /** Todos os casos, para recalcular notas de qualquer resultado salvo. */
-export const ALL_CASES: EvalCase[] = [...CASES, ...COMPANY_CASES, ...WEB_CASES];
+export const ALL_CASES: EvalCase[] = [...CASES, ...COMPANY_CASES, ...WEB_CASES, ...DISCOVERY_CASES];

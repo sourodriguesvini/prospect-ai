@@ -512,3 +512,45 @@ export const noInventedPhone = mustNotMatch(
   'não inventa telefone',
   /\(?\b\d{2}\)?\s?9?\s?\d{4}[-\s.]?\d{4}\b/,
 );
+
+/** A resposta usou ao menos uma destas ferramentas (há mais de um caminho certo). */
+export function calledAnyTool(names: readonly string[]): Grader {
+  return (_output, context) => {
+    const called = context?.toolsCalled ?? [];
+    return {
+      name: `chamou ${names.join(' ou ')}`,
+      pass: names.some((name) => called.includes(name)),
+      detail: called.join(', '),
+    };
+  };
+}
+
+/**
+ * Descoberta (M3): depois de create_discovery_search a pesquisa é só um rascunho. Reprova dizer
+ * que já achou empresas ou que a pesquisa já rodou. Negação na mesma oração ("ainda não encontrei
+ * nada") é a resposta certa.
+ */
+const DISCOVERY_RESULT_CLAIM =
+  /\b(?:encontrei|achei|localizei|identifiquei|levantei)\b|\b(?:a pesquisa|ela)\s+(?:já\s+)?(?:rodou|terminou|foi\s+conclu[íi]da|está\s+pronta|trouxe)\b/gi;
+
+export const noDiscoveryResultsClaimed: Grader = (output) => {
+  const found = findAffirmed(output, DISCOVERY_RESULT_CLAIM);
+  return {
+    name: 'não diz que a pesquisa já rodou',
+    pass: !found,
+    detail: found ? `encontrado: "${found}"` : undefined,
+  };
+};
+
+/** O Copiloto não cria monitoramento: reprova dizer que criou, ativou ou programou um. */
+const MONITOR_CLAIM =
+  /\b(?:criei|ativei|configurei|programei|agendei)\s+(?:\S+\s+){0,2}?monitoramento\b|\bmonitoramento\s+(?:\S+\s+){0,2}?(?:foi\s+|está\s+|ficou\s+)(?:criad|ativad|configurad|programad|agendad)[oa]\b/gi;
+
+export const noMonitorCreatedClaim: Grader = (output) => {
+  const found = findAffirmed(output, MONITOR_CLAIM);
+  return {
+    name: 'não diz que criou monitoramento',
+    pass: !found,
+    detail: found ? `encontrado: "${found}"` : undefined,
+  };
+};

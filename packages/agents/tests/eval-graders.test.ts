@@ -3,12 +3,14 @@ import {
   ALL_CASES,
   CASES,
   COMPANY_CASES,
+  DISCOVERY_CASES,
   evalSystemFacts,
   REPLACED_IN_WEB_MODE,
   WEB_CASES,
 } from '../evals/copilot/cases';
 import {
   admitsLimits,
+  calledAnyTool,
   calledTool,
   claimsExternalAction,
   doesNotRefuseResearch,
@@ -17,10 +19,12 @@ import {
   minQuestions,
   neverClaimsActions,
   noFalseInjectionAlarm,
+  noDiscoveryResultsClaimed,
   noInventedCount,
   noInventedMoney,
   noInventedOwner,
   noInventedPhone,
+  noMonitorCreatedClaim,
   noSendToUnbuiltModule,
   onlyToolUrls,
   plainText,
@@ -514,6 +518,60 @@ describe('corretores da avaliação do Copiloto', () => {
     expect(facts.at(-1)).toMatch(/Pesquisam na internet pública: search_web/);
     expect(facts.at(-1)).not.toMatch(/acessa a internet/);
     const noWeb = evalSystemFacts('ok', [{ name: 'list_offers', title: 'Consultando ofertas' }]);
-    expect(noWeb.at(-1)).toMatch(/Nenhuma altera dados, envia mensagens ou acessa a internet\./);
+    expect(noWeb.at(-1)).toMatch(/Nenhuma altera dados, envia mensagens ou acessa a internet\.$/);
+  });
+
+  it('Descoberta (M3): rascunho nos fatos, casos próprios e corretores com negação', () => {
+    expect(DISCOVERY_CASES.map((entry) => entry.id)).toEqual([
+      'descoberta-cria-rascunho',
+      'descoberta-cria-rascunho-parafrase',
+      'descoberta-oportunidades-vazio',
+      'descoberta-sinais-vazio',
+      'descoberta-monitoramento',
+      'descoberta-empresa-especifica',
+    ]);
+    expect(ALL_CASES).toEqual(expect.arrayContaining(DISCOVERY_CASES));
+    // Sem ferramenta de rascunho, o texto é o mesmo de antes (o v3 é comparado com o mesmo contexto).
+    const m3 = evalSystemFacts(
+      'ok',
+      [
+        { name: 'search_web', title: 'Pesquisando na internet', internet: true },
+        { name: 'create_discovery_search', title: 'Preparando uma pesquisa', draft: true },
+      ],
+      { companiesBuilt: true, discoveryBuilt: true },
+    );
+    expect(m3.at(-1)).toMatch(
+      /Exceção: create_discovery_search cria só um rascunho de pesquisa da Descoberta, que não busca nada nem gasta créditos até a pessoa confirmar na tela\.$/,
+    );
+    expect(m3.join('\n')).not.toMatch(/Descoberta \(F4\)/);
+
+    const ran = noDiscoveryResultsClaimed;
+    expect(
+      ran('Preparei a pesquisa como rascunho. Ela começa quando você confirmar na tela.').pass,
+    ).toBe(true);
+    expect(
+      ran('Ainda não encontrei nenhuma empresa: a pesquisa espera a sua confirmação.').pass,
+    ).toBe(true);
+    expect(ran('Encontrei 3 clínicas em Franca com sinais de expansão.').pass).toBe(false);
+    expect(ran('Pronto, a pesquisa já rodou e trouxe 5 empresas.').pass).toBe(false);
+
+    const monitor = noMonitorCreatedClaim;
+    expect(
+      monitor('Eu não crio monitoramento: use "Monitorar este pedido" na pesquisa.').pass,
+    ).toBe(true);
+    expect(monitor('Criei o monitoramento semanal para restaurantes.').pass).toBe(false);
+    expect(monitor('O monitoramento foi criado e roda toda segunda.').pass).toBe(false);
+
+    const either = calledAnyTool(['list_discovery_prospects', 'get_discovery_search']);
+    expect(either('', { toolsCalled: ['get_discovery_search'] }).pass).toBe(true);
+    expect(either('', { toolsCalled: ['list_companies'] }).pass).toBe(false);
+
+    const invented = DISCOVERY_CASES[0]?.graders.find(
+      (grade) => grade('').name === 'não lista empresas inventadas',
+    );
+    expect(invented?.('Preparei a pesquisa; confirme na tela.').pass).toBe(true);
+    expect(invented?.('Algumas opções:\n- Clínica Sorriso Bom\n- Clínica Dente Feliz').pass).toBe(
+      false,
+    );
   });
 });

@@ -29,6 +29,19 @@ const ACTION_LABELS: Record<string, string> = {
   'prospect.company.web_search_recorded': 'Resultados da busca na internet registrados',
   'prospect.company.web_page_recorded': 'Página da internet registrada',
   'prospect.evidence.recorded': 'Evidências registradas',
+  'prospect.company.discovery_recorded': 'Achados da Descoberta registrados',
+  // F4 — Descoberta
+  'discovery.run.created': 'Pesquisa da Descoberta criada',
+  'discovery.run.prepared': 'Pesquisa preparada pelo Copiloto',
+  'discovery.run.confirmed': 'Pesquisa confirmada',
+  'discovery.run.cancelled': 'Pesquisa cancelada',
+  'discovery.run.scheduled': 'Pesquisa de monitoramento agendada',
+  'discovery.prospect.status_changed': 'Empresa encontrada salva ou ignorada',
+  'discovery.prospect.company_linked': 'Empresa encontrada ligada a Empresas',
+  'discovery.prospect.investigated': 'Empresa encontrada enviada para investigação',
+  'discovery.monitor.created': 'Monitoramento criado',
+  'discovery.monitor.updated': 'Monitoramento alterado',
+  'discovery.monitor.status_changed': 'Monitoramento pausado, retomado ou arquivado',
 };
 
 export interface AuditDescription {

@@ -14,6 +14,10 @@ export const INTERNAL_DB_ERROR_KEYS: readonly string[] = [
   'append_only',
   // M2: o app só substitui claims em vigor; o trigger impede reabrir um substituído ou rejeitado.
   'claim_final_status',
+  // F4: argumentos inválidos nas funções da fila (só o trabalhador do app as chama).
+  'invalid_job_claim',
+  'invalid_job_heartbeat',
+  'invalid_job_status',
 ];
 
 /** Códigos de "tabela não existe": PostgREST (cache de esquema) e Postgres. */

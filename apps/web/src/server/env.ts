@@ -49,6 +49,51 @@ export function cnpjLookupEnabled(): boolean {
   return cnpjLookupMode() !== 'off';
 }
 
+export type DiscoveryMode = 'on' | 'off' | 'fixture';
+
+/**
+ * Descoberta (ADR-0013). Ligada por padrão (usa a pesquisa na internet e a IA local);
+ * `PROSPECTOR_DISCOVERY=off` desliga o módulo e o trabalhador da fila; `fixture` usa buscador e
+ * IA SINTÉTICOS, só no modo memória (demonstração e testes de ponta a ponta, tudo com selo DEMO).
+ */
+export function discoveryMode(): DiscoveryMode {
+  const value = readVar('PROSPECTOR_DISCOVERY');
+  if (value === undefined || value === 'on') return 'on';
+  if (value === 'off' || value === 'fixture') return value;
+  throw new Error('PROSPECTOR_DISCOVERY inválida: use "on", "off", "fixture" ou deixe vazia.');
+}
+
+/**
+ * Trabalhador da fila (ADR-0011) neste processo: ligado por padrão. `PROSPECTOR_JOB_WORKER=off`
+ * deixa as telas funcionando sem pegar tarefas nem rodar monitoramentos: para servidores de teste
+ * apontados para o banco real e para ter um só trabalhador por banco (pnpm dev × app instalado).
+ */
+export function jobWorkerEnabled(): boolean {
+  const value = readVar('PROSPECTOR_JOB_WORKER');
+  if (value === undefined || value === 'on') return true;
+  if (value === 'off') return false;
+  throw new Error('PROSPECTOR_JOB_WORKER inválida: use "on", "off" ou deixe vazia.');
+}
+
+/** Padrão do teto diário de créditos dos monitoramentos (pesquisas automáticas). */
+export const DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT = 12;
+
+/**
+ * Teto de créditos da Tavily por dia para pesquisas que rodam sozinhas (monitoramentos), de 0 a
+ * 200 (`DISCOVERY_DAILY_AUTO_CREDITS`; 0 = monitoramentos não rodam sozinhos). Valor inválido usa
+ * o padrão e avisa no log (só o nome da variável).
+ */
+export function discoveryDailyAutoCredits(): number {
+  const value = readVar('DISCOVERY_DAILY_AUTO_CREDITS');
+  if (value === undefined) return DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT;
+  const parsed = Number(value);
+  if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 200) return parsed;
+  console.error(
+    `[descoberta] DISCOVERY_DAILY_AUTO_CREDITS inválida (inteiro de 0 a 200); usando ${DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT}.`,
+  );
+  return DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT;
+}
+
 /** Alguma variável do banco definida (sem ler nem validar o valor). */
 export function databaseEnvPresent(): boolean {
   return readVar('SUPABASE_URL') !== undefined || readVar('SUPABASE_SECRET_KEY') !== undefined;

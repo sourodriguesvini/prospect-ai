@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { LOCAL_AI_ENV_FORMATS, LocalAiConfigError, localAiEnv } = await import('./env');
+const { LOCAL_AI_ENV_FORMATS, LocalAiConfigError, localAiEnv, jobWorkerEnabled } =
+  await import('./env');
 const { getLocalAi } = await import('./container');
 
 const AI_VARS = [
@@ -138,5 +139,16 @@ describe('getLocalAi com configuração inválida', () => {
       state: 'offline',
       code: 'runtime_unavailable',
     });
+  });
+});
+
+describe('trabalhador da fila (PROSPECTOR_JOB_WORKER)', () => {
+  it('ligado por padrão; off desliga; valor estranho é erro', () => {
+    vi.stubEnv('PROSPECTOR_JOB_WORKER', undefined);
+    expect(jobWorkerEnabled()).toBe(true);
+    vi.stubEnv('PROSPECTOR_JOB_WORKER', 'off');
+    expect(jobWorkerEnabled()).toBe(false);
+    vi.stubEnv('PROSPECTOR_JOB_WORKER', 'talvez');
+    expect(() => jobWorkerEnabled()).toThrow('PROSPECTOR_JOB_WORKER');
   });
 });

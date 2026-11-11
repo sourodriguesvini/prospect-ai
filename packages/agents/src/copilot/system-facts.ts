@@ -34,11 +34,25 @@ export interface CopilotModuleFact {
   description: string;
 }
 
-/** Ferramenta como os fatos do sistema a descrevem; `internet` = lê a internet pública. */
+/**
+ * Ferramenta como os fatos do sistema a descrevem; `internet` = lê a internet pública; `draft` =
+ * só cria um rascunho no app, que espera a confirmação da pessoa na tela.
+ */
 export interface CopilotToolFact {
   name: string;
   title: string;
   internet?: boolean;
+  draft?: boolean;
+}
+
+/**
+ * Frase sobre as ferramentas de rascunho (Descoberta, M3). Sem elas o texto não muda: a avaliação
+ * compara o v3 e o v4 com o mesmo contexto nos casos comuns.
+ */
+function draftFact(tools: readonly CopilotToolFact[]): string {
+  const drafts = tools.filter((tool) => tool.draft === true).map((tool) => tool.name);
+  if (drafts.length === 0) return '';
+  return ` Exceção: ${drafts.join(', ')} cria só um rascunho de pesquisa da Descoberta, que não busca nada nem gasta créditos até a pessoa confirmar na tela.`;
 }
 
 /**
@@ -53,9 +67,9 @@ function toolsFact(tools: readonly CopilotToolFact[]): string {
   const listed = `Ferramentas de leitura disponíveis nesta conversa: ${tools.map((tool) => `${tool.name} (${tool.title})`).join('; ')}.`;
   const internet = tools.filter((tool) => tool.internet === true).map((tool) => tool.name);
   if (internet.length === 0) {
-    return `${listed} Nenhuma altera dados, envia mensagens ou acessa a internet.`;
+    return `${listed} Nenhuma altera dados, envia mensagens ou acessa a internet.${draftFact(tools)}`;
   }
-  return `${listed} Pesquisam na internet pública: ${internet.join(', ')}; o que elas acham não entra no dossiê nem nas evidências, fica só nesta conversa. As demais leem só o que está salvo no Prospector. Nenhuma altera dados nem envia mensagens.`;
+  return `${listed} Pesquisam na internet pública: ${internet.join(', ')}; o que elas acham não entra no dossiê nem nas evidências, fica só nesta conversa. As demais leem só o que está salvo no Prospector. Nenhuma altera dados nem envia mensagens.${draftFact(tools)}`;
 }
 
 const TODAY = new Intl.DateTimeFormat('pt-BR', {

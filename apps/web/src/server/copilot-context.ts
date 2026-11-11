@@ -16,7 +16,7 @@ const SETTINGS_MODULES = [
  */
 export async function copilotSystemFacts(
   now: Date,
-  tools: readonly Pick<ToolSpec, 'name' | 'title' | 'internet'>[] = [],
+  tools: readonly Pick<ToolSpec, 'name' | 'title' | 'internet' | 'draft'>[] = [],
 ): Promise<string[]> {
   const database = await getServices().system.databaseStatus();
   return buildCopilotSystemFacts({
