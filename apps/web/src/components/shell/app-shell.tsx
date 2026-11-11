@@ -191,7 +191,13 @@ export function AppShell({
       sequenceAt = key === 'g' ? Date.now() : 0;
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // Marca que os atalhos já valem (o React assumiu a página); os testes de tela esperam isso.
+    const root = document.documentElement;
+    root.dataset.shortcuts = 'ready';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      delete root.dataset.shortcuts;
+    };
   }, [closeDrawer, drawerOpen, navigate, paletteOpen, shortcutsOpen, toggleCollapsed]);
 
   return (

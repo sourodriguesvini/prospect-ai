@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoA11yViolations } from './support';
+import { expectNoA11yViolations, gotoWithShortcuts } from './support';
 
 /**
  * Menu lateral único (todos os menus à esquerda), paleta de comandos, atalhos de teclado,
@@ -111,7 +111,7 @@ test.describe('menu lateral no desktop', () => {
   });
 
   test('Ctrl+B recolhe e expande', async ({ page }) => {
-    await page.goto('/');
+    await gotoWithShortcuts(page, '/');
     await page.keyboard.press('Control+b');
     await expect(sidebar(page)).toHaveAttribute('data-collapsed', 'true');
     await page.keyboard.press('Control+b');
@@ -315,7 +315,7 @@ test.describe('paleta de comandos', () => {
   });
 
   test('troca o tema e recolhe o menu', async ({ page }) => {
-    await page.goto('/');
+    await gotoWithShortcuts(page, '/');
     await page.keyboard.press('Control+k');
     const palette = page.getByRole('dialog', { name: 'Paleta de comandos' });
     await palette.getByRole('combobox').fill('tema escuro');
@@ -334,7 +334,7 @@ test.describe('paleta de comandos', () => {
       await new Promise((resolve) => setTimeout(resolve, 1200));
       await route.continue();
     });
-    await page.goto('/');
+    await gotoWithShortcuts(page, '/');
     await page.keyboard.press('Control+k');
     await page.getByRole('combobox').fill('voz da agencia');
     await page.keyboard.press('Enter');
@@ -347,7 +347,7 @@ test.describe('paleta de comandos', () => {
 
 test.describe('atalhos de teclado', () => {
   test('"g" e uma letra levam à tela; "?" mostra a lista', async ({ page }) => {
-    await page.goto('/');
+    await gotoWithShortcuts(page, '/');
     await page.keyboard.press('g');
     await page.keyboard.press('e');
     await expect(page).toHaveURL(/\/empresas$/);
@@ -364,7 +364,7 @@ test.describe('atalhos de teclado', () => {
   });
 
   test('atalhos de uma tecla podem ser desligados (WCAG 2.1.4)', async ({ page }) => {
-    await page.goto('/');
+    await gotoWithShortcuts(page, '/');
     await page.keyboard.press('Shift+?');
     const dialog = page.getByRole('dialog', { name: 'Atalhos de teclado' });
     await dialog.getByRole('checkbox', { name: 'Atalhos de uma tecla (G e ?)' }).uncheck();

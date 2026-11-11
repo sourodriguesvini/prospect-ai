@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoA11yViolations } from './support';
+import { expectNoA11yViolations, gotoWithShortcuts } from './support';
 
 /**
  * M2 — Empresas e dossiê, de ponta a ponta, no servidor em modo memória (sem banco real) e sem
@@ -214,7 +214,7 @@ test('MEI: o nome da pessoa fica só no cadastro, fora das evidências', async (
 test('a paleta (Ctrl+K) acha a empresa pelo nome e abre o dossiê, com o selo DEMO', async ({
   page,
 }) => {
-  await page.goto('/');
+  await gotoWithShortcuts(page, '/');
   await page.keyboard.press('Control+k');
   const palette = page.getByRole('dialog', { name: 'Paleta de comandos' });
   await palette.getByRole('combobox').fill('atelie');
