@@ -51,7 +51,7 @@ describe('comandos', () => {
   it('telas do menu mostram o atalho e as em breve dizem a fatia', () => {
     const screens = screenCommands();
     expect(screens.find((c) => c.label === 'Empresas')?.keys).toEqual(['G', 'E']);
-    expect(screens.find((c) => c.label === 'Descoberta')?.hint).toBe('Em breve (F4)');
+    expect(screens.find((c) => c.label === 'Inteligência')?.hint).toBe('Em breve (F13)');
   });
 
   it('o rótulo de recolher o menu acompanha o estado', () => {
