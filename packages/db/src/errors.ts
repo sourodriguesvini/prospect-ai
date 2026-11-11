@@ -13,6 +13,9 @@ const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
   lia_decision_locked: 'conflict',
   lia_not_latest: 'conflict',
   review_date_out_of_range: 'validation',
+  // M2: claim substituído por outra atualização ao mesmo tempo; CNPJ ou domínio já cadastrado.
+  concurrent_change: 'conflict',
+  company_duplicate: 'conflict',
 };
 
 interface DbErrorLike {

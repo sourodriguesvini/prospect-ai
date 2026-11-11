@@ -186,14 +186,14 @@ sequenceDiagram
 | Elemento | Decisão |
 |---|---|
 | Superfícies | Quatro camadas: `canvas` (fundo) → `background` (moldura do app, raio 32 px) → `surface` (painel branco, raio 24 px, `Panel`) → `muted` (poço cinza, raio 18 px, `Well`) |
-| Navegação | Marca em pílula; navegação principal em pílula com item ativo em tinta (`NavPill`); trilho de ícones à esquerda com tema (sol/lua/sistema), módulos de apoio e Configuração (`NavIcon`, nome acessível + dica) |
+| Navegação | **Menu lateral único à esquerda** (pedido do usuário, 2026-11-11), fixo ao rolar: marca, busca "Buscar ou ir para…" (Ctrl+K), grupos Fluxo, Apoio e Sistema com item ativo em pílula de tinta, submenu da Configuração no próprio menu, indicadores "Só neste computador" (IA local, pesquisa web, banco) e, no rodapé, recolher e tema (sol/lua/sistema). Recolhe para só ícones (dica + nome acessível; escolha guardada no cookie `sidebar`, lida no servidor). Código em `apps/web/src/components/shell/`. Substituiu a pílula do topo (`NavPill`) e o trilho de ícones (`NavIcon`) |
 | Cor | Tinta (`primary`: preto no claro, quase branco no escuro) para a ação principal e o item ativo; laranja (`accent`) só como destaque, no máximo um cartão por grupo; semânticas `success`/`warning`/`danger` com versões `-soft` para fundos |
 | Cartões de métrica | `StatTile` nos tons `plain`, `accent` (laranja), `dusk` (céu de fim de tarde), `sand` (areia) e `graphite`; número grande em peso regular com tracking negativo; sem dado real, mostra "—" e a fatia que o entrega |
 | Tipografia | Uma grotesca (Geist, OFL) para tudo; títulos em peso 500 com tracking negativo; numerais tabulares em tabelas e números |
 | Botões e chips | Tudo em pílula (`rounded-full`); botão primário em tinta, secundário em superfície com fio; estados com ponto colorido + texto (`StatusDot`, `Badge`) |
 | Tabelas | Cabeçalho em poço cinza com pontas arredondadas, linhas com fio fino (`AuditTable`) |
 | Contraste | WCAG 2.2 AA verificado com axe nos dois temas. O laranja de fundo é mais fechado que o das referências (#C2410C) para o texto branco passar de 4,5:1; o laranja de texto é outro tom (#B43C12 / #FB8A5C) |
-| Densidade e movimento | Como antes: leitura com respiro, operação compacta; movimento mínimo e funcional |
+| Densidade e movimento | Leitura com respiro, operação compacta. Movimento sutil e só em CSS: painéis entram com deslize curto (`animate-panel-in`, escalonado), menu recolhe com transição de largura, diálogos e dicas surgem com `animate-float-in`, linha de progresso laranja no topo entre telas. Tudo desligado com "reduzir movimento" do sistema (regra global em `tokens.css`) |
 | Componentes próprios a criar | `ClaimChip`, `EvidencePopover`, `ConfidenceMeter`, `DimensionBar`, `RecommendationBadge`, `VerifierHighlight`, `CostEstimate` (seguindo estes tokens); `DemoBadge` já existe |
 
 ### Padrão de explicabilidade (componente-chave)
@@ -209,5 +209,5 @@ sequenceDiagram
 ## 6. Responsividade
 
 - Desktop: layouts de duas/três colunas (lista · detalhe · Copiloto).
-- Tablet/mobile: navegação inferior com Início, Aprovações, Conversas, Copiloto; dossiê em abas empilhadas; aprovação de mensagem com evidências em painel expansível.
+- Tablet/mobile (abaixo de 768 px): o menu lateral vira gaveta, aberta pelo botão do topo (que também tem marca e busca); fecha com Esc, clique fora ou escolha de item, e prende o foco enquanto aberta (2026-11-11; substituiu a ideia de navegação inferior). Dossiê em abas empilhadas; aprovação de mensagem com evidências em painel expansível.
 - Tabelas de triagem viram listas com ações por gesto/menus em telas estreitas.

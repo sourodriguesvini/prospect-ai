@@ -23,8 +23,8 @@ export interface ModuleDef {
   description: string;
   /** Fatia do roadmap que entrega o módulo; null = disponível. */
   plannedSlice: string | null;
-  /** Barra superior (fluxo principal) ou trilho de ícones à esquerda (apoio). */
-  placement: 'top' | 'rail';
+  /** Grupo no menu lateral: fluxo principal do trabalho ou apoio. */
+  group: 'flow' | 'support';
   icon: LucideIcon;
 }
 
@@ -33,15 +33,15 @@ export const MODULES: readonly ModuleDef[] = [
     segment: '',
     label: 'Início',
     description: 'Fila de decisões do dia.',
-    placement: 'top',
+    group: 'flow',
     icon: House,
     plannedSlice: null,
   },
   {
     segment: 'copiloto',
     label: 'Copiloto',
-    description: 'Conversa com a IA local deste computador (ferramentas chegam na IA-2).',
-    placement: 'rail',
+    description: 'Conversa com a IA local deste computador, com consulta aos dados salvos.',
+    group: 'support',
     icon: Sparkles,
     plannedSlice: null,
   },
@@ -49,23 +49,23 @@ export const MODULES: readonly ModuleDef[] = [
     segment: 'descoberta',
     label: 'Descoberta',
     description: 'Buscas por ICP, linguagem natural ou lista importada.',
-    placement: 'top',
+    group: 'flow',
     icon: Compass,
     plannedSlice: 'F4',
   },
   {
     segment: 'empresas',
     label: 'Empresas',
-    description: 'Dossiês com evidências tipadas.',
-    placement: 'top',
+    description: 'Empresas acompanhadas, consulta de CNPJ e dossiês com evidências.',
+    group: 'flow',
     icon: Building2,
-    plannedSlice: 'F3',
+    plannedSlice: null,
   },
   {
     segment: 'abordagens',
     label: 'Abordagens',
     description: 'Planos e revisão de mensagens.',
-    placement: 'top',
+    group: 'flow',
     icon: Send,
     plannedSlice: 'F10',
   },
@@ -73,7 +73,7 @@ export const MODULES: readonly ModuleDef[] = [
     segment: 'aprovacoes',
     label: 'Aprovações',
     description: 'Tudo o que sai precisa de aprovação humana.',
-    placement: 'rail',
+    group: 'support',
     icon: CheckCheck,
     plannedSlice: 'F10',
   },
@@ -81,7 +81,7 @@ export const MODULES: readonly ModuleDef[] = [
     segment: 'conversas',
     label: 'Conversas',
     description: 'Respostas classificadas e opt-outs.',
-    placement: 'top',
+    group: 'flow',
     icon: MessagesSquare,
     plannedSlice: 'F11',
   },
@@ -89,7 +89,7 @@ export const MODULES: readonly ModuleDef[] = [
     segment: 'pipeline',
     label: 'Pipeline',
     description: 'Oportunidades, reuniões e propostas.',
-    placement: 'top',
+    group: 'flow',
     icon: SquareKanban,
     plannedSlice: 'F12',
   },
@@ -97,7 +97,7 @@ export const MODULES: readonly ModuleDef[] = [
     segment: 'monitoramento',
     label: 'Monitoramento',
     description: 'Watchlists e mudanças relevantes.',
-    placement: 'rail',
+    group: 'support',
     icon: Radar,
     plannedSlice: 'Fase 2',
   },
@@ -105,7 +105,7 @@ export const MODULES: readonly ModuleDef[] = [
     segment: 'inteligencia',
     label: 'Inteligência',
     description: 'Funil, custos, aprendizados e calibração.',
-    placement: 'rail',
+    group: 'support',
     icon: ChartColumn,
     plannedSlice: 'F13',
   },

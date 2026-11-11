@@ -1,5 +1,7 @@
 import 'server-only';
 import {
+  COPILOT_TOOLS_PROMPT_VERSION,
+  copilotPromptSupportsWebTools,
   createLocalAiRuntime,
   createUnavailableLocalAi,
   DEFAULT_OLLAMA_URL,
@@ -10,39 +12,70 @@ import {
 /** Texto dos fatos do sistema para o Copiloto (função pura do pacote de IA). */
 export { buildCopilotSystemFacts } from '@prospector/agents';
 import {
+  companyTools,
   createAuditService,
+  createCompanyService,
+  createCopilotService,
+  createEvidenceService,
   createStrategyService,
   createSystemService,
+  createToolRegistry,
+  createWebResearchService,
+  strategyTools,
+  webResearchTools,
+  type AiTelemetryRepository,
   type AuditRepository,
   type AuditService,
+  type CnpjLookup,
+  type CompanyRepository,
+  type CompanyService,
+  type CopilotRepository,
+  type CopilotService,
+  type EvidenceRepository,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
+  type ToolDefinition,
+  type ToolRegistry,
+  type WebResearchService,
+  type WebResearchUsageStore,
 } from '@prospector/application';
 import {
   createMemoryAuditRepository,
+  createMemoryCompanyRepository,
+  createMemoryCopilotRepository,
   createMemoryStrategyRepository,
+  createMemoryWebResearchUsage,
 } from '@prospector/application/memory';
 import {
   createServerSupabaseClient,
   createSupabaseAuditRepository,
+  createSupabaseCompanyRepository,
+  createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
   createSupabaseStrategyRepository,
+  createSupabaseWebResearchUsage,
 } from '@prospector/db';
+import { createCnpjLookup, createPageReader, createTavilySearch } from '@prospector/integrations';
 import { cache } from 'react';
+import { syntheticCnpjLookup } from './cnpj-fixture';
 import {
+  cnpjLookupMode,
   databaseEnv,
   databaseEnvPresent,
   LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
   localAiEnv,
   storageMode,
+  WebResearchConfigError,
+  webResearchEnv,
   type StorageMode,
 } from './env';
 
 /**
  * Raiz de composição da aplicação web: o único lugar que liga serviços de aplicação a
- * adaptadores concretos (`@prospector/db`, `@prospector/agents`) e o único que lê a secret key
+ * adaptadores concretos (`@prospector/db`, `@prospector/agents`, `@prospector/integrations`) e o
+ * único que lê a secret key
  * (ADR-0007, ADR-0008). Telas, rotas e Server Actions recebem serviços daqui.
  */
 export interface Services {
@@ -52,11 +85,24 @@ export interface Services {
   /** null enquanto o banco não estiver configurado: a tela mostra o estado, não um erro. */
   audit: AuditService | null;
   strategy: StrategyService | null;
+  /** Conversas persistentes do Copiloto e telemetria da IA local (IA-2). */
+  copilot: CopilotService | null;
+  /** Empresas, consulta de CNPJ e dossiês (M2); null sem banco. */
+  companies: CompanyService | null;
+  /**
+   * Pesquisa na internet (ADR-0012): busca Tavily e leitura de páginas; null sem banco. As
+   * ferramentas do Copiloto para ela entram conforme `copilotTools`.
+   */
+  research: WebResearchService | null;
+  /** Ferramentas oferecidas ao Copiloto; null sem banco. */
+  tools: ToolRegistry | null;
 }
 
 interface MemoryStores {
   audit: AuditRepository;
   strategy: StrategyRepository;
+  copilot: CopilotRepository & AiTelemetryRepository;
+  companies: CompanyRepository & EvidenceRepository;
 }
 
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
@@ -68,9 +114,108 @@ function memoryStores(): MemoryStores {
     holder.__prospectorMemoryStores = {
       audit,
       strategy: createMemoryStrategyRepository({ audit }),
+      copilot: createMemoryCopilotRepository({ audit }),
+      companies: createMemoryCompanyRepository({ audit }),
     };
   }
   return holder.__prospectorMemoryStores;
+}
+
+/**
+ * Consulta de CNPJ: uma instância por processo, para o cache (um dia por CNPJ) valer entre
+ * pedidos e poupar os provedores gratuitos. null quando desligada por variável. A consulta
+ * sintética (testes) só existe no modo memória: registro de teste nunca chega ao banco.
+ */
+function cnpjLookup(): CnpjLookup | null {
+  const mode = cnpjLookupMode();
+  if (mode === 'off') return null;
+  if (mode === 'fixture') {
+    if (storageMode() !== 'memory') {
+      throw new Error(
+        'PROSPECTOR_CNPJ_LOOKUP=fixture só funciona com PROSPECTOR_STORAGE=memory (registros de teste nunca vão para o banco).',
+      );
+    }
+    return syntheticCnpjLookup;
+  }
+  const holder = globalThis as { __prospectorCnpjLookup?: CnpjLookup };
+  holder.__prospectorCnpjLookup ??= createCnpjLookup();
+  return holder.__prospectorCnpjLookup;
+}
+
+function companyServices(repo: CompanyRepository & EvidenceRepository): CompanyService {
+  return createCompanyService({
+    companies: repo,
+    evidence: repo,
+    evidenceService: createEvidenceService({ evidence: repo }),
+    cnpjLookup: cnpjLookup(),
+  });
+}
+
+/**
+ * Pesquisa na internet (ADR-0012): uma instância por processo, porque o cache, o orçamento de
+ * créditos (trava e reserva), as filas, o cache de robots.txt, a lista de endereços vindos de
+ * busca e o navegador valem para todos os pedidos. Sem banco (`usage` null) a busca fica
+ * desligada: o contador em memória zeraria a cada reinício e o teto mensal deixaria de valer.
+ * Configuração inválida desliga a pesquisa e avisa no log (só nomes e formatos, nunca valores).
+ */
+interface WebResearchSetup {
+  service: WebResearchService;
+  /** Busca ligada: há banco, chave e a busca não foi desligada (`PROSPECTOR_WEB_SEARCH=off`). */
+  searchOn: boolean;
+}
+
+function webResearch(
+  repo: CompanyRepository & EvidenceRepository,
+  usage: WebResearchUsageStore | null,
+): WebResearchSetup {
+  const holder = globalThis as { __prospectorWebResearchSetup?: WebResearchSetup };
+  if (holder.__prospectorWebResearchSetup) return holder.__prospectorWebResearchSetup;
+  let env: ReturnType<typeof webResearchEnv> | null = null;
+  try {
+    env = webResearchEnv();
+  } catch (error) {
+    if (!(error instanceof WebResearchConfigError)) throw error;
+    console.error(`[pesquisa-web] ${error.message}`);
+  }
+  const searchOn = Boolean(env && env.searchEnabled && usage && env.tavilyApiKey);
+  const service = createWebResearchService({
+    search:
+      !env || !env.searchEnabled || !usage
+        ? 'disabled'
+        : env.tavilyApiKey
+          ? createTavilySearch({ apiKey: env.tavilyApiKey })
+          : 'not_configured',
+    pages: env?.pageReaderEnabled ? createPageReader() : 'disabled',
+    // Sem banco, o contador em memória só alimenta o estado: a busca já está desligada.
+    usage: usage ?? createMemoryWebResearchUsage(),
+    companies: repo,
+    evidence: repo,
+    evidenceService: createEvidenceService({ evidence: repo }),
+    monthlyCreditBudget: env?.WEB_SEARCH_MONTHLY_CREDITS ?? 0,
+    maxConcurrentSearches: env?.WEB_SEARCH_MAX_CONCURRENCY,
+    maxConcurrentPages: env?.PAGE_READER_MAX_CONCURRENCY,
+    searchCacheTtlMs: env ? env.WEB_SEARCH_CACHE_HOURS * 60 * 60 * 1000 : undefined,
+  });
+  holder.__prospectorWebResearchSetup = { service, searchOn };
+  return holder.__prospectorWebResearchSetup;
+}
+
+/**
+ * Ferramentas oferecidas ao Copiloto. As da pesquisa na internet (`webResearchTools`) só entram
+ * com a busca ligada e com um prompt que as conhece (`copilot-tools/v3` em diante): o v2 diz ao
+ * modelo que nenhuma ferramenta acessa a internet (KI-096).
+ */
+function copilotTools(
+  strategy: StrategyService,
+  audit: AuditService,
+  companies: CompanyService,
+  research: WebResearchSetup,
+): ToolDefinition[] {
+  const web =
+    research.searchOn && copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)
+      ? webResearchTools({ research: research.service })
+      : [];
+  return [...strategyTools({ strategy, audit }), ...companyTools({ companies }), ...web];
 }
 
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
@@ -90,25 +235,56 @@ export const getServices = cache((): Services => {
     warnIgnoredDatabase();
     const stores = memoryStores();
     const audit = createAuditService(stores.audit);
+    // LIA e auditoria somem ao reiniciar: a barreira de abordagem nunca libera (ADR-0009).
+    const strategy = createStrategyService({ repo: stores.strategy, ephemeralStorage: true });
+    const companies = companyServices(stores.companies);
+    const research = webResearch(stores.companies, null);
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
       audit,
-      // LIA e auditoria somem ao reiniciar: a barreira de abordagem nunca libera (ADR-0009).
-      strategy: createStrategyService({ repo: stores.strategy, ephemeralStorage: true }),
+      strategy,
+      copilot: createCopilotService({ repo: stores.copilot, telemetry: stores.copilot }),
+      companies,
+      research: research.service,
+      tools: createToolRegistry({
+        tools: copilotTools(strategy, audit, companies, research),
+        telemetry: stores.copilot,
+      }),
     };
   }
   const credentials = databaseEnv();
   if (!credentials) {
-    return { storage: 'supabase', system: createSystemService(null), audit: null, strategy: null };
+    return {
+      storage: 'supabase',
+      system: createSystemService(null),
+      audit: null,
+      strategy: null,
+      copilot: null,
+      companies: null,
+      research: null,
+      tools: null,
+    };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
   const audit = createAuditService(createSupabaseAuditRepository(client));
+  const strategy = createStrategyService({ repo: createSupabaseStrategyRepository(client) });
+  const copilotRepo = createSupabaseCopilotRepository(client);
+  const companyRepo = createSupabaseCompanyRepository(client);
+  const companies = companyServices(companyRepo);
+  const research = webResearch(companyRepo, createSupabaseWebResearchUsage(client));
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
     audit,
-    strategy: createStrategyService({ repo: createSupabaseStrategyRepository(client) }),
+    strategy,
+    copilot: createCopilotService({ repo: copilotRepo, telemetry: copilotRepo }),
+    companies,
+    research: research.service,
+    tools: createToolRegistry({
+      tools: copilotTools(strategy, audit, companies, research),
+      telemetry: copilotRepo,
+    }),
   };
 });
 

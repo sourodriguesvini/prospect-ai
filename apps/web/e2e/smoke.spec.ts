@@ -53,10 +53,10 @@ test.describe('telas (sem banco configurado)', () => {
     await page.goto('/');
     await page
       .getByRole('navigation', { name: 'Principal' })
-      .getByRole('link', { name: /Empresas/ })
+      .getByRole('link', { name: /Descoberta/ })
       .click();
-    await expect(page).toHaveURL(/\/empresas$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Empresas' })).toBeVisible();
+    await expect(page).toHaveURL(/\/descoberta$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Descoberta' })).toBeVisible();
     await expect(page.getByText('Em breve.')).toBeVisible();
     await expectNoA11yViolations(page);
   });
@@ -67,12 +67,18 @@ test.describe('telas (sem banco configurado)', () => {
     test.skip(withDatabase, DATABASE_ON);
     await page.goto('/configuracoes');
     await expect(page.getByRole('heading', { level: 1, name: 'Configuração' })).toBeVisible();
-    await page.getByRole('link', { name: /Auditoria/ }).click();
+    // O menu lateral também tem Auditoria (submenu da Configuração): aqui é o cartão da tela.
+    await page
+      .getByRole('main')
+      .getByRole('link', { name: /Auditoria/ })
+      .click();
     await expect(page).toHaveURL(/\/configuracoes\/auditoria$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Auditoria' })).toBeVisible();
     await expect(
       page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
     ).toBeVisible();
+    // Na navegação pelo cliente, o Next troca o <title> depois do conteúdo: espera antes do axe.
+    await expect(page).toHaveTitle(/Auditoria/);
     await expectNoA11yViolations(page);
   });
 

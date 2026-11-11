@@ -1,0 +1,47 @@
+{
+  "_synthetic": true,
+  "cnpj": "11222333000181",
+  "razao_social": "ATELIE EXEMPLO DE MARCENARIA LTDA",
+  "nome_fantasia": "ATELIE EXEMPLO",
+  "situacao_cadastral": "Ativa",
+  "data_situacao_cadastral": "2015-03-10",
+  "matriz_filial": "Matriz",
+  "data_inicio_atividade": "2015-03-10",
+  "cnae_principal": "3101200",
+  "cnaes_secundarios": ["4754701", "3101200"],
+  "cnaes": [
+    {
+      "codigo": "3101200",
+      "descricao": "Fabricação de móveis com predominância de madeira",
+      "is_principal": true
+    },
+    { "codigo": "4754701", "descricao": "Comércio varejista de móveis", "is_principal": false }
+  ],
+  "codigo_natureza_juridica": "2062",
+  "natureza_juridica": "Sociedade Empresária Limitada",
+  "tipo_logradouro": "RUA",
+  "logradouro": "DAS EXEMPLO",
+  "numero": "100",
+  "complemento": "",
+  "bairro": "CENTRO",
+  "cep": "80000000",
+  "uf": "PR",
+  "municipio": "CURITIBA",
+  "codigo_municipio": "7535",
+  "email": "contato@exemplo.invalid",
+  "telefones": [{ "ddd": "41", "numero": "00000000", "is_fax": false }],
+  "capital_social": "150000,00",
+  "porte_empresa": "Empresa de Pequeno Porte",
+  "opcao_simples": "S",
+  "opcao_mei": "N",
+  "QSA": [
+    {
+      "nome_socio": "SOCIA EXEMPLO DA SILVA",
+      "cnpj_cpf_socio": "***000000**",
+      "qualificacao_socio": "Sócio-Administrador",
+      "faixa_etaria": "41 a 50 anos"
+    }
+  ],
+  "lgpd_anonimizado": false,
+  "updated_at": "2026-11-01T21:47:27.1957841Z"
+}

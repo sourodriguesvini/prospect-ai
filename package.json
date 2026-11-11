@@ -18,7 +18,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ai:live": "pnpm --filter @prospector/agents test:live",
-    "evals": "pnpm --filter @prospector/agents evals"
+    "evals": "pnpm --filter @prospector/agents evals",
+    "app:install": "node scripts/app/instalar.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

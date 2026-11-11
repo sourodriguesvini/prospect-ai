@@ -5,6 +5,8 @@ import {
   type AiTask,
   type CopilotEvent,
   type LocalModel,
+  type ToolCallRequest,
+  type ToolSpec,
 } from '@prospector/contracts';
 import {
   decideAdmission,
@@ -12,7 +14,7 @@ import {
   insufficientVramError,
   UNMEASURED_VRAM_NOTICE,
 } from './admission';
-import { droppedNotice, fitToContext, type BudgetMessage } from './context-budget';
+import { droppedNotice, estimateTokens, fitToContext, type BudgetMessage } from './context-budget';
 import { AiError, toAiError } from './errors';
 import type { GpuProbe } from './gpu';
 import type { Limiter, LimiterTicket } from './limiter';
@@ -29,7 +31,13 @@ import {
   type ModelPolicy,
   type TaskPolicy,
 } from './model-policy';
-import type { OllamaChatChunk, OllamaClient, OllamaModelInfo } from './ollama/client';
+import type {
+  OllamaChatChunk,
+  OllamaChatMessage,
+  OllamaChunkToolCall,
+  OllamaClient,
+  OllamaModelInfo,
+} from './ollama/client';
 import { neutralizeControlTokens } from './sanitize';
 
 /** Mesma forma que o orçamento de contexto e o cliente do Ollama usam. */
@@ -39,18 +47,32 @@ type CopilotStart = Extract<CopilotEvent, { type: 'start' }>;
 
 /**
  * Eventos do gateway: os do contrato `CopilotEvent`, menos o que só o Copiloto conhece (versão do
- * prompt e trace no `start`) e o `error`, que o gateway lança como `AiError`. Derivado do contrato
- * para que uma mudança nos eventos da tela apareça aqui na compilação.
+ * prompt e trace no `start`, conversa e ferramentas) e o `error`, que o gateway lança como
+ * `AiError`. Derivado do contrato para que uma mudança nos eventos da tela apareça aqui na
+ * compilação. `tool_calls` é interno: os pedidos de ferramenta da geração, antes do `done`.
  */
 export type GatewayEvent =
-  | Exclude<CopilotEvent, { type: 'start' } | { type: 'error' }>
-  | Pick<CopilotStart, 'type' | 'model'>;
+  | Exclude<
+      CopilotEvent,
+      | { type: 'start' }
+      | { type: 'error' }
+      | { type: 'thread' }
+      | { type: 'tool_call' }
+      | { type: 'tool_result' }
+    >
+  | Pick<CopilotStart, 'type' | 'model'>
+  | { type: 'tool_calls'; calls: ToolCallRequest[] };
 
 export interface ChatInput {
   messages: GatewayMessage[];
   /** Modelo pedido pela tela; precisa estar instalado e ter as capacidades da tarefa. */
   model?: string;
   think: boolean;
+  /**
+   * Ferramentas oferecidas ao modelo (IA-2). Se o modelo escolhido não usa ferramentas, o gateway
+   * avisa e segue sem elas.
+   */
+  tools?: readonly ToolSpec[];
 }
 
 /** Mesmos limites que o estado mostra na tela (contrato `AiRuntimeLimits`). */
@@ -267,7 +289,10 @@ export function createLocalAiGateway(deps: {
           capabilities: details.get(model.name)?.capabilities ?? null,
         })),
         requires: taskPolicy.requires,
-        wants: input.think ? ['thinking'] : [],
+        wants: [
+          ...(input.think ? (['thinking'] as const) : []),
+          ...(input.tools?.length ? (['tools'] as const) : []),
+        ],
         requested: input.model,
       });
       if (choice.kind !== 'ok') throw choiceError(choice, input.model, taskPolicy);
@@ -277,6 +302,13 @@ export function createLocalAiGateway(deps: {
       const modelDetails = details.get(model) ?? UNKNOWN_DETAILS;
 
       const notices: string[] = [];
+      const tools =
+        input.tools?.length && !choice.lacking.includes('tools') ? [...input.tools] : [];
+      if (input.tools?.length && tools.length === 0) {
+        notices.push(
+          `O modelo ${model} não usa ferramentas, segundo o Ollama: a resposta vem sem consultar os dados do Prospector.`,
+        );
+      }
       const think = input.think && !choice.lacking.includes('thinking');
       if (input.think && !think) {
         notices.push(
@@ -291,9 +323,23 @@ export function createLocalAiGateway(deps: {
           ? message
           : { ...message, content: neutralizeControlTokens(message.content) },
       );
+      // As definições das ferramentas também ocupam o contexto: sem contá-las, o Ollama cortaria
+      // o começo do pedido (as instruções) em silêncio.
+      const toolDefinitions = tools.map((tool) => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      }));
+      const reservedTokens = toolDefinitions.length
+        ? estimateTokens(JSON.stringify(toolDefinitions))
+        : 0;
       const plan = fitToContext(sanitized, {
         numCtx,
         maxOutputTokens: think ? taskPolicy.maxOutputTokensThinking : taskPolicy.maxOutputTokens,
+        reservedTokens,
       });
       if (plan.dropped > 0) notices.push(droppedNotice(plan.dropped));
 
@@ -376,12 +422,19 @@ export function createLocalAiGateway(deps: {
           const forward = () => phase.abort(controller.signal.reason);
           if (controller.signal.aborted) forward();
           else controller.signal.addEventListener('abort', forward, { once: true });
-          const result: Generation = { last: null, answered: false, thoughtTokens: 0, cut: false };
+          const result: Generation = {
+            last: null,
+            answered: false,
+            thoughtTokens: 0,
+            cut: false,
+            toolCalls: [],
+          };
           try {
             const stream = client.chat(
               {
                 model,
-                messages: plan.messages,
+                messages: plan.messages.map(toOllamaMessage),
+                tools: toolDefinitions,
                 think: withThinking,
                 keepAlive: taskPolicy.keepAlive,
                 options: {
@@ -410,6 +463,14 @@ export function createLocalAiGateway(deps: {
                 result.answered = true;
                 yield { type: 'delta', text: content };
               }
+              const requested = chunk.message?.tool_calls;
+              if (requested?.length) {
+                result.answered = true;
+                for (const call of requested) {
+                  if (result.toolCalls.length >= MAX_TOOL_CALLS_PER_GENERATION) break;
+                  result.toolCalls.push(normalizeToolCall(call, result.toolCalls.length));
+                }
+              }
               if (chunk.done) result.last = chunk;
             }
           } finally {
@@ -425,6 +486,7 @@ export function createLocalAiGateway(deps: {
           : Number.POSITIVE_INFINITY;
         const first = yield* generate(think, plan.numPredict, thinkingBudget);
         let last = first.last;
+        let toolCalls = first.toolCalls;
         let usage: GatewayEventUsage | null = last ? usageOf(last) : null;
         const exhausted = first.cut || (last?.done_reason === 'length' && !first.answered);
         if (think && !first.answered && exhausted) {
@@ -434,11 +496,13 @@ export function createLocalAiGateway(deps: {
           const retry = fitToContext(sanitized, {
             numCtx,
             maxOutputTokens: taskPolicy.maxOutputTokens,
+            reservedTokens,
           });
           clear(idle);
           idle = deadline(taskPolicy.firstTokenTimeoutMs);
           const second = yield* generate(false, retry.numPredict, Number.POSITIVE_INFINITY);
           last = second.last;
+          toolCalls = second.toolCalls;
           usage = null;
           if (last) {
             const answer = usageOf(last);
@@ -453,6 +517,7 @@ export function createLocalAiGateway(deps: {
         if (!last || !usage) {
           throw new AiError('provider_error', { detail: 'stream terminou sem done' });
         }
+        if (toolCalls.length > 0) yield { type: 'tool_calls', calls: toolCalls };
         yield {
           type: 'done',
           model,
@@ -528,6 +593,60 @@ interface Generation {
   thoughtTokens: number;
   /** O gateway cortou o raciocínio por passar do orçamento. */
   cut: boolean;
+  /** Ferramentas pedidas pelo modelo nesta geração. */
+  toolCalls: ToolCallRequest[];
+}
+
+/** Limite de ferramentas por geração: um modelo em laço não dispara dezenas de consultas. */
+export const MAX_TOOL_CALLS_PER_GENERATION = 6;
+
+/**
+ * Pedido do Ollama no formato do contrato. Argumentos em texto viram objeto (JSON inválido vira
+ * objeto vazio e a validação da ferramenta responde ao modelo); id ausente ganha um sequencial.
+ */
+function normalizeToolCall(call: OllamaChunkToolCall, index: number): ToolCallRequest {
+  let args: Record<string, unknown> = {};
+  const raw = call.function.arguments;
+  if (typeof raw === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        args = parsed as Record<string, unknown>;
+      }
+    } catch {
+      args = {};
+    }
+  } else if (raw) {
+    args = raw;
+  }
+  const id = call.id && call.id.length <= 80 ? call.id : `call_${index + 1}`;
+  return { id, name: call.function.name.slice(0, 64), arguments: args };
+}
+
+/** Mensagem do gateway no formato do `/api/chat`. */
+function toOllamaMessage(message: GatewayMessage): OllamaChatMessage {
+  switch (message.role) {
+    case 'tool':
+      return {
+        role: 'tool',
+        content: message.content,
+        tool_name: message.toolName ?? 'tool',
+        ...(message.toolCallId ? { tool_call_id: message.toolCallId } : {}),
+      };
+    case 'assistant':
+      return message.toolCalls?.length
+        ? {
+            role: 'assistant',
+            content: message.content,
+            tool_calls: message.toolCalls.map((call) => ({
+              id: call.id,
+              function: { name: call.name, arguments: call.arguments },
+            })),
+          }
+        : { role: 'assistant', content: message.content };
+    default:
+      return { role: message.role, content: message.content };
+  }
 }
 
 /** Abaixo disso o raciocínio nem começa direito; o corte usa ao menos este orçamento. */

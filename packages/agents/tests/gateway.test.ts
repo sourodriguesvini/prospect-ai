@@ -546,7 +546,8 @@ describe('LocalAiGateway.chat: admissão por VRAM', () => {
   });
 
   it('modelo já carregado com o mesmo contexto não passa pela conta de novo', async () => {
-    const client = fakeClient({ running: [running('qwen3.5:4b', 3_245_510_490)] });
+    // O Copiloto pede 16 mil tokens de contexto (pesquisa na internet, 2026-11-10).
+    const client = fakeClient({ running: [running('qwen3.5:4b', 3_245_510_490, 16_384)] });
     const events = await collect(gateway(client, { gpu: gpuWithFree(500) }).chat('copilot', ask));
     expect(events[0]).toEqual({ type: 'start', model: 'qwen3.5:4b' });
     expect(events.some((event) => event.type === 'notice')).toBe(false);
@@ -662,7 +663,8 @@ describe('LocalAiGateway.chat: capacidades e contexto', () => {
 
   it('corta o histórico que não cabe em num_ctx e avisa quantas falas ficaram de fora', async () => {
     const requests: OllamaChatRequest[] = [];
-    const long = 'x'.repeat(7000);
+    // Cada fala ocupa ~4,7 mil tokens: três cabem nos 16 mil do Copiloto, quatro não.
+    const long = 'x'.repeat(14000);
     const messages = [
       { role: 'system' as const, content: 'regras' },
       { role: 'user' as const, content: `antiga ${long}` },

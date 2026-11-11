@@ -38,6 +38,16 @@ export function isSameOriginRequest(headers: {
 }
 
 /**
+ * Leitura de rota (GET) que gasta recurso só vale vinda do próprio app ou digitada pelo usuário
+ * na barra de endereço. Um site em outra aba não consegue ler a resposta (mesma origem), mas
+ * consegue disparar pedidos em série; o navegador marca esses com `Sec-Fetch-Site` diferente de
+ * `same-origin`. Sem o cabeçalho (programa deste computador), vale, como no ADR-0007.
+ */
+export function isAppRead(secFetchSite: string | null): boolean {
+  return secFetchSite === null || secFetchSite === 'same-origin' || secFetchSite === 'none';
+}
+
+/**
  * Recusa qualquer requisição cujo `Host` (ou `X-Forwarded-Host`, se presente) não seja local.
  * Sem login, é isso que impede um site externo de usar o app via DNS rebinding.
  */

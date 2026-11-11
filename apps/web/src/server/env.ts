@@ -1,6 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { ModelName } from '@prospector/contracts';
+import { ModelName, WEB_RESEARCH_ENV_FORMATS, WebResearchEnv } from '@prospector/contracts';
 
 const DatabaseEnv = z.object({
   SUPABASE_URL: z.url({ protocol: /^https?$/ }),
@@ -29,6 +29,24 @@ export function storageMode(): StorageMode {
   if (value === undefined || value === 'supabase') return 'supabase';
   if (value === 'memory') return 'memory';
   throw new Error('PROSPECTOR_STORAGE inválida: use "memory" ou deixe vazia.');
+}
+
+export type CnpjLookupMode = 'on' | 'off' | 'fixture';
+
+/**
+ * Consulta de CNPJ na internet (OpenCNPJ, com a Minha Receita de reserva; M2). Ligada por padrão,
+ * sem chave. `PROSPECTOR_CNPJ_LOOKUP=off` desliga (uso sem internet); `fixture` usa registros
+ * SINTÉTICOS, só no modo memória (testes de ponta a ponta).
+ */
+export function cnpjLookupMode(): CnpjLookupMode {
+  const value = readVar('PROSPECTOR_CNPJ_LOOKUP');
+  if (value === undefined || value === 'on') return 'on';
+  if (value === 'off' || value === 'fixture') return value;
+  throw new Error('PROSPECTOR_CNPJ_LOOKUP inválida: use "on", "off", "fixture" ou deixe vazia.');
+}
+
+export function cnpjLookupEnabled(): boolean {
+  return cnpjLookupMode() !== 'off';
 }
 
 /** Alguma variável do banco definida (sem ler nem validar o valor). */
@@ -142,5 +160,50 @@ export function localAiEnv(): LocalAiSettings {
     maxConcurrent: env.AI_MAX_CONCURRENCY,
     maxQueue: env.AI_MAX_QUEUE,
     vramReserveMiB: env.AI_VRAM_RESERVE_MIB,
+  };
+}
+
+/** Configuração da pesquisa na internet (ADR-0012). A chave só existe no servidor. */
+export interface WebResearchSettings extends WebResearchEnv {
+  /** Chave da Tavily; null = não configurada. Nunca vai para log, tela ou trace. */
+  tavilyApiKey: string | null;
+  searchEnabled: boolean;
+  pageReaderEnabled: boolean;
+}
+
+/** Variável da pesquisa na internet inválida. Leva só os nomes e o formato, nunca os valores. */
+export class WebResearchConfigError extends Error {
+  constructor(variables: string[]) {
+    const expected = variables.map((name) => {
+      const format = WEB_RESEARCH_ENV_FORMATS[name as keyof WebResearchEnv];
+      return format ? `${name} (${format})` : name;
+    });
+    super(
+      `Pesquisa na internet desligada: variáveis inválidas: ${expected.join('; ')}. Corrija em apps/web/.env.local (veja docs/adr/0012-busca-web-tavily-playwright.md) e reinicie o app.`,
+    );
+    this.name = 'WebResearchConfigError';
+  }
+}
+
+/**
+ * Pesquisa na internet (ADR-0012). Sem TAVILY_API_KEY a busca responde "não configurada";
+ * PROSPECTOR_WEB_SEARCH=off desliga mesmo com chave (padrão: ligada). O teto mensal de créditos
+ * nunca passa da cota gratuita (D-AI-4).
+ */
+export function webResearchEnv(): WebResearchSettings {
+  const raw = Object.fromEntries(
+    Object.keys(WebResearchEnv.shape).map((name) => [name, readVar(name)]),
+  );
+  const parsed = WebResearchEnv.safeParse(raw);
+  if (!parsed.success) {
+    throw new WebResearchConfigError([
+      ...new Set(parsed.error.issues.map((issue) => issue.path.join('.'))),
+    ]);
+  }
+  return {
+    ...parsed.data,
+    tavilyApiKey: readVar('TAVILY_API_KEY') ?? null,
+    searchEnabled: parsed.data.PROSPECTOR_WEB_SEARCH !== 'off',
+    pageReaderEnabled: parsed.data.PROSPECTOR_PAGE_READER !== 'off',
   };
 }

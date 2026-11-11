@@ -74,6 +74,8 @@ flowchart LR
 |---|---|---|---|
 | `src/proxy.ts` | Recusa `Host` fora de localhost (403) e define cabeçalhos | — | ADR-0007 |
 | `POST /api/copiloto` | Conversa em streaming com o modelo local | Mesma origem (403), JSON (415), até 256 KB (413), contrato Zod `CopilotRequest` (400); erros do provedor viram eventos `error` com código | Só a própria página usa; o modelo não recebe ferramentas |
+| `GET /api/estado` (2026-11-11) | Indicadores do rodapé do menu lateral (IA local, pesquisa na internet, banco) | Contrato Zod `SystemStatusView` nos dois lados; cada leitura que falha vira "Não conferido" sem derrubar as outras; resposta reaproveitada por 15 s entre abas | `Sec-Fetch-Site` de outro site recusado (403); só enums, versão do Ollama e nomes de modelos, nunca valores de variáveis |
+| `GET /api/busca?q=` (2026-11-11) | Busca de empresas da paleta Ctrl+K pelo `CompanyService.list` | Termo pelo contrato `CompanyListFilter.search` (até 120, 400); sem banco, lista vazia com aviso; falha vira 503 em pt-BR; contrato Zod `CompanySearchReply` | `Sec-Fetch-Site` de outro site recusado (403); devolve id, nome, cidade/UF, selo DEMO e link interno |
 | Server Action `unloadModel` | Descarrega um modelo carregado | Nome validado e conferido contra os modelos carregados | Checagem de origem nativa das Server Actions |
 | `AuditService`, `SystemService` | Auditoria e estado do banco | Zod nas linhas lidas | Secret key só em `server/env.ts` |
 
@@ -101,7 +103,7 @@ flowchart LR
 
 - **Dependências:** pnpm 11 + Turborepo; Next 16.4.5, React 19.3.1, TypeScript 6.0.3 (fixado, KI-012), zod 4.6.7, Vitest, Playwright 1.65 com Chromium instalado. `packages/agents` não adiciona dependência externa além de `zod`.
 - **Variáveis:** `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `TEST_DATABASE_URL` e as de IA local (`OLLAMA_BASE_URL`, `AI_*`, ver [runbooks/segredos.md](runbooks/segredos.md)).
-- **Scripts:** `dev`, `typecheck`, `lint` (fronteiras + ESLint), `format:check`, `test`, `test:db`, `test:e2e`, `ai:live` e `evals` (novos).
+- **Scripts:** `dev`, `typecheck`, `lint` (fronteiras + ESLint), `format:check`, `test`, `test:db`, `test:e2e`, `ai:live`, `evals` e `app:install` (instalação no disco D, §11).
 - **Docker:** não existe no projeto nem na máquina.
 - **CI:** `.github/workflows/ci.yml` escrito e nunca executado (sem remoto, KI-009).
 - **Logs:** console do servidor; sem `llm_calls`, traces ou métricas persistidas.
@@ -114,21 +116,21 @@ Estados: **Funcional** (implementado e funcional) · **Parcial** (implementado p
 |---|---|---|---|
 | Shell, navegação e design system | Funcional | — | F1 |
 | Início | Parcial + Integração | Média | F1 → F10 |
-| Copiloto | Parcial | **Alta** | IA-1 → IA-2, F8 |
+| Copiloto | Funcional (IA-2, 2026-11-10): conversas salvas no banco, ferramentas de leitura da estratégia, telemetria; prompt `copilot-tools/v3` (desde 2026-11-10, com pesquisa na internet; ressalvas no KI-096 e no KI-076) | **Alta** | IA-2 → F8 |
 | IA local (gateway, gerenciador de modelos) | Funcional para conversa; Parcial para as demais tarefas | **Alta** | IA-1 → IA-5 |
 | Configurações e auditoria | Funcional: estratégia e conformidade gravam no banco real com auditoria na mesma transação (ADR-0010) | Média | F1, F2 |
-| Banco de dados | Funcional (desenvolvimento): 4 migrações no `prospector-dev`; `pnpm test:db` real e CI não executados | Média | F1, F2 |
+| Banco de dados | Funcional (desenvolvimento): 6 migrações no `prospector-dev` (a 6ª, de empresas e evidências, em 2026-11-10); `pnpm test:db` real e CI não executados | Média | F1, F2 |
 | Segurança local | Funcional | — | F1 |
 | Testes e qualidade | Funcional (local); CI não executado | Média | F1 |
 | Descoberta | Não implementado | Alta | F4 |
-| Empresas (dossiê, evidências) | Parcial: contratos e regras do Evidence Ledger (F3a); sem banco, serviço nem tela | Alta | F3 |
+| Empresas (dossiê, evidências) | Funcional (M2, 2026-11-10): cadastro manual e pelo CNPJ, Evidence Ledger no banco (fontes, claims, evidências, substituição por versão), conferência de trechos, dossiê, situação, ferramentas do Copiloto. Falta edição do cadastro, recálculo de confiança (KI-071) e investigação (M4) | Média | F3 |
 | Abordagens | Não implementado | Média | F10 |
 | Aprovações | Não implementado | Média | F10 |
 | Conversas | Não implementado | Baixa | F11 |
 | Pipeline | Não implementado | Baixa | F12 |
 | Monitoramento | Não implementado | Baixa | Fase 2 |
 | Inteligência (métricas, aprendizado) | Não implementado | Baixa | F13 |
-| Integrações externas | Não implementado | Média | F3–F6 |
+| Integrações externas | Parcial: consulta de CNPJ gratuita (OpenCNPJ, reserva Minha Receita) em `packages/integrations` | Média | F3–F6 |
 
 Nenhum módulo está "Só interface": os futuros mostram uma página de aviso com a fatia que os entrega, sem dados simulados (`apps/web/src/lib/modules.ts`, `apps/web/src/app/(shell)/[modulo]/page.tsx`).
 
@@ -215,7 +217,7 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 | Copiloto com ferramentas | Ausente | Contratos Zod, `RequestContext`, serviços de application, limites de autonomia (doc 04 §5) | Registro de ferramentas, laço de chamada de ferramentas no gateway, avaliação de chamadas |
 | Histórico de conversas | Só na aba | `CopilotTurn`/`CopilotRequest` | Tabelas `copilot_threads`/`copilot_messages` |
 | Tarefas e acompanhamento | Ausente | Fila em memória (padrão), ADR-0004 (requisitos de durabilidade) | Fila durável local no Postgres + processo worker local |
-| Evidências tipadas | Contratos e regras puras (F3a) | `packages/contracts/src/evidence.ts`, `packages/domain/src/evidence`, [08 §2.5](08-metodologia-comercial.md#25-regras-implementadas-e-valores-decididos-f3a) | Migração, `EvidenceService`, repositórios, conferência de trechos, recálculo, UI (F3) |
+| Evidências tipadas | Funcional (M2): migração, `EvidenceService`, repositórios, conferência de trechos, dossiê | `packages/application/src/services/evidence-service.ts`, `packages/domain/src/evidence`, migração `20261110170000` | Recálculo e decaimento da confiança (KI-071), juiz de contradição (KI-073) |
 | Pesquisa externa | Ausente | Pesquisas `research/01–02`, catálogo do doc 05 | Portas `WebSearch`, `PageFetcher`, `ScreenCapture`; decisão do provedor de busca (D-AI-4) |
 | Auditoria visual | Ausente | Playwright e Chromium já instalados (e2e); `qwen3.5:4b` tem visão | Captura em worker, contrato `VisualFinding`, avaliação com 30 marcas |
 | Memória semântica | Ausente | Supabase + pgvector | Migração com `vector`, embeddings via `/api/embed`, busca híbrida |
@@ -311,7 +313,7 @@ Prioridade a fontes gratuitas e autorizadas. Tudo que for usado em diagnóstico 
 | Dados empresariais | Dados abertos do CNPJ (Receita) | BrasilAPI / OpenCNPJ para consulta pontual | Gratuito; APIs públicas com poucas requisições por minuto | Pesquisado em [research/01](research/01-dados-empresas-e-decisores.md); licença de redistribuição não verificada (KI-004) |
 | Leitura de páginas públicas | Leitor próprio (HTTP + extração de texto) respeitando robots.txt, com bloqueio de IPs privados, tempo limite e user-agent identificado | Playwright para páginas que exigem JavaScript | Gratuito | Planejado (F5) |
 | Análise de sites | Playwright (captura desktop/celular), PageSpeed Insights API, Wayback CDX | — | Gratuito; Playwright já instalado | Planejado (F6) |
-| Mecanismo de busca | **Decisão D-AI-4.** Ollama Web Search API: conta gratuita, cota não publicada, consultas vão para a nuvem da Ollama | Brave Search API: segundo fontes secundárias, sem plano gratuito desde fev/2026, US$ 5 por 1.000 buscas com US$ 5 de crédito mensal (≈ 1.000 buscas) | Ver colunas | **Não verificado** em página oficial; conferir antes de integrar ([Ollama](https://registry.ollama.ai/blog/web-search), [Brave](https://www.implicator.ai/brave-drops-free-search-api-tier-puts-all-developers-on-metered-billing.md)) |
+| Mecanismo de busca | **D-AI-4 decidida (2026-11-10): Tavily Search API**, só no plano gratuito, com limite de consumo configurável que para as chamadas ao atingir o orçamento; chave em variável de ambiente, criada pelo usuário | SearXNG local, opcional, só depois de avaliação | Gratuito (plano gratuito da Tavily; sem cobrança automática) | Implementação no M3 ([14](14-execucao-e-conclusao.md)); as opções antes avaliadas (Ollama Web Search, Brave) ficaram de fora |
 | Localização empresarial | Endereço do CNPJ (gratuito) | Google Places (New): só `place_id` armazenável, pago acima da cota (doc 05) | — | Pesquisado (doc 05) |
 | Notícias | GDELT DOC 2.0 | Feeds RSS de veículos | Gratuito | Fase 2 |
 | Concorrentes | Mesmo CNAE + município nos dados do CNPJ; sites públicos pelo leitor | Instagram Graph (conta profissional da agência) | Gratuito | F6 / Fase 2 |
@@ -359,7 +361,7 @@ Registradas também em [10 §1](10-riscos-custos-decisoes.md#1-decisões-pendent
 | ID | Pergunta | Opções | Quem decide |
 |---|---|---|---|
 | D-AI-1 | Usar a Claude API como reserva para tarefas que o modelo local não resolver bem? | Não (só local) · Sim, por capacidade e com orçamento | Usuário, com resultado de avaliação |
-| D-AI-4 | Provedor de busca web | Ollama Web Search · Brave · nenhum (só fontes diretas) | Usuário, após conferir termos e cota |
+| D-AI-4 | Provedor de busca web | **Decidida em 2026-11-10:** Tavily (plano gratuito, com teto de consumo) + Playwright para páginas; SearXNG local opcional depois de avaliação | Usuário |
 | D-AI-5 | Orquestração de tarefas | Fila no Postgres + worker local · Trigger.dev com worker local | Técnica (proposta: Postgres), registrar em ADR na IA-3 |
 
 ## 8. Decisões técnicas desta rodada
@@ -706,3 +708,32 @@ Preenchimento final, no mesmo dia, depois que o usuário aprovou os textos e ped
 | GitHub | Repositório privado `sourodriguesvini/prospect-ai`; `main` enviada com o commit desta rodada. Primeira execução do CI não conferida pelo agente (KI-009) |
 
 Ambiente: a porta 3100, padrão do e2e, estava ocupada por outro projeto do usuário; os e2e rodaram com `E2E_PORT=3120 E2E_MEMORY_PORT=3130`. Com o painel do navegador embutido escondido, o `requestAnimationFrame` não dispara e o React não revela o conteúdo transmitido depois do `Suspense` (a página fica em "Carregando…"). Não é defeito do app: o HTML chega completo.
+
+### App instalado no disco D (2026-11-10)
+
+Pedido do usuário: transformar o projeto num aplicativo da máquina, instalado no disco D, para abrir sem terminal. Detalhes de uso no [runbook §7](runbooks/ambiente-local.md#7-app-instalado-neste-computador-dprospector).
+
+| Item | O que foi feito |
+|---|---|
+| Build | `PROSPECTOR_STANDALONE=1` liga `output: 'standalone'` em `apps/web/next.config.ts`; sem a variável nada muda. `/*turbopackIgnore: true*/` no `execFile` do `nvidia-smi` (`packages/agents/src/gpu.ts`), que fazia o Turbopack rastrear o projeto inteiro para o build |
+| Instalador | `pnpm app:install` (`scripts/app/instalar.mjs`): build, cópia para `D:\Prospector\app` com os 26 links simbólicos relativos do pnpm, `.next/static`, prompts, `.env.local` (sem ler), scripts e atalhos |
+| Atalhos | Área de Trabalho e Menu Iniciar: Prospector, Parar Prospector, Desinstalar Prospector; ícone gerado com as cores do design system |
+| Servidor | `node server.js` sem janela, só em `127.0.0.1:3210`; o PID e a linha de comando são conferidos antes de reaproveitar ou encerrar, para nunca mexer em outro programa |
+| Achado | O Copiloto instalado não acharia o prompt (KI-035): o instalador passou a copiar `packages/agents/prompts` e o `pnpm-workspace.yaml` |
+
+| Checagem | Resultado |
+|---|---|
+| `pnpm app:install` | Instalou e reinstalou (atualização): 24 MB, 26 links, `versao.txt` com o commit de origem |
+| Atalho da Área de Trabalho | Servidor respondeu em 5 s, escutando só em `127.0.0.1:3210`; segundo clique reaproveitou o mesmo PID |
+| App instalado no navegador | Início com banco "Conectado", dados demo "Nenhum" e a atividade recente do banco real |
+| `Host: exemplo.com` | 403 |
+| `parar.ps1` | Encerrou só o servidor do app; os processos do `pnpm dev` continuaram |
+| Prompt no app instalado | `findPromptsDir` a partir de `D:\Prospector\app\apps\web` achou `D:\Prospector\app\packages\agents\prompts` e leu o `copilot/v3` |
+| `pnpm lint`, `format:check`, `typecheck`, `test` | Verdes |
+| `pnpm test:e2e` (`E2E_PORT=3120 E2E_MEMORY_PORT=3130`) | 30 passaram, 3 pulados |
+
+Não verificado: resposta real do Copiloto no app instalado (a GPU estava ocupada pela avaliação do prompt v4) e o desinstalador de ponta a ponta (KI-075).
+
+## 12. Execução de conclusão (desde 2026-11-10)
+
+O andamento dos marcos M0 a M7 (o que foi feito, verificado e o que falta) fica em [14 — Execução e conclusão](14-execucao-e-conclusao.md). A matriz da §4 é atualizada ao fim de cada marco.

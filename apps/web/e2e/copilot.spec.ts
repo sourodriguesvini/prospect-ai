@@ -2,7 +2,15 @@ import { expect, test } from '@playwright/test';
 import { expectNoA11yViolations } from './support';
 
 const withOllama = process.env.E2E_OLLAMA === '1';
-const ask = { schemaVersion: 1, messages: [{ role: 'user', content: 'oi' }] };
+/**
+ * Com E2E_SUPABASE=1 o servidor principal salva cada pergunta no banco. Os testes que mandam
+ * pergunta ficam no servidor sem banco (e as conversas salvas, em copilot-history.spec.ts, no
+ * modo memória): teste que grava dados não grava no banco real.
+ */
+const withDatabase = process.env.E2E_SUPABASE === '1';
+const SAVES_TO_DATABASE =
+  'com E2E_SUPABASE=1 a pergunta seria salva no banco (ver copilot-history.spec.ts)';
+const ask = { schemaVersion: 2, threadId: null, message: 'oi' };
 
 test.describe('Copiloto: rota protegida', () => {
   test('recusa pedido vindo de outro site (CSRF)', async ({ request }) => {
@@ -26,14 +34,18 @@ test.describe('Copiloto: rota protegida', () => {
       data: 'oi',
     });
     expect(text.status()).toBe(415);
+    // O formato antigo (histórico vindo do navegador) não é mais aceito (KI-032).
+    const old = await request.post('/api/copiloto', {
+      headers,
+      data: { schemaVersion: 1, messages: [{ role: 'user', content: 'oi' }] },
+    });
+    expect(old.status()).toBe(400);
     const invalid = await request.post('/api/copiloto', {
       headers,
-      data: { schemaVersion: 1, messages: [{ role: 'assistant', content: 'oi' }] },
+      data: { schemaVersion: 2, threadId: 'abc', message: 'oi' },
     });
     expect(invalid.status()).toBe(400);
-    expect((await invalid.json()) as unknown).toEqual({
-      error: 'A última mensagem precisa ser do usuário.',
-    });
+    expect((await invalid.json()) as { error: string }).toEqual({ error: expect.any(String) });
   });
 });
 
@@ -51,6 +63,7 @@ test.describe('Copiloto sem Ollama', () => {
   });
 
   test('a rota responde em NDJSON com erro tratado', async ({ request, baseURL }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     const response = await request.post('/api/copiloto', {
       data: ask,
       headers: { origin: baseURL!, 'sec-fetch-site': 'same-origin' },
@@ -61,12 +74,15 @@ test.describe('Copiloto sem Ollama', () => {
       .trim()
       .split('\n')
       .map((line) => JSON.parse(line) as { type: string; code?: string });
+    // Sem banco: avisa que a conversa não fica salva e responde com o erro tratado.
     expect(events).toEqual([
+      expect.objectContaining({ type: 'notice' }),
       expect.objectContaining({ type: 'error', code: 'runtime_unavailable' }),
     ]);
   });
 
   test('enviar uma pergunta mostra o erro na conversa, sem travar a tela', async ({ page }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     await page.goto('/copiloto');
     const input = page.getByRole('textbox', { name: 'Mensagem para o Copiloto' });
     await input.fill('Que dia é hoje?');
@@ -85,6 +101,7 @@ test.describe('Copiloto no celular e no tema escuro', () => {
   test('no celular nada transborda e a pergunta volta para o campo depois do erro', async ({
     page,
   }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/copiloto');
     await expect(page.getByRole('heading', { level: 1, name: 'Copiloto' })).toBeVisible();

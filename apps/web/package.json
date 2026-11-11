@@ -17,6 +17,7 @@
     "@prospector/contracts": "workspace:*",
     "@prospector/db": "workspace:*",
     "@prospector/domain": "workspace:*",
+    "@prospector/integrations": "workspace:*",
     "@prospector/ui": "workspace:*",
     "lucide-react": "1.61.0",
     "next": "16.4.5",

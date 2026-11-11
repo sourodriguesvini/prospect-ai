@@ -160,6 +160,22 @@ export default defineConfig(
     },
   },
   {
+    files: ['packages/integrations/src/**'],
+    rules: {
+      'no-restricted-imports': restrict(
+        [
+          '@prospector/db',
+          '@prospector/domain',
+          '@prospector/agents',
+          '@prospector/ui',
+          '@prospector/web',
+          ...INFRA,
+        ],
+        'integrations implementa portas de application com provedores externos; não conhece banco, regras de domínio, IA nem UI (ADR-0001).',
+      ),
+    },
+  },
+  {
     files: ['packages/ui/src/**'],
     rules: {
       'no-restricted-imports': restrict(
@@ -194,8 +210,14 @@ export default defineConfig(
     ignores: [COMPOSITION_ROOT],
     rules: {
       'no-restricted-imports': restrict(
-        ['@prospector/db', '@prospector/agents', '@prospector/application/memory', '@supabase/*'],
-        'A web acessa dados e IA só pela raiz de composição (src/server/container.ts): @prospector/db, @prospector/agents e os adaptadores em memória só lá, Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0008, ADR-0009).',
+        [
+          '@prospector/db',
+          '@prospector/agents',
+          '@prospector/integrations',
+          '@prospector/application/memory',
+          '@supabase/*',
+        ],
+        'A web acessa dados, IA e provedores externos só pela raiz de composição (src/server/container.ts): @prospector/db, @prospector/agents, @prospector/integrations e os adaptadores em memória só lá, Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0008, ADR-0009).',
       ),
     },
   },
