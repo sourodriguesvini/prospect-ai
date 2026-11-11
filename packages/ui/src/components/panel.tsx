@@ -1,12 +1,17 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 
-/** Painel branco muito arredondado sobre a moldura cinza: a unidade de layout das telas. */
+/**
+ * Painel branco muito arredondado sobre a moldura cinza: a unidade de layout das telas.
+ * Entra com um deslize curto (painéis irmãos em cascata, tokens.css); sem movimento quando o
+ * sistema pede "reduzir movimento".
+ */
 export function Panel({ className, ...props }: ComponentProps<'section'>) {
   return (
     <section
+      data-panel=""
       className={cn(
-        'rounded-[var(--radius-panel)] bg-surface p-5 shadow-[var(--shadow-panel)] sm:p-6',
+        'rounded-[var(--radius-panel)] bg-surface p-5 shadow-[var(--shadow-panel)] motion-safe:animate-panel-in sm:p-6',
         className,
       )}
       {...props}

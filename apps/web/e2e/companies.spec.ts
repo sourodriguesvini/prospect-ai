@@ -211,6 +211,22 @@ test('MEI: o nome da pessoa fica só no cadastro, fora das evidências', async (
   await expectNoA11yViolations(page);
 });
 
+test('a paleta (Ctrl+K) acha a empresa pelo nome e abre o dossiê, com o selo DEMO', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.keyboard.press('Control+k');
+  const palette = page.getByRole('dialog', { name: 'Paleta de comandos' });
+  await palette.getByRole('combobox').fill('atelie');
+  const option = palette.getByRole('option', { name: /ATELIE SINTETICO/ });
+  await expect(option).toBeVisible();
+  await expect(option).toContainText('Demo');
+  await expectNoA11yViolations(page);
+  await option.click();
+  await expect(page).toHaveURL((url) => url.pathname === importedPath);
+  await expect(page.getByRole('heading', { level: 1, name: 'ATELIE SINTETICO' })).toBeVisible();
+});
+
 test('empresa arquivada sai da lista e não recebe consultas', async ({ page }) => {
   await page.goto(dossierPath);
   const stage = page.getByRole('region', { name: 'Etapa' });

@@ -67,7 +67,11 @@ test.describe('telas (sem banco configurado)', () => {
     test.skip(withDatabase, DATABASE_ON);
     await page.goto('/configuracoes');
     await expect(page.getByRole('heading', { level: 1, name: 'Configuração' })).toBeVisible();
-    await page.getByRole('link', { name: /Auditoria/ }).click();
+    // O menu lateral também tem Auditoria (submenu da Configuração): aqui é o cartão da tela.
+    await page
+      .getByRole('main')
+      .getByRole('link', { name: /Auditoria/ })
+      .click();
     await expect(page).toHaveURL(/\/configuracoes\/auditoria$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Auditoria' })).toBeVisible();
     await expect(

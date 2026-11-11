@@ -61,7 +61,11 @@ test('abordagens começam bloqueadas, com a explicação do que falta', async ({
 
 test('configura oferta, rubrica, score e ICP; pesos inválidos são recusados', async ({ page }) => {
   await page.goto('/configuracoes');
-  await page.getByRole('link', { name: /Estratégia/ }).click();
+  // O cartão da tela (o menu lateral também tem Estratégia, no submenu da Configuração).
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: /Estratégia/ })
+    .click();
   await expect(page.getByRole('heading', { level: 1, name: 'Estratégia' })).toBeVisible();
   await expect(page.getByRole('note').filter({ hasText: 'Modo memória' })).toBeVisible();
   await expect(page.getByText('Nenhuma oferta ainda.')).toBeVisible();

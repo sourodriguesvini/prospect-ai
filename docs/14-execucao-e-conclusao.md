@@ -100,6 +100,28 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Commit | `f57f2e7`, enviado ao GitHub em 2026-11-10 com a autorização do usuário (branch `conclusao-produto`) |
 | Pendências | KI-096 (fraquezas acima); KI-093 (nome da pessoa titular de MEI no cadastro por CNPJ: decisão do usuário) |
 
+## Interface — menu lateral fixo, movimento e recursos de interface (2026-11-11)
+
+Pedido do usuário: "Menus fixos, efeitos de motion sutis e recursos avançados de interface tecnológica. Todos os menus devem estar no canto esquerdo, com opção de abrir e esconder." Ele escolheu também a paleta Ctrl+K, os atalhos de teclado, os indicadores no rodapé e a linha de progresso entre telas. Feito numa sessão paralela, no worktree `ui-menu-lateral-52d404`, sem commit.
+
+| Item | Resultado |
+|---|---|
+| Menu lateral | Um só menu, à esquerda e fixo ao rolar (`apps/web/src/components/shell/`), no lugar da pílula do topo e do trilho de ícones. Tem marca, "Buscar ou ir para…" (Ctrl+K), os grupos Fluxo, Apoio e Sistema, e o submenu da Configuração (Estratégia, Conformidade, Auditoria) dentro do próprio menu. Item ativo em pílula de tinta (`aria-current`), um só destacado. No rodapé ficam os indicadores, o botão Recolher e o tema |
+| Recolher | O botão Recolher/Expandir (`aria-expanded`, `aria-controls`) e o Ctrl+B deixam só os ícones, com dica (que fecha com Esc e aceita o mouse em cima) e nome acessível. A escolha fica no cookie `sidebar`, lido no servidor, e a página já chega no estado certo, sem piscar. Recolhido, o tema vira um botão só, que alterna. O item da tela atual rola para a vista, e as bordas do menu ganham sombra quando há mais itens |
+| Celular | Abaixo de 768 px o menu vira gaveta, aberta pelo topo (que fica fixo ao rolar). A gaveta é um diálogo modal: o foco vai para "Fechar menu", Tab e Shift+Tab ficam presos nela, e o conteúdo atrás fica `inert`. Esc ou clique fora fecham e devolvem o foco ao botão. Escolher uma tela fecha a gaveta e leva o foco ao conteúdo. A gaveta também fecha se a janela passar a desktop |
+| Movimento | Só CSS, sem biblioteca. Painéis entram com deslize curto, em cascata. O menu recolhe com transição de largura. Gaveta, paleta e dicas surgem com um leve aumento. Os ícones crescem um pouco no hover. Com "reduzir movimento" no sistema, tudo é instantâneo (regra global em `tokens.css`, com duração 0s; 0,01ms deixava botões ocultos no instante do foco) |
+| Paleta Ctrl+K | Diálogo nativo com combobox e lista (WAI-ARIA APG). Busca telas (inclusive Voz, Cases, LIA e opt-out), ações de criar e de interface (tema, recolher, atalhos) e empresas pela rota `GET /api/busca` (selo DEMO, legível também na opção ativa). A opção ativa é guardada pelo id e não troca quando as empresas chegam. Lista vazia oferece "Buscar “x” em Empresas". Sem banco, diz que não buscou. Anúncio para leitor de tela e botão de fechar visível no toque |
+| Atalhos | Ctrl+K, Ctrl+B, "?" (lista de atalhos) e "g + letra" (Início, Descoberta, Empresas, Copiloto, Pipeline, Configuração). Os de uma tecla podem ser desligados na própria lista (WCAG 2.1.4, guardado no navegador). Não valem enquanto se digita nem com um diálogo aberto |
+| Indicadores | "Estado deste computador" mostra IA local, pesquisa na internet e banco pela rota `GET /api/estado`, a cada 2 min com a janela visível e ao voltar à janela. Cada estado tem forma própria, não só cor. O detalhe vai como descrição acessível e na dica, com a hora da leitura. Cada indicador leva à tela que explica |
+| Progresso | Linha laranja no topo entre telas. Aparece depois de 120 ms (navegação rápida não pisca) e desiste em 15 s |
+| Rotas novas | `GET /api/estado` e `GET /api/busca`, só leitura. Contratos Zod nos dois lados. Pedido disparado por outro site é recusado (`Sec-Fetch-Site`, 403). O estado é reaproveitado por 15 s, e uma leitura que falha não derruba as outras (doc 13 §3.2) |
+| Revisões | `revisor-arquitetura`: nada bloqueante; aplicados o motivo real da IA fora do ar, os contratos Zod, o cache, a checagem de origem, o aviso sem banco, o erro de configuração isolado e os testes de rota. `revisor-ux`: um bloqueante (selo DEMO invisível na opção ativa) e nove importantes, corrigidos: indicadores com forma, anúncios da paleta, seleção por id, fechar no toque, foco ao fechar a gaveta, item ativo à vista, topo fixo no celular, alvos de toque maiores e borda da caixa no escuro. Ficaram como pendência KI-097 a KI-101 |
+| Testes | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes. `pnpm test`: web 133 (eram 116), demais pacotes iguais. `pnpm test:e2e` com `E2E_PORT=3140 E2E_MEMORY_PORT=3150`: 71 passaram e 3 foram pulados (banco real e Ollama real), 24 deles do menu novo (`e2e/shell.spec.ts`, com axe no claro, no escuro, recolhido, na gaveta e na paleta) |
+| Verificado na tela | Capturas do Playwright: desktop expandido e recolhido com dica, Configuração em 1366×768, celular fechado e com a gaveta, escuro recolhido, paleta e paleta vazia no escuro. O foco da gaveta também foi conferido no navegador do app |
+| Não verificado | Firefox e Safari, leitor de tela real, aparelho de toque de verdade (KI-098). O app instalado em `D:\Prospector` não foi atualizado (`pnpm app:install` não rodou, a pedido) |
+| Atenção | Neste computador o navegador informou "reduzir movimento" ligado, provavelmente "Efeitos de animação" desligado no Windows. Por isso o app não anima aqui. Para ver o movimento, ligue esse ajuste do Windows; outra opção é decidir que, com "reduzir movimento", ainda valham esmaecimentos sem deslocamento |
+| Commit | Feito na branch `claude/ui-menu-lateral-52d404` a pedido do usuário (sem push) |
+
 ## Decisões desta execução
 
 | Decisão | Registro |
