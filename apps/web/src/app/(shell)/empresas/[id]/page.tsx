@@ -12,6 +12,14 @@ import { connection } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
 import { LifecycleForm } from '@/components/companies/company-forms';
 import { EvidenceGroups } from '@/components/companies/evidence-groups';
+import {
+  BrandPanel,
+  claimsWithPrefix,
+  DiagnosisPanel,
+  InvestigationHistoryPanel,
+  InvestigationPanel,
+  MarketPanel,
+} from '@/components/companies/investigation-panels';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import { Loading } from '@/components/strategy/loading';
 import { PageHeader, StorageNotice, Unavailable } from '@/components/strategy/page-parts';
@@ -20,6 +28,7 @@ import { COMPANY_NOTICES, companyRoutes, type CompanyNotice } from '@/lib/compan
 import { formatDate, formatDateTime } from '@/lib/format';
 import { companyDossier, companyTitle, loadCompanies } from '@/server/companies';
 import { cnpjLookupEnabled } from '@/server/env';
+import { loadInvestigationPanel } from '@/server/investigations';
 import { changeLifecycleAction, refreshRegistryAction } from '../actions';
 
 type Props = PageProps<'/empresas/[id]'>;
@@ -67,6 +76,14 @@ function noticeText(notice: CompanyNotice, changed: number | null): string {
         return 'Consulta à Receita feita: nenhum dado mudou, só a data da base. Os fatos foram reconfirmados com a fonte nova.';
       }
       return `Consulta à Receita feita: ${changed === 1 ? '1 dado mudou' : `${changed} dados mudaram`}. A versão anterior de cada um fica no histórico.`;
+    case COMPANY_NOTICES.investigationStarted:
+      return 'Investigação na fila. Ela roda no computador, uma por vez; o andamento aparece em Investigação.';
+    case COMPANY_NOTICES.investigationResumed:
+      return 'Investigação retomada: as etapas já concluídas não são repetidas.';
+    case COMPANY_NOTICES.investigationCancelled:
+      return 'Cancelamento pedido. A etapa atual para no meio; o que já foi coletado fica guardado.';
+    case COMPANY_NOTICES.siteConfirmed:
+      return 'Site oficial confirmado. Investigue de novo para ler as páginas e capturar a marca.';
   }
 }
 
@@ -121,7 +138,7 @@ function Registry({ dossier }: { dossier: CompanyDossier }) {
           {company.sizeBand ? COMPANY_SIZE_LABELS[company.sizeBand] : empty}
         </Field>
         <Field label="Entrou por">{COMPANY_ORIGIN_LABELS[company.origin]}</Field>
-        <Field label="Última consulta">
+        <Field label="Última coleta">
           {company.lastInvestigatedAt ? formatDateTime(company.lastInvestigatedAt) : 'Nenhuma'}
         </Field>
         <Field label="Cadastrada em">{formatDateTime(company.createdAt)}</Field>
@@ -187,8 +204,26 @@ function Claims({ dossier }: { dossier: CompanyDossier }) {
   );
 }
 
+/**
+ * Data da última consulta à Receita: a fonte mais recente dos fatos do registro. Não usa
+ * `lastInvestigatedAt`, que também muda com a investigação (ADR-0015).
+ */
+function registryCheckedAt(dossier: CompanyDossier): string | null {
+  let latest: string | null = null;
+  for (const view of dossier.claims) {
+    if (!view.claim.key.startsWith('registry.')) continue;
+    for (const { source } of view.evidence) {
+      if (source && (latest === null || Date.parse(source.capturedAt) > Date.parse(latest))) {
+        latest = source.capturedAt;
+      }
+    }
+  }
+  return latest;
+}
+
 function RegistryLookup({ dossier }: { dossier: CompanyDossier }) {
   const { company } = dossier;
+  const checkedAt = registryCheckedAt(dossier);
   let body: ReactNode;
   if (company.lifecycle === 'archived') {
     body = (
@@ -213,7 +248,7 @@ function RegistryLookup({ dossier }: { dossier: CompanyDossier }) {
     body = (
       <StatusButton
         action={refreshRegistryAction.bind(null, company.id)}
-        label={company.lastInvestigatedAt ? 'Consultar a Receita de novo' : 'Consultar a Receita'}
+        label={checkedAt ? 'Consultar a Receita de novo' : 'Consultar a Receita'}
         pendingLabel="Consultando…"
       />
     );
@@ -224,8 +259,8 @@ function RegistryLookup({ dossier }: { dossier: CompanyDossier }) {
         titleId="receita"
         title="Receita Federal"
         description={
-          company.lastInvestigatedAt
-            ? `Última consulta em ${formatDate(company.lastInvestigatedAt)}. A base aberta da Receita muda uma vez por mês; antes disso, consultar de novo costuma não trazer novidade.`
+          checkedAt
+            ? `Última consulta em ${formatDate(checkedAt)}. A base aberta da Receita muda uma vez por mês; antes disso, consultar de novo costuma não trazer novidade.`
             : 'Nenhuma consulta ainda.'
         }
       />
@@ -248,6 +283,10 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
   }
   const dossier = result.data;
   const { company } = dossier;
+  const investigation = await loadInvestigationPanel(company.id);
+  const latest = investigation?.latest ?? null;
+  // O diagnóstico mostrado é o da última investigação que chegou a montá-lo.
+  const diagnosed = investigation?.history.find((item) => item.diagnosis !== null) ?? null;
   const query = await searchParams;
   const notice = Object.values(COMPANY_NOTICES).find((value) => value === query.aviso);
   const archived = company.lifecycle === 'archived';
@@ -282,6 +321,9 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
       <StorageNotice storage={result.storage} />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
+          <DiagnosisPanel investigation={diagnosed} latest={latest} views={dossier.claims} />
+          <BrandPanel company={company} views={dossier.claims} />
+          <MarketPanel views={dossier.claims} />
           <Registry dossier={dossier} />
           <Claims dossier={dossier} />
         </div>
@@ -297,6 +339,16 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
               current={company.lifecycle}
             />
           </Panel>
+          <InvestigationPanel
+            company={company}
+            data={investigation}
+            siteCandidates={
+              latest
+                ? claimsWithPrefix(dossier.claims, 'digital_presence.official_site_candidate.')
+                : []
+            }
+          />
+          <InvestigationHistoryPanel data={investigation} />
           <RegistryLookup dossier={dossier} />
         </div>
       </div>

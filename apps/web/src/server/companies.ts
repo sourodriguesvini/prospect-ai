@@ -80,13 +80,25 @@ export async function runCompanyAction(
   /** Campo do contrato → campo do formulário, quando a tela tem dois formulários com o mesmo dado. */
   fieldNames: Record<string, string> = {},
 ): Promise<FormState> {
-  const { companies } = getServices();
-  if (!companies) {
+  return runServiceAction(getServices().companies, values, write, fieldNames);
+}
+
+/**
+ * Mesmo fluxo de `runCompanyAction` para outro serviço das telas de empresas (investigação):
+ * serviço null = banco não configurado.
+ */
+export async function runServiceAction<S>(
+  service: S | null,
+  values: FormValues,
+  write: (service: S, ctx: RequestContext) => Promise<CompanyOutcome>,
+  fieldNames: Record<string, string> = {},
+): Promise<FormState> {
+  if (!service) {
     return { status: 'error', message: ERROR_MESSAGES.database_not_configured, values };
   }
   let outcome: CompanyOutcome;
   try {
-    outcome = await write(companies, userContext());
+    outcome = await write(service, userContext());
   } catch (error) {
     unstable_rethrow(error);
     if (isAppError(error) && error.code !== 'unexpected') {

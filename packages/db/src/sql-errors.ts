@@ -14,6 +14,8 @@ export const INTERNAL_DB_ERROR_KEYS: readonly string[] = [
   'append_only',
   // M2: o app só substitui claims em vigor; o trigger impede reabrir um substituído ou rejeitado.
   'claim_final_status',
+  // Módulo 02: o resultado de uma investigação encerrada não é reescrito.
+  'investigation_finished',
 ];
 
 /** Códigos de "tabela não existe": PostgREST (cache de esquema) e Postgres. */

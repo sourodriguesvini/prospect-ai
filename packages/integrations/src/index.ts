@@ -28,7 +28,10 @@ export {
 } from './web/page-reader';
 export {
   createPlaywrightRenderer,
+  type BrowserCapturer,
   type BrowserRenderer,
+  type CaptureOptions,
+  type PageCapture,
   type MainDocument,
   type PlaywrightRendererOptions,
   type RenderedPage,
@@ -41,3 +44,11 @@ export {
   type TransportResponse,
 } from './web/safe-http';
 export { ROBOTS_PRODUCT_TOKEN, createRobotsChecker, isAllowed, parseRobots } from './web/robots';
+// Captura de marca (ADR-0015): imagem e medições da página inicial, e a pasta das imagens.
+export {
+  DEFAULT_CAPTURE_MAX_HEIGHT,
+  METRICS_SCRIPT,
+  createBrandCapturer,
+  type BrandCapturerOptions,
+} from './web/brand-capturer';
+export { createFileCaptureStore, isCaptureStoragePath } from './capture-store';

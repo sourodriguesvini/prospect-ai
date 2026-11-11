@@ -84,7 +84,10 @@ function registryBaseDate(source: Source): string | null {
   return source.excerptText?.match(/extração de (\d{2}\/\d{2}\/\d{4})/)?.[1] ?? null;
 }
 
-function groupTitle(source: Source | null): string {
+function groupTitle(source: Source | null, views: readonly ClaimView[]): string {
+  if (!source && views.length > 0 && views.every((view) => view.dependsOn.length > 0)) {
+    return 'Conclusões apoiadas em outras evidências';
+  }
   if (!source) return 'Sem fonte registrada';
   if (source.kind === 'api_record') return 'Dados do registro';
   return source.title ?? source.provider ?? 'Fonte sem título';
@@ -143,6 +146,7 @@ function SourceBox({ source }: { source: Source }) {
 
 /** Claims do dossiê agrupados por fonte, com a fonte e os selos comuns uma vez por grupo. */
 export function EvidenceGroups({ views }: { views: readonly ClaimView[] }) {
+  const support = new Map(views.map((view) => [view.claim.id, view]));
   return (
     <div className="space-y-8">
       {groupBySource(views).map((group) => {
@@ -153,7 +157,7 @@ export function EvidenceGroups({ views }: { views: readonly ClaimView[] }) {
         return (
           <div key={group.key} role="group" aria-labelledby={headingId} className="space-y-3">
             <h3 id={headingId} className="text-sm font-medium">
-              {groupTitle(group.source)}
+              {groupTitle(group.source, group.views)}
             </h3>
             {group.source ? <SourceBox source={group.source} /> : null}
             {badges && first ? (
@@ -172,6 +176,7 @@ export function EvidenceGroups({ views }: { views: readonly ClaimView[] }) {
                   key={view.claim.id}
                   view={view}
                   shared={{ sourceId: group.source?.id ?? null, badges, validity }}
+                  support={support}
                 />
               ))}
             </ul>

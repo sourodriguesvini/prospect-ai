@@ -25,9 +25,10 @@ export interface ToolOutput {
 }
 
 /**
- * Ferramenta de leitura para modelos (IA-2). Só leitura nesta versão: nenhuma ferramenta escreve
- * no banco ou age fora do app (regra 2 do CLAUDE.md). Uma ferramenta de escrita, quando existir,
- * só poderá criar item de aprovação e precisará de outro tipo aqui.
+ * Ferramenta para modelos (IA-2). `read`: só lê. `queue` (ADR-0015): põe uma tarefa INTERNA na
+ * fila do próprio app (ex.: investigar uma empresa), com auditoria e as mesmas validações da
+ * tela; nunca envia nada nem contata ninguém (regra 2 do CLAUDE.md). Uma ferramenta que agisse
+ * fora do app só poderia criar item de aprovação e precisaria de outro tipo aqui.
  */
 export interface ToolDefinition<S extends z.ZodType = z.ZodType> {
   name: string;
@@ -36,7 +37,7 @@ export interface ToolDefinition<S extends z.ZodType = z.ZodType> {
   /** Para o modelo: quando usar, o que devolve. */
   description: string;
   input: S;
-  kind: 'read';
+  kind: 'read' | 'queue';
   /** true quando lê a internet pública (ADR-0012); sem isto, só lê o que está salvo no app. */
   internet?: boolean;
   run(ctx: RequestContext, input: z.output<S>): Promise<ToolOutput>;
@@ -134,6 +135,7 @@ export function createToolRegistry(deps: {
       description: tool.description,
       parameters,
       ...(tool.internet ? { internet: true } : {}),
+      ...(tool.kind === 'queue' ? { queue: true } : {}),
     };
   });
 

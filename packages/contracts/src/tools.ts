@@ -92,5 +92,10 @@ export const ToolSpec = z.object({
    * para o modelo como campo: serve para os fatos do sistema e a tela dizerem a verdade.
    */
   internet: z.boolean().optional(),
+  /**
+   * true quando a ferramenta põe uma tarefa interna na fila do app (ex.: investigar uma empresa,
+   * ADR-0015), sem enviar nada a ninguém. Também só serve aos fatos do sistema e à tela.
+   */
+  queue: z.boolean().optional(),
 });
 export type ToolSpec = z.infer<typeof ToolSpec>;

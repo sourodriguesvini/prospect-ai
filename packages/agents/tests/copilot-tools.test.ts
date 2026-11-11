@@ -2,7 +2,10 @@ import type { CopilotEvent, ToolCallRequest, ToolSpec } from '@prospector/contra
 import { describe, expect, it, vi } from 'vitest';
 import {
   COPILOT_TOOL_RESULTS_MAX_CHARS,
+  COPILOT_TOOLS_PROMPT_VERSION,
   MAX_COPILOT_ROUNDS,
+  copilotPromptSupportsInvestigationTools,
+  copilotPromptSupportsWebTools,
   createCopilot,
   type CopilotToolbox,
   type GenerationRecord,
@@ -351,5 +354,28 @@ describe('Copiloto com ferramentas', () => {
     );
     expect(events.at(-1)).toMatchObject({ type: 'done' });
     expect(logs[0]).toContain('telemetria falhou');
+  });
+});
+
+describe('ferramentas por versão do prompt copilot-tools (declaradas, não por número)', () => {
+  it('cada versão recebe só o que conhece; versão sem declaração não recebe nada a mais', () => {
+    expect([1, 2, 3, 4, 5].map(copilotPromptSupportsWebTools)).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
+    ]);
+    // Nenhuma versão declara a investigação: o v4 unificado vem depois da mesclagem (KI-130).
+    expect([1, 2, 3, 4, 5].map(copilotPromptSupportsInvestigationTools)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    // A versão em uso hoje (v3) não recebe as ferramentas da investigação.
+    expect(copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)).toBe(true);
+    expect(copilotPromptSupportsInvestigationTools(COPILOT_TOOLS_PROMPT_VERSION)).toBe(false);
   });
 });

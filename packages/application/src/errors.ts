@@ -37,6 +37,13 @@ export const ERROR_MESSAGES = {
   // M2 — empresas e evidências
   company_duplicate: 'Essa empresa já está cadastrada (mesmo CNPJ ou domínio).',
   company_archived: 'Empresa arquivada não pode ser alterada. Reative-a primeiro.',
+  // Módulo 02 — investigação (ADR-0015)
+  investigation_running:
+    'Já há uma investigação em andamento para esta empresa. Acompanhe o progresso ou cancele antes de começar outra.',
+  investigation_queue_full:
+    'A fila de investigações está cheia. Espere algumas terminarem e tente de novo.',
+  investigation_not_resumable:
+    'Só investigações interrompidas ou com falha podem ser retomadas. Para atualizar, comece uma nova.',
 } as const;
 
 export type ErrorReason = keyof typeof ERROR_MESSAGES;

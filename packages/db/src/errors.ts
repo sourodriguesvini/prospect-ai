@@ -16,6 +16,9 @@ const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
   // M2: claim substituído por outra atualização ao mesmo tempo; CNPJ ou domínio já cadastrado.
   concurrent_change: 'conflict',
   company_duplicate: 'conflict',
+  // Módulo 02: estado final não volta; segunda investigação ativa da mesma empresa.
+  investigation_not_resumable: 'conflict',
+  investigation_running: 'conflict',
 };
 
 interface DbErrorLike {

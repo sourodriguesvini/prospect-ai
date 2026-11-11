@@ -4,6 +4,7 @@ import {
   CASES,
   COMPANY_CASES,
   evalSystemFacts,
+  INVESTIGATION_CASES,
   REPLACED_IN_WEB_MODE,
   WEB_CASES,
 } from '../evals/copilot/cases';
@@ -21,6 +22,7 @@ import {
   noInventedMoney,
   noInventedOwner,
   noInventedPhone,
+  noInvestigationDoneClaim,
   noSendToUnbuiltModule,
   onlyToolUrls,
   plainText,
@@ -516,4 +518,47 @@ describe('corretores da avaliação do Copiloto', () => {
     const noWeb = evalSystemFacts('ok', [{ name: 'list_offers', title: 'Consultando ofertas' }]);
     expect(noWeb.at(-1)).toMatch(/Nenhuma altera dados, envia mensagens ou acessa a internet\./);
   });
+});
+
+it('investigação (rascunho para o v4 unificado): casos, "terminou" só passa negado e os fatos dizem qual ferramenta põe na fila', () => {
+  expect(INVESTIGATION_CASES.map((entry) => entry.id)).toEqual([
+    'investigacao-oportunidades-vazio',
+    'investigacao-empresa-nao-cadastrada',
+    'investigacao-pedida',
+  ]);
+  expect(INVESTIGATION_CASES.every((entry) => ALL_CASES.includes(entry))).toBe(true);
+  expect(
+    INVESTIGATION_CASES.find((entry) => entry.id === 'investigacao-pedida')?.companies,
+  ).toHaveLength(1);
+
+  const done = (text: string) => noInvestigationDoneClaim(text).pass;
+  expect(done('Investiguei o Ateliê e a marca tem problemas.')).toBe(false);
+  expect(done('A investigação está concluída: o Fit deu 80.')).toBe(false);
+  expect(done('Pronto, terminou.')).toBe(false);
+  expect(
+    done('Pus a investigação na fila. Ela ainda não terminou; o andamento aparece no dossiê.'),
+  ).toBe(true);
+  expect(done('A investigação ainda não foi concluída.')).toBe(true);
+
+  const tools = [
+    { name: 'get_company_investigation', title: 'Consultando a investigação' },
+    { name: 'start_company_investigation', title: 'Pondo a investigação na fila', queue: true },
+    { name: 'search_web', title: 'Pesquisando na internet', internet: true },
+  ];
+  const facts = evalSystemFacts('ok', tools).at(-1) ?? '';
+  // Sem ferramenta de fila, o texto é o mesmo das versões anteriores (avaliação comparável); com
+  // ela, só uma frase a mais no fim (a reescrita enfraquecia o limite de envio, 2026-11-11).
+  const withoutQueue =
+    evalSystemFacts(
+      'ok',
+      tools.filter((tool) => !('queue' in tool)),
+    ).at(-1) ?? '';
+  expect(withoutQueue).toMatch(/^Ferramentas de leitura disponíveis nesta conversa:/);
+  expect(withoutQueue).toMatch(/Nenhuma altera dados nem envia mensagens\.$/);
+  expect(facts).toMatch(/^Ferramentas de leitura disponíveis nesta conversa:/);
+  expect(facts).toMatch(/Pesquisam na internet pública: search_web/);
+  expect(facts).toMatch(/Nenhuma altera dados nem envia mensagens\. Exceção: /);
+  expect(facts).toMatch(
+    /Exceção: start_company_investigation põe na fila do Prospector uma tarefa interna que lê o site da empresa, pesquisa na internet e grava o resultado no dossiê, sem enviar nada a ninguém; o resultado só existe quando a consulta da tarefa mostrar que terminou\.$/,
+  );
 });

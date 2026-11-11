@@ -7,3 +7,6 @@ export * from './copilot';
 export * from './strategy';
 export * from './tools';
 export * from './web-research';
+export * from './brand-analysis';
+export * from './brand-capture';
+export * from './investigation';

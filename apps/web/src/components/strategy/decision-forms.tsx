@@ -17,12 +17,15 @@ export function StatusButton({
   variant = 'secondary',
   confirm,
   pendingLabel = 'Aplicando…',
+  dismissLabel = 'Cancelar',
 }: {
   action: FormAction;
   label: string;
   variant?: 'primary' | 'secondary' | 'destructive';
   confirm?: string;
   pendingLabel?: string;
+  /** Botão que fecha a pergunta sem agir (quando "Cancelar" confundiria com a própria ação). */
+  dismissLabel?: string;
 }) {
   const { state, formAction } = useActionForm(action, {});
   const [asking, setAsking] = useState(false);
@@ -95,7 +98,7 @@ export function StatusButton({
         </SubmitButton>
         {confirm ? (
           <Button variant="ghost" onClick={cancel}>
-            Cancelar
+            {dismissLabel}
           </Button>
         ) : null}
       </div>

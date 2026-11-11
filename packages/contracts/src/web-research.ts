@@ -257,6 +257,16 @@ export type PageReadRequest = z.infer<typeof PageReadRequest>;
 /** Limite do texto guardado de uma página (cabe em `sources.excerpt_text`, até 100 mil). */
 export const WEB_PAGE_TEXT_MAX_CHARS = 100_000;
 
+/** Link de uma página para outra (escolha das páginas a ler numa investigação). */
+export const PageLink = z.object({
+  url: z.httpUrl().max(2048),
+  text: z.string().max(120),
+});
+export type PageLink = z.infer<typeof PageLink>;
+
+/** Links guardados por página lida (só no cache e na memória da investigação, nunca no ledger). */
+export const WEB_PAGE_LINKS_MAX = 200;
+
 /** Página pública lida e reduzida a texto. Sem HTML, imagens nem scripts. */
 export const WebPage = z.object({
   schemaVersion: z.literal(1),
@@ -280,6 +290,8 @@ export const WebPage = z.object({
    * ser mostrada na hora, mas o dossiê guarda só endereço e título.
    */
   noArchive: z.boolean().default(false),
+  /** Links http(s) absolutos da página, sem âncora, na ordem em que aparecem. */
+  links: z.array(PageLink).max(WEB_PAGE_LINKS_MAX).default([]),
 });
 export type WebPage = z.infer<typeof WebPage>;
 

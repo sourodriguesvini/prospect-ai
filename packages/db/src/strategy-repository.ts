@@ -83,7 +83,8 @@ export type AuditedTable =
   | 'sources'
   | 'claims'
   | 'claim_evidence'
-  | 'claim_dependencies';
+  | 'claim_dependencies'
+  | 'company_investigations';
 
 /**
  * JSON em base64: cabeçalho HTTP só aceita ASCII. Sem conteúdo da estratégia (KI-015). `table` e

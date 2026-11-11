@@ -5,6 +5,7 @@ export * from './copilot/system-facts';
 export * from './errors';
 export * from './gateway';
 export * from './gpu';
+export * from './investigation/brand-analysis-ai';
 export * from './limiter';
 export * from './model-catalog';
 export * from './model-policy';

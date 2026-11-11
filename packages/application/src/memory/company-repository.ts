@@ -25,6 +25,18 @@ function fold(text: string): string {
 }
 
 /**
+ * Operações que o banco faz dentro das funções da investigação (confirmação do site e data da
+ * última investigação), expostas para o repositório de investigações em memória.
+ */
+export interface MemoryCompanyHooks {
+  /** null se a empresa não existe; AppError('conflict','company_duplicate') se o domínio é de outra. */
+  confirmDomain(companyId: string, domain: string): Company | null;
+  markInvestigated(companyId: string, at: string): void;
+}
+
+export type MemoryCompanyRepository = CompanyRepository & EvidenceRepository & MemoryCompanyHooks;
+
+/**
  * Empresas e Evidence Ledger em memória: mesmo comportamento observável do banco (chaves fortes
  * únicas, fontes e evidências só inclusão, lote atômico, uma linha de auditoria por operação).
  */
@@ -32,7 +44,7 @@ export function createMemoryCompanyRepository(options: {
   audit: AuditRepository;
   clock?: Clock;
   newId?: () => string;
-}): CompanyRepository & EvidenceRepository {
+}): MemoryCompanyRepository {
   const clock = options.clock ?? systemClock;
   const newId = options.newId ?? (() => crypto.randomUUID());
   const now = () => clock.now().toISOString();
@@ -244,6 +256,51 @@ export function createMemoryCompanyRepository(options: {
     async dependenciesFor(claimIds) {
       const wanted = new Set(claimIds);
       return dependencies.filter((item) => wanted.has(item.claimId)).map(clone);
+    },
+
+    confirmDomain(companyId, domain) {
+      const company = companies.get(companyId);
+      if (!company) return null;
+      const taken =
+        [...companies.values()].some((c) => c.id !== companyId && c.primaryDomain === domain) ||
+        identifiers.some(
+          (item) =>
+            item.companyId !== companyId &&
+            item.strength === 'strong' &&
+            item.kind === 'domain' &&
+            item.valueNormalized === domain,
+        );
+      if (taken) throw new AppError('conflict', 'company_duplicate');
+      const at = now();
+      company.primaryDomain = domain;
+      company.updatedAt = at;
+      if (
+        !identifiers.some(
+          (item) =>
+            item.companyId === companyId &&
+            item.kind === 'domain' &&
+            item.valueNormalized === domain,
+        )
+      ) {
+        identifiers.push({
+          id: newId(),
+          companyId,
+          kind: 'domain',
+          valueNormalized: domain,
+          strength: 'strong',
+          verified: true,
+          sourceId: null,
+          createdAt: at,
+        });
+      }
+      return clone(company);
+    },
+
+    markInvestigated(companyId, at) {
+      const company = companies.get(companyId);
+      if (!company) return;
+      company.lastInvestigatedAt = at;
+      company.updatedAt = now();
     },
   };
 }

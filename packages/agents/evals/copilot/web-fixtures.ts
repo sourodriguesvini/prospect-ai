@@ -249,6 +249,7 @@ export function syntheticWebResearch(options: SyntheticWebOptions = {}): WebRese
           fetchedAt: FETCHED_AT,
           renderer: 'http',
           noArchive: false,
+          links: [],
         },
       };
     },

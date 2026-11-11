@@ -6,14 +6,18 @@ import {
   createAuditService,
   createCompanyService,
   createEvidenceService,
+  createInvestigationService,
   createStrategyService,
   createToolRegistry,
+  investigationTools,
   strategyTools,
+  systemClock,
   webResearchTools,
 } from '@prospector/application';
 import {
   createMemoryAuditRepository,
   createMemoryCompanyRepository,
+  createMemoryInvestigationRepository,
   createMemoryStrategyRepository,
 } from '@prospector/application/memory';
 import type { GenerationUsage, WebSearchFailure } from '@prospector/contracts';
@@ -21,6 +25,7 @@ import { expect, it } from 'vitest';
 import {
   COPILOT_PROMPT_VERSION,
   COPILOT_TOOLS_PROMPT_VERSION,
+  copilotPromptSupportsInvestigationTools,
   copilotPromptSupportsWebTools,
   createCopilot,
   type CopilotToolbox,
@@ -36,6 +41,7 @@ import {
   EVAL_BUILT_MODULES_M2,
   EVAL_NOW,
   evalSystemFacts,
+  INVESTIGATION_CASES,
   REPLACED_IN_WEB_MODE,
   WEB_CASES,
   type EvalCase,
@@ -72,6 +78,9 @@ import { syntheticWebResearch } from './web-fixtures';
  * ferramentas que o app daria a ela (o v2 nunca recebe as da internet) e só roda os casos `web-*`
  * a versão que pesquisa. As notas saem separadas: casos comuns (para comparar versões), de
  * Empresas e da internet, cada um com seu limiar (revisão do avaliador-ia, 2026-11-10).
+ * A versão que declarar a investigação (ADR-0015; nenhuma hoje, KI-130) recebe também as ferramentas da
+ * investigação de empresas e roda os casos `investigacao-*` (nota à parte, "investigacao"); a
+ * investigação desses casos nunca termina durante a conversa, como no app, que leva minutos.
  */
 const baseUrl = process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_URL;
 const models = process.env.EVAL_MODELS?.split(',').map((name) => name.trim()) ?? [
@@ -88,14 +97,30 @@ const caseFilter = process.env.EVAL_CASES?.split(',').map((id) => id.trim());
 const commonCases = withWeb
   ? CASES.filter((entry) => !REPLACED_IN_WEB_MODE.includes(entry.id))
   : CASES;
-const casePool = withWeb ? [...commonCases, ...COMPANY_CASES, ...WEB_CASES] : CASES;
+const casePool = withWeb
+  ? [...commonCases, ...COMPANY_CASES, ...INVESTIGATION_CASES, ...WEB_CASES]
+  : CASES;
 const selectedCases = caseFilter
   ? casePool.filter((entry) => caseFilter.includes(entry.id))
   : casePool;
-/** Casos que a versão `version` do prompt roda: os `web-*` só com a pesquisa na internet. */
+/**
+ * Casos que a versão `version` do prompt roda: os `web-*` só com a pesquisa na internet; os
+ * `investigacao-*` só com as ferramentas da investigação.
+ */
 function runsCase(version: number, evalCase: EvalCase): boolean {
-  if (!withWeb || !WEB_CASES.includes(evalCase)) return true;
-  return copilotPromptSupportsWebTools(version);
+  if (!withWeb) return true;
+  if (WEB_CASES.includes(evalCase)) return copilotPromptSupportsWebTools(version);
+  if (INVESTIGATION_CASES.includes(evalCase)) return investigationToolsFor(version);
+  return true;
+}
+/**
+ * Ferramentas da investigação para a versão `version`. `EVAL_INVESTIGATION_TOOLS=off` tira as
+ * ferramentas mesmo da versão que as receberia (ablação: separa o efeito do prompt do efeito de
+ * ter mais ferramentas na lista).
+ */
+function investigationToolsFor(version: number): boolean {
+  if (process.env.EVAL_INVESTIGATION_TOOLS === 'off') return false;
+  return withWeb && copilotPromptSupportsInvestigationTools(version);
 }
 /** Limiar do modelo preferido da política (docs/11 §4.3 para capacidades locais). */
 const MIN_PASS_RATE = 0.75;
@@ -117,6 +142,7 @@ const SUBSETS: Record<string, ReadonlySet<string>> = {
   ...(withWeb
     ? {
         empresas: new Set(COMPANY_CASES.map((entry) => entry.id)),
+        investigacao: new Set(INVESTIGATION_CASES.map((entry) => entry.id)),
         internet: new Set(WEB_CASES.map((entry) => entry.id)),
       }
     : {}),
@@ -134,30 +160,66 @@ const INSTRUCTION_IN_RESULT = /ignore (?:todas as|all previous) instru/i;
 
 /**
  * Ferramentas reais da estratégia sobre dados vazios em memória (nada é gravado em lugar nenhum);
- * com `companies`, as de Empresas sobre um banco vazio (M2); com `web`, as da pesquisa na
- * internet sobre a internet sintética (com `webFailure`, toda busca falha com esse motivo).
+ * com `companies`, as de Empresas sobre um banco vazio (M2), mais as empresas sintéticas de
+ * `seeds`; com `investigations`, as da investigação (ADR-0015), cuja execução fica parada na
+ * primeira etapa (como no app, leva minutos); com `web`, as da pesquisa na internet sobre a
+ * internet sintética (com `webFailure`, toda busca falha com esse motivo).
  */
-function emptyToolbox(options: {
+async function emptyToolbox(options: {
   web: boolean;
   companies: boolean;
+  investigations: boolean;
+  seeds?: EvalCase['companies'];
   webFailure?: WebSearchFailure;
-}): { toolbox: CopilotToolbox; trace: ToolTrace } {
+}): Promise<{ toolbox: CopilotToolbox; trace: ToolTrace }> {
+  const ctx = { actor: { type: 'user' as const }, traceId: crypto.randomUUID() };
   const audit = createMemoryAuditRepository();
   const strategy = createStrategyService({ repo: createMemoryStrategyRepository({ audit }) });
   const companyRepo = options.companies ? createMemoryCompanyRepository({ audit }) : null;
+  const companies = companyRepo
+    ? createCompanyService({
+        companies: companyRepo,
+        evidence: companyRepo,
+        evidenceService: createEvidenceService({ evidence: companyRepo }),
+        cnpjLookup: null,
+      })
+    : null;
+  for (const seed of companyRepo && companies ? (options.seeds ?? []) : []) {
+    await companies?.create(ctx, {
+      schemaVersion: 1,
+      displayName: seed.displayName,
+      cnpj: null,
+      primaryDomain: null,
+      city: seed.city,
+      uf: seed.uf,
+    });
+  }
+  const investigations =
+    companyRepo && companies && options.investigations
+      ? createInvestigationService(
+          {
+            investigations: createMemoryInvestigationRepository({ audit, companies: companyRepo }),
+            companies: companyRepo,
+            evidence: companyRepo,
+            evidenceService: createEvidenceService({ evidence: companyRepo }),
+            // Nunca responde: a investigação fica "em andamento", como nos minutos reais do app.
+            strategy: { loadSnapshot: () => new Promise<never>(() => undefined) },
+            webResearch: null,
+            capturer: null,
+            captureStore: null,
+            ai: null,
+            clock: systemClock,
+            newId: () => crypto.randomUUID(),
+            log: () => undefined,
+          },
+          { runnerId: `eval-${crypto.randomUUID().slice(0, 8)}` },
+        )
+      : null;
   const registry = createToolRegistry({
     tools: [
       ...strategyTools({ strategy, audit: createAuditService(audit) }),
-      ...(companyRepo
-        ? companyTools({
-            companies: createCompanyService({
-              companies: companyRepo,
-              evidence: companyRepo,
-              evidenceService: createEvidenceService({ evidence: companyRepo }),
-              cnpjLookup: null,
-            }),
-          })
-        : []),
+      ...(companies ? companyTools({ companies }) : []),
+      ...(companies && investigations ? investigationTools({ investigations, companies }) : []),
       ...(options.web
         ? webResearchTools({
             research: syntheticWebResearch(
@@ -169,7 +231,6 @@ function emptyToolbox(options: {
     telemetry: null,
   });
   const trace: ToolTrace = { urls: new Set(), instruction: false };
-  const ctx = { actor: { type: 'user' as const }, traceId: crypto.randomUUID() };
   return {
     trace,
     toolbox: {
@@ -315,9 +376,11 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
           const called: string[] = [];
           // Cada versão recebe as ferramentas que o app daria a ela (o v2 nunca tem internet).
           const box = withTools
-            ? emptyToolbox({
+            ? await emptyToolbox({
                 web: withWeb && copilotPromptSupportsWebTools(version) && !evalCase.webOff,
                 companies: withWeb,
+                investigations: investigationToolsFor(version),
+                ...(evalCase.companies ? { seeds: evalCase.companies } : {}),
                 ...(evalCase.webFailure ? { webFailure: evalCase.webFailure } : {}),
               })
             : undefined;
@@ -394,7 +457,7 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
     ...(withTools
       ? {
           toolsMode: withWeb
-            ? 'Ferramentas reais da estratégia e de Empresas sobre banco em memória vazio (Empresas disponível, M2) e, para a versão que pesquisa, da pesquisa na internet sobre a internet sintética (web-fixtures.ts); casos rodam com o banco "conectado".'
+            ? 'Ferramentas reais da estratégia e de Empresas sobre banco em memória vazio (Empresas disponível, M2; casos com `companies` cadastram empresas sintéticas), da investigação de empresas para as versões que a recebem (execução parada na primeira etapa) e, para a versão que pesquisa, da pesquisa na internet sobre a internet sintética (web-fixtures.ts); casos rodam com o banco "conectado".'
             : 'Ferramentas reais da estratégia sobre banco em memória vazio; casos rodam com o banco "conectado".',
           toolCalls: Object.fromEntries(toolCounts),
         }
@@ -414,7 +477,7 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
     },
     modelDigests: Object.fromEntries(evaluated.map((model) => [model, digests.get(model) ?? null])),
     cases: selectedCases.map(
-      ({ id, goal, input, history, think, database, webOff, webFailure }) => ({
+      ({ id, goal, input, history, think, database, webOff, webFailure, companies }) => ({
         id,
         goal,
         input,
@@ -423,6 +486,7 @@ it.skipIf(regradeSource)('Copiloto nos modelos locais', async () => {
         database: database ?? 'not_configured',
         ...(webOff ? { webOff } : {}),
         ...(webFailure ? { webFailure } : {}),
+        ...(companies ? { companies } : {}),
       }),
     ),
     skipped,
