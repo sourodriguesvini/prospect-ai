@@ -131,6 +131,11 @@ export interface OllamaChatRequest {
   keepAlive: string;
   /** `num_predict` limita os tokens gerados (raciocínio incluído). */
   options: { num_ctx: number; temperature: number; num_predict: number };
+  /**
+   * Saída estruturada: o Ollama restringe a geração a este JSON Schema (ou a JSON qualquer).
+   * Ausente = texto livre.
+   */
+  format?: 'json' | Record<string, unknown>;
 }
 
 export interface OllamaClient {
@@ -285,6 +290,7 @@ export function createOllamaClient(options: {
             think: request.think,
             keep_alive: request.keepAlive,
             options: request.options,
+            ...(request.format ? { format: request.format } : {}),
           }),
         },
         signal,

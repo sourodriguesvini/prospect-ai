@@ -8,6 +8,11 @@ const withDatabase = process.env.E2E_SUPABASE === '1';
 const withOllama = process.env.E2E_OLLAMA === '1';
 /** Specs que gravam dados: rodam no servidor em modo memória (sem banco real). */
 const STRATEGY_SPEC = /(strategy|copilot-history|companies)\.spec\.ts$/;
+/**
+ * Relacionamento: mesmo servidor de memória, mas DEPOIS dos specs acima (usa a oferta e a empresa
+ * que eles criam, e não pode criar dados enquanto eles conferem os estados vazios).
+ */
+const RELATIONSHIP_SPEC = /relationship\.spec\.ts$/;
 
 /** Sem E2E_OLLAMA=1, o Copiloto aponta para uma porta sem servidor (estado "Ollama fora do ar"). */
 const ollamaEnv: Record<string, string> = withOllama
@@ -19,7 +24,11 @@ const ollamaEnv: Record<string, string> = withOllama
  * usa registros sintéticos (src/server/cnpj-fixture.ts), marcados como demonstração.
  */
 const offlineEnv: Record<string, string> = { PROSPECTOR_CNPJ_LOOKUP: 'off' };
-const fixtureEnv: Record<string, string> = { PROSPECTOR_CNPJ_LOOKUP: 'fixture' };
+const fixtureEnv: Record<string, string> = {
+  PROSPECTOR_CNPJ_LOOKUP: 'fixture',
+  // IA do Relacionamento sintética (src/server/relationship-ai-fixture.ts), marcada DEMO.
+  PROSPECTOR_RELATIONSHIP_AI: 'fixture',
+};
 
 /**
  * Smoke (sempre): telas, estados sem banco, proteção de host, cabeçalhos e acessibilidade.
@@ -43,10 +52,20 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL, trace: 'retain-on-failure', locale: 'pt-BR' },
   projects: [
-    { name: 'chromium', testIgnore: STRATEGY_SPEC, use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      testIgnore: [STRATEGY_SPEC, RELATIONSHIP_SPEC],
+      use: { ...devices['Desktop Chrome'] },
+    },
     {
       name: 'estrategia-memoria',
       testMatch: STRATEGY_SPEC,
+      use: { ...devices['Desktop Chrome'], baseURL: memoryURL },
+    },
+    {
+      name: 'relacionamento-memoria',
+      testMatch: RELATIONSHIP_SPEC,
+      dependencies: ['estrategia-memoria'],
       use: { ...devices['Desktop Chrome'], baseURL: memoryURL },
     },
   ],

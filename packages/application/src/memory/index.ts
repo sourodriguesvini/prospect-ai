@@ -5,6 +5,7 @@
 export { createMemoryAuditRepository } from './audit-repository';
 export { createMemoryCompanyRepository } from './company-repository';
 export { createMemoryCopilotRepository } from './copilot-repository';
+export { createMemoryRelationshipRepository } from './relationship-repository';
 export {
   createMemoryStrategyRepository,
   type MemoryStrategyOptions,

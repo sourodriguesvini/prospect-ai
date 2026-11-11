@@ -12,6 +12,7 @@ import { connection } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
 import { LifecycleForm } from '@/components/companies/company-forms';
 import { EvidenceGroups } from '@/components/companies/evidence-groups';
+import { CompanyRelationshipPanel } from '@/components/relationship/company-panel';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import { Loading } from '@/components/strategy/loading';
 import { PageHeader, StorageNotice, Unavailable } from '@/components/strategy/page-parts';
@@ -297,6 +298,7 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
               current={company.lifecycle}
             />
           </Panel>
+          <CompanyRelationshipPanel companyId={company.id} archived={archived} />
           <RegistryLookup dossier={dossier} />
         </div>
       </div>

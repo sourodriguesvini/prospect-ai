@@ -20,7 +20,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Feito e verificado: commit `bcd5444` enviado ao GitHub (branch `conclusao-produto`) |
 | M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, commit `c165448` enviado; o Copiloto pesquisa na internet com o prompt `copilot-tools/v3`, promovido com a aprovação do usuário e instalado em `D:\Prospector`, commit `f57f2e7` enviado; fila, descoberta e deduplicação pendentes |
 | M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Pendente |
-| M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Pendente |
+| M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Em andamento: módulo Relacionamento pronto e testado na branch `claude/relacionamento-102b59`, sem commit; migração não aplicada (KI-120); prompts sem conjunto de avaliação (KI-124); ferramentas do Copiloto esperando o `copilot-tools/v4` (KI-121) |
 | M6 | Métricas reais, aprendizado, memória semântica | Pendente |
 | M7 | Testes completos, revisão de segurança, app instalado, relatório de aceite | Pendente |
 
@@ -99,6 +99,20 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Instalação | `pnpm app:install` concluído: `D:\Prospector` usa `copilot-tools/v3`. A primeira instalação mostrou que o leitor de páginas do app instalado não achava o Chromium (faltava o `browsers.json` do Playwright no build); corrigido em `next.config.ts` e reinstalado: a cópia instalada abriu o Chromium com sandbox e executou JavaScript (KI-091 resolvido). O app instalado não foi aberto depois da instalação (abre pelo atalho "Prospector") |
 | Commit | `f57f2e7`, enviado ao GitHub em 2026-11-10 com a autorização do usuário (branch `conclusao-produto`) |
 | Pendências | KI-096 (fraquezas acima); KI-093 (nome da pessoa titular de MEI no cadastro por CNPJ: decisão do usuário) |
+
+## M5 — Relacionamento: abordagens, conversas, pipeline e aprovações (ADR-0014, 2026-11-11)
+
+Feito na worktree `relacionamento-102b59` (branch `claude/relacionamento-102b59`), **sem commit**: commit, migração e instalação esperam a confirmação do usuário.
+
+| Item | Resultado |
+|---|---|
+| O que existe | Módulo **Relacionamento** com as abas Abordagens, Conversas e Pipeline (quadro e lista), detalhe da oportunidade, fila **Aprovações** e painel no dossiê. Rotas antigas `/abordagens`, `/conversas` e `/pipeline` redirecionam. O app não envia nada: aprovar libera o texto por 72 horas, para um contato só; a pessoa envia por fora e registra |
+| Regras | Estado do contato pelo que foi registrado; primeiro contato só por e-mail ou LinkedIn manual, com a agência identificada e o canal do titular; opt-out até a primeira resposta; WhatsApp só depois que a empresa escreveu por lá; rodapé garantido pelo sistema; pedido para parar honrado na hora (regra e IA), com follow-ups cancelados; etapas só mudam por decisão da pessoa |
+| IA | Três prompts v1 (`relationship-approach`, `relationship-message`, `relationship-reply`), tarefa `copilot` sem raciocínio, JSON Schema com refs curtas, orçamento de contexto em níveis (`context_too_large` quando nada cabe), pedido de quem dirige a agência fora dos DADOS, resposta da empresa sem o texto citado. `pnpm ai:live` 3 de 3 antes da última revisão; o `avaliador-ia` deu "promover com ressalvas" na segunda revisão, com os ajustes pedidos feitos, e pediu conjunto de avaliação antes do uso real (KI-124) |
+| Copiloto | Seis ferramentas só de leitura (agenda, oportunidades, detalhe, pipeline, sugestão de resposta, sugestão de etapa), testadas, atrás do portão `copilotPromptSupportsRelationshipTools` (v4 ou maior). Trecho do v4 em `docs/rascunhos/copilot-tools-v4-relacionamento.md`; o v4 não foi criado (KI-121) |
+| Banco | Migração `20261111170000_relationship.sql` (8 tabelas, 2 views, 5 RPCs), RLS sem políticas, travas de colunas e de status final. Testada em PGlite; **não aplicada** ao `prospector-dev` (KI-120) |
+| Testes | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.177 verdes (contracts 195, domain 297, application 161, agents 173, web 84, db 93, integrations 174); `pnpm test:db` (PGlite) 93 verdes; `pnpm test:e2e` 55 passaram e 3 pulados (banco real e Ollama real), com `E2E_PORT=3220 E2E_MEMORY_PORT=3230`, incluindo os 9 cenários do Relacionamento (A, B e J, C, D, E, F, celular, pedido para parar) |
+| Pendências | KI-120 a KI-128 |
 
 ## Decisões desta execução
 

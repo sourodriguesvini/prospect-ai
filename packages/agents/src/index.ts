@@ -10,4 +10,5 @@ export * from './model-catalog';
 export * from './model-policy';
 export * from './ollama/client';
 export * from './prompts';
+export * from './relationship/relationship-ai';
 export * from './runtime';

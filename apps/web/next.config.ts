@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
+import { LEGACY_RELATIONSHIP_REDIRECTS } from './src/lib/relationship-routes';
 
 /**
  * Build para a instalação local (scripts/app/instalar.mjs, `pnpm app:install`): servidor
@@ -51,6 +52,11 @@ const nextConfig: NextConfig = {
   ],
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
+  },
+  // Abordagens, Conversas e Pipeline viraram abas de /relacionamento (ADR-0014). Temporário (307):
+  // os endereços antigos podem voltar a ser usados por outra tela.
+  async redirects() {
+    return LEGACY_RELATIONSHIP_REDIRECTS.map((item) => ({ ...item, permanent: false }));
   },
 };
 

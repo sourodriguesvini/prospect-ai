@@ -1,8 +1,10 @@
 import 'server-only';
 import {
   COPILOT_TOOLS_PROMPT_VERSION,
+  copilotPromptSupportsRelationshipTools,
   copilotPromptSupportsWebTools,
   createLocalAiRuntime,
+  createRelationshipAi,
   createUnavailableLocalAi,
   DEFAULT_OLLAMA_URL,
   isAiError,
@@ -17,10 +19,12 @@ import {
   createCompanyService,
   createCopilotService,
   createEvidenceService,
+  createRelationshipService,
   createStrategyService,
   createSystemService,
   createToolRegistry,
   createWebResearchService,
+  relationshipTools,
   strategyTools,
   webResearchTools,
   type AiTelemetryRepository,
@@ -32,6 +36,9 @@ import {
   type CopilotRepository,
   type CopilotService,
   type EvidenceRepository,
+  type RelationshipAi,
+  type RelationshipRepository,
+  type RelationshipService,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
@@ -44,6 +51,7 @@ import {
   createMemoryAuditRepository,
   createMemoryCompanyRepository,
   createMemoryCopilotRepository,
+  createMemoryRelationshipRepository,
   createMemoryStrategyRepository,
   createMemoryWebResearchUsage,
 } from '@prospector/application/memory';
@@ -53,12 +61,14 @@ import {
   createSupabaseCompanyRepository,
   createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
+  createSupabaseRelationshipRepository,
   createSupabaseStrategyRepository,
   createSupabaseWebResearchUsage,
 } from '@prospector/db';
 import { createCnpjLookup, createPageReader, createTavilySearch } from '@prospector/integrations';
 import { cache } from 'react';
 import { syntheticCnpjLookup } from './cnpj-fixture';
+import { syntheticRelationshipAi } from './relationship-ai-fixture';
 import {
   cnpjLookupMode,
   databaseEnv,
@@ -66,6 +76,7 @@ import {
   LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
   localAiEnv,
+  relationshipAiMode,
   storageMode,
   WebResearchConfigError,
   webResearchEnv,
@@ -96,6 +107,8 @@ export interface Services {
   research: WebResearchService | null;
   /** Ferramentas oferecidas ao Copiloto; null sem banco. */
   tools: ToolRegistry | null;
+  /** Relacionamento (ADR-0014): abordagens, conversas, pipeline e aprovações; null sem banco. */
+  relationship: RelationshipService | null;
 }
 
 interface MemoryStores {
@@ -103,6 +116,7 @@ interface MemoryStores {
   strategy: StrategyRepository;
   copilot: CopilotRepository & AiTelemetryRepository;
   companies: CompanyRepository & EvidenceRepository;
+  relationship: RelationshipRepository;
 }
 
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
@@ -110,12 +124,14 @@ function memoryStores(): MemoryStores {
   const holder = globalThis as { __prospectorMemoryStores?: MemoryStores };
   if (!holder.__prospectorMemoryStores) {
     const audit = createMemoryAuditRepository();
+    const companies = createMemoryCompanyRepository({ audit });
     // A estratégia grava a auditoria junto com cada escrita (KI-041), na mesma trilha.
     holder.__prospectorMemoryStores = {
       audit,
       strategy: createMemoryStrategyRepository({ audit }),
       copilot: createMemoryCopilotRepository({ audit }),
-      companies: createMemoryCompanyRepository({ audit }),
+      companies,
+      relationship: createMemoryRelationshipRepository({ audit, companies }),
     };
   }
   return holder.__prospectorMemoryStores;
@@ -210,12 +226,51 @@ function copilotTools(
   audit: AuditService,
   companies: CompanyService,
   research: WebResearchSetup,
+  relationship: RelationshipService,
 ): ToolDefinition[] {
   const web =
     research.searchOn && copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)
       ? webResearchTools({ research: research.service })
       : [];
-  return [...strategyTools({ strategy, audit }), ...companyTools({ companies }), ...web];
+  // Só com um prompt que as conhece (ADR-0014): o copilot-tools/v3 diz que Aprovações está "em
+  // construção" e não sabe do Relacionamento. Entram quando um v4 avaliado for promovido.
+  const followUp = copilotPromptSupportsRelationshipTools(COPILOT_TOOLS_PROMPT_VERSION)
+    ? relationshipTools({ relationship, companies })
+    : [];
+  return [
+    ...strategyTools({ strategy, audit }),
+    ...companyTools({ companies }),
+    ...followUp,
+    ...web,
+  ];
+}
+
+/**
+ * IA do Relacionamento: o Ollama local pelo gateway único (mesma fila e limite de concorrência do
+ * Copiloto) ou, nos testes, a fixture SINTÉTICA, que só existe no modo memória.
+ */
+function relationshipAi(): { ai: RelationshipAi; synthetic: boolean } {
+  if (relationshipAiMode() === 'fixture') {
+    if (storageMode() !== 'memory') {
+      throw new Error(
+        'PROSPECTOR_RELATIONSHIP_AI=fixture só funciona com PROSPECTOR_STORAGE=memory (textos de teste nunca vão para o banco).',
+      );
+    }
+    return { ai: syntheticRelationshipAi, synthetic: true };
+  }
+  const { gateway } = localAiRuntime();
+  return {
+    ai: createRelationshipAi({ gateway, contextTokens: copilotContextTokens() }),
+    synthetic: false,
+  };
+}
+
+/**
+ * Janela da tarefa `copilot` na política em vigor (AI_NUM_CTX muda), para a IA do Relacionamento
+ * montar os DADOS do tamanho que cabe. Sem IA local montada, vale o padrão da política.
+ */
+function copilotContextTokens(): number | undefined {
+  return (globalThis as LocalAiHolder)[LOCAL_AI_KEY]?.policy.copilot.numCtx;
 }
 
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
@@ -239,6 +294,15 @@ export const getServices = cache((): Services => {
     const strategy = createStrategyService({ repo: stores.strategy, ephemeralStorage: true });
     const companies = companyServices(stores.companies);
     const research = webResearch(stores.companies, null);
+    const relationshipAiSetup = relationshipAi();
+    const relationship = createRelationshipService({
+      repo: stores.relationship,
+      companies,
+      strategy,
+      ai: relationshipAiSetup.ai,
+      telemetry: stores.copilot,
+      syntheticAi: relationshipAiSetup.synthetic,
+    });
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
@@ -248,9 +312,10 @@ export const getServices = cache((): Services => {
       companies,
       research: research.service,
       tools: createToolRegistry({
-        tools: copilotTools(strategy, audit, companies, research),
+        tools: copilotTools(strategy, audit, companies, research, relationship),
         telemetry: stores.copilot,
       }),
+      relationship,
     };
   }
   const credentials = databaseEnv();
@@ -264,6 +329,7 @@ export const getServices = cache((): Services => {
       companies: null,
       research: null,
       tools: null,
+      relationship: null,
     };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
@@ -273,6 +339,15 @@ export const getServices = cache((): Services => {
   const companyRepo = createSupabaseCompanyRepository(client);
   const companies = companyServices(companyRepo);
   const research = webResearch(companyRepo, createSupabaseWebResearchUsage(client));
+  const relationshipAiSetup = relationshipAi();
+  const relationship = createRelationshipService({
+    repo: createSupabaseRelationshipRepository(client),
+    companies,
+    strategy,
+    ai: relationshipAiSetup.ai,
+    telemetry: copilotRepo,
+    syntheticAi: relationshipAiSetup.synthetic,
+  });
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
@@ -282,9 +357,10 @@ export const getServices = cache((): Services => {
     companies,
     research: research.service,
     tools: createToolRegistry({
-      tools: copilotTools(strategy, audit, companies, research),
+      tools: copilotTools(strategy, audit, companies, research, relationship),
       telemetry: copilotRepo,
     }),
+    relationship,
   };
 });
 
@@ -305,6 +381,15 @@ const LOCAL_AI_KEY = '__prospectorLocalAi';
 type LocalAiHolder = typeof globalThis & { [LOCAL_AI_KEY]?: LocalAiRuntime };
 
 export function getLocalAi(): LocalAi {
+  const { gateway, copilot } = localAiRuntime();
+  return {
+    status: () => gateway.status(),
+    unload: (model) => gateway.unload(model),
+    copilot,
+  };
+}
+
+function localAiRuntime(): Pick<LocalAiRuntime, 'gateway' | 'copilot'> {
   const holder = globalThis as LocalAiHolder;
   let runtime: Pick<LocalAiRuntime, 'gateway' | 'copilot'> | undefined = holder[LOCAL_AI_KEY];
   if (!runtime) {
@@ -335,12 +420,7 @@ export function getLocalAi(): LocalAi {
       runtime = createUnavailableLocalAi('invalid_config', invalidConfigMessage(error));
     }
   }
-  const { gateway, copilot } = runtime;
-  return {
-    status: () => gateway.status(),
-    unload: (model) => gateway.unload(model),
-    copilot,
-  };
+  return runtime;
 }
 
 /**

@@ -37,6 +37,22 @@ export const ERROR_MESSAGES = {
   // M2 — empresas e evidências
   company_duplicate: 'Essa empresa já está cadastrada (mesmo CNPJ ou domínio).',
   company_archived: 'Empresa arquivada não pode ser alterada. Reative-a primeiro.',
+  // M3 — relacionamento (ADR-0014)
+  opportunity_open_exists:
+    'Esta empresa já tem uma oportunidade aberta. Continue por ela ou encerre-a primeiro.',
+  opportunity_closed: 'Esta oportunidade está encerrada. Reabra-a no pipeline para continuar.',
+  company_suppressed:
+    'Esta empresa pediu para não receber contato (supressão ativa). Nada pode ser aprovado nem registrado como contato.',
+  approval_invalid:
+    'A aprovação desta mensagem não vale mais (texto editado, revogada, vencida ou de outro canal). Revise e aprove de novo.',
+  message_blocked: 'Esta mensagem ainda não pode ser aprovada. Falta:',
+  approach_basis_insufficient:
+    'Ainda não há base para uma abordagem: investigue a empresa (fatos do cadastro ou do site) antes de gerar.',
+  approval_used:
+    'Esta aprovação já foi usada: o contato já está registrado. Para escrever de novo, crie outra mensagem.',
+  suppression_inherited:
+    'Esta supressão veio de outra empresa (mesma raiz de CNPJ ou mesmo domínio). Retire-a no dossiê da empresa que pediu.',
+  suppression_locked: 'Supressão por pedido de titular (LGPD) não pode ser retirada pelo app.',
 } as const;
 
 export type ErrorReason = keyof typeof ERROR_MESSAGES;

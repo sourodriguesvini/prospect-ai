@@ -2,7 +2,10 @@ import type { CopilotEvent, ToolCallRequest, ToolSpec } from '@prospector/contra
 import { describe, expect, it, vi } from 'vitest';
 import {
   COPILOT_TOOL_RESULTS_MAX_CHARS,
+  COPILOT_TOOLS_PROMPT_VERSION,
   MAX_COPILOT_ROUNDS,
+  copilotPromptSupportsRelationshipTools,
+  copilotPromptSupportsWebTools,
   createCopilot,
   type CopilotToolbox,
   type GenerationRecord,
@@ -351,5 +354,18 @@ describe('Copiloto com ferramentas', () => {
     );
     expect(events.at(-1)).toMatchObject({ type: 'done' });
     expect(logs[0]).toContain('telemetria falhou');
+  });
+});
+
+describe('ferramentas por versão do prompt', () => {
+  it('internet a partir do v3; Relacionamento só com um v4 que as conheça (ADR-0014)', () => {
+    expect(copilotPromptSupportsWebTools(2)).toBe(false);
+    expect(copilotPromptSupportsWebTools(3)).toBe(true);
+    expect(copilotPromptSupportsRelationshipTools(3)).toBe(false);
+    expect(copilotPromptSupportsRelationshipTools(4)).toBe(true);
+    // O prompt em produção ainda é o v3: as ferramentas do Relacionamento ficam de fora.
+    expect(copilotPromptSupportsRelationshipTools(COPILOT_TOOLS_PROMPT_VERSION)).toBe(
+      COPILOT_TOOLS_PROMPT_VERSION >= 4,
+    );
   });
 });
