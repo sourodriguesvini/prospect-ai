@@ -55,8 +55,13 @@ export async function GET(request: Request): Promise<Response> {
   const now = Date.now();
   let last = memo.__prospectorSystemStatus;
   if (!last || now - last.at > REUSE_MS) {
-    last = { at: now, view: readStatus() };
+    const view = readStatus();
+    last = { at: now, view };
     memo.__prospectorSystemStatus = last;
+    // Erro inesperado não fica guardado: a próxima leitura tenta de novo em vez de repetir o 500.
+    view.catch(() => {
+      if (memo.__prospectorSystemStatus?.view === view) delete memo.__prospectorSystemStatus;
+    });
   }
   return Response.json(await last.view, { headers: NO_STORE });
 }

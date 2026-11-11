@@ -106,6 +106,20 @@ describe('GET /api/estado', () => {
     expect(databaseStatus).toHaveBeenCalledTimes(1);
   });
 
+  it('erro inesperado não fica guardado: a leitura seguinte tenta de novo', async () => {
+    // Um status que quebra ao ser lido faz a montagem falhar depois do settle.
+    aiStatus.mockResolvedValueOnce({
+      get state(): string {
+        throw new Error('quebrado');
+      },
+    });
+    await expect(get()).rejects.toThrow('quebrado');
+    await Promise.resolve();
+    const response = await get();
+    expect(response.status).toBe(200);
+    expect(aiStatus).toHaveBeenCalledTimes(2);
+  });
+
   it('recusa pedido disparado por outro site, sem ler nada', async () => {
     const response = await get('cross-site');
     expect(response.status).toBe(403);

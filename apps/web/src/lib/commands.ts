@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { z } from 'zod';
 import { companyRoutes } from './company-routes';
+import { InternalHref } from './internal-href';
 import { flattenNav, navLabel, type NavGroup, NAV_GROUPS } from './navigation';
 import { strategyRoutes } from './strategy-routes';
 
@@ -35,7 +36,7 @@ export const CompanySearchHit = z.object({
   place: z.string().nullable(),
   isDemo: z.boolean(),
   /** Link interno para o dossiê (nunca endereço externo). */
-  href: z.string().startsWith('/'),
+  href: InternalHref,
 });
 export type CompanySearchHit = z.infer<typeof CompanySearchHit>;
 

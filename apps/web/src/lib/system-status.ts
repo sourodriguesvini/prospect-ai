@@ -3,6 +3,7 @@ import type { AiRuntimeStatus, DatabaseStatus } from '@prospector/contracts';
 import type { StatusTone } from '@prospector/ui';
 import { z } from 'zod';
 import { DATABASE_STATUS_VIEW } from './database-status';
+import { InternalHref } from './internal-href';
 
 /**
  * Indicadores do rodapé do menu lateral: IA local, pesquisa na internet e banco. Montados no
@@ -27,7 +28,7 @@ export const StatusIndicator = z.object({
   detail: z.string(),
   tone: z.enum(TONES),
   /** Tela onde dá para ver mais ou resolver (link interno). */
-  href: z.string().startsWith('/'),
+  href: InternalHref,
 });
 export type StatusIndicator = z.infer<typeof StatusIndicator>;
 
