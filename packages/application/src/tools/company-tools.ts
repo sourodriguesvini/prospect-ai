@@ -65,8 +65,8 @@ const companyRef = (company: Company): EntityRef => ({
   label: company.displayName.slice(0, 120),
 });
 
-/** Aceita o id, o CNPJ ou o nome (sem diferenciar maiúsculas) e devolve o id da empresa. */
-async function resolveCompany(
+/** Aceita o id, o CNPJ ou o nome (sem diferenciar maiúsculas) e devolve o id da empresa (também usada pelas ferramentas do Relacionamento). */
+export async function resolveCompany(
   companies: CompanyService,
   ctx: RequestContext,
   reference: string,

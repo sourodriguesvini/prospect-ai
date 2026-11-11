@@ -43,6 +43,7 @@ export const EntityRefKind = z.enum([
   'claim',
   'discovery_run',
   'discovery_monitor',
+  'discovery_prospect',
   'opportunity',
   'approach',
   'conversation',

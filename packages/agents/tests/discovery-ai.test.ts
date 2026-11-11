@@ -5,7 +5,7 @@ import {
   createLocalDiscoveryAi,
   extractorMessage,
   interpreterMessage,
-  parseModelJson,
+  parseDiscoveryModelJson,
   type GatewayEvent,
   type LocalAiGateway,
 } from '../src';
@@ -196,9 +196,9 @@ describe('extrator', () => {
 
 describe('leitura do JSON', () => {
   it('aceita cerca de código e recusa o que não é objeto', () => {
-    expect(parseModelJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
-    expect(parseModelJson('[1]')).toBeNull();
-    expect(parseModelJson('{quebrado')).toBeNull();
+    expect(parseDiscoveryModelJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
+    expect(parseDiscoveryModelJson('[1]')).toBeNull();
+    expect(parseDiscoveryModelJson('{quebrado')).toBeNull();
   });
 });
 

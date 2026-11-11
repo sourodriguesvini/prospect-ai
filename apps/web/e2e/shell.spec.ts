@@ -25,10 +25,18 @@ test.describe('menu lateral no desktop', () => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await page.goto('/configuracoes/auditoria');
     const nav = mainNav(page);
-    for (const name of ['Início', 'Descoberta', 'Empresas', 'Copiloto', 'Configuração']) {
+    for (const name of [
+      'Início',
+      'Descoberta',
+      'Empresas',
+      'Relacionamento',
+      'Aprovações',
+      'Copiloto',
+      'Configuração',
+    ]) {
       await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
     }
-    for (const name of ['Abordagens', 'Aprovações', 'Inteligência']) {
+    for (const name of ['Monitoramento', 'Inteligência']) {
       await expect(nav.getByRole('link', { name: `${name} (em breve)` })).toBeVisible();
     }
     // Submenu da Configuração, com o item da tela atual destacado (um só).

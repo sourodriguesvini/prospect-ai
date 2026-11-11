@@ -70,7 +70,7 @@ describe('itens e atalhos', () => {
 
   it('atalhos "g + tecla" não se repetem e levam a telas do menu', () => {
     const targets = shortcutTargets();
-    expect([...targets.keys()].sort()).toEqual(['c', 'd', 'e', 'i', 'p', 's']);
+    expect([...targets.keys()].sort()).toEqual(['c', 'd', 'e', 'i', 'r', 's']);
     expect(targets.get('e')?.href).toBe('/empresas');
     expect(targets.get('s')?.href).toBe('/configuracoes');
   });

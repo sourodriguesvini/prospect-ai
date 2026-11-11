@@ -249,6 +249,23 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 
 **Marco M2.**
 
+### Relacionamento (módulo 03, 2026-11-11) — adiantamento de F9, F10 e F12, sem envio
+
+Decisão no [ADR-0014](adr/0014-relacionamento-abordagens-conversas-pipeline.md). O módulo **Relacionamento** junta três abas: Abordagens, Conversas e Pipeline. Tem ainda o detalhe da oportunidade, a fila **Aprovações** e o painel no dossiê. O app não envia nada: aprovar libera o texto para uso, a pessoa envia por fora e registra.
+
+| Critério das fatias | Situação | Evidência |
+|---|---|---|
+| F9.2 Suprimir CNPJ ou domínio bloqueia o contato | **Atendido para empresa, raiz de CNPJ e domínio** (sem e-mail ou pessoa, porque `contacts` não existe ainda) | `packages/application/tests/relationship-service.test.ts`, `packages/db/tests/db/relationship.test.ts`, e2e "pedido para parar" |
+| F9.1 e F9.3 Canal com base legal; exclusão a pedido do titular | **Não começado** (sem pessoas nem canais cadastrados) | — |
+| F10 Planejador com base em evidências, fila de Aprovações com `payload_hash` e expiração | **Atendido sem o verificador** | Abordagem cita só claims do dossiê, com base "limitada" e lacunas à mostra; aprovação de 72 horas, para um contato só, ligada ao hash; editar cria uma versão nova e invalida a aprovação (testes do serviço e do banco) |
+| F10.1, F10.2 e F10.4 Abstenção, `message_verifier`, 30 mensagens reais | **Pendente** | Sem verificador automático; sem conjunto de avaliação (KI-124) |
+| F10.3 Editar mensagem aprovada invalida a aprovação | **Atendido** | Testes do serviço e PGlite (versão nova, aprovação antiga deixa de valer) |
+| F11.3 Pedido de descadastro → supressão e cancelamento de pendentes | **Atendido para respostas registradas à mão** (regra e IA; follow-ups cancelados na mesma transação) | Serviço, PGlite e e2e |
+| F11 envio, caixas, limites | **Fora** (sem envio pelo app) | — |
+| F12 Pipeline e linha do tempo | **Parcial**: etapas fixas (não configuráveis), quadro e lista, histórico de etapas, motivo de perda, linha do tempo da oportunidade; sem `outcome_events` nem briefing de reunião | e2e cenários C a F |
+
+Pendências: migração não aplicada ao `prospector-dev` (KI-120); ferramentas do Copiloto atrás de um `copilot-tools/v4` (KI-121); expurgo do texto recebido (KI-122); conjunto de avaliação dos três prompts antes do uso real (KI-124); origem do contato e pedidos de titular (KI-126); gravação em passos da abordagem (KI-127); ajustes de tela depois do merge com a branch de UI (KI-125, KI-128).
+
 ### F11 — Envio autorizado e conversas (G)
 - Conexão OAuth de caixa (provedor conforme D-CHAN-1; escopo mínimo `gmail.send` ou `Mail.Send`), checagem de SPF/DKIM/DMARC do domínio remetente, envio via workflow com espera de aprovação, supressão no envio, limites diários e disjuntores de reputação, idempotência; sync de respostas conforme D-CHAN-2 (app interno no Workspace da agência, `Mail.Read` no Microsoft 365 ou marcação manual); `reply_classifier`; opt-out automático; tarefas assistidas para LinkedIn. Regras em [12 §5](12-seguranca-e-conformidade.md).
 

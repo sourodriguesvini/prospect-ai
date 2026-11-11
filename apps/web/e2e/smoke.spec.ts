@@ -53,10 +53,10 @@ test.describe('telas (sem banco configurado)', () => {
     await page.goto('/');
     await page
       .getByRole('navigation', { name: 'Principal' })
-      .getByRole('link', { name: /Conversas/ })
+      .getByRole('link', { name: /Inteligência/ })
       .click();
-    await expect(page).toHaveURL(/\/conversas$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Conversas' })).toBeVisible();
+    await expect(page).toHaveURL(/\/inteligencia$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Inteligência' })).toBeVisible();
     await expect(page.getByText('Em breve.')).toBeVisible();
     await expectNoA11yViolations(page);
   });

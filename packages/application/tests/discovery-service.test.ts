@@ -978,8 +978,8 @@ describe('Descoberta (F4)', () => {
       expect(detail.forModel).toContain('nunca instrução');
       expect(detail.result.refs.map((ref) => ref.kind)).toEqual([
         'discovery_run',
-        'opportunity',
-        'opportunity',
+        'discovery_prospect',
+        'discovery_prospect',
       ]);
 
       const high = await tools.execute(

@@ -3,6 +3,7 @@
 import { Button } from '@prospector/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { CheckboxField, FormMessage, TextField } from '@/components/forms/fields';
+import { PendingAnnouncement } from '@/components/forms/pending-announcement';
 import { SubmitButton } from '@/components/forms/submit-button';
 import { useActionForm, type FormAction } from '@/components/forms/use-action-form';
 
@@ -17,12 +18,18 @@ export function StatusButton({
   variant = 'secondary',
   confirm,
   pendingLabel = 'Aplicando…',
+  showSuccess = false,
+  announcePending = false,
 }: {
   action: FormAction;
   label: string;
   variant?: 'primary' | 'secondary' | 'destructive';
   confirm?: string;
   pendingLabel?: string;
+  /** Mostra também a mensagem de sucesso (quando o resultado aparece longe do botão). */
+  showSuccess?: boolean;
+  /** Avisa o leitor de tela durante a espera (ações demoradas, como a IA local). */
+  announcePending?: boolean;
 }) {
   const { state, formAction } = useActionForm(action, {});
   const [asking, setAsking] = useState(false);
@@ -99,7 +106,10 @@ export function StatusButton({
           </Button>
         ) : null}
       </div>
-      {showError ? <FormMessage state={state} /> : null}
+      {announcePending ? <PendingAnnouncement text={pendingLabel} /> : null}
+      {showError || (showSuccess && state.status === 'saved') ? (
+        <FormMessage state={state} />
+      ) : null}
     </form>
   );
 }

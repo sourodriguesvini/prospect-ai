@@ -45,6 +45,19 @@ export function cnpjLookupMode(): CnpjLookupMode {
   throw new Error('PROSPECTOR_CNPJ_LOOKUP inválida: use "on", "off", "fixture" ou deixe vazia.');
 }
 
+export type RelationshipAiMode = 'ollama' | 'fixture';
+
+/**
+ * IA do Relacionamento (ADR-0014): o Ollama local por padrão. `PROSPECTOR_RELATIONSHIP_AI=fixture`
+ * usa textos SINTÉTICOS, só no modo memória (testes de ponta a ponta, sem GPU).
+ */
+export function relationshipAiMode(): RelationshipAiMode {
+  const value = readVar('PROSPECTOR_RELATIONSHIP_AI');
+  if (value === undefined || value === 'ollama') return 'ollama';
+  if (value === 'fixture') return value;
+  throw new Error('PROSPECTOR_RELATIONSHIP_AI inválida: use "ollama", "fixture" ou deixe vazia.');
+}
+
 export function cnpjLookupEnabled(): boolean {
   return cnpjLookupMode() !== 'off';
 }

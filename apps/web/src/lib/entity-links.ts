@@ -1,5 +1,6 @@
 import type { EntityRef, InternalLink } from '@prospector/contracts';
 import { discoveryRoutes } from './discovery-routes';
+import { relationshipRoutes } from './relationship-routes';
 import { strategyRoutes } from './strategy-routes';
 
 /**
@@ -29,10 +30,18 @@ export function entityHref(ref: EntityRef): string | null {
       return ref.id ? discoveryRoutes.run(ref.id) : discoveryRoutes.home;
     case 'discovery_monitor':
       return discoveryRoutes.monitors;
-    case 'opportunity':
+    case 'discovery_prospect':
       return ref.id ? discoveryRoutes.prospect(ref.id) : discoveryRoutes.prospects;
     case 'conversation':
       return ref.id ? `/copiloto?conversa=${encodeURIComponent(ref.id)}` : '/copiloto';
+    case 'opportunity':
+      return ref.id ? relationshipRoutes.opportunity(ref.id) : relationshipRoutes.pipeline;
+    case 'approach':
+      return ref.id
+        ? relationshipRoutes.opportunitySection(ref.id, 'mensagens')
+        : relationshipRoutes.approaches;
+    case 'pipeline':
+      return relationshipRoutes.pipeline;
     default:
       return null;
   }

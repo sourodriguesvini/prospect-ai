@@ -179,7 +179,7 @@ export function extractorMessage(input: ExtractInput): string {
 }
 
 /** JSON da resposta; tolera cerca de código e texto em volta. null = não é um objeto JSON. */
-export function parseModelJson(raw: string): Record<string, unknown> | null {
+export function parseDiscoveryModelJson(raw: string): Record<string, unknown> | null {
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start < 0 || end <= start) return null;
@@ -236,7 +236,7 @@ export function createLocalDiscoveryAi(deps: {
       if (event.type === 'delta') answer += event.text;
       else if (event.type === 'done') truncated = event.doneReason === 'length';
     }
-    return { json: truncated ? null : parseModelJson(answer), truncated };
+    return { json: truncated ? null : parseDiscoveryModelJson(answer), truncated };
   }
 
   /**

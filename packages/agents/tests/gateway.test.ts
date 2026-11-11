@@ -245,6 +245,39 @@ describe('LocalAiGateway.chat', () => {
     await next.return(undefined);
   });
 
+  it('repassa o esquema de saída (format) só quando pedido', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] };
+    await collect(gw.chat('copilot', { ...ask, think: false, format: schema }));
+    await collect(gw.chat('copilot', { ...ask, think: false }));
+    expect(requests[0]?.format).toEqual(schema);
+    expect(requests[1]).not.toHaveProperty('format');
+  });
+
+  it('aceita teto de geração pedido pela capacidade, até o dobro do da tarefa', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    await collect(gw.chat('copilot', { ...ask, maxOutputTokens: 1536 }));
+    await collect(gw.chat('copilot', { ...ask, maxOutputTokens: 1_000_000 }));
+    expect(requests[0]?.options.num_predict).toBe(1536);
+    expect(requests[1]?.options.num_predict).toBe(DEFAULT_POLICY.copilot.maxOutputTokens * 2);
+  });
+
+  it('não manda o esquema de saída junto com ferramentas', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] };
+    const tool = {
+      name: 'list_offers',
+      title: 'Consultando ofertas',
+      description: 'Ferramenta de teste.',
+      parameters: { type: 'object', properties: {} },
+    };
+    await collect(gw.chat('copilot', { ...ask, think: false, format: schema, tools: [tool] }));
+    expect(requests[0]).not.toHaveProperty('format');
+  });
+
   it('neutraliza marcas de papel do modelo no texto do usuário e limita os tokens gerados', async () => {
     const requests: OllamaChatRequest[] = [];
     const gw = gateway(fakeClient({ requests }));

@@ -57,7 +57,7 @@ const MODULE_SHORTCUTS: Readonly<Record<string, string>> = {
   descoberta: 'd',
   empresas: 'e',
   copiloto: 'c',
-  pipeline: 'p',
+  relacionamento: 'r',
 };
 
 function moduleItem(item: ModuleDef): NavItem {

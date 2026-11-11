@@ -30,7 +30,7 @@ pnpm dev
 - `pnpm dev` abre o app em **http://127.0.0.1:3000** (só este computador). Sem banco configurado, a tela inicial mostra "Banco de dados: Não configurado" e a auditoria avisa o mesmo; nada quebra.
 - O app recusa com 403 qualquer `Host` que não seja `localhost`, `127.0.0.1` ou `[::1]`. Não exponha a porta na rede nem publique o app: não há login (ADR-0007).
 - `pnpm test:db` usa **PGlite** (Postgres 18 em WebAssembly) com um shim dos papéis do Supabase (`packages/db/tests/support/supabase-shim.sql`). Não precisa de Docker. Aplica todas as migrações de `supabase/migrations` e roda os testes de catálogo e do `audit_log`.
-- `pnpm test:e2e` faz `next build` + `next start` em `127.0.0.1:3100` com o banco **desligado de propósito** (variáveis vazias sobrepõem o `.env.local`) e roda o smoke: telas, estados sem banco, recusa de host externo, cabeçalhos e acessibilidade. `e2e/database.spec.ts` é pulado. Em seguida sobe o mesmo build em `127.0.0.1:3110` no **modo memória** e roda `e2e/strategy.spec.ts` (fluxo completo da F2). A porta 3110 precisa estar livre: esse servidor nunca é reaproveitado, para começar sem dados.
+- `pnpm test:e2e` faz `next build` + `next start` em `127.0.0.1:3100` com o banco **desligado de propósito** (variáveis vazias sobrepõem o `.env.local`) e roda o smoke: telas, estados sem banco, recusa de host externo, cabeçalhos e acessibilidade. `e2e/database.spec.ts` é pulado. Em seguida sobe o mesmo build em `127.0.0.1:3110` no **modo memória** e roda `e2e/strategy.spec.ts` (fluxo completo da F2) e, depois dele, `e2e/relationship.spec.ts` (Relacionamento com a IA sintética, `PROSPECTOR_RELATIONSHIP_AI=fixture`). A porta 3110 precisa estar livre: esse servidor nunca é reaproveitado, para começar sem dados.
 
 ### Modo memória (experimentar as telas sem banco)
 
@@ -41,7 +41,8 @@ PROSPECTOR_STORAGE=memory pnpm dev
 No PowerShell: `$env:PROSPECTOR_STORAGE = 'memory'; pnpm dev`. Prefira a variável na linha de comando a gravá-la no `.env.local`: com ela, o app ignora o banco configurado (e avisa no log do servidor).
 
 - Estratégia, conformidade, abordagens e auditoria gravam na memória do servidor. **Tudo some quando o app reinicia.** Cada tela mostra esse aviso, e o estado do banco aparece como "Modo memória".
-- **Abordar fica sempre bloqueado** nesse modo (item "Banco de dados persistente"): uma LIA aprovada que some ao reiniciar não pode liberar contato com pessoas.
+- **Abordar fica sempre bloqueado** nesse modo (item "Banco de dados persistente"): uma LIA aprovada que some ao reiniciar não pode liberar contato com pessoas. No Relacionamento, dá para preparar abordagens, revisar rascunhos e registrar contatos e respostas, mas "Aprovar para uso" fica bloqueado (ADR-0014).
+- `PROSPECTOR_RELATIONSHIP_AI=fixture` troca a IA do Relacionamento (abordagem, mensagens, interpretação de resposta) por respostas SINTÉTICAS marcadas DEMO, sem Ollama. Só funciona junto com `PROSPECTOR_STORAGE=memory` (o app recusa com o banco) e é o que o e2e usa. Sem a variável, ou com `ollama`, usa a IA local.
 - Não há dados de exemplo: o app começa vazio (ADR-0009).
 - Use só para testar telas. Trabalho real precisa do banco (§3 ou §4).
 

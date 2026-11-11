@@ -54,6 +54,17 @@ export function copilotPromptSupportsDiscoveryTools(promptVersion: number): bool
 }
 
 /**
+ * As ferramentas do Relacionamento (agenda, oportunidades, pipeline, resposta sugerida e
+ * sugestão de etapa, ADR-0014) só entram com um prompt que as conhece: o v3 não as cita e ainda
+ * diz que o módulo Aprovações está "em construção". Liga quando um `copilot-tools/v4` avaliado for
+ * promovido (rascunho do trecho em `docs/rascunhos/copilot-tools-v4-relacionamento.md`;
+ * KI-121).
+ */
+export function copilotPromptSupportsRelationshipTools(promptVersion: number): boolean {
+  return promptVersion >= 4;
+}
+
+/**
  * Rodadas de geração por pergunta: até 7 com ferramentas e a última obrigatoriamente sem. A
  * pesquisa aprofundada (várias buscas e páginas) precisa de mais que as 4 rodadas da IA-2.
  */

@@ -58,12 +58,16 @@ const runRef = (run: DiscoveryRun, label?: string): EntityRef => ({
   label: (label ?? run.request).slice(0, 120),
 });
 const prospectRef = (prospect: Prospect): EntityRef => ({
-  kind: 'opportunity',
+  kind: 'discovery_prospect',
   id: prospect.id,
   label: prospect.displayName.slice(0, 120),
 });
 const HOME_REF: EntityRef = { kind: 'discovery_run', id: null, label: 'Descoberta' };
-const PROSPECTS_REF: EntityRef = { kind: 'opportunity', id: null, label: 'Empresas encontradas' };
+const PROSPECTS_REF: EntityRef = {
+  kind: 'discovery_prospect',
+  id: null,
+  label: 'Empresas encontradas',
+};
 const MONITORS_REF: EntityRef = { kind: 'discovery_monitor', id: null, label: 'Monitoramentos' };
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;

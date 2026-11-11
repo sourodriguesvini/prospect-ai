@@ -16,6 +16,13 @@ const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
   // M2: claim substituído por outra atualização ao mesmo tempo; CNPJ ou domínio já cadastrado.
   concurrent_change: 'conflict',
   company_duplicate: 'conflict',
+  // M3: oportunidade aberta repetida, encerrada, empresa suprimida, aprovação que não vale mais.
+  opportunity_open_exists: 'conflict',
+  opportunity_closed: 'conflict',
+  company_suppressed: 'conflict',
+  approval_invalid: 'conflict',
+  approval_used: 'conflict',
+  suppression_locked: 'conflict',
 };
 
 interface DbErrorLike {

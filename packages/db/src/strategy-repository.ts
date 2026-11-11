@@ -86,7 +86,16 @@ export type AuditedTable =
   | 'claim_dependencies'
   | 'discovery_monitors'
   | 'discovery_runs'
-  | 'discovery_prospects';
+  | 'discovery_prospects'
+  // Relacionamento (ADR-0014)
+  | 'opportunities'
+  | 'opportunity_stage_changes'
+  | 'approach_plans'
+  | 'outbound_messages'
+  | 'approvals'
+  | 'interactions'
+  | 'tasks'
+  | 'suppression_entries';
 
 /**
  * JSON em base64: cabeçalho HTTP só aceita ASCII. Sem conteúdo da estratégia (KI-015). `table` e

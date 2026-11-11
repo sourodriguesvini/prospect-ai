@@ -12,10 +12,11 @@ import { CheckCheck, Coins, MessagesSquare, ScrollText, Search } from 'lucide-re
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
-import { Suspense, type ReactNode } from 'react';
+import { cache, Suspense, type ReactNode } from 'react';
 import { AuditTable } from '@/components/audit-table';
 import { DATABASE_STATUS_VIEW } from '@/lib/database-status';
 import { greetingFor } from '@/lib/greeting';
+import { relationshipRoutes } from '@/lib/relationship-routes';
 import { loadRecentAudit } from '@/server/audit-entries';
 import { getServices } from '@/server/container';
 import { userContext } from '@/server/context';
@@ -68,6 +69,34 @@ async function InvestigatedValue() {
   }
   if (count === null) return <>—</>;
   return <>{capped ? `${count}+` : count}</>;
+}
+
+/**
+ * Resumo do Relacionamento (ADR-0014) para os cartões, lido uma vez por visita. null sem banco,
+ * sem a migração do Relacionamento ou com o banco fora do ar: o cartão não afirma nada.
+ */
+const readRelationshipOverview = cache(async () => {
+  const { relationship } = getServices();
+  if (!relationship) return null;
+  try {
+    return await relationship.overview(userContext());
+  } catch {
+    return null;
+  }
+});
+
+/** Rascunhos de mensagem esperando a sua aprovação nas oportunidades abertas. */
+async function PendingApprovalsValue() {
+  await connection();
+  const overview = await readRelationshipOverview();
+  return <>{overview ? overview.draftsToReview : '—'}</>;
+}
+
+/** Oportunidades abertas no pipeline. */
+async function OpenOpportunitiesValue() {
+  await connection();
+  const overview = await readRelationshipOverview();
+  return <>{overview ? overview.openCount : '—'}</>;
 }
 
 /** Fatos desta instalação (ADR-0007, CLAUDE.md), não números de exemplo. */
@@ -149,7 +178,8 @@ export default function Home() {
           <Greeting />
         </Suspense>
         <p className="text-sm text-muted-foreground">
-          A fila de decisões do dia aparece aqui quando abordagens e conversas estiverem prontas.
+          Abordagens, conversas e pipeline ficam em Relacionamento. O que espera a sua decisão está
+          em Aprovações.
         </p>
       </div>
 
@@ -207,8 +237,16 @@ export default function Home() {
             <StatTile
               tone="accent"
               label="Aprovações pendentes"
-              value="—"
-              note="Chega na F10"
+              value={
+                <Suspense fallback={<span role="status">Contando…</span>}>
+                  <PendingApprovalsValue />
+                </Suspense>
+              }
+              note={
+                <Link href={relationshipRoutes.approvals} className="underline underline-offset-4">
+                  Ver aprovações
+                </Link>
+              }
               icon={<CheckCheck className="size-4" />}
             />
             <StatTile
@@ -226,9 +264,17 @@ export default function Home() {
               icon={<Search className="size-4" />}
             />
             <StatTile
-              label="Respostas"
-              value="—"
-              note="Chega na F11"
+              label="Oportunidades abertas"
+              value={
+                <Suspense fallback={<span role="status">Contando…</span>}>
+                  <OpenOpportunitiesValue />
+                </Suspense>
+              }
+              note={
+                <Link href={relationshipRoutes.pipeline} className="underline underline-offset-4">
+                  Ver pipeline
+                </Link>
+              }
               icon={<MessagesSquare className="size-4" />}
             />
             <StatTile

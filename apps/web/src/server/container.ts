@@ -2,9 +2,11 @@ import 'server-only';
 import {
   COPILOT_TOOLS_PROMPT_VERSION,
   copilotPromptSupportsDiscoveryTools,
+  copilotPromptSupportsRelationshipTools,
   copilotPromptSupportsWebTools,
   createLocalAiRuntime,
   createLocalDiscoveryAi,
+  createRelationshipAi,
   createUnavailableLocalAi,
   DEFAULT_OLLAMA_URL,
   isAiError,
@@ -26,12 +28,14 @@ import {
   createDiscoveryService,
   createEvidenceService,
   createJobWorker,
+  createRelationshipService,
   createStrategyService,
   createSystemService,
   createToolRegistry,
   createWebResearchService,
   DiscoveryAiError,
   discoveryJobHandler,
+  relationshipTools,
   strategyTools,
   webResearchTools,
   type AiTelemetryRepository,
@@ -48,6 +52,9 @@ import {
   type EvidenceRepository,
   type JobQueue,
   type JobWorker,
+  type RelationshipAi,
+  type RelationshipRepository,
+  type RelationshipService,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
@@ -61,6 +68,7 @@ import {
   createMemoryCompanyRepository,
   createMemoryCopilotRepository,
   createMemoryDiscoveryStore,
+  createMemoryRelationshipRepository,
   createMemoryStrategyRepository,
   createMemoryWebResearchUsage,
 } from '@prospector/application/memory';
@@ -72,6 +80,7 @@ import {
   createSupabaseDatabaseHealth,
   createSupabaseDiscoveryRepository,
   createSupabaseJobQueue,
+  createSupabaseRelationshipRepository,
   createSupabaseStrategyRepository,
   createSupabaseWebResearchUsage,
 } from '@prospector/db';
@@ -79,6 +88,7 @@ import { createCnpjLookup, createPageReader, createTavilySearch } from '@prospec
 import { cache } from 'react';
 import { syntheticCnpjLookup } from './cnpj-fixture';
 import { syntheticDiscoveryAi, syntheticDiscoveryWeb } from './discovery-fixture';
+import { syntheticRelationshipAi } from './relationship-ai-fixture';
 import {
   cnpjLookupMode,
   databaseEnv,
@@ -89,6 +99,7 @@ import {
   LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
   localAiEnv,
+  relationshipAiMode,
   storageMode,
   WebResearchConfigError,
   webResearchEnv,
@@ -124,6 +135,8 @@ export interface Services {
    * banco ou com `PROSPECTOR_DISCOVERY=off`. Quem executa é o trabalhador da fila.
    */
   discovery: DiscoveryService | null;
+  /** Relacionamento (ADR-0014): abordagens, conversas, pipeline e aprovações; null sem banco. */
+  relationship: RelationshipService | null;
 }
 
 interface MemoryStores {
@@ -132,6 +145,7 @@ interface MemoryStores {
   copilot: CopilotRepository & AiTelemetryRepository;
   companies: CompanyRepository & EvidenceRepository;
   discovery: { repository: DiscoveryRepository; queue: JobQueue };
+  relationship: RelationshipRepository;
 }
 
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
@@ -139,13 +153,15 @@ function memoryStores(): MemoryStores {
   const holder = globalThis as { __prospectorMemoryStores?: MemoryStores };
   if (!holder.__prospectorMemoryStores) {
     const audit = createMemoryAuditRepository();
+    const companies = createMemoryCompanyRepository({ audit });
     // A estratégia grava a auditoria junto com cada escrita (KI-041), na mesma trilha.
     holder.__prospectorMemoryStores = {
       audit,
       strategy: createMemoryStrategyRepository({ audit }),
       copilot: createMemoryCopilotRepository({ audit }),
-      companies: createMemoryCompanyRepository({ audit }),
+      companies,
       discovery: createMemoryDiscoveryStore({ audit }),
+      relationship: createMemoryRelationshipRepository({ audit, companies }),
     };
   }
   return holder.__prospectorMemoryStores;
@@ -242,6 +258,7 @@ function copilotTools(
   companies: CompanyService,
   research: WebResearchSetup,
   discovery: DiscoveryService | null,
+  relationship: RelationshipService,
 ): ToolDefinition[] {
   const web =
     research.searchOn && copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)
@@ -251,7 +268,18 @@ function copilotTools(
     discovery && copilotPromptSupportsDiscoveryTools(COPILOT_TOOLS_PROMPT_VERSION)
       ? discoveryTools({ discovery })
       : [];
-  return [...strategyTools({ strategy, audit }), ...companyTools({ companies }), ...web, ...found];
+  // Só com um prompt que as conhece (ADR-0014): o copilot-tools/v3 diz que Aprovações está "em
+  // construção" e não sabe do Relacionamento. Entram quando um v4 avaliado for promovido.
+  const followUp = copilotPromptSupportsRelationshipTools(COPILOT_TOOLS_PROMPT_VERSION)
+    ? relationshipTools({ relationship, companies })
+    : [];
+  return [
+    ...strategyTools({ strategy, audit }),
+    ...companyTools({ companies }),
+    ...followUp,
+    ...web,
+    ...found,
+  ];
 }
 
 /**
@@ -437,6 +465,34 @@ export function pokeDiscoveryWorker(): void {
   (globalThis as DiscoveryWorkerHolder)[DISCOVERY_WORKER_KEY]?.poke();
 }
 
+/**
+ * IA do Relacionamento: o Ollama local pelo gateway único (mesma fila e limite de concorrência do
+ * Copiloto) ou, nos testes, a fixture SINTÉTICA, que só existe no modo memória.
+ */
+function relationshipAi(): { ai: RelationshipAi; synthetic: boolean } {
+  if (relationshipAiMode() === 'fixture') {
+    if (storageMode() !== 'memory') {
+      throw new Error(
+        'PROSPECTOR_RELATIONSHIP_AI=fixture só funciona com PROSPECTOR_STORAGE=memory (textos de teste nunca vão para o banco).',
+      );
+    }
+    return { ai: syntheticRelationshipAi, synthetic: true };
+  }
+  const { gateway } = localAiRuntime();
+  return {
+    ai: createRelationshipAi({ gateway, contextTokens: copilotContextTokens() }),
+    synthetic: false,
+  };
+}
+
+/**
+ * Janela da tarefa `copilot` na política em vigor (AI_NUM_CTX muda), para a IA do Relacionamento
+ * montar os DADOS do tamanho que cabe. Sem IA local montada, vale o padrão da política.
+ */
+function copilotContextTokens(): number | undefined {
+  return (globalThis as LocalAiHolder)[LOCAL_AI_KEY]?.policy.copilot.numCtx;
+}
+
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
 function warnIgnoredDatabase(): void {
   const holder = globalThis as { __prospectorMemoryWarned?: boolean };
@@ -463,6 +519,15 @@ export const getServices = cache((): Services => {
       stores.companies,
       companies,
     );
+    const relationshipAiSetup = relationshipAi();
+    const relationship = createRelationshipService({
+      repo: stores.relationship,
+      companies,
+      strategy,
+      ai: relationshipAiSetup.ai,
+      telemetry: stores.copilot,
+      syntheticAi: relationshipAiSetup.synthetic,
+    });
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
@@ -472,10 +537,11 @@ export const getServices = cache((): Services => {
       companies,
       research: research.service,
       tools: createToolRegistry({
-        tools: copilotTools(strategy, audit, companies, research, discovery),
+        tools: copilotTools(strategy, audit, companies, research, discovery, relationship),
         telemetry: stores.copilot,
       }),
       discovery,
+      relationship,
     };
   }
   const credentials = databaseEnv();
@@ -490,6 +556,7 @@ export const getServices = cache((): Services => {
       research: null,
       tools: null,
       discovery: null,
+      relationship: null,
     };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
@@ -511,6 +578,15 @@ export const getServices = cache((): Services => {
     companyRepo,
     companies,
   );
+  const relationshipAiSetup = relationshipAi();
+  const relationship = createRelationshipService({
+    repo: createSupabaseRelationshipRepository(client),
+    companies,
+    strategy,
+    ai: relationshipAiSetup.ai,
+    telemetry: copilotRepo,
+    syntheticAi: relationshipAiSetup.synthetic,
+  });
   return {
     storage: 'supabase',
     system: createSystemService(createSupabaseDatabaseHealth(client)),
@@ -520,10 +596,11 @@ export const getServices = cache((): Services => {
     companies,
     research: research.service,
     tools: createToolRegistry({
-      tools: copilotTools(strategy, audit, companies, research, discovery),
+      tools: copilotTools(strategy, audit, companies, research, discovery, relationship),
       telemetry: copilotRepo,
     }),
     discovery,
+    relationship,
   };
 });
 
