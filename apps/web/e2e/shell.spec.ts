@@ -3,9 +3,12 @@ import { expectNoA11yViolations, gotoWithShortcuts } from './support';
 
 /**
  * Menu lateral único (todos os menus à esquerda), paleta de comandos, atalhos de teclado,
- * indicadores do rodapé e linha de progresso. Servidor sem banco e com o Ollama apontando para
- * uma porta vazia (playwright.config.ts): os indicadores mostram esses estados.
+ * indicadores do rodapé e linha de progresso. Servidor com o Ollama apontando para uma porta
+ * vazia e, por padrão, sem banco (playwright.config.ts). Com E2E_SUPABASE=1 (trabalho
+ * "supabase" do CI) o servidor tem banco: os testes de banco e de busca conferem esse estado.
  */
+const withDatabase = process.env.E2E_SUPABASE === '1';
+const NO_DATABASE_SEARCH = 'A busca de empresas precisa do banco configurado.';
 
 const sidebar = (page: Page) => page.locator('#menu-lateral');
 const mainNav = (page: Page) => page.getByRole('navigation', { name: 'Principal' });
@@ -288,7 +291,7 @@ test.describe('paleta de comandos', () => {
     await expect(palette).toBeHidden();
   });
 
-  test('sem resultado oferece buscar em Empresas e avisa que falta o banco; Esc fecha', async ({
+  test('sem resultado oferece buscar em Empresas (e avisa se falta o banco); Esc fecha', async ({
     page,
   }) => {
     await page.goto('/');
@@ -299,11 +302,11 @@ test.describe('paleta de comandos', () => {
     const only = palette.getByRole('option');
     await expect(only).toHaveCount(1);
     await expect(only).toContainText('Buscar “xyzzy” em Empresas');
-    // Sem banco, a paleta diz que não buscou (em vez de "nada encontrado").
-    await expect(
-      palette.getByText('A busca de empresas precisa do banco configurado.', { exact: true }),
-    ).toBeVisible();
     await expect(palette.getByRole('status')).toContainText('1 resultado.');
+    // Sem banco, a paleta diz que não buscou (em vez de "nada encontrado"); com banco, não avisa.
+    const noDatabase = palette.getByText(NO_DATABASE_SEARCH, { exact: true });
+    if (withDatabase) await expect(noDatabase).toHaveCount(0);
+    else await expect(noDatabase).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(palette).toBeHidden();
     await expect(trigger).toBeFocused();
@@ -397,8 +400,16 @@ test.describe('indicadores do rodapé', () => {
     const ai = status.locator('[data-indicator="ia-local"]');
     await expect(ai).toContainText('Fora do ar');
     await expect(ai).toHaveAttribute('href', '/copiloto');
-    await expect(status.locator('[data-indicator="pesquisa"]')).toContainText('Sem banco');
-    await expect(status.locator('[data-indicator="banco"]')).toContainText('Não configurado');
+    const research = status.locator('[data-indicator="pesquisa"]');
+    const database = status.locator('[data-indicator="banco"]');
+    if (withDatabase) {
+      // Os três vêm da mesma leitura: com o banco conectado, a pesquisa já não diz "Sem banco".
+      await expect(database).toContainText('Conectado');
+      await expect(research).not.toContainText('Sem banco');
+    } else {
+      await expect(research).toContainText('Sem banco');
+      await expect(database).toContainText('Não configurado');
+    }
     await expect(ai).toHaveAccessibleName(/^IA local\s*Fora do ar$/);
     await expect(ai).toHaveAccessibleDescription(/^O Ollama não está aberto/);
   });
@@ -412,13 +423,18 @@ test.describe('indicadores do rodapé', () => {
     expect(JSON.stringify(body)).not.toMatch(/SECRET_KEY=|tvly-|https?:\/\//);
   });
 
-  test('a busca de empresas sem banco responde lista vazia com o aviso', async ({ request }) => {
+  test('a busca de empresas avisa quando falta o banco e recusa termo longo', async ({
+    request,
+  }) => {
     const response = await request.get('/api/busca?q=teste');
     expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual({
-      hits: [],
-      error: 'A busca de empresas precisa do banco configurado.',
-    });
+    const body = (await response.json()) as { hits: unknown[]; error?: string };
+    if (withDatabase) {
+      expect(Array.isArray(body.hits)).toBe(true);
+      expect(body.error).toBeUndefined();
+    } else {
+      expect(body).toEqual({ hits: [], error: NO_DATABASE_SEARCH });
+    }
     const long = await request.get(`/api/busca?q=${'a'.repeat(121)}`);
     expect(long.status()).toBe(400);
   });
