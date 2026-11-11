@@ -1,11 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { PageFetcher, PageFetchFailure, PageFetchResult } from '@prospector/application';
-import {
-  WEB_PAGE_TEXT_MAX_CHARS,
-  WebPage,
-  redactPersonalData,
-  webHostRestriction,
-} from '@prospector/contracts';
+import { WEB_PAGE_TEXT_MAX_CHARS, WebPage, webHostRestriction } from '@prospector/contracts';
 import {
   createPlaywrightRenderer,
   type BrowserRenderer,
@@ -28,14 +23,13 @@ import { checkUrl, resolvePublicTarget, systemResolver, type Resolver } from './
  * (SSRF) → site com termos que proíbem leitura automatizada → robots.txt → GET seguro (cada
  * redirecionamento conferido de novo, inclusive robots.txt do destino) → status e
  * `X-Robots-Tag` → tipo de conteúdo → renderização (Playwright) ou extração estática → `noai`
- * do `<meta>` → texto normalizado, dados pessoais mascarados, cortado no limite e com hash.
+ * do `<meta>` → texto normalizado, cortado no limite e com hash.
  */
 
 /**
- * Host que o leitor não abre: termos que proíbem coleta automatizada (redes sociais, Google Maps)
- * ou agregadores que publicam dados pessoais de sócios. A lista fica em `@prospector/contracts`
- * (`RESTRICTED_WEB_HOSTS`, `MINIMIZATION_BLOCKED_HOSTS`), a mesma que o serviço usa para não
- * gravar esses resultados de busca. Vale para a página, cada redirecionamento e cada sub-recurso.
+ * Host que o leitor não abre: exige login ou os termos proíbem coleta automatizada (redes
+ * sociais, Google Maps). A lista fica em `@prospector/contracts` (`RESTRICTED_WEB_HOSTS`). Vale
+ * para a página, cada redirecionamento e cada sub-recurso.
  */
 export function isRestrictedHost(url: URL): boolean {
   return webHostRestriction(url.hostname) !== null;
@@ -276,13 +270,11 @@ export function createPageReader(options: PageReaderOptions = {}): PageFetcher &
       return failed('unsupported_content', response.status);
     }
 
-    // Corta antes de mascarar: a máscara só roda sobre o que pode ser guardado (A1).
+    // Texto como está na página, sem máscara (decisão do usuário de 2026-11-10, ADR-0012).
     const normalized = normalizeText(content.text.slice(0, maxTextChars * 4));
-    const text = redactPersonalData(normalized.slice(0, maxTextChars + 512)).slice(0, maxTextChars);
+    const text = normalized.slice(0, maxTextChars);
     const clip = (value: string | null, max: number) => {
-      const clean = value
-        ? redactPersonalData(normalizeText(value.slice(0, max * 2))).replace(/\n/g, ' ')
-        : '';
+      const clean = value ? normalizeText(value.slice(0, max * 2)).replace(/\n/g, ' ') : '';
       return clean ? clean.slice(0, max) : null;
     };
     const page = WebPage.safeParse({

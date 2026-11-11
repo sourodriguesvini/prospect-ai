@@ -34,6 +34,30 @@ export interface CopilotModuleFact {
   description: string;
 }
 
+/** Ferramenta como os fatos do sistema a descrevem; `internet` = lê a internet pública. */
+export interface CopilotToolFact {
+  name: string;
+  title: string;
+  internet?: boolean;
+}
+
+/**
+ * Frase sobre as ferramentas. Sem ferramenta de internet, o texto é o mesmo do `copilot-tools/v2`
+ * (a avaliação compara versões com o mesmo contexto); com ela, diz quais pesquisam na internet e
+ * que nada fica gravado (KI-096).
+ */
+function toolsFact(tools: readonly CopilotToolFact[]): string {
+  if (tools.length === 0) {
+    return 'Nesta versão o Copiloto não tem ferramentas: não consulta o banco, a internet nem envia nada.';
+  }
+  const listed = `Ferramentas de leitura disponíveis nesta conversa: ${tools.map((tool) => `${tool.name} (${tool.title})`).join('; ')}.`;
+  const internet = tools.filter((tool) => tool.internet === true).map((tool) => tool.name);
+  if (internet.length === 0) {
+    return `${listed} Nenhuma altera dados, envia mensagens ou acessa a internet.`;
+  }
+  return `${listed} Pesquisam na internet pública: ${internet.join(', ')}; o que elas acham não entra no dossiê nem nas evidências, fica só nesta conversa. As demais leem só o que está salvo no Prospector. Nenhuma altera dados nem envia mensagens.`;
+}
+
 const TODAY = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'full',
   timeZone: 'America/Sao_Paulo',
@@ -49,7 +73,7 @@ export function buildCopilotSystemFacts(input: {
   database: DatabaseStatus;
   modules: readonly CopilotModuleFact[];
   /** Ferramentas de leitura oferecidas nesta conversa (IA-2); vazio ou ausente = sem ferramentas. */
-  tools?: readonly { name: string; title: string }[];
+  tools?: readonly CopilotToolFact[];
 }): string[] {
   const available = input.modules
     .filter((item) => item.plannedSlice === null)
@@ -63,8 +87,6 @@ export function buildCopilotSystemFacts(input: {
     tools.length > 0 ? DATABASE_FACT_WITH_TOOLS[input.database] : DATABASE_FACT[input.database],
     `Módulos já disponíveis: ${available.join(', ')}.`,
     `Módulos ainda em construção, com a fatia do roadmap que os entrega: ${planned.join('; ')}.`,
-    tools.length > 0
-      ? `Ferramentas de leitura disponíveis nesta conversa: ${tools.map((tool) => `${tool.name} (${tool.title})`).join('; ')}. Nenhuma altera dados, envia mensagens ou acessa a internet.`
-      : 'Nesta versão o Copiloto não tem ferramentas: não consulta o banco, a internet nem envia nada.',
+    toolsFact(tools),
   ];
 }

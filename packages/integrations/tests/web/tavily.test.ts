@@ -92,7 +92,7 @@ describe('createTavilySearch', () => {
     });
   });
 
-  it('resposta vira resultados validados, cortados e sem dados pessoais', async () => {
+  it('resposta vira resultados validados e cortados, com o texto como veio (sem máscara)', async () => {
     const data = fixture();
     const results = data.results as Array<Record<string, unknown>>;
     const last = results[3];
@@ -104,9 +104,10 @@ describe('createTavilySearch', () => {
     expect(outcome.results.map((result) => result.rank)).toEqual([1, 2, 4]);
 
     const [first, second, third] = outcome.results;
-    expect(first?.snippet).toContain('[telefone omitido]');
-    expect(first?.snippet).toContain('[e-mail omitido]');
-    expect(first?.snippet).not.toMatch(/99876|contato@/);
+    // Decisão do usuário de 2026-11-10: telefone e e-mail chegam como estão no resultado.
+    expect(first?.snippet).toContain('(20) 9 9876-5432');
+    expect(first?.snippet).toMatch(/contato@/);
+    expect(first?.snippet).not.toContain('omitido');
     expect(first?.score).toBe(0.91);
     expect(first?.publishedAt).toBeNull();
     // Rede social aparece como resultado do buscador (quem recusa a leitura é o leitor de páginas).

@@ -39,7 +39,7 @@ const PAGE = `<html lang="pt-BR"><head><title>Empresa Exemplo</title>
 <p>CNPJ 12.345.678/0001-95, desde 1990.</p></body></html>`;
 
 describe('createPageReader', () => {
-  it('lê a página: texto limpo, dados pessoais mascarados, hash e metadados', async () => {
+  it('lê a página: texto limpo (sem máscara), hash e metadados', async () => {
     const { pages, net } = reader({
       'https://empresa.example.com/robots.txt': ROBOTS_OPEN,
       'https://empresa.example.com/sobre': html(PAGE),
@@ -61,11 +61,11 @@ describe('createPageReader', () => {
       renderer: 'http',
     });
     expect(page.text).toContain('Quem somos');
-    expect(page.text).toContain('[telefone omitido]');
-    expect(page.text).toContain('[e-mail omitido]');
-    // CNPJ é dado da empresa, não pessoal: fica.
+    // Decisão do usuário de 2026-11-10: telefone e e-mail ficam como estão na página.
+    expect(page.text).toMatch(/3333-4444/);
+    expect(page.text).toMatch(/vendas@/);
+    expect(page.text).not.toContain('omitido');
     expect(page.text).toContain('12.345.678/0001-95');
-    expect(page.text).not.toMatch(/3333-4444|vendas@/);
     expect(page.contentHash).toBe(createHash('sha256').update(page.text, 'utf8').digest('hex'));
     expect(net.urls()).toEqual([
       'https://empresa.example.com/robots.txt',
@@ -113,11 +113,11 @@ describe('createPageReader', () => {
     expect(isRestrictedHost(new URL('https://notlinkedin.com/'))).toBe(false);
   });
 
-  it('agregador de CNPJ (sócios, CPF parcial) e outras redes: recusa sem pedir nada', async () => {
+  it('redes com login: recusa sem pedir nada; agregador de CNPJ deixou de ser bloqueado', async () => {
+    expect(isRestrictedHost(new URL('https://cnpj.biz/11222333000181'))).toBe(false);
+    expect(isRestrictedHost(new URL('https://www.casadosdados.com.br/solucao/cnpj/x'))).toBe(false);
     const { pages, net } = reader({});
     for (const url of [
-      'https://cnpj.biz/11222333000181',
-      'https://www.casadosdados.com.br/solucao/cnpj/x',
       'https://www.threads.com/@perfil.example',
       'https://www.youtube.com/watch?v=x',
       'https://wa.me/5520999999999',
@@ -346,7 +346,7 @@ describe('createPageReader', () => {
       renderer: 'browser',
       title: 'SPA',
       description: 'montado por JS',
-      text: 'Conteúdo montado pelo JavaScript. Contato: [telefone omitido]',
+      text: 'Conteúdo montado pelo JavaScript. Contato: (20) 9 9999-0000',
     });
     const main = render.mock.calls[0]?.[0];
     expect(main?.url).toBe('https://empresa.example.com/');

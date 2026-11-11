@@ -72,6 +72,7 @@ export function CopilotChat({
   initialTurns = [],
   persistent = true,
   toolsEnabled = false,
+  webSearch = false,
 }: {
   models: readonly string[];
   /** Modelos que o Ollama diz não terem modo de raciocínio (marcados no seletor, KI-067). */
@@ -86,6 +87,8 @@ export function CopilotChat({
   persistent?: boolean;
   /** O Copiloto consulta os dados salvos pelas ferramentas de leitura. */
   toolsEnabled?: boolean;
+  /** Entre as ferramentas, há busca e leitura de páginas da internet (ADR-0012). */
+  webSearch?: boolean;
 }) {
   const router = useRouter();
   const [turns, setTurns] = useState<Turn[]>(() => [...initialTurns]);
@@ -342,9 +345,11 @@ export function CopilotChat({
           <div className="space-y-1">
             <p className="text-lg">Pergunte em português, do jeito que você falaria.</p>
             <p className="text-pretty text-sm text-muted-foreground">
-              {toolsEnabled
-                ? 'O modelo roda nesta máquina e consulta o que está salvo no Prospector (ofertas, ICPs, cases, prontidão, conformidade e auditoria). Ele não lê a internet e não envia nada; quando não souber, deve dizer que não sabe.'
-                : 'O modelo roda nesta máquina. Sem o banco configurado, ele não lê os dados do Prospector nem a internet: quando não souber, deve dizer que não sabe.'}
+              {toolsEnabled && webSearch
+                ? 'O modelo roda nesta máquina, consulta o que está salvo no Prospector (ofertas, ICPs, cases, empresas, prontidão, conformidade e auditoria) e pesquisa na internet quando você pede. O que vem da internet não é gravado nem confirmado: confira os links. Ele não envia mensagens; quando não souber, deve dizer que não sabe.'
+                : toolsEnabled
+                  ? 'O modelo roda nesta máquina e consulta o que está salvo no Prospector (ofertas, ICPs, cases, empresas, prontidão, conformidade e auditoria). Ele não lê a internet e não envia nada; quando não souber, deve dizer que não sabe.'
+                  : 'O modelo roda nesta máquina. Sem o banco configurado, ele não lê os dados do Prospector nem a internet: quando não souber, deve dizer que não sabe.'}
             </p>
           </div>
           <ul className="flex flex-wrap gap-2" aria-label="Sugestões de pergunta">
@@ -525,7 +530,9 @@ export function CopilotChat({
         </div>
         <p className="text-xs text-muted-foreground">
           {persistent
-            ? 'A conversa fica salva no banco do Prospector e aparece na lista de conversas. O Copiloto só lê seus dados; não altera nada e não envia nada.'
+            ? webSearch
+              ? 'A conversa fica salva no banco do Prospector e aparece na lista de conversas. O Copiloto só lê: não altera nada e não envia mensagens. Nas pesquisas, o texto da busca vai para o buscador (Tavily) e as páginas são abertas deste computador.'
+              : 'A conversa fica salva no banco do Prospector e aparece na lista de conversas. O Copiloto só lê seus dados; não altera nada e não envia nada.'
             : 'Sem banco configurado: a conversa não é salva e cada pergunta é respondida sem as anteriores.'}
         </p>
       </form>

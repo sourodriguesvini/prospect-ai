@@ -87,5 +87,10 @@ export const ToolSpec = z.object({
   title: z.string().min(1).max(80),
   description: z.string().min(1).max(1000),
   parameters: z.record(z.string(), z.unknown()),
+  /**
+   * true quando a ferramenta lê a internet pública (busca e leitura de páginas, ADR-0012). Não vai
+   * para o modelo como campo: serve para os fatos do sistema e a tela dizerem a verdade.
+   */
+  internet: z.boolean().optional(),
 });
 export type ToolSpec = z.infer<typeof ToolSpec>;

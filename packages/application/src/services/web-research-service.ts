@@ -1,5 +1,4 @@
 import {
-  MINIMIZATION_BLOCKED_HOSTS,
   PAGE_READ_MESSAGES,
   PageReadRequest,
   Uuid,
@@ -18,9 +17,8 @@ import {
   type WebSearchOutcome,
   type WebSearchProvider,
   type WebSearchRequestDraft,
-  webHostRestriction,
 } from '@prospector/contracts';
-import { isIndividualFromFacts, registryRetentionUntil } from '@prospector/domain';
+import { registryRetentionUntil } from '@prospector/domain';
 import { z } from 'zod';
 import { calendarDate, systemClock, type Clock } from '../clock';
 import type { RequestContext } from '../context';
@@ -48,11 +46,11 @@ import type { EvidenceDraft, EvidenceService } from './evidence-service';
  * (texto montado pelo sistema, nunca pelo modelo): hipótese "a verificar" para menções achadas
  * pelo buscador; fato só para página do próprio domínio da empresa.
  *
- * Minimização (LGPD, revisão de 2026-11-10): empresa individual (MEI) não é pesquisada nem tem
- * página gravada (o nome é de uma pessoa); resultados de redes sociais e agregadores de CNPJ não
- * entram no dossiê; agregadores saem da busca por padrão; a consulta não é gravada; trecho e
- * texto guardados são curtos e as fontes têm prazo de guarda (12 meses, doc 06 §6). O título da
- * página fica só na fonte, nunca no enunciado do claim (texto externo não vira afirmação).
+ * Sem recusas por dado pessoal (decisão do usuário de 2026-11-10, emenda do ADR-0012): empresa
+ * individual (MEI) é pesquisada como qualquer outra, nenhum site sai da busca por padrão e todo
+ * resultado pode ir para o dossiê. A consulta não é gravada; trecho e texto guardados são curtos e
+ * as fontes têm prazo de guarda (12 meses, doc 06 §6). O título da página fica só na fonte, nunca
+ * no enunciado do claim (texto externo não vira afirmação).
  */
 
 /** Chave do catálogo: página que pode falar da empresa, ainda não conferida (hipótese). */
@@ -76,8 +74,6 @@ export interface CompanyWebSearchResult {
   recorded: number;
   /** Resultados que já estavam no dossiê e ganharam versão com a coleta nova. */
   refreshed: number;
-  /** Resultados de sites que o Prospector não guarda (redes sociais, agregadores de CNPJ). */
-  skipped: number;
 }
 
 export interface CompanyPageResult {
@@ -257,14 +253,6 @@ const CompanyRef = z.object({ companyId: Uuid });
 /** Valor guardado no claim para deduplicar por endereço e coleta. */
 const StoredWebValue = z.object({ url: z.string(), capturedAt: z.string() });
 
-/** Agregadores de CNPJ saem de toda busca (minimização), além do que o pedido já exclui. */
-function withDefaultExclusions(request: WebSearchRequest): WebSearchRequest {
-  return {
-    ...request,
-    excludeDomains: [...new Set([...MINIMIZATION_BLOCKED_HOSTS, ...request.excludeDomains])],
-  };
-}
-
 /** Log sem mensagem de erro: ela pode trazer URL, consulta ou trecho de página. */
 const errorName = (error: unknown) => (error instanceof Error ? error.name : 'erro');
 
@@ -405,7 +393,7 @@ export function createWebResearchService(deps: WebResearchServiceDeps): WebResea
     ctx: RequestContext,
     raw: WebSearchRequestDraft,
   ): Promise<WebSearchOutcome> {
-    const request = withDefaultExclusions(parseInput(WebSearchRequest, raw));
+    const request = parseInput(WebSearchRequest, raw);
     const provider = deps.search;
     if (provider === 'disabled') return searchFailure('disabled', null);
     if (provider === 'not_configured') return searchFailure('not_configured', null);
@@ -477,23 +465,6 @@ export function createWebResearchService(deps: WebResearchServiceDeps): WebResea
     return company;
   }
 
-  /**
-   * Empresa individual (MEI, empresário individual): o nome empresarial é o nome da pessoa e
-   * fontes não podem ser apagadas, então nada da internet é pesquisado nem gravado para ela.
-   * Lido dos fatos do registro (consulta de CNPJ); sem esses fatos, não dá para saber.
-   */
-  async function isIndividual(companyId: string): Promise<boolean> {
-    const claims = await deps.evidence.claimsFor('company', companyId);
-    return isIndividualFromFacts(
-      claims.filter(
-        (claim) =>
-          claim.key.startsWith('registry.') &&
-          claim.status !== 'superseded' &&
-          claim.status !== 'rejected',
-      ),
-    );
-  }
-
   /** Claims em vigor da empresa com as chaves da web, por endereço. */
   async function webClaimsByUrl(companyId: string): Promise<Map<string, Claim[]>> {
     const claims = await deps.evidence.claimsFor('company', companyId);
@@ -527,22 +498,16 @@ export function createWebResearchService(deps: WebResearchServiceDeps): WebResea
   async function searchDraft(
     company: Company,
     outcome: Extract<WebSearchOutcome, { ok: true }>,
-  ): Promise<{ draft: EvidenceDraft; refreshed: number; skipped: number }> {
+  ): Promise<{ draft: EvidenceDraft; refreshed: number }> {
     const existing = await webClaimsByUrl(company.id);
     const providerLabel = WEB_SEARCH_PROVIDER_LABELS[outcome.provider];
     const draft: EvidenceDraft = { sources: [], claims: [] };
     let refreshed = 0;
-    let skipped = 0;
     const seen = new Set<string>();
     for (const result of outcome.results) {
       const key = urlKey(result.url);
       if (seen.has(key)) continue;
       seen.add(key);
-      // Rede social ou agregador de CNPJ: aparece na hora, mas não entra no dossiê.
-      if (webHostRestriction(new URL(result.url).hostname) !== null) {
-        skipped += 1;
-        continue;
-      }
       const version = previousVersion(existing.get(key), WEB_MENTION_KEY, outcome.fetchedAt);
       if (version.skip) continue;
       if (version.supersedes) refreshed += 1;
@@ -602,7 +567,7 @@ export function createWebResearchService(deps: WebResearchServiceDeps): WebResea
         },
       });
     }
-    return { draft, refreshed, skipped };
+    return { draft, refreshed };
   }
 
   return {
@@ -630,33 +595,21 @@ export function createWebResearchService(deps: WebResearchServiceDeps): WebResea
     async searchForCompany(ctx, input) {
       const { companyId, ...request } = input;
       const company = await requireCompany(companyId);
-      if (await isIndividual(company.id)) {
-        const provider = typeof deps.search === 'string' ? null : deps.search.provider;
-        return {
-          outcome: searchFailure('personal_data', provider),
-          recorded: 0,
-          refreshed: 0,
-          skipped: 0,
-        };
-      }
       const outcome = await search(ctx, request);
       if (!outcome.ok || outcome.results.length === 0) {
-        return { outcome, recorded: 0, refreshed: 0, skipped: 0 };
+        return { outcome, recorded: 0, refreshed: 0 };
       }
-      const { draft, refreshed, skipped } = await searchDraft(company, outcome);
-      if (draft.claims.length === 0) return { outcome, recorded: 0, refreshed: 0, skipped };
+      const { draft, refreshed } = await searchDraft(company, outcome);
+      if (draft.claims.length === 0) return { outcome, recorded: 0, refreshed: 0 };
       await deps.evidenceService.record(ctx, company.id, draft, {
         action: 'prospect.company.web_search_recorded',
         ownedOrigins: company.primaryDomain ? [company.primaryDomain] : [],
       });
-      return { outcome, recorded: draft.claims.length - refreshed, refreshed, skipped };
+      return { outcome, recorded: draft.claims.length - refreshed, refreshed };
     },
 
     async readPageForCompany(ctx, input) {
       const company = await requireCompany(input.companyId);
-      if (await isIndividual(company.id)) {
-        return { outcome: pageFailure('personal_data'), recorded: false, epistemicType: null };
-      }
       const outcome = await readPage(ctx, { url: input.url });
       if (!outcome.ok) return { outcome, recorded: false, epistemicType: null };
       const { page } = outcome;

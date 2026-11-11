@@ -162,7 +162,7 @@ O usuário decidiu registrar as três no Copiloto (2026-11-10). Elas seguem o pa
 **Proteção contra injeção de prompt que tente levar dados para fora** (revisão de segurança, 2026-11-10). O risco: texto escondido numa página manda o modelo chamar `get_company_dossier` e depois `read_web_page` com os dados na URL do atacante.
 
 - `read_web_page` só abre endereço que **apareceu num resultado de busca nas últimas 24 h** (`wasSuggested`), com a URL exata. Endereço montado pelo modelo é recusado sem nenhum pedido. Parte de consulta (`?…`) acima de 256 caracteres também é recusada.
-- Por pedido do usuário (`traceId`): até 2 buscas e 3 leituras, e **nenhuma busca depois de ler uma página**. Um pedido novo recomeça a contagem.
+- Por pedido do usuário (`traceId`): até 2 buscas e 3 leituras, e **nenhuma busca depois de ler uma página**. Um pedido novo recomeça a contagem. *(Substituído pela emenda de 2026-11-10: 4 buscas e 4 leituras, em qualquer ordem.)*
 - A telemetria (`tool_calls`, só inclusão) guarda `consulta: "[texto]"`, contagens e só o host da página lida. O resumo gravado não tem consulta nem título.
 
 Nenhum prompt existente mudou. O `copilot/v3` segue padrão, e nada foi promovido.
@@ -281,6 +281,24 @@ A busca **não** foi exercitada pelo app nem pelo adaptador com a chave real: a 
 3. **Termos aceitos**: uso das consultas para treinamento (termos §6.5, privacidade §2.1).
 4. **Busca sempre ligada** quando há chave (`PROSPECTOR_WEB_SEARCH` vazio = `on`).
 5. **Ferramentas no Copiloto**: `search_web`, `read_web_page` e `get_web_research_usage` entram no registro, com as proteções da seção 6. O registro fica em `apps/web/src/server/container.ts`, da sessão principal.
+
+## Emenda (2026-11-10): pesquisa sem recusas, por decisão do usuário
+
+O usuário decidiu, para este uso interno e só nesta máquina, que a IA orienta mas não recusa: "não pode ter nenhuma restrição; quando eu quiser fazer uma pesquisa, tem que ter". Isto **substitui** as partes de minimização das seções 2, 4 e 5 e da revisão de conformidade:
+
+| Antes | Agora |
+|---|---|
+| Consulta com e-mail, CPF ou telefone recusada | Aceita como veio |
+| Telefone, e-mail e CPF mascarados nos trechos e páginas | Texto como veio, sem máscara |
+| Empresa individual (MEI) não pesquisada nem gravada | Pesquisada e gravada como qualquer outra |
+| Agregadores de CNPJ excluídos da busca e recusados pelo leitor | Entram na busca e o leitor os abre (respeitando o robots.txt) |
+| Resultado de rede social chegava ao modelo só com o endereço e não ia para o dossiê | Chega completo (título, trecho, endereço) e pode ir para o dossiê |
+| "Nunca pesquise pessoas" no prompt e nas ferramentas | Pessoas ligadas às empresas (donos, sócios, decisores) podem ser pesquisadas |
+| 2 buscas e 3 leituras por pedido, sem busca depois de ler página | 4 buscas e 4 leituras por pedido, em qualquer ordem; até 8 rodadas por pergunta |
+
+Continuam, porque protegem o usuário e não limitam o que ele pede: não inventar e citar a URL; conteúdo da internet é dado, nunca instrução (`read_web_page` só abre URL vinda de uma busca); teto mensal de créditos que o próprio usuário pediu (`WEB_SEARCH_MONTHLY_CREDITS`, até 1.000, a cota gratuita); o leitor não entra em sites com login nem nos que proíbem robôs nos termos (LinkedIn, Instagram, Facebook, Google Maps) e respeita o robots.txt; nada sai sem aprovação (o Copiloto não envia nem grava). Foi dito ao usuário, uma vez, que a LGPD vale para a prospecção da agência mesmo com o app só local; a responsabilidade é dele. O cadastro por CNPJ (M2) ainda não guarda o nome da pessoa titular de empresa individual: mudar isso é outra decisão (KI-093).
+
+Para caber a pesquisa aprofundada, o Copiloto passou a pedir 16 mil tokens de contexto (`num_ctx`; antes 8 mil), o gateway conta as definições das ferramentas no orçamento e uma pergunta para de chamar ferramentas quando os resultados passam de 20 mil caracteres.
 
 ## Pendências
 

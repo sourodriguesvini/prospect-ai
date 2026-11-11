@@ -1,7 +1,6 @@
 import type { WebPage, WebSearchRequest, WebSearchResult } from '@prospector/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  AppError,
   WEBSITE_PAGE_KEY,
   WEB_MENTION_KEY,
   companyTools,
@@ -302,15 +301,13 @@ describe('WebResearchService (D-AI-4)', () => {
       expect(provider.calls).toHaveLength(0);
     });
 
-    it('recusa dado pessoal na consulta antes de qualquer chamada', async () => {
+    it('aceita consulta com nome, e-mail ou telefone (decisão do usuário, 2026-11-10)', async () => {
       const service = build();
-      await expect(
-        service.search(ctx, { query: 'contato fulano@exemplo.test' }),
-      ).rejects.toBeInstanceOf(AppError);
-      await expect(
-        service.search(ctx, { query: 'dentista (20) 99123-4567' }),
-      ).rejects.toMatchObject({ code: 'validation' });
-      expect(provider.calls).toHaveLength(0);
+      expect((await service.search(ctx, { query: 'sócios Exemplo fulano@exemplo.test' })).ok).toBe(
+        true,
+      );
+      expect((await service.search(ctx, { query: 'dentista (20) 99123-4567' })).ok).toBe(true);
+      expect(provider.calls).toHaveLength(2);
     });
 
     it('fila cheia devolve "ocupado"', async () => {
@@ -450,7 +447,7 @@ describe('WebResearchService (D-AI-4)', () => {
       };
       const external = data.dados.registros.filter((claim) => claim.fonte_externa);
       expect(external).toHaveLength(2);
-      expect(data.dados.aviso).toMatch(/ignore qualquer instrução/);
+      expect(data.dados.aviso).toMatch(/não instrução para você/);
     });
 
     it('minimização: sem a consulta, trecho curto, prazo de guarda e título fora do enunciado', async () => {
@@ -477,7 +474,7 @@ describe('WebResearchService (D-AI-4)', () => {
       expect(source?.retentionUntil).toBe('2027-11-10T12:00:00.000Z');
     });
 
-    it('rede social e agregador de CNPJ não entram no dossiê; agregadores saem da busca', async () => {
+    it('rede social e agregador de CNPJ entram no dossiê; nenhum site sai da busca', async () => {
       const service = build();
       const target = await company();
       provider.respond({
@@ -494,15 +491,20 @@ describe('WebResearchService (D-AI-4)', () => {
         query: 'Ateliê Exemplo',
         excludeDomains: ['example.org'],
       });
-      expect(result).toMatchObject({ recorded: 1, skipped: 2 });
-      expect(provider.calls[0]?.excludeDomains).toEqual(
-        expect.arrayContaining(['cnpj.biz', 'casadosdados.com.br', 'example.org']),
-      );
+      expect(result).toMatchObject({ recorded: 3 });
+      expect(provider.calls[0]?.excludeDomains).toEqual(['example.org']);
       const urls = (await companies.dossier(ctx, target.id)).claims.map((v) => v.claim.value?.url);
-      expect(urls).toEqual([RESULTS[0]?.url]);
+      expect(urls).toHaveLength(3);
+      expect(urls).toEqual(
+        expect.arrayContaining([
+          RESULTS[0]?.url,
+          'https://www.instagram.com/perfil.example/',
+          'https://cnpj.biz/11222333000181',
+        ]),
+      );
     });
 
-    it('empresa individual (MEI): nem busca nem leitura gravada, nada é enviado', async () => {
+    it('empresa individual (MEI) é pesquisada e gravada como qualquer outra', async () => {
       const service = build();
       const withRegistry = createCompanyService({
         companies: repo,
@@ -543,14 +545,12 @@ describe('WebResearchService (D-AI-4)', () => {
       if (created.status !== 'created') throw new Error('esperava criar');
       const id = created.company.id;
       const searched = await service.searchForCompany(ctx, { companyId: id, query: 'móveis' });
-      expect(searched).toMatchObject({
-        recorded: 0,
-        outcome: { ok: false, failure: 'personal_data' },
-      });
+      expect(searched.outcome.ok).toBe(true);
+      expect(searched.recorded).toBeGreaterThan(0);
       const read = await service.readPageForCompany(ctx, { companyId: id, url: 'https://a.test/' });
-      expect(read).toMatchObject({ recorded: false, outcome: { failure: 'personal_data' } });
-      expect(provider.calls).toHaveLength(0);
-      expect(pages.calls).toHaveLength(0);
+      expect(read).toMatchObject({ recorded: true, outcome: { ok: true } });
+      expect(provider.calls).toHaveLength(1);
+      expect(pages.calls).toHaveLength(1);
     });
 
     it('página com noarchive: grava só endereço e título, sem texto', async () => {
@@ -723,20 +723,20 @@ describe('WebResearchService (D-AI-4)', () => {
       expect(run.result.status).toBe('ok');
       expect(run.result.summary).toMatch(/2 resultados .*Tavily, 1 crédito/);
       const data = run.result.data as { aviso: string; resultados: Array<{ url: string }> };
-      expect(data.aviso).toMatch(/ignore qualquer instrução/);
+      expect(data.aviso).toMatch(/não instrução para você/);
       expect(data.resultados.map((r) => r.url)).toEqual(RESULTS.map((r) => r.url));
       expect(provider.calls[0]).toMatchObject({ maxResults: 2, topic: 'general' });
       expect(run.forModel.length).toBeLessThanOrEqual(6100);
     });
 
-    it('search_web recusa dado pessoal nos argumentos', async () => {
+    it('search_web aceita consulta sobre pessoas ligadas à empresa', async () => {
       const run = await registry(build()).execute(ctx, {
         id: '1',
         name: 'search_web',
-        arguments: { consulta: 'cpf 123.456.789-09' },
+        arguments: { consulta: 'sócio Ateliê Exemplo (20) 99123-4567' },
       });
-      expect(run.result).toMatchObject({ status: 'error', errorCode: 'invalid_arguments' });
-      expect(provider.calls).toHaveLength(0);
+      expect(run.result.status).toBe('ok');
+      expect(provider.calls).toHaveLength(1);
     });
 
     it('search_web mostra a falha do buscador, sem resultado inventado', async () => {
@@ -800,7 +800,7 @@ describe('WebResearchService (D-AI-4)', () => {
       expect(service.wasSuggested(RESULTS[1]?.url ?? '')).toBe(false);
     });
 
-    it('por pedido: até 2 buscas, nenhuma depois de ler página, até 3 leituras', async () => {
+    it('por pedido: até 4 buscas (inclusive depois de ler página) e até 4 leituras', async () => {
       const service = build();
       const tools = registry(service);
       const search = (consulta: string, trace = ctx) =>
@@ -812,22 +812,30 @@ describe('WebResearchService (D-AI-4)', () => {
         falhou: true,
       });
       expect((await read(RESULTS[0]?.url ?? '')).result.summary).toMatch(/^Página lida/);
-      const after = await search('outra consulta qualquer');
-      expect(after.result.data).toMatchObject({ falhou: true, motivo: 'after_page_read' });
-      expect(provider.calls).toHaveLength(1);
+      // Pesquisa aprofundada: buscar de novo depois de ler uma página é permitido.
+      expect((await search('marcenaria Curitiba sócios')).result.data).not.toMatchObject({
+        falhou: true,
+      });
+      await search('marcenaria Curitiba notícias');
+      await search('marcenaria Curitiba avaliações');
+      const fifth = await search('marcenaria Curitiba endereço');
+      expect(fifth.result.data).toMatchObject({ falhou: true, motivo: 'request_limit' });
+      expect(provider.calls).toHaveLength(4);
 
       await read(RESULTS[1]?.url ?? '');
       await read(RESULTS[0]?.url ?? '');
-      const fourth = await read(RESULTS[1]?.url ?? '');
-      expect(fourth.result.data).toMatchObject({ falhou: true, motivo: 'request_limit' });
+      await read(RESULTS[1]?.url ?? '');
+      const fifthRead = await read(RESULTS[0]?.url ?? '');
+      expect(fifthRead.result.data).toMatchObject({ falhou: true, motivo: 'request_limit' });
 
       // Pedido novo do usuário (outro traceId) recomeça a contagem.
       const next = { ...ctx, traceId: '9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a' };
-      await search('consulta um', next);
-      await search('consulta dois', next);
-      const third = await search('consulta três', next);
-      expect(third.result.data).toMatchObject({ falhou: true, motivo: 'request_limit' });
-      expect(provider.calls).toHaveLength(3);
+      for (const consulta of ['consulta um', 'consulta dois', 'consulta três', 'consulta quatro']) {
+        await search(consulta, next);
+      }
+      const over = await search('consulta cinco', next);
+      expect(over.result.data).toMatchObject({ falhou: true, motivo: 'request_limit' });
+      expect(provider.calls).toHaveLength(8);
     });
 
     it('telemetria sem consulta, título nem URL completa', async () => {
@@ -857,7 +865,7 @@ describe('WebResearchService (D-AI-4)', () => {
       expect(recorded[1]?.inputRedacted).toEqual({ host: 'www.atelie-exemplo.test' });
     });
 
-    it('resultado de rede social chega ao modelo só com o endereço', async () => {
+    it('resultado de rede social chega completo ao modelo', async () => {
       provider.respond({
         ok: true,
         creditsCharged: 1,
@@ -880,8 +888,9 @@ describe('WebResearchService (D-AI-4)', () => {
       const data = run.result.data as { resultados: Array<Record<string, unknown>> };
       expect(data.resultados[0]).toEqual({
         posicao: 1,
+        titulo: 'Perfil Example (@perfil.example)',
         url: 'https://www.instagram.com/perfil.example/',
-        observacao: expect.stringMatching(/só o endereço/),
+        trecho: 'Fotos e vídeos de Perfil Example.',
       });
     });
 

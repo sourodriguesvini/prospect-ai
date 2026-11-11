@@ -30,7 +30,7 @@ describe('consulta de busca', () => {
     expect(WebSearchQuery.safeParse('padaria Campinas CEP 13010-000').success).toBe(true);
   });
 
-  it('recusa e-mail, CPF e telefone (dados pessoais não vão para o buscador)', () => {
+  it('detecta e-mail, CPF e telefone, mas a consulta aceita todos (decisão do usuário, 2026-11-10)', () => {
     expect(findPersonalData('contato fulano@exemplo.com.br')).toBe('email');
     expect(findPersonalData('cpf 123.456.789-09')).toBe('document_or_phone');
     expect(findPersonalData('12345678909')).toBe('document_or_phone');
@@ -41,9 +41,10 @@ describe('consulta de busca', () => {
     expect(findPersonalData('11.222.333/0001-81')).toBeNull();
     expect(findPersonalData('agência de branding 2026')).toBeNull();
     expect(findPersonalData('desde 2010 2015 2020, CEP 14020-260')).toBeNull();
-    const result = WebSearchQuery.safeParse('dentista (20) 99123-4567');
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toMatch(/CPF ou telefone/);
+    expect(WebSearchQuery.safeParse('dentista (20) 99123-4567').success).toBe(true);
+    expect(WebSearchQuery.safeParse('sócios da Exemplo Ltda fulano@exemplo.com.br').success).toBe(
+      true,
+    );
   });
 
   it('mascara dado pessoal no texto que vem da internet', () => {
@@ -68,13 +69,13 @@ describe('consulta de busca', () => {
     expect(redactPersonalData('CNPJ 11.222.333/0001-81')).toBe('CNPJ 11.222.333/0001-81');
   });
 
-  it('hosts que o Prospector não lê nem guarda', () => {
+  it('hosts que o leitor de páginas não abre (login ou termos)', () => {
     expect(webHostRestriction('br.linkedin.com')).toBe('terms');
     expect(webHostRestriction('www.threads.com')).toBe('terms');
     expect(webHostRestriction('m.youtube.com')).toBe('terms');
     expect(webHostRestriction('maps.googleapis.com')).toBe('terms');
-    expect(webHostRestriction('cnpj.biz')).toBe('minimization');
-    expect(webHostRestriction('www.casadosdados.com.br.')).toBe('minimization');
+    expect(webHostRestriction('cnpj.biz')).toBeNull();
+    expect(webHostRestriction('www.casadosdados.com.br.')).toBeNull();
     expect(webHostRestriction('notlinkedin.com')).toBeNull();
     expect(webHostRestriction('ajax.googleapis.com')).toBeNull();
     expect(webHostRestriction('empresa.example.com')).toBeNull();

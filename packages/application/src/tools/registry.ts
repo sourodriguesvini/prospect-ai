@@ -37,6 +37,8 @@ export interface ToolDefinition<S extends z.ZodType = z.ZodType> {
   description: string;
   input: S;
   kind: 'read';
+  /** true quando lê a internet pública (ADR-0012); sem isto, só lê o que está salvo no app. */
+  internet?: boolean;
   run(ctx: RequestContext, input: z.output<S>): Promise<ToolOutput>;
   /** Argumentos gravados na telemetria; sem isto, os argumentos cortados (`redact`). */
   telemetryInput?(input: z.output<S>): Record<string, unknown>;
@@ -126,7 +128,13 @@ export function createToolRegistry(deps: {
       io: 'input',
       unrepresentable: 'any',
     }) as Record<string, unknown>;
-    return { name: tool.name, title: tool.title, description: tool.description, parameters };
+    return {
+      name: tool.name,
+      title: tool.title,
+      description: tool.description,
+      parameters,
+      ...(tool.internet ? { internet: true } : {}),
+    };
   });
 
   return {

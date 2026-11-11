@@ -25,12 +25,42 @@ export const COPILOT_PROMPT_VERSION = 3;
 
 /**
  * Prompt do Copiloto com ferramentas de leitura (IA-2, `prompts/copilot-tools/v<N>.md`). É um
- * prompt inteiro, não um adendo ao v3: o v3 diz que o Copiloto não tem ferramentas.
+ * prompt inteiro, não um adendo ao `copilot/v3`: aquele diz que o Copiloto não tem ferramentas.
+ *
+ * v3 (promovido em 2026-11-10 com aprovação do usuário): pesquisa na internet sem recusas
+ * (emenda do ADR-0012). Avaliação `EVAL_WEB=1 EVAL_PROMPTS=2,3 EVAL_REPEAT=3`, qwen3.5:4b,
+ * `results/2026-11-10-23-50.regraded.json`: casos comuns 83% (v2 77%, mesmos 48 casos),
+ * internet 81% (42), sem nenhuma falha nos corretores de tolerância zero (URL, dono ou telefone
+ * inventado, obedecer à injeção); p95 4,8 s (v2 3,8 s). Ressalvas no KI-096.
  */
-export const COPILOT_TOOLS_PROMPT_VERSION = 2;
+export const COPILOT_TOOLS_PROMPT_VERSION = 3;
 
-/** Rodadas de geração por pergunta: até 3 com ferramentas e a última obrigatoriamente sem. */
-export const MAX_COPILOT_ROUNDS = 4;
+/**
+ * As ferramentas que pesquisam na internet (ADR-0012) só entram com um prompt que as conhece: até
+ * o v2, o prompt diz ao modelo que nenhuma ferramenta acessa a internet (KI-096).
+ */
+export function copilotPromptSupportsWebTools(promptVersion: number): boolean {
+  return promptVersion >= 3;
+}
+
+/**
+ * Rodadas de geração por pergunta: até 7 com ferramentas e a última obrigatoriamente sem. A
+ * pesquisa aprofundada (várias buscas e páginas) precisa de mais que as 4 rodadas da IA-2.
+ */
+export const MAX_COPILOT_ROUNDS = 8;
+
+/**
+ * Teto do que os resultados de ferramentas de uma pergunta levam ao modelo (caracteres). Passado
+ * o teto, as chamadas que faltam na mesma rodada não rodam (recebem `TOOL_BUDGET_SPENT`) e a
+ * próxima rodada vem sem ferramentas: o modelo responde com o que já tem, em vez de a conversa
+ * estourar o contexto (16 mil tokens no Copiloto, com ~5,5 mil fixos de instruções e definições
+ * das ferramentas).
+ */
+export const COPILOT_TOOL_RESULTS_MAX_CHARS = 20_000;
+
+/** Resposta às chamadas que chegam depois do teto: o modelo entende que deve responder já. */
+export const TOOL_BUDGET_SPENT =
+  'Limite de texto desta pergunta atingido: esta consulta não foi feita. Responda com o que já tem.';
 
 /** O que a tela e o modelo recebem de uma ferramenta executada no servidor. */
 export interface CopilotToolOutcome {
@@ -137,8 +167,14 @@ export function createCopilot(deps: {
         const totals = { outputTokens: 0, totalMs: 0, any: false };
         let lastDone: Extract<CopilotEvent, { type: 'done' }> | null = null;
 
+        let toolResultChars = 0;
         for (round = 1; round <= MAX_COPILOT_ROUNDS; round += 1) {
-          const offer = toolbox && round < MAX_COPILOT_ROUNDS ? toolbox.specs : undefined;
+          const offer =
+            toolbox &&
+            round < MAX_COPILOT_ROUNDS &&
+            toolResultChars < COPILOT_TOOL_RESULTS_MAX_CHARS
+              ? toolbox.specs
+              : undefined;
           let calls: ToolCallRequest[] = [];
           let separated = !wroteText;
           roundOpen = true;
@@ -225,7 +261,19 @@ export function createCopilot(deps: {
             const key = callKey(call);
             let outcome: CopilotToolOutcome;
             const repeated = answered.get(key);
-            if (repeated !== undefined) {
+            if (toolResultChars >= COPILOT_TOOL_RESULTS_MAX_CHARS) {
+              // Várias leituras pedidas de uma vez passariam muito do teto (até 6 mil cada).
+              outcome = {
+                status: 'denied',
+                summary: 'Não consultado: a pergunta já juntou texto demais.',
+                links: [],
+                forModel: JSON.stringify({
+                  status: 'denied',
+                  resumo: TOOL_BUDGET_SPENT,
+                  dados: null,
+                }),
+              };
+            } else if (repeated !== undefined) {
               outcome = {
                 status: 'ok',
                 summary: 'Mesma consulta de antes nesta pergunta; resultado reaproveitado.',
@@ -244,6 +292,7 @@ export function createCopilot(deps: {
               summary: outcome.summary,
               links: outcome.links,
             };
+            if (outcome.status !== 'denied') toolResultChars += outcome.forModel.length;
             conversation.push({
               role: 'tool',
               content: outcome.forModel,

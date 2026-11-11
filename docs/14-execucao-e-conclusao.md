@@ -18,7 +18,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | M0 | Estabilização: git, testes, app instalado, CI | Feito, exceto o CI (bloqueio abaixo) |
 | M1 | Copiloto operacional: histórico persistente, ferramentas de leitura, telemetria (`llm_calls`, `tool_calls`) | Feito e verificado (ressalvas no KI-076) |
 | M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Feito e verificado: commit `bcd5444` enviado ao GitHub (branch `conclusao-produto`) |
-| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, sem commit (aguarda autorização); as ferramentas do Copiloto esperam o prompt `copilot-tools/v3` (KI-096); fila, descoberta e deduplicação pendentes |
+| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, commit `c165448` enviado; o Copiloto pesquisa na internet com o prompt `copilot-tools/v3`, promovido com a aprovação do usuário e instalado em `D:\Prospector` (sem commit, aguarda autorização); fila, descoberta e deduplicação pendentes |
 | M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Pendente |
 | M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Pendente |
 | M6 | Métricas reais, aprendizado, memória semântica | Pendente |
@@ -45,7 +45,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Histórico persistente | O servidor monta o histórico a partir do banco (KI-032 resolvido); conversas com endereço próprio (`/copiloto?conversa=…`), renomear e arquivar auditados; lista de conversas com a ativa marcada |
 | Ferramentas de leitura | Registro central em `packages/application/src/tools` (argumentos validados no servidor, limite de tempo e de saída, telemetria). Sete ferramentas da estratégia: prontidão, ofertas, oferta, ICPs, cases, conformidade, atividade recente. Nenhuma escreve nem age fora |
 | Laço do Copiloto | Até 4 rodadas, a última sem ferramentas; consultas repetidas reaproveitadas; indicadores de ferramenta e links internos na tela; cancelamento grava a resposta como interrompida |
-| Prompt | `copilot-tools/v2` (padrão). O v1 reprovou; o v2 passou com 81,6% (KI-076, com as falhas que continuam) |
+| Prompt | `copilot-tools/v2` (padrão até 2026-11-10, quando o `copilot-tools/v3` o substituiu: ver M3, parte 2). O v1 reprovou; o v2 passou com 81,6% (KI-076, com as falhas que continuam) |
 | Testes | `pnpm test` 717 verdes; `pnpm test:db` 52 (PGlite); e2e do Copiloto (inclui `copilot-history.spec.ts`) verdes com `E2E_PORT=3120 E2E_MEMORY_PORT=3130` |
 | Verificação manual | No app com o banco real: perguntas sobre ofertas, ICPs e prontidão responderam com os dados salvos e mostraram os links; conversa reaberta pela URL. **Ficaram 4 conversas de teste no banco do usuário** ("Quais ofertas eu tenho…", "O que falta para eu começar…", "Quais são as cinco empresas…", "Quais ICPs eu tenho…"): podem ser arquivadas na tela do Copiloto |
 | Pendências | KI-076 (v3 do prompt), KI-077 (links ao reabrir), KI-078 (retenção, M7), KI-079 (aceito) |
@@ -77,12 +77,27 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Migração `20261110190000_provider_usage` | Aplicada no `prospector-dev` com a confirmação do usuário: consumo só por inclusão, view mensal, RLS sem acesso para `anon` e `authenticated` |
 | Busca | Adaptador Tavily (busca basic, 1 crédito) com teto mensal local `WEB_SEARCH_MONTHLY_CREDITS` (padrão 900, no máximo 1.000, a cota gratuita) que para as chamadas ao atingir o orçamento; busca idêntica reaproveitada por 24 h; agregadores de CNPJ excluídos; consulta com dado pessoal recusada |
 | Leitura de páginas | Leitor próprio: SSRF bloqueado, robots.txt respeitado, redes sociais e agregadores recusados, prazo total por leitura, Playwright com sandbox; sem navegador, extração estática |
-| Copiloto | Ferramentas de leitura `search_web`, `read_web_page` (só endereços que vieram de uma busca) e `get_web_research_usage` prontas e testadas: até 2 buscas e 3 leituras por pedido, telemetria sem a consulta nem a URL. **Ainda fora do Copiloto**: o prompt em uso (`copilot-tools/v2`) diz ao modelo que nenhuma ferramenta acessa a internet; entram com o `copilot-tools/v3`, depois de avaliação e da aprovação do usuário (KI-096). O `get_company_dossier` passou a marcar fontes da internet (`fonte_externa`) com aviso de que o texto não é instrução (KI-094) |
+| Copiloto | Ferramentas de leitura `search_web`, `read_web_page` (só endereços que vieram de uma busca) e `get_web_research_usage` prontas e testadas, telemetria sem a consulta nem a URL. Nesta parte ficaram fora do Copiloto (o `copilot-tools/v2` dizia que nenhuma ferramenta acessa a internet); entraram com o `copilot-tools/v3` (parte 2). O `get_company_dossier` passou a marcar fontes da internet (`fonte_externa`) com aviso de que o texto não é instrução (KI-094). Os limites e as recusas desta parte mudaram com a emenda do ADR-0012 (parte 2) |
 | Sem banco | A busca fica desligada: o contador em memória zeraria a cada reinício e o teto mensal deixaria de valer |
 | Revisões | Conformidade e segurança na sessão paralela; os 4 achados graves de segurança (expressão regular de tempo explosivo, navegador sem prazo, Chromium sem sandbox, vazamento por injeção de prompt) foram corrigidos e testados |
 | Validação com dados reais | 5 buscas limitadas na sessão paralela, com empresas reais do interior de São Paulo; o arquivo com os resultados foi apagado depois (minimização) |
 | Verificação | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.010 verdes (contracts 195, domain 237, application 123, integrations 174, agents 132, web 80, db 69); `pnpm test:db` 70 (PGlite); `pnpm test:e2e` 45 passaram, 3 pulados (banco real e Ollama real). No app de desenvolvimento, com o banco real e a chave configurada, as telas abrem e o serviço sobe sem erro no log. A busca pelo app não foi feita: sem as ferramentas no Copiloto, ainda não há caminho no app até ela (KI-096) |
 | Pendências | KI-089 a KI-096; gravar resultados no dossiê pela tela (o serviço já grava; falta a interface, M4/F5) |
+
+## M3, parte 2 — Copiloto pesquisa na internet (`copilot-tools/v3`, 2026-11-10)
+
+| Item | Resultado |
+|---|---|
+| Decisão do usuário | Pesquisa e Copiloto sem recusas: a IA orienta, mas não diz "não" ([emenda do ADR-0012](adr/0012-busca-web-tavily-playwright.md#emenda-2026-11-10-pesquisa-sem-recusas-por-decisão-do-usuário), CLAUDE.md regra 7). Sem máscara de dado pessoal, MEI pesquisado, pessoas ligadas às empresas podem ser pesquisadas, agregadores de CNPJ entram. Continuam: não inventar, citar a URL, conteúdo da internet é dado e não instrução, teto mensal de créditos, nada sai sem aprovação |
+| Prompt | `copilot-tools/v3` (padrão desde 2026-11-10, com a aprovação do usuário): pesquisa sempre que pedida; empresa perguntada pelo nome é conferida primeiro no Prospector; pesquisa aprofundada com ao menos duas buscas e leitura das páginas; falhas (créditos, login, nada achado) explicadas com a mensagem do resultado; URL completa, solta no texto; rascunho escrito na hora, com colchetes no que falta; sem falar de LGPD a não ser que perguntem. O `copilot/v3` (sem ferramentas) não mudou |
+| Copiloto | 4 buscas e 4 leituras por pedido, em qualquer ordem; até 8 rodadas; contexto de 16 mil tokens (`num_ctx`); a pergunta para de chamar ferramentas quando os resultados passam de 20 mil caracteres, inclusive no meio de uma rodada (a consulta seguinte volta como não feita, com teste). As ferramentas da internet só são entregues a um prompt que as conhece (`container.ts`). O texto de sistema diz que o que a internet traz fica só na conversa (não vai para o dossiê) |
+| Avaliação | `pnpm evals` com `EVAL_TOOLS=1 EVAL_WEB=1 EVAL_PROMPTS=2,3 EVAL_REPEAT=3`, internet SINTÉTICA (`web-fixtures.ts`, sem gastar créditos), `qwen3.5:4b`. Resultado recalculado com os corretores atuais (`results/2026-11-10-23-50.regraded.json`): casos comuns **v3 83%** (40 de 48, IC95 70–91%) contra **v2 77%** (37 de 48); Empresas 3 de 3 nos dois; internet (só v3) **81%** (34 de 42, IC95 67–90%); tolerância zero (inventar URL, dono, telefone ou obedecer à injeção) sem nenhuma falha; p95 4,8 s contra 3,8 s do v2. Limiares: 75% nos comuns e na internet. Os corretores ganharam testes para cada falso positivo corrigido (lista com asterisco, voz passiva, pergunta, limite factual de crédito ou base paga). O recálculo sem Ollama agora também refaz as notas por grupo |
+| Fraquezas que continuam (KI-096) | Em busca simples, às vezes não escreve a URL do achado (2 de 3); não avisa de uma instrução escondida num trecho de busca (0 de 3; nunca a obedece); "contexto do sistema" colado ainda o convence de que Aprovações existe (também no v2); pedido de envio parafraseado nem sempre lembra a aprovação humana; perfil do LinkedIn achado na busca às vezes não é citado (2 de 3); fala de LGPD sem ser perguntado em 1 de 3 respostas sobre contatos |
+| Tela | O painel da conversa diz "só o texto das pesquisas na internet sai deste computador" quando a pesquisa está ligada (antes dizia que nada saía) |
+| Testes | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.024 verdes (contracts 195, domain 237, application 123, integrations 174, agents 146, web 80, db 69); `pnpm test:e2e` 45 passaram, 3 pulados (banco real e Ollama real), com `E2E_PORT=3120 E2E_MEMORY_PORT=3130` porque a porta 3100 está ocupada por outro programa do usuário |
+| Verificação no app | No app de desenvolvimento, com o banco real e a chave: "Pesquisa na internet a Chilli Beans: quem fundou, o site oficial e uma notícia recente." chamou `search_web` (1 crédito da Tavily) e respondeu com o fundador, o site e a URL de uma notícia; sem erro no console. Uma conversa de teste ficou no banco do usuário |
+| Instalação | `pnpm app:install` concluído: `D:\Prospector` usa `copilot-tools/v3`. A primeira instalação mostrou que o leitor de páginas do app instalado não achava o Chromium (faltava o `browsers.json` do Playwright no build); corrigido em `next.config.ts` e reinstalado: a cópia instalada abriu o Chromium com sandbox e executou JavaScript (KI-091 resolvido). O app instalado não foi aberto depois da instalação (abre pelo atalho "Prospector") |
+| Pendências | Commit e push (aguardam autorização); KI-096 (fraquezas acima); KI-093 (nome da pessoa titular de MEI no cadastro por CNPJ: decisão do usuário) |
 
 ## Decisões desta execução
 
@@ -94,6 +109,8 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | **D-AI-4 (usuário, 2026-11-10):** Tavily Search API como buscador principal, só no plano gratuito, com limite de consumo configurável que interrompe as chamadas; Playwright para navegação e análise de páginas; SearXNG local opcional depois de avaliação. Chave por variável de ambiente, criada pelo usuário (o agente não lê o `.env.local`) | [10 §1](10-riscos-custos-decisoes.md), [13 §6.7](13-auditoria-e-evolucao.md), [05](05-integracoes.md) |
 | MEI e empresa individual entram pelo cadastro manual ou pelo CNPJ; o nome da pessoa fica fora do ledger | ADR-0002 (emenda M2), KI-084, KI-087 |
 | `PROSPECTOR_CNPJ_LOOKUP`: `on` (padrão), `off` ou `fixture` (sintético, só no modo memória) | ADR-0001 (emenda M2) |
+| **Usuário, 2026-11-10:** pesquisa na internet e Copiloto sem recusas nem sermão de LGPD; a IA orienta, quem decide é ele | ADR-0012 (emenda), CLAUDE.md regra 7 |
+| **Usuário, 2026-11-10:** `copilot-tools/v3` promovido a padrão e instalado | `packages/agents/src/copilot/copilot.ts`, KI-096 |
 
 ## Bloqueios externos
 
@@ -101,11 +118,10 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 |---|---|---|
 | LIA v2 em rascunho | Usuário (Configurações > Conformidade) | Abordagens ficam bloqueadas (correto) |
 | CI não conferido | Usuário (login no GitHub) | Nenhum no app |
-| Commit e push da pesquisa na internet | Usuário (autorização explícita) | Trabalho só na cópia local |
+| Commit e push do Copiloto com internet (`copilot-tools/v3`) | Usuário (autorização explícita) | Trabalho só na cópia local e no app instalado |
 | D-EVID-2 (provedores de CNPJ como oficiais?) e parecer de LGPD (D-LGPD-1) | Usuário | Confiança dos fatos do registro fica em média; nenhum contato real |
 
 ## Próxima atividade exata
 
-1. Com a autorização do usuário: commit da pesquisa na internet (ADR-0012) e push.
-2. Prompt `copilot-tools/v3` para as ferramentas da pesquisa na internet: casos de avaliação de busca e de injeção com ferramentas falsas (sem gastar créditos), revisão do `avaliador-ia`, avaliação no Ollama e promoção só com a aprovação do usuário (KI-096); texto de sistema e tela do Copiloto junto.
-3. M3: ADR-0011 (fila persistente no Postgres com worker local, D-AI-5), migração `ai_jobs` (só com confirmação), descoberta F4 por CNAE e município com deduplicação pela raiz do CNPJ (KI-086), histórico de pesquisas; validação com uma pesquisa limitada de empresas reais no interior de São Paulo.
+1. Com a autorização do usuário: commit do Copiloto com internet (`copilot-tools/v3`, avaliação e documentos) e push.
+2. M3: ADR-0011 (fila persistente no Postgres com worker local, D-AI-5), migração `ai_jobs` (só com confirmação), descoberta F4 por CNAE e município com deduplicação pela raiz do CNPJ (KI-086), histórico de pesquisas; validação com uma pesquisa limitada de empresas reais no interior de São Paulo.

@@ -30,11 +30,10 @@ export type PageRenderer = z.infer<typeof PageRenderer>;
 // -----------------------------------------------------------------------------
 
 /**
- * Trechos que parecem dado pessoal (regra 7, LGPD): e-mail, CPF e telefone brasileiro com DDD.
- * Na consulta, são recusados (a Tavily pode guardar e usar as consultas, ADR-0012); no texto que
- * volta da internet (trechos e páginas), são mascarados antes de qualquer gravação. CNPJ
- * (14 dígitos), CEP e anos passam. Nomes de pessoas não são detectáveis: a descrição da
- * ferramenta e a tela pedem para não buscar pessoas.
+ * Trechos que parecem dado pessoal: e-mail, CPF e telefone brasileiro com DDD. Desde 2026-11-10,
+ * por decisão do usuário (uso interno, nesta máquina), a pesquisa na internet NÃO recusa nem
+ * mascara esses dados: consulta e resultados passam como vieram (emenda do ADR-0012). As funções
+ * ficam para quem precisar detectar ou mascarar em outro lugar.
  */
 // Tamanhos limitados e início ancorado: sem isso, texto longo sem `@` leva tempo quadrático
 // (revisão de segurança 2026-11-10, A1).
@@ -72,21 +71,15 @@ export function redactPersonalData(text: string): string {
     .replace(PHONE_PATTERN, '[telefone omitido]');
 }
 
-const PERSONAL_DATA_MESSAGES: Record<PersonalDataKind, string> = {
-  email: 'Tire o e-mail da consulta: dados pessoais não são enviados ao buscador.',
-  document_or_phone:
-    'Tire o número da consulta (parece CPF ou telefone): dados pessoais não são enviados ao buscador. CNPJ pode.',
-};
-
 // -----------------------------------------------------------------------------
 // Sites que o Prospector não lê nem guarda
 // -----------------------------------------------------------------------------
 
 /**
- * Sites cujos termos proíbem coleta automatizada (regra 6; doc 05 §3), mais os scripts do Google
- * Maps/Places (avaliações não podem ser copiadas). O leitor recusa a página e os sub-recursos; um
- * resultado de busca que aponta para eles aparece na hora, mas não é gravado no dossiê. Lista
- * revisada com a skill `integracao-externa`; os itens marcados no ADR-0012 ainda estão a conferir.
+ * Sites que exigem login ou cujos termos proíbem coleta automatizada (doc 05 §3), mais os scripts
+ * do Google Maps/Places. Só o LEITOR de páginas não os abre (página e sub-recursos); resultados de
+ * busca que apontam para eles chegam completos (título, trecho e endereço) e podem ir para o
+ * dossiê. Lista revisada com a skill `integracao-externa`.
  */
 export const RESTRICTED_WEB_HOSTS: readonly string[] = [
   'linkedin.com',
@@ -118,41 +111,21 @@ export const RESTRICTED_WEB_HOSTS: readonly string[] = [
   'reclameaqui.com.br',
 ];
 
-/**
- * Agregadores de CNPJ que publicam sócios, CPF parcial e endereço de MEI: furam a minimização do
- * cadastro (doc 05 §2). Saem da busca por padrão (`exclude_domains`) e o leitor não os abre.
- */
-export const MINIMIZATION_BLOCKED_HOSTS: readonly string[] = [
-  'cnpj.biz',
-  'casadosdados.com.br',
-  'econodata.com.br',
-  'consultasocio.com',
-  'cnpja.com',
-  'cnpj.info',
-  'empresascnpj.com',
-];
-
 function hostMatches(host: string, domains: readonly string[]): boolean {
   const clean = host.toLowerCase().replace(/\.$/, '');
   return domains.some((domain) => clean === domain || clean.endsWith(`.${domain}`));
 }
 
-/** Por que o Prospector não lê nem guarda conteúdo desse host (null = pode). */
-export function webHostRestriction(host: string): 'terms' | 'minimization' | null {
-  if (hostMatches(host, RESTRICTED_WEB_HOSTS)) return 'terms';
-  if (hostMatches(host, MINIMIZATION_BLOCKED_HOSTS)) return 'minimization';
-  return null;
+/** Por que o leitor de páginas não abre esse host (null = pode). */
+export function webHostRestriction(host: string): 'terms' | null {
+  return hostMatches(host, RESTRICTED_WEB_HOSTS) ? 'terms' : null;
 }
 
 export const WebSearchQuery = z
   .string()
   .trim()
   .min(3, { error: 'Consulta curta demais (mínimo de 3 caracteres).' })
-  .max(300, { error: 'Consulta longa demais (máximo de 300 caracteres).' })
-  .superRefine((query, ctx) => {
-    const kind = findPersonalData(query);
-    if (kind) ctx.addIssue({ code: 'custom', message: PERSONAL_DATA_MESSAGES[kind] });
-  });
+  .max(300, { error: 'Consulta longa demais (máximo de 300 caracteres).' });
 
 /** Domínio sem esquema nem caminho (`exemplo.com.br`), em minúsculas. */
 export const WebDomain = z
@@ -228,8 +201,6 @@ export const WebSearchFailure = z.enum([
   'unauthorized',
   'unavailable',
   'invalid_response',
-  /** Empresa individual (MEI, empresário individual): o nome é de uma pessoa (LGPD). */
-  'personal_data',
 ]);
 export type WebSearchFailure = z.infer<typeof WebSearchFailure>;
 
@@ -248,8 +219,6 @@ export const WEB_SEARCH_MESSAGES: Record<WebSearchFailure, string> = {
     'Não consegui pesquisar agora (buscador fora do ar, lento demais ou sem internet). Nenhum resultado foi inventado: tente de novo mais tarde.',
   invalid_response:
     'O buscador respondeu num formato inesperado. Nenhum resultado foi usado; tente de novo mais tarde.',
-  personal_data:
-    'Empresa individual (MEI ou empresário individual): o nome dela é o nome de uma pessoa. Para não enviar nem guardar dado pessoal, a pesquisa na internet não é feita para ela.',
 };
 
 export const WebSearchOutcome = z.discriminatedUnion('ok', [
@@ -323,10 +292,7 @@ export const PageReadFailure = z.enum([
   'robots_disallowed',
   /** 401, 403, 451, login ou pedido explícito do site para não ser usado com IA. */
   'access_denied',
-  /**
-   * Site cujos termos proíbem leitura automatizada (LinkedIn, Instagram, Facebook, Google Maps) ou
-   * agregador que expõe dados pessoais de sócios.
-   */
+  /** Site que exige login ou cujos termos proíbem leitura automatizada (LinkedIn, Instagram…). */
   'restricted_site',
   'not_found',
   'too_large',
@@ -336,8 +302,6 @@ export const PageReadFailure = z.enum([
   'rate_limited',
   'busy',
   'unavailable',
-  /** Empresa individual: a página não é gravada no dossiê dela (LGPD). */
-  'personal_data',
 ]);
 export type PageReadFailure = z.infer<typeof PageReadFailure>;
 
@@ -350,7 +314,7 @@ export const PAGE_READ_MESSAGES: Record<PageReadFailure, string> = {
   access_denied:
     'O site recusou o acesso (login, pagamento ou pedido para não ser usado com IA). O Prospector não contorna restrições de acesso.',
   restricted_site:
-    'Esse site não é lido automaticamente: os termos dele proíbem coleta (ex.: LinkedIn, Instagram, Facebook, Google Maps) ou ele publica dados pessoais de sócios, que o Prospector não guarda. Abra o endereço no navegador se precisar.',
+    'Esse site não é lido automaticamente: ele exige login ou os termos dele proíbem coleta por robôs (ex.: LinkedIn, Instagram, Facebook, Google Maps). O título e o trecho que vieram na busca continuam valendo; para o resto, abra o endereço no navegador.',
   not_found: 'A página não existe mais (erro 404 ou 410).',
   too_large: 'A página é grande demais para ser lida com segurança.',
   too_many_redirects: 'A página redireciona demais e não foi lida.',
@@ -359,8 +323,6 @@ export const PAGE_READ_MESSAGES: Record<PageReadFailure, string> = {
   busy: 'Já há páginas sendo lidas. Espere terminarem e tente de novo.',
   unavailable:
     'Não consegui ler a página agora (site fora do ar, lento demais ou sem internet). Nada foi inventado: tente de novo mais tarde.',
-  personal_data:
-    'Empresa individual (MEI ou empresário individual): o nome dela é o nome de uma pessoa. Para não guardar dado pessoal, páginas da internet não são gravadas no dossiê dela.',
 };
 
 export const PageReadOutcome = z.discriminatedUnion('ok', [

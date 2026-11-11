@@ -1,6 +1,7 @@
 import type { CopilotEvent, ToolCallRequest, ToolSpec } from '@prospector/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  COPILOT_TOOL_RESULTS_MAX_CHARS,
   MAX_COPILOT_ROUNDS,
   createCopilot,
   type CopilotToolbox,
@@ -192,6 +193,57 @@ describe('Copiloto com ferramentas', () => {
     expect(inputs).toHaveLength(MAX_COPILOT_ROUNDS);
     expect(inputs.at(-1)?.tools).toBeUndefined();
     expect(tools.execute).toHaveBeenCalledTimes(MAX_COPILOT_ROUNDS - 1);
+  });
+
+  it('resultados que enchem o teto de texto: a rodada seguinte vem sem ferramentas', async () => {
+    const asksForever = Array.from({ length: MAX_COPILOT_ROUNDS }, (_, index) => ({
+      calls: [call(`c${index}`, { page: index })],
+    }));
+    const { gateway, inputs } = scriptedGateway(asksForever);
+    const tools = toolbox(async () => ({
+      status: 'ok' as const,
+      summary: 'Página lida.',
+      links: [],
+      forModel: 'x'.repeat(COPILOT_TOOL_RESULTS_MAX_CHARS / 2),
+    }));
+    await collect(
+      createCopilot({ gateway, prompt, toolsPrompt }).reply(ask, {
+        traceId: 't',
+        systemFacts: [],
+        tools,
+      }),
+    );
+    // Duas leituras grandes enchem o teto: a terceira geração precisa responder com o que tem.
+    expect(tools.execute).toHaveBeenCalledTimes(2);
+    expect(inputs).toHaveLength(3);
+    expect(inputs.at(-1)?.tools).toBeUndefined();
+  });
+
+  it('quatro leituras grandes na mesma rodada: as que passam do teto não rodam', async () => {
+    const { gateway, inputs } = scriptedGateway([
+      { calls: [1, 2, 3, 4].map((page) => call(`c${page}`, { page })) },
+      { text: 'Resumo com o que veio.' },
+    ]);
+    const tools = toolbox(async () => ({
+      status: 'ok' as const,
+      summary: 'Página lida.',
+      links: [],
+      forModel: 'x'.repeat(8_000),
+    }));
+    const events = await collect(
+      createCopilot({ gateway, prompt, toolsPrompt }).reply(ask, {
+        traceId: 't',
+        systemFacts: [],
+        tools,
+      }),
+    );
+    // 8 mil + 8 mil ficam abaixo do teto e a terceira roda; com 24 mil, a quarta não roda.
+    expect(tools.execute).toHaveBeenCalledTimes(3);
+    const results = events.filter((event) => event.type === 'tool_result');
+    expect(results).toHaveLength(4);
+    expect(results[3]).toMatchObject({ status: 'denied' });
+    expect(inputs).toHaveLength(2);
+    expect(inputs.at(-1)?.tools).toBeUndefined();
   });
 
   it('ids repetidos entre rodadas viram ids únicos', async () => {

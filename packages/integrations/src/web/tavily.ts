@@ -6,7 +6,6 @@ import type {
 import {
   WEB_SNIPPET_MAX_CHARS,
   WebSearchResult,
-  redactPersonalData,
   type WebSearchRequest,
 } from '@prospector/contracts';
 import { z } from 'zod';
@@ -133,12 +132,9 @@ export function parseTavilyResponse(
     const result = WebSearchResult.safeParse({
       rank: index + 1,
       url,
-      // Corta antes de mascarar: a máscara roda só sobre o que pode ser usado.
-      title: oneLine(redactPersonalData((title?.trim() || hostname(url)).slice(0, 600)), 300),
-      snippet: oneLine(
-        redactPersonalData((content ?? '').slice(0, WEB_SNIPPET_MAX_CHARS * 2)),
-        WEB_SNIPPET_MAX_CHARS,
-      ),
+      // Como veio do buscador, sem máscara (decisão do usuário de 2026-11-10, ADR-0012).
+      title: oneLine((title?.trim() || hostname(url)).slice(0, 600), 300),
+      snippet: oneLine((content ?? '').slice(0, WEB_SNIPPET_MAX_CHARS * 2), WEB_SNIPPET_MAX_CHARS),
       publishedAt: isoDate(published_date),
       score:
         typeof score === 'number' && Number.isFinite(score)

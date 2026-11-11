@@ -41,6 +41,7 @@ async function loadConversations(conversa: string | null) {
       turns,
       missing: conversa !== null && opened === null,
       toolsEnabled: (tools?.specs().length ?? 0) > 0,
+      webSearch: (tools?.specs() ?? []).some((spec) => spec.internet === true),
     };
   } catch (error) {
     console.warn('[copiloto] conversas indisponíveis', error);
@@ -80,7 +81,11 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
         <PanelHeader
           titleId="conversa"
           title={ok?.opened?.title ?? 'Nova conversa'}
-          description="Respostas geradas agora pela IA local, sem enviar nada para fora deste computador."
+          description={
+            ok?.webSearch
+              ? 'Respostas geradas agora pela IA local; só o texto das pesquisas na internet sai deste computador.'
+              : 'Respostas geradas agora pela IA local, sem enviar nada para fora deste computador.'
+          }
         />
         {ok?.missing ? (
           <Alert tone="warning" role="note" className="mb-3">
@@ -104,6 +109,7 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
           initialTurns={ok?.turns ?? []}
           persistent={conversations.kind !== 'off'}
           toolsEnabled={ok?.toolsEnabled ?? false}
+          webSearch={ok?.webSearch ?? false}
         />
       </Panel>
       <div className="flex min-w-0 flex-col gap-4 lg:col-span-4">
@@ -132,7 +138,8 @@ export default function CopilotPage({ searchParams }: { searchParams: SearchPara
         <h1 className="text-4xl tracking-[-0.03em]">Copiloto</h1>
         <p className="text-sm text-muted-foreground">
           Conversa com o modelo local deste computador. Ele consulta o que está salvo no Prospector
-          e guarda as conversas; não altera dados e não envia nada.
+          e, com a pesquisa na internet ligada, páginas públicas; guarda as conversas, não altera
+          dados e não envia mensagens.
         </p>
       </div>
       <Suspense

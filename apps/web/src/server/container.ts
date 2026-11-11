@@ -1,5 +1,7 @@
 import 'server-only';
 import {
+  COPILOT_TOOLS_PROMPT_VERSION,
+  copilotPromptSupportsWebTools,
   createLocalAiRuntime,
   createUnavailableLocalAi,
   DEFAULT_OLLAMA_URL,
@@ -20,6 +22,7 @@ import {
   createToolRegistry,
   createWebResearchService,
   strategyTools,
+  webResearchTools,
   type AiTelemetryRepository,
   type AuditRepository,
   type AuditService,
@@ -88,7 +91,7 @@ export interface Services {
   companies: CompanyService | null;
   /**
    * Pesquisa na internet (ADR-0012): busca Tavily e leitura de páginas; null sem banco. As
-   * ferramentas do Copiloto para ela (`webResearchTools`) ainda não entram: ver `copilotTools`.
+   * ferramentas do Copiloto para ela entram conforme `copilotTools`.
    */
   research: WebResearchService | null;
   /** Ferramentas oferecidas ao Copiloto; null sem banco. */
@@ -155,12 +158,18 @@ function companyServices(repo: CompanyRepository & EvidenceRepository): CompanyS
  * desligada: o contador em memória zeraria a cada reinício e o teto mensal deixaria de valer.
  * Configuração inválida desliga a pesquisa e avisa no log (só nomes e formatos, nunca valores).
  */
+interface WebResearchSetup {
+  service: WebResearchService;
+  /** Busca ligada: há banco, chave e a busca não foi desligada (`PROSPECTOR_WEB_SEARCH=off`). */
+  searchOn: boolean;
+}
+
 function webResearch(
   repo: CompanyRepository & EvidenceRepository,
   usage: WebResearchUsageStore | null,
-): WebResearchService {
-  const holder = globalThis as { __prospectorWebResearch?: WebResearchService };
-  if (holder.__prospectorWebResearch) return holder.__prospectorWebResearch;
+): WebResearchSetup {
+  const holder = globalThis as { __prospectorWebResearchSetup?: WebResearchSetup };
+  if (holder.__prospectorWebResearchSetup) return holder.__prospectorWebResearchSetup;
   let env: ReturnType<typeof webResearchEnv> | null = null;
   try {
     env = webResearchEnv();
@@ -168,7 +177,8 @@ function webResearch(
     if (!(error instanceof WebResearchConfigError)) throw error;
     console.error(`[pesquisa-web] ${error.message}`);
   }
-  holder.__prospectorWebResearch = createWebResearchService({
+  const searchOn = Boolean(env && env.searchEnabled && usage && env.tavilyApiKey);
+  const service = createWebResearchService({
     search:
       !env || !env.searchEnabled || !usage
         ? 'disabled'
@@ -186,20 +196,26 @@ function webResearch(
     maxConcurrentPages: env?.PAGE_READER_MAX_CONCURRENCY,
     searchCacheTtlMs: env ? env.WEB_SEARCH_CACHE_HOURS * 60 * 60 * 1000 : undefined,
   });
-  return holder.__prospectorWebResearch;
+  holder.__prospectorWebResearchSetup = { service, searchOn };
+  return holder.__prospectorWebResearchSetup;
 }
 
 /**
- * Ferramentas oferecidas ao Copiloto. As da pesquisa na internet (`webResearchTools`) ficam de
- * fora até existir o prompt `copilot-tools/v3`, avaliado e aprovado pelo usuário: o v2 diz ao
+ * Ferramentas oferecidas ao Copiloto. As da pesquisa na internet (`webResearchTools`) só entram
+ * com a busca ligada e com um prompt que as conhece (`copilot-tools/v3` em diante): o v2 diz ao
  * modelo que nenhuma ferramenta acessa a internet (KI-096).
  */
 function copilotTools(
   strategy: StrategyService,
   audit: AuditService,
   companies: CompanyService,
+  research: WebResearchSetup,
 ): ToolDefinition[] {
-  return [...strategyTools({ strategy, audit }), ...companyTools({ companies })];
+  const web =
+    research.searchOn && copilotPromptSupportsWebTools(COPILOT_TOOLS_PROMPT_VERSION)
+      ? webResearchTools({ research: research.service })
+      : [];
+  return [...strategyTools({ strategy, audit }), ...companyTools({ companies }), ...web];
 }
 
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
@@ -230,9 +246,9 @@ export const getServices = cache((): Services => {
       strategy,
       copilot: createCopilotService({ repo: stores.copilot, telemetry: stores.copilot }),
       companies,
-      research,
+      research: research.service,
       tools: createToolRegistry({
-        tools: copilotTools(strategy, audit, companies),
+        tools: copilotTools(strategy, audit, companies, research),
         telemetry: stores.copilot,
       }),
     };
@@ -264,9 +280,9 @@ export const getServices = cache((): Services => {
     strategy,
     copilot: createCopilotService({ repo: copilotRepo, telemetry: copilotRepo }),
     companies,
-    research,
+    research: research.service,
     tools: createToolRegistry({
-      tools: copilotTools(strategy, audit, companies),
+      tools: copilotTools(strategy, audit, companies, research),
       telemetry: copilotRepo,
     }),
   };

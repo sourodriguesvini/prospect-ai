@@ -14,7 +14,7 @@ import {
   insufficientVramError,
   UNMEASURED_VRAM_NOTICE,
 } from './admission';
-import { droppedNotice, fitToContext, type BudgetMessage } from './context-budget';
+import { droppedNotice, estimateTokens, fitToContext, type BudgetMessage } from './context-budget';
 import { AiError, toAiError } from './errors';
 import type { GpuProbe } from './gpu';
 import type { Limiter, LimiterTicket } from './limiter';
@@ -323,9 +323,23 @@ export function createLocalAiGateway(deps: {
           ? message
           : { ...message, content: neutralizeControlTokens(message.content) },
       );
+      // As definições das ferramentas também ocupam o contexto: sem contá-las, o Ollama cortaria
+      // o começo do pedido (as instruções) em silêncio.
+      const toolDefinitions = tools.map((tool) => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      }));
+      const reservedTokens = toolDefinitions.length
+        ? estimateTokens(JSON.stringify(toolDefinitions))
+        : 0;
       const plan = fitToContext(sanitized, {
         numCtx,
         maxOutputTokens: think ? taskPolicy.maxOutputTokensThinking : taskPolicy.maxOutputTokens,
+        reservedTokens,
       });
       if (plan.dropped > 0) notices.push(droppedNotice(plan.dropped));
 
@@ -420,14 +434,7 @@ export function createLocalAiGateway(deps: {
               {
                 model,
                 messages: plan.messages.map(toOllamaMessage),
-                tools: tools.map((tool) => ({
-                  type: 'function' as const,
-                  function: {
-                    name: tool.name,
-                    description: tool.description,
-                    parameters: tool.parameters,
-                  },
-                })),
+                tools: toolDefinitions,
                 think: withThinking,
                 keepAlive: taskPolicy.keepAlive,
                 options: {
@@ -489,6 +496,7 @@ export function createLocalAiGateway(deps: {
           const retry = fitToContext(sanitized, {
             numCtx,
             maxOutputTokens: taskPolicy.maxOutputTokens,
+            reservedTokens,
           });
           clear(idle);
           idle = deadline(taskPolicy.firstTokenTimeoutMs);

@@ -26,7 +26,20 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  ...(standalone ? { output: 'standalone' as const, outputFileTracingRoot: monorepoRoot } : {}),
+  ...(standalone
+    ? {
+        output: 'standalone' as const,
+        outputFileTracingRoot: monorepoRoot,
+        // O Playwright acha o Chromium por um browsers.json lido com caminho montado em tempo de
+        // execução, que o rastreamento do Next não vê; sem ele o leitor de páginas do app
+        // instalado fica só com a extração estática (KI-091).
+        outputFileTracingIncludes: {
+          '/**': [
+            '../../node_modules/.pnpm/playwright-core@*/node_modules/playwright-core/browsers.json',
+          ],
+        },
+      }
+    : {}),
   // Pacotes internos são publicados como código-fonte TypeScript (ADR-0001).
   transpilePackages: [
     '@prospector/agents',

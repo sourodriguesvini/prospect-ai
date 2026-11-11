@@ -114,7 +114,7 @@ Estados: **Funcional** (implementado e funcional) · **Parcial** (implementado p
 |---|---|---|---|
 | Shell, navegação e design system | Funcional | — | F1 |
 | Início | Parcial + Integração | Média | F1 → F10 |
-| Copiloto | Funcional (IA-2, 2026-11-10): conversas salvas no banco, ferramentas de leitura da estratégia, telemetria; prompt `copilot-tools/v2` com ressalvas (KI-076) | **Alta** | IA-2 → F8 |
+| Copiloto | Funcional (IA-2, 2026-11-10): conversas salvas no banco, ferramentas de leitura da estratégia, telemetria; prompt `copilot-tools/v3` (desde 2026-11-10, com pesquisa na internet; ressalvas no KI-096 e no KI-076) | **Alta** | IA-2 → F8 |
 | IA local (gateway, gerenciador de modelos) | Funcional para conversa; Parcial para as demais tarefas | **Alta** | IA-1 → IA-5 |
 | Configurações e auditoria | Funcional: estratégia e conformidade gravam no banco real com auditoria na mesma transação (ADR-0010) | Média | F1, F2 |
 | Banco de dados | Funcional (desenvolvimento): 6 migrações no `prospector-dev` (a 6ª, de empresas e evidências, em 2026-11-10); `pnpm test:db` real e CI não executados | Média | F1, F2 |

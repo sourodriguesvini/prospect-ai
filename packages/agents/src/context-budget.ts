@@ -78,7 +78,12 @@ export interface ContextPlan<M extends BudgetMessage> {
  */
 export function fitToContext<M extends BudgetMessage>(
   messages: readonly M[],
-  limits: { numCtx: number; maxOutputTokens: number },
+  limits: {
+    numCtx: number;
+    maxOutputTokens: number;
+    /** Tokens que o pedido ocupa fora das mensagens (definições das ferramentas). */
+    reservedTokens?: number;
+  },
 ): ContextPlan<M> {
   const system = messages.filter((message) => message.role === 'system');
   const conversation = messages.filter((message) => message.role !== 'system');
@@ -92,7 +97,7 @@ export function fitToContext<M extends BudgetMessage>(
   const sum = (list: readonly M[]) =>
     list.reduce((total, message) => total + estimateMessageTokens(message), 0);
   const budget = limits.numCtx - limits.maxOutputTokens - SAFETY_MARGIN_TOKENS;
-  let used = sum(system) + sum(turn);
+  let used = (limits.reservedTokens ?? 0) + sum(system) + sum(turn);
   const kept: M[] = [...turn];
   for (let index = turnStart - 1; index >= 0; index -= 1) {
     const message = conversation[index];
