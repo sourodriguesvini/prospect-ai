@@ -15,7 +15,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 
 | Marco | Conteúdo | Situação |
 |---|---|---|
-| M0 | Estabilização: git, testes, app instalado, CI | Feito, exceto o CI (bloqueio abaixo) |
+| M0 | Estabilização: git, testes, app instalado, CI | Feito: CI verde no `main` (execução #2, `24a0f87`); a branch `conclusao-produto` ainda não passou pelo CI (bloqueio abaixo) |
 | M1 | Copiloto operacional: histórico persistente, ferramentas de leitura, telemetria (`llm_calls`, `tool_calls`) | Feito e verificado (ressalvas no KI-076) |
 | M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Feito e verificado: commit `bcd5444` enviado ao GitHub (branch `conclusao-produto`) |
 | M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, commit `c165448` enviado; o Copiloto pesquisa na internet com o prompt `copilot-tools/v3`, promovido com a aprovação do usuário e instalado em `D:\Prospector`, commit `f57f2e7` enviado; fila, descoberta e deduplicação pendentes |
@@ -34,7 +34,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | `pnpm test:db` | Verde (PGlite) |
 | `pnpm test:e2e` (`E2E_PORT=3120 E2E_MEMORY_PORT=3130`) | 30 passaram, 3 pulados |
 | App instalado | `pnpm app:install` instala e atualiza; o Copiloto instalado não achava o prompt (KI-035): corrigido, o instalador copia `packages/agents/prompts` e o `pnpm-workspace.yaml`; busca conferida a partir de `D:\Prospector\app\apps\web` |
-| CI (GitHub Actions) | **Bloqueado:** o `gh` não está instalado e o Chrome não está logado no GitHub; o repositório é privado. Conferir em https://github.com/sourodriguesvini/prospect-ai/actions (KI-009) |
+| CI (GitHub Actions) | **Verde no `main`** (conferido pelo agente no Chrome do usuário em 2026-11-10): execução #2, commit `24a0f87`, 3 min 29 s; jobs `checks` e `supabase` passaram (`pnpm test:db` num Supabase local de verdade e e2e com banco). A execução #1 foi cancelada pela #2. A branch `conclusao-produto` não roda CI: o workflow só dispara em push no `main` e em pull request (KI-009) |
 | Prompt `copilot/v4` | Avaliado numa sessão separada (worktree `claude/hopeful-leavitt-bec23b`); revisão do `avaliador-ia` em andamento lá. **Não promovido** |
 
 ## M1 — Copiloto operacional (2026-11-10)
@@ -118,7 +118,8 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Bloqueio | Quem resolve | Impacto |
 |---|---|---|
 | LIA v2 em rascunho | Usuário (Configurações > Conformidade) | Abordagens ficam bloqueadas (correto) |
-| CI não conferido | Usuário (login no GitHub) | Nenhum no app || D-EVID-2 (provedores de CNPJ como oficiais?) e parecer de LGPD (D-LGPD-1) | Usuário | Confiança dos fatos do registro fica em média; nenhum contato real |
+| CI da branch `conclusao-produto` (M1 a M3, 6 commits à frente do `main`) não rodou | Usuário (pull request para o `main` ou mescla) | As migrações do M1 em diante ainda não passaram por `pnpm test:db` em Postgres real; nenhum no app |
+| D-EVID-2 (provedores de CNPJ como oficiais?) e parecer de LGPD (D-LGPD-1) | Usuário | Confiança dos fatos do registro fica em média; nenhum contato real |
 
 ## Próxima atividade exata
 
