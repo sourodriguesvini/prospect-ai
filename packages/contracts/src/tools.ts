@@ -3,7 +3,8 @@ import { z } from 'zod';
 /**
  * Ferramentas que um modelo local pode pedir (IA-2, docs/14 M1). O modelo só pede; quem executa
  * é um serviço de `@prospector/application`, que valida os argumentos de novo no servidor. Nesta
- * versão todas as ferramentas são de leitura: nenhuma escreve no banco nem age fora do app
+ * versão as ferramentas leem; a única exceção cria um RASCUNHO interno que só age depois que a
+ * pessoa confirma na tela (a pesquisa da Descoberta, `draft`). Nenhuma age fora do app sozinha
  * (regra 2 do CLAUDE.md: ação externa só por item de aprovação).
  */
 
@@ -41,6 +42,7 @@ export const EntityRefKind = z.enum([
   'company',
   'claim',
   'discovery_run',
+  'discovery_monitor',
   'opportunity',
   'approach',
   'conversation',
@@ -92,5 +94,10 @@ export const ToolSpec = z.object({
    * para o modelo como campo: serve para os fatos do sistema e a tela dizerem a verdade.
    */
   internet: z.boolean().optional(),
+  /**
+   * true quando a ferramenta só cria um rascunho dentro do app, que espera a confirmação da pessoa
+   * na tela (nada roda nem gasta crédito antes). Também não vai para o modelo como campo.
+   */
+  draft: z.boolean().optional(),
 });
 export type ToolSpec = z.infer<typeof ToolSpec>;

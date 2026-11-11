@@ -51,7 +51,7 @@ export const MODULES: readonly ModuleDef[] = [
     description: 'Buscas por ICP, linguagem natural ou lista importada.',
     group: 'flow',
     icon: Compass,
-    plannedSlice: 'F4',
+    plannedSlice: null,
   },
   {
     segment: 'empresas',

@@ -2,6 +2,7 @@ export * from './admission';
 export * from './context-budget';
 export * from './copilot/copilot';
 export * from './copilot/system-facts';
+export * from './discovery/discovery-ai';
 export * from './errors';
 export * from './gateway';
 export * from './gpu';

@@ -39,3 +39,7 @@ Ambiente medido em 2026-11-09: RTX 5060 Ti com 16 GB (≈ 11,9 GB livres em repo
 | LM Studio, vLLM ou llama.cpp direto | Ollama já estava instalado e configurado; vLLM no Windows exige WSL; o gateway permite trocar depois |
 | Modelos maiores (8B+) como padrão | Ocupam metade ou mais da VRAM livre e disputam com o uso pessoal; ficam para tarefas pontuais (visão) com execução sequencial |
 | SDK de terceiros para Ollama | `fetch` + NDJSON cobre o necessário com menos dependência; o cliente tem 16 testes |
+
+## Emenda (2026-11-11, M3): saída estruturada e teto de tokens da Descoberta
+
+O gateway aceita `format` (esquema JSON que o Ollama impõe à resposta) para as tarefas da Descoberta e um teto de tokens por chamada de até o dobro do teto da tarefa (§4 dizia 1.024). O extrator (`discovery-extractor`) pede 2.048, porque um lote de 8 resultados com empresas e sinais não cabe em 1.024; o intérprete fica em 1.024. O teto continua aplicado no servidor, e a resposta cortada é dividida em lotes menores (sem novas chamadas além do limite de cada lote). Falta um teto de chamadas por pesquisa (KI-116).

@@ -7,3 +7,5 @@ export * from './copilot';
 export * from './strategy';
 export * from './tools';
 export * from './web-research';
+export * from './discovery';
+export * from './jobs';

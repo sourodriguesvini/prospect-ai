@@ -37,6 +37,17 @@ export const ERROR_MESSAGES = {
   // M2 — empresas e evidências
   company_duplicate: 'Essa empresa já está cadastrada (mesmo CNPJ ou domínio).',
   company_archived: 'Empresa arquivada não pode ser alterada. Reative-a primeiro.',
+  // F4 — Descoberta
+  discovery_search_unavailable:
+    'A pesquisa na internet não está configurada ou está desligada (veja Sistema). Nenhuma pesquisa foi criada.',
+  discovery_queue_full:
+    'Já há pesquisas demais esperando na fila. Espere uma terminar ou cancele alguma.',
+  discovery_drafts_full:
+    'Já há 3 pesquisas preparadas esperando confirmação na Descoberta. Confirme ou descarte alguma antes de preparar outra.',
+  discovery_run_not_draft: 'Esta pesquisa já foi confirmada ou cancelada. Recarregue a página.',
+  discovery_run_finished: 'Esta pesquisa já terminou. Recarregue a página.',
+  prospect_duplicate: 'Essa empresa já foi encontrada por outra pesquisa.',
+  monitor_archived: 'Monitoramento arquivado não pode ser alterado.',
 } as const;
 
 export type ErrorReason = keyof typeof ERROR_MESSAGES;

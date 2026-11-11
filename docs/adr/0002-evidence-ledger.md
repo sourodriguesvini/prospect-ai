@@ -44,3 +44,7 @@ Implementado com o cadastro de empresas e a consulta de CNPJ ([doc 14](../14-exe
 4. Dado pessoal fica fora do ledger: em MEI e empresa individual, o nome da pessoa titular fica só em `companies` (colunas que podem ser alteradas e expurgadas, KI-084); o texto da fonte e os fatos dizem "nome da pessoa titular".
 5. Ausência também é fato: quando um dado some na nova consulta, o fato antigo é substituído por um fato de ausência citando a linha "não informado"; nova consulta com o mesmo conteúdo (mesmo hash) não grava nada.
 6. Em aberto: recálculo e propagação para dependentes (KI-071), o resto das conferências do KI-073 e o expurgo (KI-084).
+
+## Emenda (2026-11-11, M3): triagem da Descoberta fora do ledger
+
+O [ADR-0013](0013-descoberta-inteligente.md) §6 guarda as conclusões de triagem da Descoberta (sinais com verificação e confiança próprias, prioridade e motivos das empresas encontradas) fora do ledger, só para escolher quem investigar. Elas só viram conhecimento sobre a empresa pelo **Investigar**, que grava claims tipados pelo `EvidenceService`, com fonte, enunciado montado pelo servidor e autoria da pesquisa (`discoveryRunId`, `promptIds`). A regra "dado pessoal fica fora do ledger" (§4) foi relaxada para a pesquisa pela emenda do ADR-0012; os trechos levados pelo Investigar não são mascarados (KI-114).

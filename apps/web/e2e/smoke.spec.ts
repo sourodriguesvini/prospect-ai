@@ -53,11 +53,26 @@ test.describe('telas (sem banco configurado)', () => {
     await page.goto('/');
     await page
       .getByRole('navigation', { name: 'Principal' })
+      .getByRole('link', { name: /Conversas/ })
+      .click();
+    await expect(page).toHaveURL(/\/conversas$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Conversas' })).toBeVisible();
+    await expect(page.getByText('Em breve.')).toBeVisible();
+    await expectNoA11yViolations(page);
+  });
+
+  test('Descoberta sem banco explica o estado em vez de pesquisar', async ({ page }) => {
+    test.skip(withDatabase, DATABASE_ON);
+    await page.goto('/');
+    await page
+      .getByRole('navigation', { name: 'Principal' })
       .getByRole('link', { name: /Descoberta/ })
       .click();
     await expect(page).toHaveURL(/\/descoberta$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Descoberta' })).toBeVisible();
-    await expect(page.getByText('Em breve.')).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
+    ).toBeVisible();
     await expectNoA11yViolations(page);
   });
 

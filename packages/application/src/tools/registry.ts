@@ -25,9 +25,10 @@ export interface ToolOutput {
 }
 
 /**
- * Ferramenta de leitura para modelos (IA-2). Só leitura nesta versão: nenhuma ferramenta escreve
- * no banco ou age fora do app (regra 2 do CLAUDE.md). Uma ferramenta de escrita, quando existir,
- * só poderá criar item de aprovação e precisará de outro tipo aqui.
+ * Ferramenta para modelos (IA-2). `read` só lê. `draft` cria um rascunho dentro do app que não
+ * roda, não gasta nada e não sai do app até a pessoa confirmar na tela (a pesquisa da Descoberta).
+ * Nenhuma ferramenta age fora do app (regra 2 do CLAUDE.md): uma que precise agir só poderá criar
+ * item de aprovação.
  */
 export interface ToolDefinition<S extends z.ZodType = z.ZodType> {
   name: string;
@@ -36,7 +37,7 @@ export interface ToolDefinition<S extends z.ZodType = z.ZodType> {
   /** Para o modelo: quando usar, o que devolve. */
   description: string;
   input: S;
-  kind: 'read';
+  kind: 'read' | 'draft';
   /** true quando lê a internet pública (ADR-0012); sem isto, só lê o que está salvo no app. */
   internet?: boolean;
   run(ctx: RequestContext, input: z.output<S>): Promise<ToolOutput>;
@@ -117,11 +118,17 @@ export function createToolRegistry(deps: {
   telemetry: AiTelemetryRepository | null;
   timeoutMs?: number;
   log?: (message: string) => void;
+  /**
+   * Quem chama as ferramentas (ADR-0007 §4): o que elas gravam (o rascunho da Descoberta) fica
+   * auditado como ação deste agente, não da pessoa. A confirmação na tela continua da pessoa.
+   */
+  agent?: string;
 }): ToolRegistry {
   const log = deps.log ?? ((message: string) => console.warn(message));
   const byName = new Map(deps.tools.map((tool) => [tool.name, tool]));
   if (byName.size !== deps.tools.length) throw new Error('Ferramentas com nome repetido.');
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const agent = deps.agent ?? 'copilot';
 
   const specs: ToolSpec[] = deps.tools.map((tool) => {
     const { $schema: _schema, ...parameters } = z.toJSONSchema(tool.input, {
@@ -134,6 +141,7 @@ export function createToolRegistry(deps: {
       description: tool.description,
       parameters,
       ...(tool.internet ? { internet: true } : {}),
+      ...(tool.kind === 'draft' ? { draft: true } : {}),
     };
   });
 
@@ -164,13 +172,27 @@ export function createToolRegistry(deps: {
           status = 'error';
           errorCode = 'invalid_arguments';
           summary = `Argumentos inválidos: ${issuesText(parsed.error)}`.slice(0, 500);
+          // Ferramenta que esconde os argumentos na telemetria (texto do pedido): com argumento
+          // inválido, só os nomes dos campos com problema.
+          if (tool.telemetryInput) {
+            telemetryInput = {
+              campos_invalidos: [
+                ...new Set(parsed.error.issues.map((issue) => String(issue.path[0] ?? '?'))),
+              ].slice(0, 10),
+            };
+          }
         } else {
           input = parsed.data;
           telemetryInput = tool.telemetryInput ? tool.telemetryInput(parsed.data) : null;
           let timer: ReturnType<typeof setTimeout> | undefined;
           try {
             const output = await Promise.race([
-              tool.run(ctx, parsed.data),
+              tool.run(
+                ctx.actor.type === 'user'
+                  ? { ...ctx, actor: { type: 'agent', agent, runId: ctx.traceId } }
+                  : ctx,
+                parsed.data,
+              ),
               new Promise<never>((_resolve, reject) => {
                 timer = setTimeout(() => reject(new ToolTimeout()), timeoutMs);
               }),

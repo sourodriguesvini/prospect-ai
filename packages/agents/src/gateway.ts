@@ -73,6 +73,13 @@ export interface ChatInput {
    * avisa e segue sem elas.
    */
   tools?: readonly ToolSpec[];
+  /**
+   * Saída estruturada (JSON Schema ou JSON qualquer), para tarefas que o servidor valida com um
+   * contrato (Descoberta). Não combina com ferramentas.
+   */
+  format?: 'json' | Record<string, unknown>;
+  /** Teto de tokens da resposta abaixo do da tarefa (ou acima, até o dobro): saídas longas em JSON. */
+  maxOutputTokens?: number;
 }
 
 /** Mesmos limites que o estado mostra na tela (contrato `AiRuntimeLimits`). */
@@ -336,9 +343,13 @@ export function createLocalAiGateway(deps: {
       const reservedTokens = toolDefinitions.length
         ? estimateTokens(JSON.stringify(toolDefinitions))
         : 0;
+      // Pedido da chamada limitado ao dobro do da tarefa (nunca geração sem fim na GPU).
+      const answerTokens = input.maxOutputTokens
+        ? Math.min(Math.max(64, Math.round(input.maxOutputTokens)), taskPolicy.maxOutputTokens * 2)
+        : taskPolicy.maxOutputTokens;
       const plan = fitToContext(sanitized, {
         numCtx,
-        maxOutputTokens: think ? taskPolicy.maxOutputTokensThinking : taskPolicy.maxOutputTokens,
+        maxOutputTokens: think ? taskPolicy.maxOutputTokensThinking : answerTokens,
         reservedTokens,
       });
       if (plan.dropped > 0) notices.push(droppedNotice(plan.dropped));
@@ -442,6 +453,7 @@ export function createLocalAiGateway(deps: {
                   temperature: taskPolicy.temperature,
                   num_predict: numPredict,
                 },
+                ...(input.format && toolDefinitions.length === 0 ? { format: input.format } : {}),
               },
               phase.signal,
             );
@@ -495,7 +507,7 @@ export function createLocalAiGateway(deps: {
           yield { type: 'notice', message: THINKING_EXHAUSTED_NOTICE };
           const retry = fitToContext(sanitized, {
             numCtx,
-            maxOutputTokens: taskPolicy.maxOutputTokens,
+            maxOutputTokens: answerTokens,
             reservedTokens,
           });
           clear(idle);

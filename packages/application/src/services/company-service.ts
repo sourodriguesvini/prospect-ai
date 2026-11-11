@@ -166,6 +166,12 @@ export interface CompanyService {
   dossier(ctx: RequestContext, id: string): Promise<CompanyDossier>;
   /** Cadastro manual; CNPJ ou domínio já cadastrado devolve a empresa existente. */
   create(ctx: RequestContext, raw: unknown): Promise<CreateCompanyResult>;
+  /** Cadastro vindo da Descoberta ("Investigar"): igual ao manual, com origem `discovery`. */
+  createFromDiscovery(
+    ctx: RequestContext,
+    raw: unknown,
+    options?: { isDemo?: boolean },
+  ): Promise<CreateCompanyResult>;
   /** Consulta o CNPJ sem gravar nada (prévia antes de importar). */
   lookupCnpj(ctx: RequestContext, cnpj: string): Promise<CnpjPreview>;
   /** Consulta o CNPJ e cria a empresa com os fatos do registro, tudo de uma vez. */
@@ -308,6 +314,46 @@ export function createCompanyService(deps: {
     };
   }
 
+  async function createWithOrigin(
+    ctx: RequestContext,
+    raw: unknown,
+    origin: 'manual' | 'discovery',
+    isDemo = false,
+  ): Promise<CreateCompanyResult> {
+    const input = parseInput(CompanyInput, raw);
+    const keys = identifiersFor(input, false);
+    const existing = await deps.companies.findByStrongIdentifier(
+      keys
+        .filter((key) => key.strength === 'strong')
+        .map((key) => ({ kind: key.kind, value: key.valueNormalized })),
+    );
+    if (existing) return { status: 'duplicate', company: existing };
+    const company = await deps.companies.create(
+      {
+        id: newId(),
+        displayName: input.displayName,
+        legalName: null,
+        cnpj: input.cnpj,
+        primaryDomain: input.primaryDomain,
+        city: input.city,
+        uf: input.uf,
+        cnaeMain: null,
+        sizeBand: null,
+        origin,
+        lastInvestigatedAt: null,
+        isDemo,
+      },
+      keys,
+      { sources: [], claims: [], evidence: [] },
+      pendingAudit(ctx, {
+        action: 'prospect.company.created',
+        entityType: 'company',
+        diff: { origin },
+      }),
+    );
+    return { status: 'created', company };
+  }
+
   return {
     async list(_ctx, filter = {}) {
       return deps.companies.list(parseInput(CompanyListFilter, filter));
@@ -358,40 +404,9 @@ export function createCompanyService(deps: {
       };
     },
 
-    async create(ctx, raw) {
-      const input = parseInput(CompanyInput, raw);
-      const keys = identifiersFor(input, false);
-      const existing = await deps.companies.findByStrongIdentifier(
-        keys
-          .filter((key) => key.strength === 'strong')
-          .map((key) => ({ kind: key.kind, value: key.valueNormalized })),
-      );
-      if (existing) return { status: 'duplicate', company: existing };
-      const company = await deps.companies.create(
-        {
-          id: newId(),
-          displayName: input.displayName,
-          legalName: null,
-          cnpj: input.cnpj,
-          primaryDomain: input.primaryDomain,
-          city: input.city,
-          uf: input.uf,
-          cnaeMain: null,
-          sizeBand: null,
-          origin: 'manual',
-          lastInvestigatedAt: null,
-          isDemo: false,
-        },
-        keys,
-        { sources: [], claims: [], evidence: [] },
-        pendingAudit(ctx, {
-          action: 'prospect.company.created',
-          entityType: 'company',
-          diff: { origin: 'manual' },
-        }),
-      );
-      return { status: 'created', company };
-    },
+    create: (ctx, raw) => createWithOrigin(ctx, raw, 'manual'),
+    createFromDiscovery: (ctx, raw, options) =>
+      createWithOrigin(ctx, raw, 'discovery', options?.isDemo ?? false),
 
     async lookupCnpj(_ctx, raw) {
       const cnpj = parseInput(Cnpj, raw);

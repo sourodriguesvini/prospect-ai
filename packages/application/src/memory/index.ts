@@ -11,3 +11,4 @@ export {
   type MemoryStrategyRepository,
 } from './strategy-repository';
 export { createMemoryWebResearchUsage } from './web-research-usage';
+export { createMemoryDiscoveryStore } from './discovery';

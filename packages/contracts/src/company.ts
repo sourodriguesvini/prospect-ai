@@ -261,6 +261,14 @@ export const REGISTRY_STATUS_LABELS: Record<RegistryStatus, string> = {
 /** CPF com ou sem pontuação, sem outro dígito colado antes ou depois. */
 export const CPF_IN_TEXT = /(?<!\d)\d{3}\.?\d{3}\.?\d{3}-?\d{2}(?!\d)/;
 const CPF_MESSAGE = 'O registro não pode trazer CPF (LGPD).';
+
+/**
+ * Tira CPF (com ou sem pontuação) de um texto livre, como o nome de MEI que sites de dados de
+ * CNPJ mostram ("MARIA DA SILVA 12345678900"). Minimização (regra 7): o resto do texto fica.
+ */
+export function withoutCpf(value: string): string {
+  return value.replace(new RegExp(CPF_IN_TEXT.source, 'g'), ' ').replace(/\s+/g, ' ').trim();
+}
 function hasNoCpf(value: string): boolean {
   return !CPF_IN_TEXT.test(value);
 }
