@@ -5,6 +5,7 @@ import {
   ApproveMessageInput,
   ChangeStageInput,
   CreateTaskInput,
+  EMPTY_APPROACH_INSIGHTS,
   EditMessageInput,
   LiftSuppressionInput,
   MessageDraftText,
@@ -183,6 +184,8 @@ export interface OpportunityDetail {
   contact: ContactState;
   /** Base de evidência da empresa para gerar abordagem (null se o dossiê não pôde ser lido). */
   basis: ApproachBasisAssessment;
+  /** Diagnóstico de Empresas que a abordagem usa (KI-129); vazio sem investigação concluída. */
+  insights: ApproachInsights;
   readAt: string;
 }
 
@@ -204,6 +207,8 @@ export interface CompanyRelationship {
   open: OpportunitySummary | null;
   closed: OpportunitySummary[];
   activeSuppressions: SuppressionEntry[];
+  /** Diagnóstico de Empresas que "Preparar abordagem" vai usar (KI-129). */
+  insights: ApproachInsights;
 }
 
 export interface ApprovalQueueItem {
@@ -453,7 +458,7 @@ export function createRelationshipService(deps: {
   const clock = deps.clock ?? systemClock;
   const newId = deps.newId ?? (() => crypto.randomUUID());
   const insightsSource: ApproachInsightsSource = deps.insights ?? {
-    forCompany: async () => ({ diagnosis: null, recommendedService: null, qualification: null }),
+    forCompany: async () => EMPTY_APPROACH_INSIGHTS,
   };
   const synthetic = deps.syntheticAi ?? false;
 
@@ -831,7 +836,7 @@ export function createRelationshipService(deps: {
         fieldErrors: { offerId: ['Escolha a oferta desta oportunidade (em Detalhes).'] },
       });
     }
-    const insights = await insightsSource.forCompany(args.dossier.company.id);
+    const insights = await insightsSource.forCompany(ctx, args.dossier.company.id);
     const plans = await repo.listPlans(args.opportunity.id);
     const plan = currentPlan(plans);
     const contact = await contactStateOf(args.opportunity.id);
@@ -999,7 +1004,7 @@ export function createRelationshipService(deps: {
       const [views, activeSuppressions, insights] = await Promise.all([
         buildViews(ctx, opportunity, dossier.company, snapshot),
         repo.activeSuppressions(dossier.company),
-        insightsSource.forCompany(dossier.company.id),
+        insightsSource.forCompany(ctx, dossier.company.id),
       ]);
       const now = clock.now();
       return {
@@ -1021,6 +1026,7 @@ export function createRelationshipService(deps: {
           hasDomain: Boolean(dossier.company.primaryDomain),
           now,
         }),
+        insights,
         readAt: now.toISOString(),
       };
     },
@@ -1028,16 +1034,18 @@ export function createRelationshipService(deps: {
     async forCompany(ctx, companyId) {
       const id = parseInput(Uuid, companyId);
       const dossier = await companies.dossier(ctx, id);
-      const [rows, snapshot, activeSuppressions] = await Promise.all([
+      const [rows, snapshot, activeSuppressions, insights] = await Promise.all([
         repo.listOpportunities({ companyId: id, includeClosed: true }),
         snapshotOf(ctx),
         repo.activeSuppressions(dossier.company),
+        insightsSource.forCompany(ctx, id),
       ]);
       const summaries = rows.map((row) => withOfferName(row, snapshot));
       return {
         open: summaries.find((item) => !item.closedAt) ?? null,
         closed: summaries.filter((item) => item.closedAt),
         activeSuppressions,
+        insights,
       };
     },
 
@@ -1213,7 +1221,7 @@ export function createRelationshipService(deps: {
       const existing = await repo.openOpportunityFor(company.id);
       const [snapshot, insights] = await Promise.all([
         snapshotOf(ctx),
-        insightsSource.forCompany(company.id),
+        insightsSource.forCompany(ctx, company.id),
       ]);
       const activeOffers = snapshot.offers.filter(
         (offer) => offer.status === 'active' && offer.current,

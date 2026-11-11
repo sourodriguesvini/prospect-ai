@@ -31,6 +31,7 @@ import {
   createEvidenceService,
   createJobWorker,
   createRelationshipService,
+  createInvestigationInsightsSource,
   createInvestigationService,
   createStrategyService,
   createSystemService,
@@ -48,6 +49,7 @@ import {
   type AuditService,
   type CnpjLookup,
   type CompanyRepository,
+  type ApproachInsightsSource,
   type CompanyService,
   type CopilotRepository,
   type CopilotService,
@@ -620,6 +622,22 @@ export function getCaptureStore(): ReturnType<typeof createFileCaptureStore> | n
   return settings.capturesDir ? createFileCaptureStore({ dir: settings.capturesDir }) : null;
 }
 
+/**
+ * Diagnóstico de Empresas como insumo da abordagem do Relacionamento (KI-129): a investigação mais
+ * recente com diagnóstico, com os textos dos claims em vigor lidos do ledger.
+ */
+function approachInsights(
+  investigations: InvestigationService,
+  evidence: EvidenceRepository,
+): ApproachInsightsSource {
+  return createInvestigationInsightsSource({
+    investigations,
+    evidence,
+    clock: systemClock,
+    log: (message) => console.warn(`[relacionamento] ${message}`),
+  });
+}
+
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
 function warnIgnoredDatabase(): void {
   const holder = globalThis as { __prospectorMemoryWarned?: boolean };
@@ -646,21 +664,22 @@ export const getServices = cache((): Services => {
       stores.companies,
       companies,
     );
-    const relationshipAiSetup = relationshipAi();
-    const relationship = createRelationshipService({
-      repo: stores.relationship,
-      companies,
-      strategy,
-      ai: relationshipAiSetup.ai,
-      telemetry: stores.copilot,
-      syntheticAi: relationshipAiSetup.synthetic,
-    });
     const investigations = investigationService({
       repo: memoryInvestigations(stores),
       companies: stores.companies,
       strategy: stores.strategy,
       research,
       telemetry: stores.copilot,
+    });
+    const relationshipAiSetup = relationshipAi();
+    const relationship = createRelationshipService({
+      repo: stores.relationship,
+      companies,
+      strategy,
+      ai: relationshipAiSetup.ai,
+      insights: approachInsights(investigations, stores.companies),
+      telemetry: stores.copilot,
+      syntheticAi: relationshipAiSetup.synthetic,
     });
     return {
       storage: 'memory',
@@ -722,21 +741,22 @@ export const getServices = cache((): Services => {
     companyRepo,
     companies,
   );
-  const relationshipAiSetup = relationshipAi();
-  const relationship = createRelationshipService({
-    repo: createSupabaseRelationshipRepository(client),
-    companies,
-    strategy,
-    ai: relationshipAiSetup.ai,
-    telemetry: copilotRepo,
-    syntheticAi: relationshipAiSetup.synthetic,
-  });
   const investigations = investigationService({
     repo: createSupabaseInvestigationRepository(client),
     companies: companyRepo,
     strategy: createSupabaseStrategyRepository(client),
     research,
     telemetry: copilotRepo,
+  });
+  const relationshipAiSetup = relationshipAi();
+  const relationship = createRelationshipService({
+    repo: createSupabaseRelationshipRepository(client),
+    companies,
+    strategy,
+    ai: relationshipAiSetup.ai,
+    insights: approachInsights(investigations, companyRepo),
+    telemetry: copilotRepo,
+    syntheticAi: relationshipAiSetup.synthetic,
   });
   return {
     storage: 'supabase',

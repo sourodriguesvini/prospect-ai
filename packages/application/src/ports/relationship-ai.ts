@@ -10,6 +10,7 @@ import type {
   ReplyAnalysis,
   VoiceGuideContent,
 } from '@prospector/contracts';
+import type { RequestContext } from '../context';
 
 /**
  * IA local do Relacionamento (ADR-0008, ADR-0014). Implementada em packages/agents (gateway único);
@@ -136,9 +137,10 @@ export interface RelationshipAi {
 }
 
 /**
- * Insumos de Empresas para a abordagem (diagnóstico, serviço recomendado, qualificação). A sessão
- * de Empresas implementa; até lá, o adaptador padrão devolve EMPTY_APPROACH_INSIGHTS.
+ * Insumos de Empresas para a abordagem (diagnóstico, serviço recomendado, qualificação), lidos da
+ * investigação mais recente (`createInvestigationInsightsSource`, KI-129). Sem fonte ligada, o
+ * serviço usa EMPTY_APPROACH_INSIGHTS.
  */
 export interface ApproachInsightsSource {
-  forCompany(companyId: string): Promise<ApproachInsights>;
+  forCompany(ctx: RequestContext, companyId: string): Promise<ApproachInsights>;
 }

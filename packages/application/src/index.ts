@@ -19,6 +19,7 @@ export * from './services/copilot-service';
 export * from './services/discovery-engine';
 export * from './services/discovery-service';
 export * from './services/evidence-service';
+export * from './services/approach-insights';
 export * from './services/investigation-service';
 export * from './services/pending-audit';
 export * from './services/relationship-service';

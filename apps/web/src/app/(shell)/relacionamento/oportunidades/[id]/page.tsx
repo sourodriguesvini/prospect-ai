@@ -27,7 +27,12 @@ import {
 } from '@/components/relationship/forms';
 import { MessageThread } from '@/components/relationship/message-thread';
 import { SuppressionLift } from '@/components/relationship/suppression';
-import { ComplianceNotice, OpportunityBadges, ReadAt } from '@/components/relationship/parts';
+import {
+  ComplianceNotice,
+  DiagnosisNote,
+  OpportunityBadges,
+  ReadAt,
+} from '@/components/relationship/parts';
 import { Timeline } from '@/components/relationship/timeline';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import { Loading } from '@/components/strategy/loading';
@@ -36,7 +41,7 @@ import { companyRoutes } from '@/lib/company-routes';
 import { centsToBrl } from '@/lib/form-data';
 import { formatCents, formatDate, formatDateTime } from '@/lib/format';
 import { isoToLocalDate, isoToLocalDateTime, localDateInDays } from '@/lib/relationship-dates';
-import { channelPhrase, NOTICE_TEXT, stageLabel } from '@/lib/relationship-labels';
+import { channelPhrase, NOTICE_TEXT, preparedOfferId, stageLabel } from '@/lib/relationship-labels';
 import { OPPORTUNITY_NOTICES, relationshipRoutes } from '@/lib/relationship-routes';
 import {
   activeOfferOptions,
@@ -170,6 +175,11 @@ function Strategy({
   const { plan, basis, opportunity, company } = detail;
   const open = opportunity.closedAt === null;
   const suppressed = detail.activeSuppressions.length > 0;
+  const offerForApproach = preparedOfferId(
+    offers,
+    opportunity.offerId,
+    detail.insights.recommendedService?.offerId ?? null,
+  );
   if (!plan) {
     return (
       <Section
@@ -177,6 +187,7 @@ function Strategy({
         title="Estratégia"
         description="Ainda não há estratégia de abordagem. A IA local monta uma a partir do dossiê, da oferta e da voz da agência."
       >
+        <DiagnosisNote insights={detail.insights} offers={offers} />
         {basis.basis === 'insufficient' ? (
           <Alert tone="warning" role="note">
             Ainda não há base para abordar esta empresa: o dossiê não tem evidência em vigor nem
@@ -198,7 +209,7 @@ function Strategy({
             <PrepareApproachForm
               action={prepareApproachAction.bind(null, company.id)}
               offers={offers}
-              defaultOfferId={opportunity.offerId}
+              defaultOfferId={offerForApproach}
             />
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -298,7 +309,7 @@ function Strategy({
               <PrepareApproachForm
                 action={prepareApproachAction.bind(null, company.id)}
                 offers={offers}
-                defaultOfferId={opportunity.offerId}
+                defaultOfferId={offerForApproach}
               />
             </Collapsible>
           ) : null}

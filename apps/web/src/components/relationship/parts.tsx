@@ -2,6 +2,7 @@ import type { ComplianceState } from '@prospector/application';
 import {
   ATTENTION_LABELS,
   OPPORTUNITY_PRIORITY_LABELS,
+  type ApproachInsights,
   type AttentionItem,
   type OpportunitySummary,
 } from '@prospector/contracts';
@@ -9,7 +10,7 @@ import { Alert, Badge, DemoBadge, Well } from '@prospector/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { formatCents, formatDate, formatDateTime } from '@/lib/format';
-import { stageLabel } from '@/lib/relationship-labels';
+import { INSIGHT_CONFIDENCE_LABELS, stageLabel } from '@/lib/relationship-labels';
 import { relationshipRoutes } from '@/lib/relationship-routes';
 import { strategyRoutes } from '@/lib/strategy-routes';
 
@@ -128,6 +129,60 @@ export function ComplianceNotice({ compliance }: { compliance: ComplianceState }
         </Link>
       </p>
     </Alert>
+  );
+}
+
+/**
+ * O diagnóstico da investigação de Empresas que "Preparar abordagem" vai usar (KI-129). Sem ele, a
+ * pessoa sabe que a abordagem sai só do dossiê, com base limitada.
+ */
+export function DiagnosisNote({
+  insights,
+  offers,
+}: {
+  insights: ApproachInsights;
+  offers: readonly { value: string; label: string }[];
+}) {
+  const { diagnosis, recommendedService, qualification } = insights;
+  if (!diagnosis) {
+    return (
+      <p className="text-sm text-muted-foreground" data-diagnosis="none">
+        Sem diagnóstico da investigação: a abordagem usa só o dossiê e sai com base limitada.
+        Investigue a empresa antes, se puder.
+      </p>
+    );
+  }
+  const offerName = recommendedService
+    ? (offers.find((offer) => offer.value === recommendedService.offerId)?.label ?? null)
+    : null;
+  return (
+    <Well className="space-y-2 text-sm" data-diagnosis={diagnosis.status}>
+      <p className="font-medium">
+        Diagnóstico da investigação de {formatDate(diagnosis.producedAt)}
+        {diagnosis.status === 'partial' ? ' (com lacunas)' : ''}
+      </p>
+      <p>{diagnosis.summary}</p>
+      <ul className="space-y-0.5 text-muted-foreground">
+        {recommendedService ? (
+          <li>
+            Serviço recomendado: {offerName ?? 'uma oferta que não está ativa na Estratégia'} ·
+            confiança {INSIGHT_CONFIDENCE_LABELS[recommendedService.confidence]}
+          </li>
+        ) : null}
+        {qualification ? (
+          <li>
+            Prioridade {OPPORTUNITY_PRIORITY_LABELS[qualification.priority].toLowerCase()} ·{' '}
+            {qualification.recommendation}
+          </li>
+        ) : null}
+        <li>
+          {diagnosis.findings.length === 1
+            ? '1 achado em vigor'
+            : `${diagnosis.findings.length} achados em vigor`}{' '}
+          vão para a IA; hipóteses entram como pergunta, nunca como afirmação.
+        </li>
+      </ul>
+    </Well>
   );
 }
 

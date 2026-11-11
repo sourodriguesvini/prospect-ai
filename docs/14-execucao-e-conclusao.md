@@ -154,7 +154,7 @@ Feito na worktree `relacionamento-102b59` (branch `claude/relacionamento-102b59`
 | Copiloto | Seis ferramentas só de leitura (agenda, oportunidades, detalhe, pipeline, sugestão de resposta, sugestão de etapa), testadas, atrás do portão `copilotPromptSupportsRelationshipTools` (v4 ou maior). Trecho do v4 em `docs/rascunhos/copilot-tools-v4-relacionamento.md`; o v4 não foi criado (KI-121) |
 | Banco | Migração `20261111170000_relationship.sql` (8 tabelas, 2 views, 5 RPCs), RLS sem políticas, travas de colunas e de status final. Testada em PGlite; **não aplicada** ao `prospector-dev` (KI-120) |
 | Testes | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.177 verdes (contracts 195, domain 297, application 161, agents 173, web 84, db 93, integrations 174); `pnpm test:db` (PGlite) 93 verdes; `pnpm test:e2e` 55 passaram e 3 pulados (banco real e Ollama real), com `E2E_PORT=3220 E2E_MEMORY_PORT=3230`, incluindo os 9 cenários do Relacionamento (A, B e J, C, D, E, F, celular, pedido para parar) |
-| Pendências | KI-120 a KI-129 |
+| Pendências | KI-120 a KI-128 (KI-129, diagnóstico de Empresas na abordagem, resolvido) |
 
 ## M4 — Investigação de empresas e Brand Intelligence (Módulo 02, 2026-11-11)
 

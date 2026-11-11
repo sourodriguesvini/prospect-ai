@@ -76,7 +76,9 @@ Restrições que valem para esta decisão:
    fato no dossiê ou um diagnóstico. A IA (`relationship-approach/v1`) recebe os claims do ledger e
    cita os ids. O serviço descarta o id que não existe no dossiê e o ponto que fica sem nenhuma
    fonte. O plano é marcado `basis: limited` quando falta diagnóstico de marca, e as lacunas
-   aparecem na tela. Nenhuma conclusão sobre a empresa é gravada fora do ledger: o plano guarda as
+   aparecem na tela. O diagnóstico vem da investigação de Empresas (ADR-0015) pela porta
+   `ApproachInsightsSource` (`createInvestigationInsightsSource`, KI-129): só claims em vigor, com o
+   tipo de cada achado no texto, e a oferta recomendada vale quando a pessoa não escolhe outra. Nenhuma conclusão sobre a empresa é gravada fora do ledger: o plano guarda as
    referências.
 10. **Três prompts versionados, todos pelo gateway.** São eles: `relationship-approach/v1`
    (estratégia e primeira mensagem), `relationship-message/v1` (variações e follow-ups) e

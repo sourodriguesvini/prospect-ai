@@ -134,3 +134,24 @@ export const NOTICE_TEXT: Record<OpportunityNotice, string> = {
 export const OPEN_STAGES = OPPORTUNITY_STAGES.filter(
   (stage) => stage !== 'won' && stage !== 'lost',
 );
+
+/** Confiança do serviço recomendado (faixas do diagnóstico de Empresas, KI-129). */
+export const INSIGHT_CONFIDENCE_LABELS: Record<'low' | 'medium' | 'high', string> = {
+  low: 'baixa',
+  medium: 'média',
+  high: 'alta',
+};
+
+/**
+ * Oferta já marcada em "Preparar abordagem": a escolhida antes; senão, a recomendada pelo
+ * diagnóstico, se estiver entre as ativas; senão, nenhuma (o formulário usa a primeira).
+ */
+export function preparedOfferId(
+  offers: readonly Option[],
+  current: string | null,
+  recommended: string | null,
+): string | null {
+  const active = (id: string | null) =>
+    id && offers.some((offer) => offer.value === id) ? id : null;
+  return active(current) ?? active(recommended);
+}

@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { Loading } from '@/components/strategy/loading';
 import { formatDate } from '@/lib/format';
-import { stageLabel } from '@/lib/relationship-labels';
+import { preparedOfferId, stageLabel } from '@/lib/relationship-labels';
 import { relationshipRoutes } from '@/lib/relationship-routes';
 import { activeOfferOptions, loadRelationship } from '@/server/relationship';
 import { openOpportunityAction, prepareApproachAction } from '@/app/(shell)/relacionamento/actions';
 import { OpenOpportunityForm, PrepareApproachForm } from './forms';
-import { OpportunityBadges, OpportunityFacts } from './parts';
+import { DiagnosisNote, OpportunityBadges, OpportunityFacts } from './parts';
 import { SuppressionLift } from './suppression';
 
 /**
@@ -23,9 +23,14 @@ async function Relationship({ companyId, archived }: { companyId: string; archiv
   if (result.kind === 'unavailable') {
     return <p className="text-sm text-muted-foreground">{result.message}</p>;
   }
-  const { open, closed, activeSuppressions } = result.data;
+  const { open, closed, activeSuppressions, insights } = result.data;
   const suppressed = activeSuppressions.length > 0;
   const offers = open || suppressed || archived ? [] : await activeOfferOptions();
+  const recommendedOfferId = preparedOfferId(
+    offers,
+    null,
+    insights.recommendedService?.offerId ?? null,
+  );
   return (
     <div className="space-y-4">
       {suppressed ? (
@@ -67,11 +72,12 @@ async function Relationship({ companyId, archived }: { companyId: string; archiv
         </p>
       ) : suppressed ? null : (
         <div className="space-y-4">
+          <DiagnosisNote insights={insights} offers={offers} />
           {offers.length > 0 ? (
             <PrepareApproachForm
               action={prepareApproachAction.bind(null, companyId)}
               offers={offers}
-              defaultOfferId={null}
+              defaultOfferId={recommendedOfferId}
             />
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -82,7 +88,7 @@ async function Relationship({ companyId, archived }: { companyId: string; archiv
           <OpenOpportunityForm
             action={openOpportunityAction.bind(null, companyId)}
             offers={offers}
-            defaultOfferId={null}
+            defaultOfferId={recommendedOfferId}
           />
         </div>
       )}

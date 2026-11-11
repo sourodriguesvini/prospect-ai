@@ -99,6 +99,8 @@ test('prepara a abordagem no dossiê, com a estratégia apoiada em evidências (
   const panel = page.getByRole('region', { name: 'Relacionamento' });
   await expect(panel.getByRole('button', { name: 'Preparar abordagem' })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Abrir oportunidade sem IA' })).toBeVisible();
+  // Sem investigação concluída, o painel avisa que a abordagem sai com base limitada (KI-129).
+  await expect(panel.locator('[data-diagnosis="none"]')).toContainText('Sem diagnóstico');
   await expectNoA11yViolations(page);
   await panel
     .getByRole('combobox', { name: 'Oferta (obrigatório)' })

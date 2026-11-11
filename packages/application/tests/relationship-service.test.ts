@@ -1,13 +1,20 @@
-import type { CnpjRegistryRecord, ReplyAnalysis } from '@prospector/contracts';
+import {
+  EMPTY_INVESTIGATION_SNAPSHOT,
+  type CnpjRegistryRecord,
+  type Investigation,
+  type ReplyAnalysis,
+} from '@prospector/contracts';
 import { DRAFT_BRANDING_RUBRIC, DRAFT_LIA, DRAFT_SCORING_MODEL } from '@prospector/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   AppError,
   createCompanyService,
   createEvidenceService,
+  createInvestigationInsightsSource,
   createRelationshipService,
   createStrategyService,
   type AiOutcome,
+  type ApproachAiRequest,
   type CompanyService,
   type MessageAiRequest,
   type RelationshipAi,
@@ -82,13 +89,19 @@ function fakeAi() {
   const calls: string[] = [];
   const next: { approach?: AiOutcome; message?: AiOutcome; reply?: AiOutcome } = {};
   /** Pedidos recebidos (o que o serviço mandaria ao modelo). */
-  const requests: { message: MessageAiRequest[]; reply: ReplyAiRequest[] } = {
+  const requests: {
+    approach: ApproachAiRequest[];
+    message: MessageAiRequest[];
+    reply: ReplyAiRequest[];
+  } = {
+    approach: [],
     message: [],
     reply: [],
   };
   const ai: RelationshipAi = {
-    async approach() {
+    async approach(request) {
       calls.push('approach');
+      requests.approach.push(request);
       return (
         next.approach ?? {
           ok: false,
@@ -184,6 +197,8 @@ describe('RelationshipService (ADR-0014)', () => {
   let fake: ReturnType<typeof fakeAi>;
   let service: RelationshipService;
   let companyRepo: ReturnType<typeof createMemoryCompanyRepository>;
+  /** Investigações de Empresas que o adaptador do KI-129 lê (vazio = sem diagnóstico). */
+  let investigations: Investigation[];
 
   const actions = () => audit.entries().map((entry) => entry.action);
 
@@ -208,11 +223,18 @@ describe('RelationshipService (ADR-0014)', () => {
       clock,
     });
     fake = fakeAi();
+    investigations = [];
     service = createRelationshipService({
       repo: createMemoryRelationshipRepository({ audit, companies: companyRepo, clock }),
       companies,
       strategy,
       ai: fake.ai,
+      // O adaptador real do KI-129, sobre o ledger em memória.
+      insights: createInvestigationInsightsSource({
+        investigations: { history: async () => investigations },
+        evidence: companyRepo,
+        clock,
+      }),
       telemetry,
       clock,
     });
@@ -222,6 +244,71 @@ describe('RelationshipService (ADR-0014)', () => {
     now = new Date('2026-11-11T15:00:00Z');
     build();
   });
+
+  /** Investigação SINTÉTICA concluída, com diagnóstico que cita `claimId` e recomenda `offerId`. */
+  function diagnosed(companyId: string, claimId: string, offerId: string, versionId: string) {
+    const investigation: Investigation = {
+      id: '40000000-0000-4000-8000-000000000001',
+      companyId,
+      status: 'succeeded',
+      trigger: 'user',
+      pipelineVersion: 1,
+      steps: [],
+      usage: {
+        searches: 0,
+        searchCredits: 0,
+        pagesRead: 0,
+        captures: 0,
+        captureBytes: 0,
+        modelCalls: 0,
+        modelMs: 0,
+      },
+      models: [{ agent: 'diagnosis', model: 'modelo-falso', promptVersion: 'diagnosis/v1' }],
+      diagnosis: {
+        summaryClaimId: null,
+        factClaimIds: [claimId],
+        inferenceClaimIds: [],
+        hypothesisClaimIds: [],
+        opportunityClaimIds: [],
+        gaps: [],
+        offers: [
+          {
+            offerId,
+            offerVersionId: versionId,
+            offerName: 'Oferta recomendada',
+            scoringModelId: null,
+            icpVersionId: null,
+            fit: { score: 100, checks: [] },
+            opportunity: { score: 80, claimIds: [claimId] },
+            confidence: { score: 80, coveredDimensions: 3 },
+            potential: 70,
+            priority: 80,
+            recommendation: 'pursue',
+            gates: [],
+            readingClaimId: null,
+          },
+        ],
+        recommendedOfferId: offerId,
+        recommendation: 'pursue',
+        nextStep: 'prepare_approach',
+        confidence: 80,
+        verification: { discarded: 0, reasons: [] },
+      },
+      snapshot: EMPTY_INVESTIGATION_SNAPSHOT,
+      changes: [],
+      previousId: null,
+      jobId: null,
+      issue: null,
+      cancelRequestedAt: null,
+      startedAt: '2026-11-11T10:00:00.000Z',
+      finishedAt: '2026-11-11T11:00:00.000Z',
+      isDemo: true,
+      createdAt: '2026-11-11T10:00:00.000Z',
+      updatedAt: '2026-11-11T11:00:00.000Z',
+    };
+    investigations = [investigation];
+    return investigation;
+  }
 
   /** Estratégia completa: oferta ativa, voz, política de contato, case autorizado; LIA opcional. */
   async function readyStrategy(options: { lia?: boolean } = {}) {
@@ -280,6 +367,72 @@ describe('RelationshipService (ADR-0014)', () => {
       throw new Error(`abordagem não criada: ${result.failure.code}`);
     return { ...result, company, offer, claimId, caseId };
   }
+
+  describe('KI-129 — diagnóstico de Empresas na abordagem', () => {
+    it('sem investigação, a abordagem diz que falta o diagnóstico e fica com base limitada', async () => {
+      const { plan, company } = await prepared();
+      expect(plan.basis).toBe('limited');
+      expect(plan.content.gaps).toContain(
+        'Diagnóstico de marca ainda não feito para esta empresa.',
+      );
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.insights.diagnosis).toBeNull();
+    });
+
+    it('com investigação concluída, a abordagem usa o diagnóstico e a oferta recomendada', async () => {
+      const { offer: first, caseId } = await readyStrategy();
+      // Segunda oferta ativa: sem diagnóstico, o serviço pediria para escolher.
+      const second = await strategy.createOffer(ctx, {
+        name: 'Rebranding para serviços',
+        problems: ['Marca genérica'],
+        needSignals: ['Site antigo'],
+        disqualifiers: ['Marca refeita há menos de um ano'],
+        deliverables: ['Nova marca'],
+        priceMinCents: 1_000_000,
+        priceMaxCents: 3_000_000,
+      });
+      await strategy.saveRubric(ctx, second.id, DRAFT_BRANDING_RUBRIC);
+      await strategy.saveScoringModel(ctx, second.id, DRAFT_SCORING_MODEL);
+      await strategy.changeOfferStatus(ctx, second.id, 'active');
+      const { company, claimId } = await companyWithFacts();
+      diagnosed(company.id, claimId, second.id, second.current!.id);
+
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.insights.diagnosis).toMatchObject({
+        status: 'partial',
+        promptId: 'diagnosis/v1',
+      });
+      expect(panel.insights.recommendedService).toMatchObject({
+        offerId: second.id,
+        confidence: 'high',
+      });
+      expect(panel.insights.qualification?.priority).toBe('high');
+
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const result = await service.prepareApproach(ctx, { companyId: company.id });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      // Sem oferta escolhida, vale a recomendada pelo diagnóstico (não a primeira cadastrada).
+      expect(result.opportunity.offerId).toBe(second.id);
+      expect(result.opportunity.offerId).not.toBe(first.id);
+      expect(result.plan.basis).toBe('sufficient');
+      expect(result.plan.content.gaps).not.toContain(
+        'Diagnóstico de marca ainda não feito para esta empresa.',
+      );
+      expect(result.plan.content.gaps).not.toContain(
+        'Serviço recomendado ainda não definido: a oferta é a que você escolher.',
+      );
+      // A IA recebe o diagnóstico com o tipo de cada achado e o claim que o sustenta.
+      const sent = fake.requests.approach.at(-1)!;
+      expect(sent.insights.diagnosis?.findings).toEqual([
+        { statement: expect.stringMatching(/^Fato observado: /), claimIds: [claimId] },
+      ]);
+      expect(sent.insights.recommendedService?.claimIds).toEqual([claimId]);
+
+      const detail = await service.opportunity(ctx, result.opportunity.id);
+      expect(detail.insights.recommendedService?.offerId).toBe(second.id);
+      expect(detail.basis.basis).toBe('sufficient');
+    });
+  });
 
   describe('A — abordagem a partir de empresa investigada', () => {
     it('gera estratégia baseada em evidências e salva a mensagem como rascunho', async () => {
