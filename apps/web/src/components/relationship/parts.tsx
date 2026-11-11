@@ -133,6 +133,17 @@ export function ComplianceNotice({ compliance }: { compliance: ComplianceState }
 }
 
 /**
+ * Quantos achados podem ir para a IA. "Até": com pouco espaço de contexto, o modelo recebe menos
+ * (12, 6 ou 4, conforme o nível).
+ */
+function findingsNote(count: number): string {
+  if (count === 0) return 'Nenhum achado em vigor além do resumo.';
+  if (count === 1)
+    return '1 achado em vigor vai para a IA; se for hipótese, vai marcado como hipótese.';
+  return `Até ${count} achados em vigor vão para a IA; as hipóteses vão marcadas como hipótese.`;
+}
+
+/**
  * O diagnóstico da investigação de Empresas que "Preparar abordagem" vai usar (KI-129). Sem ele, a
  * pessoa sabe que a abordagem sai só do dossiê, com base limitada.
  */
@@ -175,12 +186,7 @@ export function DiagnosisNote({
             {qualification.recommendation}
           </li>
         ) : null}
-        <li>
-          {diagnosis.findings.length === 1
-            ? '1 achado em vigor'
-            : `${diagnosis.findings.length} achados em vigor`}{' '}
-          vão para a IA; hipóteses entram como pergunta, nunca como afirmação.
-        </li>
+        <li>{findingsNote(diagnosis.findings.length)}</li>
       </ul>
     </Well>
   );

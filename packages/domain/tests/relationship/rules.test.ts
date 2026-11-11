@@ -278,21 +278,31 @@ describe('assessApproachBasis', () => {
     confidence: 0.9 as number | null,
     ...overrides,
   });
-  const diagnosis = {
+  /** Diagnóstico SINTÉTICO cujos achados citam `cited` (um achado por claim). */
+  const diagnosisCiting = (
+    cited: ReturnType<typeof claim>[],
+    status: 'complete' | 'partial' = 'complete',
+  ) => ({
     id: ID(800),
-    status: 'complete' as const,
+    status,
     summary: 'Diagnóstico sintético.',
-    findings: [],
+    findings: cited.map((c) => ({ statement: 'Achado sintético.', claimIds: [c.id] })),
     producedAt: '2026-11-01T00:00:00Z',
     promptId: null,
-  };
-  const assess = (claims: ReturnType<typeof claim>[], withDiagnosis = false) =>
+  });
+  const assess = (
+    claims: ReturnType<typeof claim>[],
+    diagnosis: ReturnType<typeof diagnosisCiting> | null = null,
+  ) =>
     assessApproachBasis({
       claims,
-      insights: { ...EMPTY_APPROACH_INSIGHTS, diagnosis: withDiagnosis ? diagnosis : null },
+      insights: { ...EMPTY_APPROACH_INSIGHTS, diagnosis },
       hasDomain: false,
       now: NOW,
     });
+  const PARTIAL_GAP = 'Diagnóstico parcial: a investigação terminou com lacunas.';
+  const UNGROUNDED_GAP =
+    'O diagnóstico não tem fato nem inferência citável em vigor (só hipóteses ou confiança baixa).';
 
   it('sem fato citável e sem diagnóstico: insuficiente', () => {
     expect(assess([claim('firmographic', { validUntil: '2026-01-01T00:00:00Z' })]).basis).toBe(
@@ -307,13 +317,51 @@ describe('assessApproachBasis', () => {
     ).toBe('insufficient');
   });
 
-  it('com fato e sem diagnóstico: limitada, com as lacunas; com diagnóstico: suficiente', () => {
+  it('com fato e sem diagnóstico: limitada, com as lacunas', () => {
     const limited = assess([claim('firmographic')]);
     expect(limited.basis).toBe('limited');
     expect(limited.gaps).toContain('Site da empresa não cadastrado.');
     expect(limited.gaps.some((gap) => gap.startsWith('Só há dados de cadastro'))).toBe(true);
     expect(assess([claim('firmographic'), claim('digital_presence')]).basis).toBe('limited');
-    expect(assess([], true).basis).toBe('sufficient');
+  });
+
+  it('diagnóstico completo com achado citável: suficiente, mesmo sem fato no dossiê', () => {
+    const inference = claim('positioning', { epistemicType: 'inference', confidence: 0.7 });
+    const result = assess([inference], diagnosisCiting([inference]));
+    expect(result.basis).toBe('sufficient');
+    expect(result.gaps).not.toContain(PARTIAL_GAP);
+    expect(result.gaps).not.toContain(UNGROUNDED_GAP);
+  });
+
+  it('diagnóstico parcial: limitada, com lacuna própria, mesmo com achado citável', () => {
+    const fact = claim('digital_presence');
+    const result = assess([fact], diagnosisCiting([fact], 'partial'));
+    expect(result.basis).toBe('limited');
+    expect(result.gaps).toContain(PARTIAL_GAP);
+    expect(result.gaps).not.toContain('Diagnóstico de marca ainda não feito para esta empresa.');
+  });
+
+  it('diagnóstico sem achado citável não destrava a base insuficiente', () => {
+    const hypothesis = claim('visual', { epistemicType: 'hypothesis', confidence: null });
+    const weak = claim('positioning', { epistemicType: 'inference', confidence: 0.3 });
+    const expired = claim('signal', { validUntil: '2026-01-01T00:00:00Z' });
+    // Só hipótese, inferência de confiança baixa, claim vencido ou nenhum achado: segue bloqueado.
+    for (const diagnosis of [
+      diagnosisCiting([hypothesis]),
+      diagnosisCiting([weak]),
+      diagnosisCiting([expired]),
+      diagnosisCiting([]),
+      diagnosisCiting([hypothesis], 'partial'),
+    ]) {
+      const result = assess([hypothesis, weak, expired], diagnosis);
+      expect(result.basis).toBe('insufficient');
+      expect(result.gaps).toContain(UNGROUNDED_GAP);
+    }
+    // Com fato no dossiê, o mesmo diagnóstico só com hipóteses deixa a base limitada, não suficiente.
+    const fact = claim('firmographic');
+    const limited = assess([fact, hypothesis], diagnosisCiting([hypothesis]));
+    expect(limited.basis).toBe('limited');
+    expect(limited.gaps).toContain(UNGROUNDED_GAP);
   });
 
   it('só claims citáveis podem ser citados: hipótese e confiança baixa ficam de fora', () => {

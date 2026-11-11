@@ -75,11 +75,15 @@ Restrições que valem para esta decisão:
 9. **Abordagem baseada em evidências.** `prepareApproach` exige uma oferta ativa e pelo menos um
    fato no dossiê ou um diagnóstico. A IA (`relationship-approach/v1`) recebe os claims do ledger e
    cita os ids. O serviço descarta o id que não existe no dossiê e o ponto que fica sem nenhuma
-   fonte. O plano é marcado `basis: limited` quando falta diagnóstico de marca, e as lacunas
-   aparecem na tela. O diagnóstico vem da investigação de Empresas (ADR-0015) pela porta
-   `ApproachInsightsSource` (`createInvestigationInsightsSource`, KI-129): só claims em vigor, com o
-   tipo de cada achado no texto, e a oferta recomendada vale quando a pessoa não escolhe outra. Nenhuma conclusão sobre a empresa é gravada fora do ledger: o plano guarda as
-   referências.
+   fonte. O plano é `basis: sufficient` só com diagnóstico de marca completo que tenha fato ou
+   inferência citável; sem diagnóstico, com diagnóstico parcial ou só com hipóteses, é
+   `basis: limited`, e as lacunas aparecem na tela. Diagnóstico sem achado citável não substitui o
+   fato que falta: sem os dois, a base é `insufficient` e nada é gerado. O diagnóstico vem da
+   investigação de Empresas (ADR-0015) pela porta `ApproachInsightsSource`
+   (`createInvestigationInsightsSource`, KI-129): só claims em vigor da própria empresa, com o tipo
+   de cada achado no texto. A oferta recomendada vale quando a pessoa não escolhe outra, e só existe
+   quando a investigação recomenda seguir. Nenhuma conclusão sobre a empresa é gravada fora do
+   ledger: o plano guarda as referências.
 10. **Três prompts versionados, todos pelo gateway.** São eles: `relationship-approach/v1`
    (estratégia e primeira mensagem), `relationship-message/v1` (variações e follow-ups) e
    `relationship-reply/v1` (interpretar a resposta e sugerir uma). Rodam na tarefa `copilot`, sem

@@ -2,6 +2,7 @@ import {
   EMPTY_INVESTIGATION_SNAPSHOT,
   type CnpjRegistryRecord,
   type Investigation,
+  type Recommendation,
   type ReplyAnalysis,
 } from '@prospector/contracts';
 import { DRAFT_BRANDING_RUBRIC, DRAFT_LIA, DRAFT_SCORING_MODEL } from '@prospector/domain';
@@ -245,8 +246,18 @@ describe('RelationshipService (ADR-0014)', () => {
     build();
   });
 
-  /** Investigação SINTÉTICA concluída, com diagnóstico que cita `claimId` e recomenda `offerId`. */
-  function diagnosed(companyId: string, claimId: string, offerId: string, versionId: string) {
+  /**
+   * Investigação SINTÉTICA concluída, com diagnóstico que cita `claimId` e avalia `offerId`. Sem
+   * `summaryClaimId`, o diagnóstico fica parcial (sem resumo em vigor).
+   */
+  function diagnosed(
+    companyId: string,
+    claimId: string,
+    offerId: string,
+    versionId: string,
+    options: { summaryClaimId?: string; recommendation?: Recommendation } = {},
+  ) {
+    const recommendation = options.recommendation ?? 'pursue';
     const investigation: Investigation = {
       id: '40000000-0000-4000-8000-000000000001',
       companyId,
@@ -265,7 +276,7 @@ describe('RelationshipService (ADR-0014)', () => {
       },
       models: [{ agent: 'diagnosis', model: 'modelo-falso', promptVersion: 'diagnosis/v1' }],
       diagnosis: {
-        summaryClaimId: null,
+        summaryClaimId: options.summaryClaimId ?? null,
         factClaimIds: [claimId],
         inferenceClaimIds: [],
         hypothesisClaimIds: [],
@@ -283,14 +294,15 @@ describe('RelationshipService (ADR-0014)', () => {
             confidence: { score: 80, coveredDimensions: 3 },
             potential: 70,
             priority: 80,
-            recommendation: 'pursue',
+            recommendation,
             gates: [],
             readingClaimId: null,
           },
         ],
+        // A investigação sempre marca a oferta de maior prioridade, mesmo quando não manda seguir.
         recommendedOfferId: offerId,
-        recommendation: 'pursue',
-        nextStep: 'prepare_approach',
+        recommendation,
+        nextStep: recommendation === 'pursue' ? 'prepare_approach' : 'investigate_more',
         confidence: 80,
         verification: { discarded: 0, reasons: [] },
       },
@@ -355,7 +367,29 @@ describe('RelationshipService (ADR-0014)', () => {
     const result = await companies.importFromCnpj(ctx, { cnpj: RECORD.cnpj });
     if (result.status !== 'created') throw new Error('empresa não criada');
     const dossier = await companies.dossier(ctx, result.company.id);
-    return { company: result.company, claimId: dossier.claims[0]!.claim.id };
+    return {
+      company: result.company,
+      claimId: dossier.claims[0]!.claim.id,
+      // Outro claim do dossiê, usado como resumo do diagnóstico nos testes do KI-129.
+      otherClaimId: dossier.claims[1]!.claim.id,
+    };
+  }
+
+  /** Segunda oferta ativa: com duas, sem diagnóstico, o serviço pede para escolher. */
+  async function secondActiveOffer() {
+    const second = await strategy.createOffer(ctx, {
+      name: 'Rebranding para serviços',
+      problems: ['Marca genérica'],
+      needSignals: ['Site antigo'],
+      disqualifiers: ['Marca refeita há menos de um ano'],
+      deliverables: ['Nova marca'],
+      priceMinCents: 1_000_000,
+      priceMaxCents: 3_000_000,
+    });
+    await strategy.saveRubric(ctx, second.id, DRAFT_BRANDING_RUBRIC);
+    await strategy.saveScoringModel(ctx, second.id, DRAFT_SCORING_MODEL);
+    await strategy.changeOfferStatus(ctx, second.id, 'active');
+    return second;
   }
 
   async function prepared(options: { lia?: boolean; body?: string } = {}) {
@@ -379,27 +413,17 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(panel.insights.diagnosis).toBeNull();
     });
 
-    it('com investigação concluída, a abordagem usa o diagnóstico e a oferta recomendada', async () => {
+    it('com diagnóstico completo, a abordagem usa o diagnóstico e a oferta recomendada', async () => {
       const { offer: first, caseId } = await readyStrategy();
-      // Segunda oferta ativa: sem diagnóstico, o serviço pediria para escolher.
-      const second = await strategy.createOffer(ctx, {
-        name: 'Rebranding para serviços',
-        problems: ['Marca genérica'],
-        needSignals: ['Site antigo'],
-        disqualifiers: ['Marca refeita há menos de um ano'],
-        deliverables: ['Nova marca'],
-        priceMinCents: 1_000_000,
-        priceMaxCents: 3_000_000,
+      const second = await secondActiveOffer();
+      const { company, claimId, otherClaimId } = await companyWithFacts();
+      const investigation = diagnosed(company.id, claimId, second.id, second.current!.id, {
+        summaryClaimId: otherClaimId,
       });
-      await strategy.saveRubric(ctx, second.id, DRAFT_BRANDING_RUBRIC);
-      await strategy.saveScoringModel(ctx, second.id, DRAFT_SCORING_MODEL);
-      await strategy.changeOfferStatus(ctx, second.id, 'active');
-      const { company, claimId } = await companyWithFacts();
-      diagnosed(company.id, claimId, second.id, second.current!.id);
 
       const panel = await service.forCompany(ctx, company.id);
       expect(panel.insights.diagnosis).toMatchObject({
-        status: 'partial',
+        status: 'complete',
         promptId: 'diagnosis/v1',
       });
       expect(panel.insights.recommendedService).toMatchObject({
@@ -414,6 +438,7 @@ describe('RelationshipService (ADR-0014)', () => {
       // Sem oferta escolhida, vale a recomendada pelo diagnóstico (não a primeira cadastrada).
       expect(result.opportunity.offerId).toBe(second.id);
       expect(result.opportunity.offerId).not.toBe(first.id);
+      // Completo e com achado citável: base suficiente.
       expect(result.plan.basis).toBe('sufficient');
       expect(result.plan.content.gaps).not.toContain(
         'Diagnóstico de marca ainda não feito para esta empresa.',
@@ -421,16 +446,71 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(result.plan.content.gaps).not.toContain(
         'Serviço recomendado ainda não definido: a oferta é a que você escolher.',
       );
+      expect(result.plan.content.gaps).not.toContain(
+        'Diagnóstico parcial: a investigação terminou com lacunas.',
+      );
       // A IA recebe o diagnóstico com o tipo de cada achado e o claim que o sustenta.
       const sent = fake.requests.approach.at(-1)!;
       expect(sent.insights.diagnosis?.findings).toEqual([
         { statement: expect.stringMatching(/^Fato observado: /), claimIds: [claimId] },
       ]);
       expect(sent.insights.recommendedService?.claimIds).toEqual([claimId]);
+      // A auditoria registra de qual investigação veio o diagnóstico.
+      const generated = audit
+        .entries()
+        .find((entry) => entry.action === 'relationship.approach.generated');
+      expect(generated?.diff).toMatchObject({ basis: 'sufficient', diagnosisId: investigation.id });
 
       const detail = await service.opportunity(ctx, result.opportunity.id);
       expect(detail.insights.recommendedService?.offerId).toBe(second.id);
       expect(detail.basis.basis).toBe('sufficient');
+    });
+
+    it('com diagnóstico parcial, a base fica limitada, com lacuna própria', async () => {
+      const { caseId } = await readyStrategy();
+      const second = await secondActiveOffer();
+      const { company, claimId } = await companyWithFacts();
+      const investigation = diagnosed(company.id, claimId, second.id, second.current!.id);
+
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.insights.diagnosis?.status).toBe('partial');
+
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const result = await service.prepareApproach(ctx, { companyId: company.id });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      expect(result.opportunity.offerId).toBe(second.id);
+      expect(result.plan.basis).toBe('limited');
+      expect(result.plan.content.gaps).toContain(
+        'Diagnóstico parcial: a investigação terminou com lacunas.',
+      );
+      expect(result.plan.content.gaps).not.toContain(
+        'Diagnóstico de marca ainda não feito para esta empresa.',
+      );
+      const generated = audit
+        .entries()
+        .find((entry) => entry.action === 'relationship.approach.generated');
+      expect(generated?.diff).toMatchObject({ basis: 'limited', diagnosisId: investigation.id });
+      const detail = await service.opportunity(ctx, result.opportunity.id);
+      expect(detail.basis.basis).toBe('limited');
+    });
+
+    it('quando a investigação não manda seguir, não há oferta recomendada: a pessoa escolhe', async () => {
+      await readyStrategy();
+      const second = await secondActiveOffer();
+      const { company, claimId, otherClaimId } = await companyWithFacts();
+      diagnosed(company.id, claimId, second.id, second.current!.id, {
+        summaryClaimId: otherClaimId,
+        recommendation: 'insufficient_evidence',
+      });
+
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.insights.diagnosis?.status).toBe('complete');
+      expect(panel.insights.recommendedService).toBeNull();
+      expect(panel.insights.qualification?.recommendation).toMatch(/^Sem base suficiente/);
+      // Duas ofertas ativas e nenhuma recomendada: o serviço pede a escolha e não chama a IA.
+      const error = await appError(service.prepareApproach(ctx, { companyId: company.id }));
+      expect(error.reason).toBe('invalid_input');
+      expect(fake.calls).not.toContain('approach');
     });
   });
 

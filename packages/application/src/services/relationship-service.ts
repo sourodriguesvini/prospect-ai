@@ -1316,7 +1316,13 @@ export function createRelationshipService(deps: {
         pendingAudit(ctx, {
           action: 'relationship.approach.generated',
           entityType: 'approach_plan',
-          diff: { opportunityId: opportunity.id, basis: basis.basis, promptId: outcome.promptId },
+          diff: {
+            opportunityId: opportunity.id,
+            basis: basis.basis,
+            promptId: outcome.promptId,
+            // Investigação de Empresas cujo diagnóstico entrou na geração (KI-129); null sem ele.
+            diagnosisId: insights.diagnosis?.id ?? null,
+          },
           withVersion: true,
         }),
       );

@@ -9,6 +9,7 @@ import {
   type InvestigationStatus,
   type OfferAssessment,
   type OpportunityPriority,
+  type Recommendation,
   type RecommendedService,
 } from '@prospector/contracts';
 import { effectiveStatus } from '@prospector/domain';
@@ -27,11 +28,23 @@ import type { InvestigationService } from './investigation-service';
 /** Investigações recentes olhadas: uma nova em andamento não esconde o último diagnóstico. */
 const RECENT_INVESTIGATIONS = 5;
 const MAX_FINDINGS = 12;
+/**
+ * Fatos que entram nos achados. O dossiê já leva os fatos da empresa; o que o diagnóstico acrescenta
+ * é oportunidade, inferência e hipótese, que vêm logo depois e preenchem o resto, até 12.
+ */
+const MAX_FACT_FINDINGS = 4;
 const MAX_STATEMENT = 500;
 const MAX_RATIONALE = 800;
 const MAX_RECOMMENDATION = 300;
 
 const DIAGNOSED: ReadonlySet<InvestigationStatus> = new Set(['succeeded', 'partial']);
+
+/**
+ * Recomendações em que a investigação indica seguir com a oferta. Nas demais (investigar mais,
+ * monitorar, descartar, evidência insuficiente) não há serviço recomendado: a oferta é a que a
+ * pessoa escolher, e a lacuna aparece na abordagem.
+ */
+const RECOMMENDS_OFFER: ReadonlySet<Recommendation> = new Set(['pursue', 'prepare_access']);
 
 /** Resumo do sistema quando a investigação não deixou síntese em vigor. */
 export const NO_SUMMARY_NOTICE =
@@ -51,14 +64,15 @@ export function scoreBand(score: number): OpportunityPriority {
 const clip = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 
-/** O tipo fica no texto do achado: hipótese nunca chega à abordagem como afirmação. */
+/** Rótulo do tipo do claim, que vai no texto: hipótese nunca chega à abordagem como afirmação. */
+function epistemicLabel(claim: Claim): string {
+  if (claim.epistemicType === 'fact') return 'Fato observado';
+  if (claim.epistemicType === 'inference') return 'Inferência';
+  return 'Hipótese a confirmar';
+}
+
 function findingStatement(claim: Claim, opportunity: boolean): string {
-  const kind =
-    claim.epistemicType === 'fact'
-      ? 'Fato observado'
-      : claim.epistemicType === 'inference'
-        ? 'Inferência'
-        : 'Hipótese a confirmar';
+  const kind = epistemicLabel(claim);
   const label = opportunity ? `Oportunidade (${kind.toLowerCase()})` : kind;
   return clip(`${label}: ${claim.statement}`, MAX_STATEMENT);
 }
@@ -116,21 +130,24 @@ export function insightsFromInvestigation(
   );
   const assessedAt = investigation.finishedAt ?? investigation.updatedAt;
 
-  // Achados: fato, oportunidade, inferência e hipótese, nessa ordem, sem repetir claim.
+  // Achados: até 4 fatos e, depois, oportunidade, inferência e hipótese, nessa ordem, até 12,
+  // sem repetir claim.
   const seen = new Set<string>();
   const findings: DiagnosisSummary['findings'] = [];
-  const groups: ReadonlyArray<{ ids: readonly string[]; opportunity: boolean }> = [
-    { ids: diagnosis.factClaimIds, opportunity: false },
-    { ids: diagnosis.opportunityClaimIds, opportunity: true },
-    { ids: diagnosis.inferenceClaimIds, opportunity: false },
-    { ids: diagnosis.hypothesisClaimIds, opportunity: false },
+  const groups: ReadonlyArray<{ ids: readonly string[]; opportunity: boolean; max: number }> = [
+    { ids: diagnosis.factClaimIds, opportunity: false, max: MAX_FACT_FINDINGS },
+    { ids: diagnosis.opportunityClaimIds, opportunity: true, max: MAX_FINDINGS },
+    { ids: diagnosis.inferenceClaimIds, opportunity: false, max: MAX_FINDINGS },
+    { ids: diagnosis.hypothesisClaimIds, opportunity: false, max: MAX_FINDINGS },
   ];
   for (const group of groups) {
+    let taken = 0;
     for (const id of group.ids) {
-      if (findings.length >= MAX_FINDINGS) break;
+      if (findings.length >= MAX_FINDINGS || taken >= group.max) break;
       const claim = inForce.get(id);
       if (!claim || seen.has(id) || id === diagnosis.summaryClaimId) continue;
       seen.add(id);
+      taken += 1;
       findings.push({ statement: findingStatement(claim, group.opportunity), claimIds: [id] });
     }
   }
@@ -151,13 +168,19 @@ export function insightsFromInvestigation(
 
   const assessment = recommendedAssessment(investigation);
   let recommendedService: RecommendedService | null = null;
-  if (assessment) {
+  // Serviço recomendado só quando a investigação manda seguir; a oferta de maior prioridade sempre
+  // existe, mas "descartar" ou "evidência insuficiente" não são recomendação de serviço.
+  if (assessment && RECOMMENDS_OFFER.has(diagnosis.recommendation)) {
     const reading = assessment.readingClaimId ? inForce.get(assessment.readingClaimId) : null;
+    // A leitura leva o tipo, como os achados: hipótese não chega à abordagem como inferência.
+    const justification = reading
+      ? `${epistemicLabel(reading)}: ${reading.statement}`
+      : NO_READING_NOTICE;
     recommendedService = {
       offerId: assessment.offerId,
       offerVersionId: assessment.offerVersionId,
       rationale: clip(
-        `Oferta recomendada: ${assessment.offerName}. ${reading ? reading.statement : NO_READING_NOTICE}`,
+        `Oferta recomendada: ${assessment.offerName}. ${justification}`,
         MAX_RATIONALE,
       ),
       claimIds: [
@@ -205,8 +228,13 @@ export function createInvestigationInsightsSource(deps: {
         const history = await deps.investigations.history(ctx, companyId, RECENT_INVESTIGATIONS);
         const investigation = latestDiagnosed(history);
         if (!investigation) return EMPTY_APPROACH_INSIGHTS;
+        if (investigation.companyId !== companyId) return EMPTY_APPROACH_INSIGHTS;
         const ids = claimIdsOf(investigation);
-        const claims = ids.length > 0 ? await deps.evidence.claimsByIds(ids) : [];
+        const read = ids.length > 0 ? await deps.evidence.claimsByIds(ids) : [];
+        // Só claims desta empresa: um id trocado na investigação não traz texto de outra.
+        const claims = read.filter(
+          (claim) => claim.subjectType === 'company' && claim.subjectId === companyId,
+        );
         return insightsFromInvestigation(investigation, claims, clock.now());
       } catch (error) {
         deps.log?.(`diagnóstico não lido para a abordagem: ${String(error)}`);

@@ -30,7 +30,7 @@ const NOW = new Date('2026-11-11T15:00:00Z');
 const COMPANY = '10000000-0000-4000-8000-000000000001';
 const OFFER = '20000000-0000-4000-8000-000000000001';
 const OFFER_VERSION = '20000000-0000-4000-8000-000000000002';
-const OTHER_OFFER = '20000000-0000-4000-8000-000000000003';
+const OTHER_COMPANY = '10000000-0000-4000-8000-000000000002';
 
 const id = (n: number) => `30000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -181,7 +181,8 @@ describe('diagnóstico de Empresas para a abordagem (KI-129)', () => {
     expect(insights.recommendedService).toEqual({
       offerId: OFFER,
       offerVersionId: OFFER_VERSION,
-      rationale: `Oferta recomendada: Identidade visual para indústrias. ${READING.statement}`,
+      // A leitura leva o tipo, como os achados.
+      rationale: `Oferta recomendada: Identidade visual para indústrias. Inferência: ${READING.statement}`,
       // O claim vencido da oportunidade sai.
       claimIds: [OPPORTUNITY.id, READING.id],
       confidence: 'medium',
@@ -198,6 +199,18 @@ describe('diagnóstico de Empresas para a abordagem (KI-129)', () => {
       NOW,
     );
     expect(low.qualification?.priority).toBe('low');
+  });
+
+  it('leitura da IA que é hipótese chega como hipótese, nunca como inferência', () => {
+    const guess = { ...READING, epistemicType: 'hypothesis' as const, confidence: null };
+    const insights = insightsFromInvestigation(
+      investigation(),
+      CLAIMS.map((item) => (item.id === READING.id ? guess : item)),
+      NOW,
+    );
+    expect(insights.recommendedService?.rationale).toBe(
+      `Oferta recomendada: Identidade visual para indústrias. Hipótese a confirmar: ${READING.statement}`,
+    );
   });
 
   it('faixas: abaixo de 50 baixa, de 50 a 74 média, 75 ou mais alta', () => {
@@ -251,22 +264,59 @@ describe('diagnóstico de Empresas para a abordagem (KI-129)', () => {
     expect(insights.diagnosis).toBeNull();
   });
 
-  it('no máximo 12 achados, fatos primeiro', () => {
-    const facts = Array.from({ length: 15 }, (_, index) =>
-      claim(100 + index, 'fact', `Fato sintético número ${index + 1}.`),
-    );
+  it('no máximo 4 fatos; o resto vai para oportunidade, inferência e hipótese, até 12', () => {
+    const many = (start: number, count: number, type: Claim['epistemicType'], label: string) =>
+      Array.from({ length: count }, (_, index) =>
+        claim(start + index, type, `${label} sintético número ${index + 1}.`),
+      );
+    const facts = many(100, 15, 'fact', 'Fato');
+    const opportunities = many(200, 5, 'inference', 'Oportunidade');
+    const inferences = many(300, 5, 'inference', 'Inferência');
+    const hypotheses = many(400, 3, 'hypothesis', 'Hipótese');
+    const ids = (items: Claim[]) => items.map((item) => item.id);
     const insights = insightsFromInvestigation(
-      investigation({ diagnosis: diagnosis({ factClaimIds: facts.map((item) => item.id) }) }),
+      investigation({
+        diagnosis: diagnosis({
+          summaryClaimId: null,
+          factClaimIds: ids(facts),
+          opportunityClaimIds: ids(opportunities),
+          inferenceClaimIds: ids(inferences),
+          hypothesisClaimIds: ids(hypotheses),
+        }),
+      }),
+      [...CLAIMS, ...facts, ...opportunities, ...inferences, ...hypotheses],
+      NOW,
+    );
+    const findings = insights.diagnosis?.findings ?? [];
+    expect(findings).toHaveLength(12);
+    // 4 fatos + 5 oportunidades + 3 inferências; as hipóteses não cabem.
+    expect(findings.map((item) => item.claimIds[0])).toEqual([
+      ...ids(facts).slice(0, 4),
+      ...ids(opportunities),
+      ...ids(inferences).slice(0, 3),
+    ]);
+    expect(findings.some((item) => item.statement.startsWith('Hipótese'))).toBe(false);
+
+    // Só fatos: a cota vale do mesmo jeito (o dossiê já leva os fatos da empresa).
+    const onlyFacts = insightsFromInvestigation(
+      investigation({
+        diagnosis: diagnosis({
+          summaryClaimId: null,
+          factClaimIds: ids(facts),
+          opportunityClaimIds: [],
+          inferenceClaimIds: [],
+          hypothesisClaimIds: [],
+        }),
+      }),
       [...CLAIMS, ...facts],
       NOW,
     );
-    expect(insights.diagnosis?.findings).toHaveLength(12);
-    expect(insights.diagnosis?.findings.every((item) => item.statement.startsWith('Fato'))).toBe(
-      true,
+    expect(onlyFacts.diagnosis?.findings.map((item) => item.claimIds[0])).toEqual(
+      ids(facts).slice(0, 4),
     );
   });
 
-  it('sem leitura da IA para a oferta, a justificativa diz isso; sem recomendação, sem serviço', () => {
+  it('sem leitura da IA para a oferta, a justificativa diz isso', () => {
     const noReading = insightsFromInvestigation(
       investigation({ diagnosis: diagnosis({ offers: [assessment({ readingClaimId: null })] }) }),
       CLAIMS,
@@ -276,23 +326,44 @@ describe('diagnóstico de Empresas para a abordagem (KI-129)', () => {
       `Oferta recomendada: Identidade visual para indústrias. ${NO_READING_NOTICE}`,
     );
     expect(noReading.recommendedService?.claimIds).toEqual([OPPORTUNITY.id]);
-    const noRecommendation = insightsFromInvestigation(
-      investigation({
-        diagnosis: diagnosis({
-          recommendedOfferId: null,
-          recommendation: 'insufficient_evidence',
-          nextStep: 'investigate_more',
-          offers: [assessment({ offerId: OTHER_OFFER, priority: 40 })],
+  });
+
+  it('serviço recomendado só quando a investigação manda seguir com a oferta', () => {
+    // A oferta de maior prioridade sempre vem marcada (`recommendedOfferId`); o que decide é a
+    // recomendação da investigação.
+    const withRecommendation = (
+      recommendation: Diagnosis['recommendation'],
+      nextStep: Diagnosis['nextStep'],
+    ) =>
+      insightsFromInvestigation(
+        investigation({
+          diagnosis: diagnosis({
+            recommendedOfferId: OFFER,
+            recommendation,
+            nextStep,
+            offers: [assessment({ recommendation, priority: 40 })],
+          }),
         }),
-      }),
-      CLAIMS,
-      NOW,
-    );
-    expect(noRecommendation.recommendedService).toBeNull();
-    expect(noRecommendation.qualification).toMatchObject({
+        CLAIMS,
+        NOW,
+      );
+    const insufficient = withRecommendation('insufficient_evidence', 'investigate_more');
+    expect(insufficient.recommendedService).toBeNull();
+    // A qualificação continua: a pessoa vê a prioridade e o motivo.
+    expect(insufficient.qualification).toMatchObject({
       priority: 'low',
       recommendation: 'Sem base suficiente · próximo passo: investigar mais',
     });
+    for (const [recommendation, nextStep] of [
+      ['discard', 'discard_for_now'],
+      ['monitor', 'watch_signal'],
+      ['investigate_more', 'investigate_more'],
+    ] as const) {
+      expect(withRecommendation(recommendation, nextStep).recommendedService).toBeNull();
+    }
+    expect(
+      withRecommendation('prepare_access', 'prepare_approach').recommendedService?.offerId,
+    ).toBe(OFFER);
   });
 
   it('investigação sem diagnóstico (fila, falha, cancelada) não vira insumo', () => {
@@ -338,6 +409,34 @@ describe('diagnóstico de Empresas para a abordagem (KI-129)', () => {
     expect(insights.diagnosis?.status).toBe('complete');
     expect(asked).toHaveLength(1);
     expect(asked[0]).toEqual(expect.arrayContaining([SUMMARY.id, FACT.id, READING.id]));
+
+    // Claim de outra empresa (ou de outro tipo de sujeito) com id citado não entra.
+    const foreign = createInvestigationInsightsSource({
+      investigations: { history: async () => [investigation()] },
+      evidence: {
+        claimsByIds: async (ids) =>
+          CLAIMS.filter((item) => ids.includes(item.id)).map((item) =>
+            item.id === FACT.id
+              ? { ...item, subjectId: OTHER_COMPANY }
+              : item.id === INFERENCE.id
+                ? { ...item, subjectType: 'contact' as const }
+                : item,
+          ),
+      },
+      clock: { now: () => NOW },
+    });
+    const filtered = await foreign.forCompany(ctx, COMPANY);
+    const cited = filtered.diagnosis?.findings.flatMap((item) => item.claimIds) ?? [];
+    expect(cited).not.toContain(FACT.id);
+    expect(cited).not.toContain(INFERENCE.id);
+    expect(cited).toContain(HYPOTHESIS.id);
+    // Investigação de outra empresa não vira diagnóstico desta.
+    const mismatched = createInvestigationInsightsSource({
+      investigations: { history: async () => [investigation({ companyId: OTHER_COMPANY })] },
+      evidence: { claimsByIds: async () => CLAIMS },
+      clock: { now: () => NOW },
+    });
+    expect(await mismatched.forCompany(ctx, COMPANY)).toEqual(EMPTY_APPROACH_INSIGHTS);
 
     const failing = createInvestigationInsightsSource({
       investigations: {

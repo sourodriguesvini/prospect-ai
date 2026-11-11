@@ -440,9 +440,11 @@ export type ApproachBasisAssessment =
   | { basis: 'insufficient'; usableClaimIds: string[]; gaps: string[] };
 
 /**
- * Há base para abordar (ADR-0014, item 8)? Precisa de pelo menos um FATO citável no dossiê ou de
- * um diagnóstico de marca; sem nenhum dos dois, `insufficient` bloqueia a geração. Sem diagnóstico,
- * a base é `limited`: gera com aviso e lista o que investigar. Só claims citáveis entram.
+ * Há base para abordar (ADR-0014, item 9)? Precisa de pelo menos um FATO citável no dossiê ou de
+ * um diagnóstico com achado citável (fato ou inferência em vigor); sem nenhum dos dois,
+ * `insufficient` bloqueia a geração. `sufficient` só com diagnóstico `complete` e citável; sem
+ * diagnóstico, com diagnóstico parcial ou só com hipóteses, a base é `limited`: gera com aviso e
+ * lista o que investigar. Só claims citáveis entram.
  */
 export function assessApproachBasis(input: {
   claims: ReadonlyArray<
@@ -454,10 +456,24 @@ export function assessApproachBasis(input: {
 }): ApproachBasisAssessment {
   const usable = input.claims.filter((claim) => isCitableClaim(claim, input.now));
   const usableClaimIds = usable.map((claim) => claim.id);
+  const usableIds = new Set(usableClaimIds);
   const gaps: string[] = [];
   const diagnosis = input.insights.diagnosis;
   const hasFact = usable.some((claim) => claim.epistemicType === 'fact');
+  // O diagnóstico só sustenta a abordagem com achado citável agora (fato ou inferência em vigor,
+  // com confiança média ou alta); só hipóteses ou confiança baixa não contam (KI-129).
+  const grounded =
+    diagnosis !== null &&
+    diagnosis.findings.some((finding) => finding.claimIds.some((id) => usableIds.has(id)));
   if (!diagnosis) gaps.push('Diagnóstico de marca ainda não feito para esta empresa.');
+  else if (diagnosis.status === 'partial') {
+    gaps.push('Diagnóstico parcial: a investigação terminou com lacunas.');
+  }
+  if (diagnosis && !grounded) {
+    gaps.push(
+      'O diagnóstico não tem fato nem inferência citável em vigor (só hipóteses ou confiança baixa).',
+    );
+  }
   if (!input.hasDomain) gaps.push('Site da empresa não cadastrado.');
   if (!usable.some((claim) => RELEVANT_DOMAINS.has(claim.domain))) {
     gaps.push('Só há dados de cadastro: investigue presença digital, posicionamento ou visual.');
@@ -468,8 +484,10 @@ export function assessApproachBasis(input: {
   if (!input.insights.recommendedService) {
     gaps.push('Serviço recomendado ainda não definido: a oferta é a que você escolher.');
   }
-  if (!hasFact && !diagnosis) return { basis: 'insufficient', usableClaimIds, gaps };
-  return { basis: diagnosis ? 'sufficient' : 'limited', usableClaimIds, gaps };
+  if (!hasFact && !grounded) return { basis: 'insufficient', usableClaimIds, gaps };
+  // Base suficiente só com diagnóstico completo e citável; parcial ou só hipóteses é limitada.
+  const sufficient = grounded && diagnosis.status === 'complete';
+  return { basis: sufficient ? 'sufficient' : 'limited', usableClaimIds, gaps };
 }
 
 /**
