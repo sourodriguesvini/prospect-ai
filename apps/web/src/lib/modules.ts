@@ -40,7 +40,7 @@ export const MODULES: readonly ModuleDef[] = [
   {
     segment: 'copiloto',
     label: 'Copiloto',
-    description: 'Conversa com a IA local deste computador (ferramentas chegam na IA-2).',
+    description: 'Conversa com a IA local deste computador, com consulta aos dados salvos.',
     placement: 'rail',
     icon: Sparkles,
     plannedSlice: null,
@@ -56,10 +56,10 @@ export const MODULES: readonly ModuleDef[] = [
   {
     segment: 'empresas',
     label: 'Empresas',
-    description: 'Dossiês com evidências tipadas.',
+    description: 'Empresas acompanhadas, consulta de CNPJ e dossiês com evidências.',
     placement: 'top',
     icon: Building2,
-    plannedSlice: 'F3',
+    plannedSlice: null,
   },
   {
     segment: 'abordagens',

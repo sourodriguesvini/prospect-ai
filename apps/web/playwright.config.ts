@@ -6,12 +6,20 @@ const MEMORY_PORT = Number(process.env.E2E_MEMORY_PORT ?? 3110);
 const memoryURL = `http://127.0.0.1:${MEMORY_PORT}`;
 const withDatabase = process.env.E2E_SUPABASE === '1';
 const withOllama = process.env.E2E_OLLAMA === '1';
-const STRATEGY_SPEC = /strategy\.spec\.ts$/;
+/** Specs que gravam dados: rodam no servidor em modo memória (sem banco real). */
+const STRATEGY_SPEC = /(strategy|copilot-history|companies)\.spec\.ts$/;
 
 /** Sem E2E_OLLAMA=1, o Copiloto aponta para uma porta sem servidor (estado "Ollama fora do ar"). */
 const ollamaEnv: Record<string, string> = withOllama
   ? {}
   : { OLLAMA_BASE_URL: 'http://127.0.0.1:9' };
+
+/**
+ * Sem internet nos testes: no servidor principal a consulta de CNPJ fica desligada; no de memória,
+ * usa registros sintéticos (src/server/cnpj-fixture.ts), marcados como demonstração.
+ */
+const offlineEnv: Record<string, string> = { PROSPECTOR_CNPJ_LOOKUP: 'off' };
+const fixtureEnv: Record<string, string> = { PROSPECTOR_CNPJ_LOOKUP: 'fixture' };
 
 /**
  * Smoke (sempre): telas, estados sem banco, proteção de host, cabeçalhos e acessibilidade.
@@ -53,6 +61,7 @@ export default defineConfig({
         NEXT_TELEMETRY_DISABLED: '1',
         ...(withDatabase ? {} : { SUPABASE_URL: '', SUPABASE_SECRET_KEY: '' }),
         ...ollamaEnv,
+        ...offlineEnv,
       },
     },
     {
@@ -66,6 +75,7 @@ export default defineConfig({
         SUPABASE_URL: '',
         SUPABASE_SECRET_KEY: '',
         ...ollamaEnv,
+        ...fixtureEnv,
       },
     },
   ],

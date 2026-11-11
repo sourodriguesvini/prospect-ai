@@ -33,3 +33,14 @@ Tabelas de domínio (ex.: `companies`, `visual_audits`, `qualification_assessmen
 
 - Campos JSON livres por domínio: rejeitado (sem verificação, sem consistência).
 - Grafo de conhecimento dedicado (banco de grafos): poder expressivo maior, mas nova infraestrutura; Postgres atende ao volume previsto.
+
+## Emenda — implementação no M2 (2026-11-10)
+
+Implementado com o cadastro de empresas e a consulta de CNPJ ([doc 14](../14-execucao-e-conclusao.md)):
+
+1. Tabelas `sources`, `claims`, `claim_evidence` e `claim_dependencies` na migração `20261110170000_companies_evidence` (aplicada no `prospector-dev`); gravação só pelas RPCs `create_company` e `record_evidence`, com a auditoria na mesma transação ([ADR-0010](0010-auditoria-na-mesma-transacao.md)).
+2. Claims são imutáveis: nova versão é um claim novo com `supersedes_id`, e o antigo passa a `superseded` na mesma transação. A migração `20261110180000_evidence_hardening` leva essa regra ao banco (só `status` e `reviewed_at` mudam; `superseded` e `rejected` são finais; lote conferido nas RPCs) — aplicada no `prospector-dev` em 2026-11-10, com a confirmação do usuário (KI-083).
+3. O `EvidenceService` confere cada trecho no texto guardado da fonte (`quote_verified`), calcula a confiança no servidor pela categoria da fonte (provedores de CNPJ entram como `aggregator`, KI-080) e recusa lote de outra empresa.
+4. Dado pessoal fica fora do ledger: em MEI e empresa individual, o nome da pessoa titular fica só em `companies` (colunas que podem ser alteradas e expurgadas, KI-084); o texto da fonte e os fatos dizem "nome da pessoa titular".
+5. Ausência também é fato: quando um dado some na nova consulta, o fato antigo é substituído por um fato de ausência citando a linha "não informado"; nova consulta com o mesmo conteúdo (mesmo hash) não grava nada.
+6. Em aberto: recálculo e propagação para dependentes (KI-071), o resto das conferências do KI-073 e o expurgo (KI-084).

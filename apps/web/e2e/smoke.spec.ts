@@ -53,10 +53,10 @@ test.describe('telas (sem banco configurado)', () => {
     await page.goto('/');
     await page
       .getByRole('navigation', { name: 'Principal' })
-      .getByRole('link', { name: /Empresas/ })
+      .getByRole('link', { name: /Descoberta/ })
       .click();
-    await expect(page).toHaveURL(/\/empresas$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Empresas' })).toBeVisible();
+    await expect(page).toHaveURL(/\/descoberta$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Descoberta' })).toBeVisible();
     await expect(page.getByText('Em breve.')).toBeVisible();
     await expectNoA11yViolations(page);
   });
@@ -73,6 +73,8 @@ test.describe('telas (sem banco configurado)', () => {
     await expect(
       page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
     ).toBeVisible();
+    // Na navegação pelo cliente, o Next troca o <title> depois do conteúdo: espera antes do axe.
+    await expect(page).toHaveTitle(/Auditoria/);
     await expectNoA11yViolations(page);
   });
 

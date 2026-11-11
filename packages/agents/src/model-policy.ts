@@ -58,7 +58,11 @@ const BASE = {
  * `vision` e `embedding` ainda não têm consumidor (chegam nas fatias IA-4 e IA-5).
  */
 export const DEFAULT_POLICY: ModelPolicy = {
-  copilot: { ...BASE, requires: ['completion'], models: ['qwen3.5:4b'] },
+  // 16 mil tokens no Copiloto (2026-11-10): prompt, fatos e as definições das ferramentas já
+  // ocupam perto de 5,5 mil, e a pesquisa na internet traz trechos e páginas na mesma resposta.
+  // Com 8 mil, duas páginas lidas já não cabiam. No qwen3.5:4b, o dobro de contexto custa
+  // cerca de 1 a 2 GB a mais de VRAM, dentro da folga desta máquina; `AI_NUM_CTX` sobrepõe.
+  copilot: { ...BASE, numCtx: 16_384, requires: ['completion'], models: ['qwen3.5:4b'] },
   reasoning: {
     ...BASE,
     temperature: 0.2,

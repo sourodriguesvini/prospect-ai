@@ -32,8 +32,10 @@ export function createNvidiaSmiProbe(options?: { timeoutMs?: number; cacheMs?: n
 
   function read(): Promise<GpuSnapshot | null> {
     return new Promise((resolve) => {
+      // O executável é do sistema (driver NVIDIA): sem o comentário, o Turbopack rastreia o
+      // projeto inteiro no build autônomo da instalação local.
       execFile(
-        nvidiaSmiPath(),
+        /*turbopackIgnore: true*/ nvidiaSmiPath(),
         ['--query-gpu=name,memory.total,memory.used,memory.free', '--format=csv,noheader,nounits'],
         { timeout: timeoutMs, windowsHide: true },
         (error, stdout) => resolve(error ? null : parseNvidiaSmi(stdout)),

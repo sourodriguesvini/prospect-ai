@@ -17,6 +17,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@prospector/application": "workspace:*",
     "@prospector/config": "workspace:*"
   }
 }

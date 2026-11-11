@@ -96,6 +96,8 @@ Funcionalidades que podem tornar a plataforma **controladora ou cocontroladora**
 | Google (Gmail, Places) / Microsoft (Graph) | Mensagens enviadas pela caixa do usuário | — | EUA | Termos do provedor + cláusulas |
 | Cal.com / Calendly | Dados de quem agenda | — | EUA | A verificar |
 | ScreenshotOne, Firecrawl, Logo.dev, PageSpeed | URLs de empresas (em geral sem dado pessoal) | Não enviar URLs de perfis pessoais | EUA/UE | Baixo risco; confirmar |
+| OpenCNPJ / Minha Receita (consulta de CNPJ, M2) | Só o CNPJ consultado (no MEI, o CNPJ identifica indiretamente a pessoa titular) | Consulta só por pedido do usuário; cache de um dia; nada além do CNPJ sai do app | Brasil [não verificado] | Termos verificados em parte (KI-088); dados abertos da Receita (Decreto 8.777/2016) |
+| Tavily Search API (busca web, M3, D-AI-4) | Termos de busca (nome de empresa, cidade, segmento) | Sem nome de pessoa nem dado de contato nas buscas; plano gratuito com teto de consumo | EUA [não verificado] | Termos, retenção e DPA a verificar antes de usar no app instalado |
 
 A adequação Brasil–UE (anunciada em 2026, fonte secundária) **não cobre os EUA**. Para cada provedor dos EUA: cláusulas-padrão da ANPD no contrato ou aditivo, ou outro mecanismo do art. 33 — decisão D-LGPD-2.
 

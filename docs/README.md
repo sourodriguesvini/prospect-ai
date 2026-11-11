@@ -37,6 +37,7 @@
 | [0008](adr/0008-ia-local-com-ollama.md) | **IA local com Ollama como provedor padrão** (emenda o 0003) | Aceito |
 | [0009](adr/0009-versionamento-imutavel-da-estrategia.md) | Versionamento imutável da estratégia e modo memória | Proposto |
 | [0010](adr/0010-auditoria-na-mesma-transacao.md) | Auditoria na mesma transação da escrita (cabeçalho + trigger) | Aceito |
+| [0012](adr/0012-busca-web-tavily-playwright.md) | Pesquisa na internet: Tavily para busca e Playwright para ler páginas | Aceito |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 
