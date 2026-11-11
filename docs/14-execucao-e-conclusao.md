@@ -18,9 +18,9 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | M0 | Estabilização: git, testes, app instalado, CI | Feito: CI verde no `main` (execução #2, `24a0f87`); a branch `conclusao-produto` ainda não passou pelo CI (bloqueio abaixo) |
 | M1 | Copiloto operacional: histórico persistente, ferramentas de leitura, telemetria (`llm_calls`, `tool_calls`) | Feito e verificado (ressalvas no KI-076) |
 | M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Feito e verificado: commit `bcd5444` enviado ao GitHub (branch `conclusao-produto`) |
-| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, commit `c165448` enviado; o Copiloto pesquisa na internet com o prompt `copilot-tools/v3`, promovido com a aprovação do usuário e instalado em `D:\Prospector`, commit `f57f2e7` enviado; fila durável e Descoberta (Módulo 01) implementadas e testadas na branch `claude/descoberta-m3-a3e577`, sem commit; migração aplicada no `prospector-dev` e primeira pesquisa real feita (parte 3 abaixo) |
-| M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Em andamento: Módulo 02 implementado e testado na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md)); validado com duas empresas reais no modo memória; migração, pasta das capturas, prompts e commit esperam o usuário |
-| M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Em andamento: módulo Relacionamento pronto e testado na branch `claude/relacionamento-102b59`, sem commit; migração não aplicada (KI-120); prompts sem conjunto de avaliação (KI-124); ferramentas do Copiloto esperando o `copilot-tools/v4` (KI-121) |
+| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Feito com ressalvas: pesquisa na internet (D-AI-4) e Copiloto com `copilot-tools/v3` enviados; fila durável e Descoberta (Módulo 01) integradas em `conclusao-produto` (2026-11-11, sem push); migração aplicada; correções do KI-117 sem nova pesquisa real; prompts sem promoção formal (KI-115) |
+| M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Feito com ressalvas: Módulo 02 ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md)) integrado em `conclusao-produto` (2026-11-11, sem push); migração aplicada; falta validação real com o banco (KI-135) e a pasta das capturas (KI-136); prompts sem avaliação (KI-131) |
+| M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Feito com ressalvas: Relacionamento integrado em `conclusao-produto` (2026-11-11, sem push); migração aplicada (KI-120 resolvido); prompts sem conjunto de avaliação (KI-124); ferramentas do Copiloto esperando o `copilot-tools/v4` (KI-121) |
 | M6 | Métricas reais, aprendizado, memória semântica | Pendente |
 | M7 | Testes completos, revisão de segurança, app instalado, relatório de aceite | Pendente |
 
@@ -152,7 +152,7 @@ Feito na worktree `relacionamento-102b59` (branch `claude/relacionamento-102b59`
 | Regras | Estado do contato pelo que foi registrado; primeiro contato só por e-mail ou LinkedIn manual, com a agência identificada e o canal do titular; opt-out até a primeira resposta; WhatsApp só depois que a empresa escreveu por lá; rodapé garantido pelo sistema; pedido para parar honrado na hora (regra e IA), com follow-ups cancelados; etapas só mudam por decisão da pessoa |
 | IA | Três prompts v1 (`relationship-approach`, `relationship-message`, `relationship-reply`), tarefa `copilot` sem raciocínio, JSON Schema com refs curtas, orçamento de contexto em níveis (`context_too_large` quando nada cabe), pedido de quem dirige a agência fora dos DADOS, resposta da empresa sem o texto citado. `pnpm ai:live` 3 de 3 antes da última revisão; o `avaliador-ia` deu "promover com ressalvas" na segunda revisão, com os ajustes pedidos feitos, e pediu conjunto de avaliação antes do uso real (KI-124) |
 | Copiloto | Seis ferramentas só de leitura (agenda, oportunidades, detalhe, pipeline, sugestão de resposta, sugestão de etapa), testadas, atrás do portão `copilotPromptSupportsRelationshipTools` (v4 ou maior). Trecho do v4 em `docs/rascunhos/copilot-tools-v4-relacionamento.md`; o v4 não foi criado (KI-121) |
-| Banco | Migração `20261111170000_relationship.sql` (8 tabelas, 2 views, 5 RPCs), RLS sem políticas, travas de colunas e de status final. Testada em PGlite; **não aplicada** ao `prospector-dev` (KI-120) |
+| Banco | Migração `20261111170000_relationship.sql` (8 tabelas, 2 views, 5 RPCs), RLS sem políticas, travas de colunas e de status final. Testada em PGlite; aplicada ao `prospector-dev` depois da integração (seção abaixo) |
 | Testes | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.177 verdes (contracts 195, domain 297, application 161, agents 173, web 84, db 93, integrations 174); `pnpm test:db` (PGlite) 93 verdes; `pnpm test:e2e` 55 passaram e 3 pulados (banco real e Ollama real), com `E2E_PORT=3220 E2E_MEMORY_PORT=3230`, incluindo os 9 cenários do Relacionamento (A, B e J, C, D, E, F, celular, pedido para parar) |
 | Pendências | KI-120 a KI-128 (KI-129, diagnóstico de Empresas na abordagem, resolvido) |
 
@@ -162,7 +162,7 @@ Feito na worktree `relacionamento-102b59` (branch `claude/relacionamento-102b59`
 |---|---|
 | Onde foi feito | Sessão "Empresas e Brand Intelligence", worktree `claude/empresas-brand-714583`. A Descoberta (fila `ai_jobs`, ADR-0011 e ADR-0013) é de outra sessão: aqui não há segunda fila nem segunda tabela de empresas |
 | Decisão | [ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), Proposto |
-| Migração `20261111150000_company_investigations` | Escrita e testada em PGlite; **não aplicada** no `prospector-dev` (precisa de confirmação). `company_investigations` (etapas, consumo, retrato da coleta, mudanças, composição do diagnóstico; uma ativa por empresa; dono e batimento), view `company_investigation_summaries`, `confirm_company_site`; auditoria na mesma transação; RLS sem acesso para `anon` e `authenticated` |
+| Migração `20261111150000_company_investigations` | Escrita e testada em PGlite; aplicada no `prospector-dev` depois da integração (seção abaixo). `company_investigations` (etapas, consumo, retrato da coleta, mudanças, composição do diagnóstico; uma ativa por empresa; dono e batimento), view `company_investigation_summaries`, `confirm_company_site`; auditoria na mesma transação; RLS sem acesso para `anon` e `authenticated` |
 | Investigação | 11 etapas idempotentes (contexto, site, páginas, captura, negócio, marca, sinais, concorrentes, comparação, diagnóstico, qualificação), cada uma `done`, `reused`, `skipped` ou `failed` com o motivo em pt-BR; fila em processo com cancelamento e retomada (`interrupted` na subida); conclusões só no ledger (fato, inferência, hipótese) |
 | Auditoria visual | Captura real com Playwright (computador 1280 px e celular 390 px, JPEG com altura limitada), medições no DOM e análise com visão pelo gateway (`qwen3.5:4b`, `num_ctx` 12.288, `keep_alive` 2 min) contra a rubrica da oferta. Imagens guardadas só com `PROSPECTOR_CAPTURES_DIR` (pasta local fora do C:, sem rede nem nuvem), uma por janela e por empresa; site que pede para não guardar cópia (`noarchive`) não tem imagem guardada |
 | Qualificação | Domínio puro: Fit, Oportunidade e Confiança separados, gates, potencial, prioridade e recomendação por oferta ativa (doc 08 §3) |
@@ -213,6 +213,18 @@ O que continua (sem correção nesta entrega): o modelo de 4B exagera nas infer�
 | Pendências | KI-130 a KI-146 |
 |---|---|
 
+## Integração dos módulos em `conclusao-produto` (2026-11-11)
+
+Pedido do usuário: "depois que todas essas tarefas que estão em execução terminarem […] você já implementa tudo, deixa tudo pronto […] para mim já testar aqui na minha máquina". Mesclagens e commits locais em `conclusao-produto` (sem push); migrações com a confirmação dele ("Sim, pode aplicar").
+
+| Item | Resultado |
+|---|---|
+| Mesclagens | Interface (PR #2, `d2a985c`), Descoberta (Módulo 01, `85b3646`), Relacionamento (Módulo 03, `d60d08c`), registro do KI-129 (`e6e18f0`), Empresas (Módulo 02, `c6f4647`) e o diagnóstico de Empresas na abordagem do Relacionamento (KI-129, `82ad929`, feito pela sessão do Relacionamento depois da mesclagem) |
+| Correções da integração | Links internos só com uma barra (`InternalHref`: `//site` e `/\site` não passam na busca da paleta nem no estado do sistema); erro inesperado do `/api/estado` não fica guardado no cache; tipo de referência novo `discovery_prospect` (a Descoberta reusava `opportunity`, que agora é do Relacionamento); portões das ferramentas do Copiloto por capacidade declarada (`TOOLS_PROMPT_CAPABILITIES`), com Descoberta, Relacionamento e investigação desligadas até um `copilot-tools/v4` avaliado; ferramentas `draft` e `queue` descritas nos fatos do sistema; nomes repetidos entre módulos renomeados (`parseDiscoveryModelJson`, `siteRegistrableDomain`); cartões da página inicial lidos do Relacionamento ("Aprovações pendentes", "Oportunidades abertas"); atalho `g r` (Relacionamento) no lugar do `g p`; menu, paleta e e2e com Descoberta e Relacionamento prontos e Inteligência e Monitoramento "em breve" |
+| Migrações | `20261111150000_company_investigations` e `20261111170000_relationship` **aplicadas no `prospector-dev` em 2026-11-11** (MCP do Supabase; versões alinhadas aos nomes dos arquivos). Antes, conferido que as duas só criam objetos novos e que as tabelas novas não existiam. Depois: RLS nas 9 tabelas novas, nenhuma política, nenhum privilégio para `anon`/`authenticated`; alertas de segurança do Supabase só com o aviso informativo de RLS sem política, que é o desenho (regra 3) |
+| Testes (em `82ad929`) | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.483 verdes (contracts 195, domain 398, agents 201, application 230, web 155, db 115, integrations 189); `pnpm test:db` (PGlite) 112 verdes; `pnpm test:e2e` (`E2E_PORT=3120 E2E_MEMORY_PORT=3130`) 90 passaram e 3 pulados (banco real e Ollama real), nos projetos `estrategia-memoria`, `descoberta-memoria` e `relacionamento-memoria` |
+| Prompts | Nenhum promovido na integração. Padrão do Copiloto continua `copilot-tools/v3`. Descoberta (`discovery-interpreter/v1`, `discovery-extractor/v2`), Relacionamento (três v1) e análises de Empresas (v1) rodam como padrão dos módulos, sem promoção formal do usuário (KI-115, KI-124, KI-131) |
+
 ## Decisões desta execução
 
 | Decisão | Registro |
@@ -239,4 +251,7 @@ O que continua (sem correção nesta entrega): o modelo de 4B exagera nas infer�
 
 ## Próxima atividade exata
 
-1. M3 (Descoberta, parte 3): commit da branch `claude/descoberta-m3-a3e577` (com autorização) e mesclagem com as branches da interface, de Empresas e do Relacionamento; depois, conferir numa pesquisa real as correções do KI-117 (plano com variações e nome com cidade, já no código) e o KI-116 (`llm_calls` da Descoberta), a decisão dos prompts (extrator v2 com ressalvas; intérprete v2 antes do v1, KI-115) e o KI-118.
+1. Teste do usuário no app instalado (`D:\Prospector`), com o banco real: uma pesquisa da Descoberta (confere o KI-117), uma investigação de empresa (KI-135) e uma abordagem até a aprovação, sem envio.
+2. Push de `conclusao-produto` e PR, com autorização do usuário.
+3. `copilot-tools/v4` unificado (Descoberta, Empresas e Relacionamento; KI-110, KI-121, KI-130), com `pnpm evals` e aprovação do usuário.
+4. Decisões dos prompts dos módulos (KI-115, KI-124, KI-131) e o KI-118.
