@@ -18,7 +18,7 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | M0 | Estabilização: git, testes, app instalado, CI | Feito, exceto o CI (bloqueio abaixo) |
 | M1 | Copiloto operacional: histórico persistente, ferramentas de leitura, telemetria (`llm_calls`, `tool_calls`) | Feito e verificado (ressalvas no KI-076) |
 | M2 | Empresas, consulta de CNPJ, evidências persistentes (ledger), dossiê | Feito e verificado: commit `bcd5444` enviado ao GitHub (branch `conclusao-produto`) |
-| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, commit `c165448` enviado; o Copiloto pesquisa na internet com o prompt `copilot-tools/v3`, promovido com a aprovação do usuário e instalado em `D:\Prospector` (sem commit, aguarda autorização); fila, descoberta e deduplicação pendentes |
+| M3 | Fila persistente (`ai_jobs`) com worker, descoberta real, deduplicação, histórico de pesquisas; busca web Tavily (D-AI-4) | Em andamento: pesquisa na internet (D-AI-4) implementada e ligada no app, commit `c165448` enviado; o Copiloto pesquisa na internet com o prompt `copilot-tools/v3`, promovido com a aprovação do usuário e instalado em `D:\Prospector`, commit `f57f2e7` enviado; fila, descoberta e deduplicação pendentes |
 | M4 | Investigação, auditoria visual, diagnóstico, concorrentes, qualificação | Pendente |
 | M5 | Estratégia de abordagem, rascunhos, aprovações, conversas, pipeline | Pendente |
 | M6 | Métricas reais, aprendizado, memória semântica | Pendente |
@@ -97,7 +97,8 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Testes | `pnpm typecheck`, `pnpm lint` e `pnpm format:check` verdes; `pnpm test` 1.024 verdes (contracts 195, domain 237, application 123, integrations 174, agents 146, web 80, db 69); `pnpm test:e2e` 45 passaram, 3 pulados (banco real e Ollama real), com `E2E_PORT=3120 E2E_MEMORY_PORT=3130` porque a porta 3100 está ocupada por outro programa do usuário |
 | Verificação no app | No app de desenvolvimento, com o banco real e a chave: "Pesquisa na internet a Chilli Beans: quem fundou, o site oficial e uma notícia recente." chamou `search_web` (1 crédito da Tavily) e respondeu com o fundador, o site e a URL de uma notícia; sem erro no console. Uma conversa de teste ficou no banco do usuário |
 | Instalação | `pnpm app:install` concluído: `D:\Prospector` usa `copilot-tools/v3`. A primeira instalação mostrou que o leitor de páginas do app instalado não achava o Chromium (faltava o `browsers.json` do Playwright no build); corrigido em `next.config.ts` e reinstalado: a cópia instalada abriu o Chromium com sandbox e executou JavaScript (KI-091 resolvido). O app instalado não foi aberto depois da instalação (abre pelo atalho "Prospector") |
-| Pendências | Commit e push (aguardam autorização); KI-096 (fraquezas acima); KI-093 (nome da pessoa titular de MEI no cadastro por CNPJ: decisão do usuário) |
+| Commit | `f57f2e7`, enviado ao GitHub em 2026-11-10 com a autorização do usuário (branch `conclusao-produto`) |
+| Pendências | KI-096 (fraquezas acima); KI-093 (nome da pessoa titular de MEI no cadastro por CNPJ: decisão do usuário) |
 
 ## Decisões desta execução
 
@@ -117,11 +118,8 @@ O usuário saiu e autorizou o agente a seguir sem pedir aprovação a cada passo
 | Bloqueio | Quem resolve | Impacto |
 |---|---|---|
 | LIA v2 em rascunho | Usuário (Configurações > Conformidade) | Abordagens ficam bloqueadas (correto) |
-| CI não conferido | Usuário (login no GitHub) | Nenhum no app |
-| Commit e push do Copiloto com internet (`copilot-tools/v3`) | Usuário (autorização explícita) | Trabalho só na cópia local e no app instalado |
-| D-EVID-2 (provedores de CNPJ como oficiais?) e parecer de LGPD (D-LGPD-1) | Usuário | Confiança dos fatos do registro fica em média; nenhum contato real |
+| CI não conferido | Usuário (login no GitHub) | Nenhum no app || D-EVID-2 (provedores de CNPJ como oficiais?) e parecer de LGPD (D-LGPD-1) | Usuário | Confiança dos fatos do registro fica em média; nenhum contato real |
 
 ## Próxima atividade exata
 
-1. Com a autorização do usuário: commit do Copiloto com internet (`copilot-tools/v3`, avaliação e documentos) e push.
-2. M3: ADR-0011 (fila persistente no Postgres com worker local, D-AI-5), migração `ai_jobs` (só com confirmação), descoberta F4 por CNAE e município com deduplicação pela raiz do CNPJ (KI-086), histórico de pesquisas; validação com uma pesquisa limitada de empresas reais no interior de São Paulo.
+1. M3: ADR-0011 (fila persistente no Postgres com worker local, D-AI-5), migração `ai_jobs` (só com confirmação), descoberta F4 por CNAE e município com deduplicação pela raiz do CNPJ (KI-086), histórico de pesquisas; validação com uma pesquisa limitada de empresas reais no interior de São Paulo.
