@@ -25,10 +25,10 @@ test.describe('menu lateral no desktop', () => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await page.goto('/configuracoes/auditoria');
     const nav = mainNav(page);
-    for (const name of ['Início', 'Empresas', 'Copiloto', 'Configuração']) {
+    for (const name of ['Início', 'Descoberta', 'Empresas', 'Copiloto', 'Configuração']) {
       await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
     }
-    for (const name of ['Descoberta', 'Abordagens', 'Aprovações', 'Inteligência']) {
+    for (const name of ['Abordagens', 'Aprovações', 'Inteligência']) {
       await expect(nav.getByRole('link', { name: `${name} (em breve)` })).toBeVisible();
     }
     // Submenu da Configuração, com o item da tela atual destacado (um só).
@@ -106,11 +106,13 @@ test.describe('menu lateral no desktop', () => {
     await page.goto('/');
     await mainNav(page).getByRole('link', { name: 'Início' }).focus();
     await page.keyboard.press('Tab');
-    await expect(mainNav(page).getByRole('link', { name: 'Descoberta (em breve)' })).toBeFocused();
-    await expect(page.getByText('Descoberta (em breve) · G D')).toBeVisible();
+    await expect(
+      mainNav(page).getByRole('link', { name: 'Descoberta', exact: true }),
+    ).toBeFocused();
+    await expect(page.getByText('Descoberta · G D')).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(page.getByText('Empresas · G E')).toBeVisible();
-    await expect(page.getByText('Descoberta (em breve) · G D')).toHaveCount(0);
+    await expect(page.getByText('Descoberta · G D')).toHaveCount(0);
   });
 
   test('Ctrl+B recolhe e expande', async ({ page }) => {
