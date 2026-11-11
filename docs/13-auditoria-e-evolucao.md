@@ -74,6 +74,8 @@ flowchart LR
 |---|---|---|---|
 | `src/proxy.ts` | Recusa `Host` fora de localhost (403) e define cabeçalhos | — | ADR-0007 |
 | `POST /api/copiloto` | Conversa em streaming com o modelo local | Mesma origem (403), JSON (415), até 256 KB (413), contrato Zod `CopilotRequest` (400); erros do provedor viram eventos `error` com código | Só a própria página usa; o modelo não recebe ferramentas |
+| `GET /api/estado` (2026-11-11) | Indicadores do rodapé do menu lateral (IA local, pesquisa na internet, banco) | Contrato Zod `SystemStatusView` nos dois lados; cada leitura que falha vira "Não conferido" sem derrubar as outras; resposta reaproveitada por 15 s entre abas | `Sec-Fetch-Site` de outro site recusado (403); só enums, versão do Ollama e nomes de modelos, nunca valores de variáveis |
+| `GET /api/busca?q=` (2026-11-11) | Busca de empresas da paleta Ctrl+K pelo `CompanyService.list` | Termo pelo contrato `CompanyListFilter.search` (até 120, 400); sem banco, lista vazia com aviso; falha vira 503 em pt-BR; contrato Zod `CompanySearchReply` | `Sec-Fetch-Site` de outro site recusado (403); devolve id, nome, cidade/UF, selo DEMO e link interno |
 | Server Action `unloadModel` | Descarrega um modelo carregado | Nome validado e conferido contra os modelos carregados | Checagem de origem nativa das Server Actions |
 | `AuditService`, `SystemService` | Auditoria e estado do banco | Zod nas linhas lidas | Secret key só em `server/env.ts` |
 

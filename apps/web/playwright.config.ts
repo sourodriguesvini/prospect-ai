@@ -41,7 +41,9 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
-  use: { baseURL, trace: 'retain-on-failure', locale: 'pt-BR' },
+  // Sem animação (o app respeita "reduzir movimento"): o axe e os cliques não pegam um painel no
+  // meio da entrada. O movimento em si é conferido em e2e/shell.spec.ts.
+  use: { baseURL, trace: 'retain-on-failure', locale: 'pt-BR', reducedMotion: 'reduce' },
   projects: [
     { name: 'chromium', testIgnore: STRATEGY_SPEC, use: { ...devices['Desktop Chrome'] } },
     {

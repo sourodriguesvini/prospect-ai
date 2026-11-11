@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hostnameOf, isLocalRequest, isSameOriginRequest } from './host';
+import { hostnameOf, isAppRead, isLocalRequest, isSameOriginRequest } from './host';
 
 describe('hostnameOf', () => {
   it.each([
@@ -64,5 +64,18 @@ describe('isSameOriginRequest', () => {
       isSameOriginRequest({ ...local, origin: 'http://127.0.0.1:4000', secFetchSite: null }),
     ).toBe(false);
     expect(isSameOriginRequest({ ...local, origin: 'null', secFetchSite: null })).toBe(false);
+  });
+});
+
+describe('isAppRead', () => {
+  it('aceita leitura do próprio app, da barra de endereço ou sem o cabeçalho', () => {
+    expect(isAppRead('same-origin')).toBe(true);
+    expect(isAppRead('none')).toBe(true);
+    expect(isAppRead(null)).toBe(true);
+  });
+
+  it('recusa leitura disparada por outro site', () => {
+    expect(isAppRead('cross-site')).toBe(false);
+    expect(isAppRead('same-site')).toBe(false);
   });
 });

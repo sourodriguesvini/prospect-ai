@@ -26,6 +26,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // O canto inferior esquerdo é do menu lateral (botão de recolher); o indicador do `next dev` vai
+  // para a direita.
+  devIndicators: { position: 'bottom-right' },
   ...(standalone
     ? {
         output: 'standalone' as const,

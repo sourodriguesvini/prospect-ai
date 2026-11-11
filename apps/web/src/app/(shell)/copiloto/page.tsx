@@ -112,7 +112,8 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
           webSearch={ok?.webSearch ?? false}
         />
       </Panel>
-      <div className="flex min-w-0 flex-col gap-4 lg:col-span-4">
+      {/* Conversas salvas à esquerda da conversa (menus à esquerda); no celular, abaixo dela. */}
+      <div className="flex min-w-0 flex-col gap-4 lg:order-first lg:col-span-4">
         {ok ? (
           <Panel aria-labelledby="conversas">
             <PanelHeader titleId="conversas" title="Conversas" />
@@ -150,7 +151,7 @@ export default function CopilotPage({ searchParams }: { searchParams: SearchPara
                 Verificando a IA local…
               </Well>
             </Panel>
-            <Panel aria-label="IA local" className="min-w-0 lg:col-span-4">
+            <Panel aria-label="IA local" className="min-w-0 lg:order-first lg:col-span-4">
               <Well className="py-16 text-center text-sm text-muted-foreground">
                 Lendo Ollama e GPU…
               </Well>
