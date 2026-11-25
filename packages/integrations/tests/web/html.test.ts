@@ -87,10 +87,12 @@ describe('HTML hostil (tempo linear)', () => {
     ['metas sem ">"', '<meta '.repeat(MIB3 / 6)],
     ['entidades sem ";"', `&${'a'.repeat(MIB3)}`],
   ];
-  it.each(inputs)('%s: termina em menos de 1 s', (_name, input) => {
+  // Aqui cada caso leva menos de 0,1 s; no runner do CI, dividido com os outros testes, já
+  // passou de 1 s. Um algoritmo quadrático em 3 MiB levaria minutos, então 5 s ainda o pega.
+  it.each(inputs)('%s: termina em menos de 5 s', (_name, input) => {
     const started = performance.now();
     extractFromHtml(input);
-    expect(performance.now() - started).toBeLessThan(1000);
+    expect(performance.now() - started).toBeLessThan(5000);
   });
 
   it('continua tirando comentários, scripts e o <head>', () => {
