@@ -1,0 +1,2596 @@
+{
+  "synthetic": true,
+  "repeat": 1,
+  "versions": [1, 3],
+  "cases": [
+    {
+      "id": "negocio-rede-pet",
+      "inSample": true
+    },
+    {
+      "id": "visual-campanha",
+      "inSample": true
+    },
+    {
+      "id": "triagem-rede-pet",
+      "inSample": true
+    },
+    {
+      "id": "diagnostico-franquia",
+      "inSample": true
+    }
+  ],
+  "environment": {
+    "ollamaVersion": "0.40.18",
+    "models": [
+      {
+        "name": "qwen3.5:4b",
+        "digest": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04",
+        "quantization": "Q4_K_M"
+      }
+    ],
+    "options": {
+      "reasoning": {
+        "numCtx": 8192,
+        "temperature": 0.2
+      },
+      "vision": {
+        "numCtx": 12288,
+        "temperature": 0.2
+      }
+    },
+    "order": "por agente; versões em ordem crescente (v1 primeiro); uma chamada de aquecimento não contada por agente"
+  },
+  "prompts": {
+    "1": {
+      "company-business": {
+        "id": "company-business/v1",
+        "sha256": "f3cc6cbededd3e63c9c2353f0076b163c83b609ad2fa21032792118a100ceb76"
+      },
+      "brand-visual": {
+        "id": "brand-visual/v1",
+        "sha256": "ecd037c12a941634100464d9fab61892242db183a76f0c44e80f14c7bfa0fe4f"
+      },
+      "competitor-triage": {
+        "id": "competitor-triage/v1",
+        "sha256": "7a01a6df1e3f0d8c88eae362ab3eb5a15bc785ad78ff4e690053b2127ca8af24"
+      },
+      "diagnosis": {
+        "id": "diagnosis/v1",
+        "sha256": "77815d08db3b2993fb4772c460605ed305fe51fb0e92aea5a092cc188c83230c"
+      }
+    },
+    "3": {
+      "company-business": {
+        "id": "company-business/v3",
+        "sha256": "05a018b1bdf52b352e41e2da6ea31a6246660a95bcbd5b93f8f7577470b1c4a0"
+      },
+      "brand-visual": {
+        "id": "brand-visual/v3",
+        "sha256": "a79b23e90c4dda42dbd9a4e555297ad361761423563ad5d7fb9c714e6c6ea4b5"
+      },
+      "competitor-triage": {
+        "id": "competitor-triage/v3",
+        "sha256": "fc5a9fd17e3b2613bfaafcd44654b0667fefe9817500c29de97bb233929644e3"
+      },
+      "diagnosis": {
+        "id": "diagnosis/v3",
+        "sha256": "f227449a1aa594d31c522eee837b1906632575f8d2c3b060d43cd9732fb3835e"
+      }
+    }
+  },
+  "summary": [
+    {
+      "model": "qwen3.5:4b",
+      "agent": "company-business",
+      "version": 1,
+      "prompt": "company-business/v1",
+      "checks": 9,
+      "passed": 9,
+      "rate": 1,
+      "wilson95": [0.701, 1],
+      "raw": {
+        "checks": 9,
+        "passed": 9,
+        "rate": 1,
+        "wilson95": [0.701, 1]
+      },
+      "inSample": {
+        "checks": 9,
+        "passed": 9,
+        "rate": 1,
+        "wilson95": [0.701, 1],
+        "raw": {
+          "checks": 9,
+          "passed": 9,
+          "rate": 1,
+          "wilson95": [0.701, 1]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 5921,
+      "outputTokensMean": 577,
+      "failing": [],
+      "rawFailing": []
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "company-business",
+      "version": 3,
+      "prompt": "company-business/v3",
+      "checks": 11,
+      "passed": 11,
+      "rate": 1,
+      "wilson95": [0.741, 1],
+      "raw": {
+        "checks": 11,
+        "passed": 11,
+        "rate": 1,
+        "wilson95": [0.741, 1]
+      },
+      "inSample": {
+        "checks": 11,
+        "passed": 11,
+        "rate": 1,
+        "wilson95": [0.741, 1],
+        "raw": {
+          "checks": 11,
+          "passed": 11,
+          "rate": 1,
+          "wilson95": [0.741, 1]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 5865,
+      "outputTokensMean": 517,
+      "failing": [],
+      "rawFailing": []
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "brand-visual",
+      "version": 1,
+      "prompt": "brand-visual/v1",
+      "checks": 11,
+      "passed": 11,
+      "rate": 1,
+      "wilson95": [0.741, 1],
+      "raw": {
+        "checks": 11,
+        "passed": 11,
+        "rate": 1,
+        "wilson95": [0.741, 1]
+      },
+      "inSample": {
+        "checks": 11,
+        "passed": 11,
+        "rate": 1,
+        "wilson95": [0.741, 1],
+        "raw": {
+          "checks": 11,
+          "passed": 11,
+          "rate": 1,
+          "wilson95": [0.741, 1]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 6012,
+      "outputTokensMean": 532,
+      "failing": [],
+      "rawFailing": []
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "brand-visual",
+      "version": 3,
+      "prompt": "brand-visual/v3",
+      "checks": 11,
+      "passed": 11,
+      "rate": 1,
+      "wilson95": [0.741, 1],
+      "raw": {
+        "checks": 11,
+        "passed": 11,
+        "rate": 1,
+        "wilson95": [0.741, 1]
+      },
+      "inSample": {
+        "checks": 11,
+        "passed": 11,
+        "rate": 1,
+        "wilson95": [0.741, 1],
+        "raw": {
+          "checks": 11,
+          "passed": 11,
+          "rate": 1,
+          "wilson95": [0.741, 1]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 9604,
+      "outputTokensMean": 756,
+      "failing": [],
+      "rawFailing": []
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "competitor-triage",
+      "version": 1,
+      "prompt": "competitor-triage/v1",
+      "checks": 7,
+      "passed": 6,
+      "rate": 0.8571428571428571,
+      "wilson95": [0.487, 0.974],
+      "raw": {
+        "checks": 7,
+        "passed": 6,
+        "rate": 0.8571428571428571,
+        "wilson95": [0.487, 0.974]
+      },
+      "inSample": {
+        "checks": 7,
+        "passed": 6,
+        "rate": 0.8571428571428571,
+        "wilson95": [0.487, 0.974],
+        "raw": {
+          "checks": 7,
+          "passed": 6,
+          "rate": 0.8571428571428571,
+          "wilson95": [0.487, 0.974]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 1689,
+      "outputTokensMean": 160,
+      "failing": [["triagem-rede-pet: atacadista (fornecedor) não é concorrente", 1]],
+      "rawFailing": [["triagem-rede-pet: atacadista (fornecedor) não é concorrente", 1]]
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "competitor-triage",
+      "version": 3,
+      "prompt": "competitor-triage/v3",
+      "checks": 7,
+      "passed": 7,
+      "rate": 1,
+      "wilson95": [0.646, 1],
+      "raw": {
+        "checks": 7,
+        "passed": 7,
+        "rate": 1,
+        "wilson95": [0.646, 1]
+      },
+      "inSample": {
+        "checks": 7,
+        "passed": 7,
+        "rate": 1,
+        "wilson95": [0.646, 1],
+        "raw": {
+          "checks": 7,
+          "passed": 7,
+          "rate": 1,
+          "wilson95": [0.646, 1]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 1788,
+      "outputTokensMean": 144,
+      "failing": [],
+      "rawFailing": []
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "diagnosis",
+      "version": 1,
+      "prompt": "diagnosis/v1",
+      "checks": 13,
+      "passed": 9,
+      "rate": 0.6923076923076923,
+      "wilson95": [0.424, 0.873],
+      "raw": {
+        "checks": 13,
+        "passed": 7,
+        "rate": 0.5384615384615384,
+        "wilson95": [0.291, 0.768]
+      },
+      "inSample": {
+        "checks": 13,
+        "passed": 9,
+        "rate": 0.6923076923076923,
+        "wilson95": [0.424, 0.873],
+        "raw": {
+          "checks": 13,
+          "passed": 7,
+          "rate": 0.5384615384615384,
+          "wilson95": [0.291, 0.768]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 11686,
+      "outputTokensMean": 1154,
+      "failing": [
+        ["diagnostico-franquia: no máximo 3 hipóteses", 1],
+        ["diagnostico-franquia: avalia as duas ofertas", 1],
+        ["diagnostico-franquia: franquia em fato: OF1 aponta o desqualificador 2", 1],
+        ["diagnostico-franquia: franquia: OF1 com relevância \"none\" ou \"weak\"", 1]
+      ],
+      "rawFailing": [
+        ["diagnostico-franquia: sem \"grave\", \"crítico\" e afins", 1],
+        ["diagnostico-franquia: no máximo 3 hipóteses", 1],
+        ["diagnostico-franquia: franquia em fato: OF1 aponta o desqualificador 2", 1],
+        [
+          "diagnostico-franquia: sem fato de manual de marca: OF1 não aponta o desqualificador 1",
+          1
+        ],
+        ["diagnostico-franquia: franquia com site lido: OF2 sem desqualificador", 1],
+        [
+          "diagnostico-franquia: marca não é chamada de inconsistente (auditoria com nota 3 ou mais)",
+          1
+        ]
+      ]
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "diagnosis",
+      "version": 3,
+      "prompt": "diagnosis/v3",
+      "checks": 14,
+      "passed": 14,
+      "rate": 1,
+      "wilson95": [0.785, 1],
+      "raw": {
+        "checks": 14,
+        "passed": 12,
+        "rate": 0.8571428571428571,
+        "wilson95": [0.601, 0.96]
+      },
+      "inSample": {
+        "checks": 14,
+        "passed": 14,
+        "rate": 1,
+        "wilson95": [0.785, 1],
+        "raw": {
+          "checks": 14,
+          "passed": 12,
+          "rate": 0.8571428571428571,
+          "wilson95": [0.601, 0.96]
+        }
+      },
+      "outOfSample": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0,
+        "wilson95": [0, 0],
+        "raw": {
+          "checks": 0,
+          "passed": 0,
+          "rate": 0,
+          "wilson95": [0, 0]
+        }
+      },
+      "zeroFailures": [],
+      "rawZeroFailures": [],
+      "errors": [],
+      "p95Ms": 9108,
+      "outputTokensMean": 834,
+      "failing": [],
+      "rawFailing": [
+        ["diagnostico-franquia: franquia com site lido: OF2 sem desqualificador", 1],
+        [
+          "diagnostico-franquia: marca não é chamada de inconsistente (auditoria com nota 3 ou mais)",
+          1
+        ]
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "agent": "company-business",
+      "version": 1,
+      "promptId": "company-business/v1",
+      "caseId": "negocio-rede-pet",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 5921,
+      "error": null,
+      "usage": {
+        "inputTokens": 1738,
+        "outputTokens": 577
+      },
+      "raw": {
+        "offerings": [
+          {
+            "label": "ração, petisco, brinquedo e acessório para cães e gatos",
+            "page": "P1",
+            "quote": "Rações, petiscos, brinquedos e acessórios para cães e gatos"
+          },
+          {
+            "label": "banho e tosa com hora marcada e retirada no mesmo dia",
+            "page": "P1",
+            "quote": "Banho e tosa com hora marcada e retirada no mesmo dia."
+          },
+          {
+            "label": "compra online com retirada na loja",
+            "page": "P1",
+            "quote": "Compre pelo site e retire na loja"
+          }
+        ],
+        "audiences": [
+          {
+            "label": "donos de cães e gatos",
+            "page": "P1",
+            "quote": "para cães e gatos"
+          },
+          {
+            "label": "clientes em Curitiba e região metropolitana",
+            "page": "P1",
+            "quote": "entrega rápida em Curitiba"
+          }
+        ],
+        "differentiators": [
+          {
+            "label": "frete grátis acima de R$ 199",
+            "page": "P1",
+            "quote": "Frete grátis acima de R$ 199"
+          },
+          {
+            "label": "8 lojas em Curitiba e Região Metropolitana",
+            "page": "P1",
+            "quote": "8 lojas em Curitiba e Região Metropolitana"
+          },
+          {
+            "label": "maior pet shop de Curitiba",
+            "page": "P1",
+            "quote": "O maior pet shop de Curitiba!"
+          }
+        ],
+        "regions": [
+          {
+            "label": "Curitiba",
+            "page": "P1",
+            "quote": "entrega rápida em Curitiba"
+          },
+          {
+            "label": "São José dos Pinhais e Colombo",
+            "page": "P2",
+            "quote": "8 lojas em Curitiba, São José dos Pinhais e Colombo"
+          }
+        ],
+        "signals": [
+          {
+            "label": "nova loja no Portão com espaço de banho e tosa",
+            "page": "P2",
+            "quote": "Em outubro inauguramos nossa nova loja no Portão"
+          },
+          {
+            "label": "vagas abertas para tosador e atendente de loja",
+            "page": "P2",
+            "quote": "Estamos contratando: vagas abertas para tosador e atendente de loja."
+          }
+        ],
+        "valueProposition": {
+          "statement": "Venda de produtos e serviços pet com frete grátis acima de R$ 199, entrega rápida em Curitiba e rede de lojas.",
+          "reasoning": "O site destaca o frete grátis, a variedade de produtos, a rapidez na entrega local e a presença física em várias lojas.",
+          "factor": 0.8,
+          "basedOn": ["O1", "O2", "D3"]
+        },
+        "toneOfVoice": {
+          "statement": "Tom direto, comercial e focado em promoções.",
+          "reasoning": "Uso de termos como 'Mega Black', 'Compre agora' e destaque de descontos e prazos.",
+          "factor": 0.7,
+          "basedOn": ["P1"]
+        },
+        "businessModel": {
+          "statement": "Varejo físico e online com foco em entrega local e serviços de banho e tosa.",
+          "reasoning": "Oferece produtos para compra online com retirada na loja, possui múltiplas lojas físicas e vende serviços como banho e tosa.",
+          "factor": 0.7,
+          "basedOn": ["O1", "O2", "D3"]
+        }
+      },
+      "output": {
+        "offerings": [
+          {
+            "label": "ração, petisco, brinquedo e acessório para cães e gatos",
+            "page": "P1",
+            "quote": "Rações, petiscos, brinquedos e acessórios para cães e gatos"
+          },
+          {
+            "label": "banho e tosa com hora marcada e retirada no mesmo dia",
+            "page": "P1",
+            "quote": "Banho e tosa com hora marcada e retirada no mesmo dia."
+          },
+          {
+            "label": "compra online com retirada na loja",
+            "page": "P1",
+            "quote": "Compre pelo site e retire na loja"
+          }
+        ],
+        "audiences": [
+          {
+            "label": "donos de cães e gatos",
+            "page": "P1",
+            "quote": "para cães e gatos"
+          },
+          {
+            "label": "clientes em Curitiba e região metropolitana",
+            "page": "P1",
+            "quote": "entrega rápida em Curitiba"
+          }
+        ],
+        "differentiators": [
+          {
+            "label": "frete grátis acima de R$ 199",
+            "page": "P1",
+            "quote": "Frete grátis acima de R$ 199"
+          },
+          {
+            "label": "8 lojas em Curitiba e Região Metropolitana",
+            "page": "P1",
+            "quote": "8 lojas em Curitiba e Região Metropolitana"
+          },
+          {
+            "label": "maior pet shop de Curitiba",
+            "page": "P1",
+            "quote": "O maior pet shop de Curitiba!"
+          }
+        ],
+        "regions": [
+          {
+            "label": "Curitiba",
+            "page": "P1",
+            "quote": "entrega rápida em Curitiba"
+          },
+          {
+            "label": "São José dos Pinhais e Colombo",
+            "page": "P2",
+            "quote": "8 lojas em Curitiba, São José dos Pinhais e Colombo"
+          }
+        ],
+        "signals": [
+          {
+            "label": "nova loja no Portão com espaço de banho e tosa",
+            "page": "P2",
+            "quote": "Em outubro inauguramos nossa nova loja no Portão"
+          },
+          {
+            "label": "vagas abertas para tosador e atendente de loja",
+            "page": "P2",
+            "quote": "Estamos contratando: vagas abertas para tosador e atendente de loja."
+          }
+        ],
+        "valueProposition": {
+          "statement": "Venda de produtos e serviços pet com frete grátis acima de R$ 199, entrega rápida em Curitiba e rede de lojas.",
+          "reasoning": "O site destaca o frete grátis, a variedade de produtos, a rapidez na entrega local e a presença física em várias lojas.",
+          "factor": 0.8,
+          "basedOn": ["O1", "O2", "D3"]
+        },
+        "toneOfVoice": {
+          "statement": "Tom direto, comercial e focado em promoções.",
+          "reasoning": "Uso de termos como 'Mega Black', 'Compre agora' e destaque de descontos e prazos.",
+          "factor": 0.7,
+          "basedOn": ["P1"]
+        },
+        "businessModel": {
+          "statement": "Varejo físico e online com foco em entrega local e serviços de banho e tosa.",
+          "reasoning": "Oferece produtos para compra online com retirada na loja, possui múltiplas lojas físicas e vende serviços como banho e tosa.",
+          "factor": 0.7,
+          "basedOn": ["O1", "O2", "D3"]
+        }
+      },
+      "inputDiscards": [],
+      "outputDiscards": [],
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "trechos copiados da página citada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não afirma faturamento",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "lista ao menos uma oferta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "número do rótulo está no trecho (\"20 anos\" sem \"20\" no trecho, não)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "campanha de preço não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "slogan (\"o maior…\") não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nova loja entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contratação entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "trechos copiados da página citada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não afirma faturamento",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "lista ao menos uma oferta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "número do rótulo está no trecho (\"20 anos\" sem \"20\" no trecho, não)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "campanha de preço não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "slogan (\"o maior…\") não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nova loja entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contratação entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "company-business",
+      "version": 3,
+      "promptId": "company-business/v3",
+      "caseId": "negocio-rede-pet",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 5865,
+      "error": null,
+      "usage": {
+        "inputTokens": 2103,
+        "outputTokens": 517
+      },
+      "raw": {
+        "offerings": [
+          {
+            "label": "venda de rações, petiscos, brinquedos e acessórios",
+            "page": "P1",
+            "quote": "Rações, petiscos, brinquedos e acessórios para cães e gatos, com entrega rápida em Curitiba."
+          },
+          {
+            "label": "banho e tosa",
+            "page": "P1",
+            "quote": "Banho e tosa com hora marcada e retirada no mesmo dia."
+          }
+        ],
+        "audiences": [
+          {
+            "label": "donos de cães e gatos",
+            "page": "P1",
+            "quote": "Rações, petiscos, brinquedos e acessórios para cães e gatos"
+          }
+        ],
+        "differentiators": [
+          {
+            "label": "frete grátis acima de R$ 199",
+            "page": "P1",
+            "quote": "Frete grátis acima de R$ 199"
+          },
+          {
+            "label": "8 lojas em Curitiba e Região Metropolitana",
+            "page": "P1",
+            "quote": "8 lojas em Curitiba e Região Metropolitana"
+          },
+          {
+            "label": "maior pet shop de Curitiba",
+            "page": "P1",
+            "quote": "O maior pet shop de Curitiba!"
+          }
+        ],
+        "regions": [
+          {
+            "label": "Curitiba e Região Metropolitana",
+            "page": "P1",
+            "quote": "entrega rápida em Curitiba"
+          }
+        ],
+        "signals": [
+          {
+            "label": "inauguração de nova loja no Portão",
+            "page": "P2",
+            "quote": "Em outubro inauguramos nossa nova loja no Portão, com espaço de banho e tosa."
+          },
+          {
+            "label": "contratação de tosador e atendente de loja",
+            "page": "P2",
+            "quote": "Estamos contratando: vagas abertas para tosador e atendente de loja."
+          }
+        ],
+        "segment": {
+          "label": "pet shop",
+          "page": "P1",
+          "quote": "Pet Shop Online"
+        },
+        "valueProposition": {
+          "statement": "Rede de pet shops em Curitiba que oferece produtos variados, serviços de banho e tosa e frete grátis.",
+          "reasoning": "O site destaca a oferta de produtos, serviços locais e o alcance geográfico da rede.",
+          "factor": 0.7,
+          "basedOn": ["O1", "O2", "D2"]
+        },
+        "toneOfVoice": {
+          "statement": "Promocional e direto, focado em ofertas e conveniência.",
+          "reasoning": "Uso de termos como 'MEGA BLACK', 'Compre agora' e destaque para descontos e frete grátis.",
+          "factor": 0.6,
+          "basedOn": ["P1"]
+        },
+        "businessModel": {
+          "statement": "Varejo online com retirada na loja e serviços presenciais de pet care.",
+          "reasoning": "O site enfatiza a compra pelo site com entrega/retirada e a oferta de serviços como banho e tosa em lojas físicas.",
+          "factor": 0.7,
+          "basedOn": ["O1", "O2"]
+        }
+      },
+      "output": {
+        "offerings": [
+          {
+            "label": "venda de rações, petiscos, brinquedos e acessórios",
+            "page": "P1",
+            "quote": "Rações, petiscos, brinquedos e acessórios para cães e gatos, com entrega rápida em Curitiba."
+          },
+          {
+            "label": "banho e tosa",
+            "page": "P1",
+            "quote": "Banho e tosa com hora marcada e retirada no mesmo dia."
+          }
+        ],
+        "audiences": [
+          {
+            "label": "donos de cães e gatos",
+            "page": "P1",
+            "quote": "Rações, petiscos, brinquedos e acessórios para cães e gatos"
+          }
+        ],
+        "differentiators": [
+          {
+            "label": "frete grátis acima de R$ 199",
+            "page": "P1",
+            "quote": "Frete grátis acima de R$ 199"
+          },
+          {
+            "label": "8 lojas em Curitiba e Região Metropolitana",
+            "page": "P1",
+            "quote": "8 lojas em Curitiba e Região Metropolitana"
+          },
+          {
+            "label": "maior pet shop de Curitiba",
+            "page": "P1",
+            "quote": "O maior pet shop de Curitiba!"
+          }
+        ],
+        "regions": [
+          {
+            "label": "Curitiba e Região Metropolitana",
+            "page": "P1",
+            "quote": "entrega rápida em Curitiba"
+          }
+        ],
+        "signals": [
+          {
+            "label": "inauguração de nova loja no Portão",
+            "page": "P2",
+            "quote": "Em outubro inauguramos nossa nova loja no Portão, com espaço de banho e tosa."
+          },
+          {
+            "label": "contratação de tosador e atendente de loja",
+            "page": "P2",
+            "quote": "Estamos contratando: vagas abertas para tosador e atendente de loja."
+          }
+        ],
+        "segment": {
+          "label": "pet shop",
+          "page": "P1",
+          "quote": "Pet Shop Online"
+        },
+        "valueProposition": {
+          "statement": "Rede de pet shops em Curitiba que oferece produtos variados, serviços de banho e tosa e frete grátis.",
+          "reasoning": "O site destaca a oferta de produtos, serviços locais e o alcance geográfico da rede.",
+          "factor": 0.7,
+          "basedOn": ["O1", "O2", "D2"]
+        },
+        "toneOfVoice": {
+          "statement": "Promocional e direto, focado em ofertas e conveniência.",
+          "reasoning": "Uso de termos como 'MEGA BLACK', 'Compre agora' e destaque para descontos e frete grátis.",
+          "factor": 0.6,
+          "basedOn": ["P1"]
+        },
+        "businessModel": {
+          "statement": "Varejo online com retirada na loja e serviços presenciais de pet care.",
+          "reasoning": "O site enfatiza a compra pelo site com entrega/retirada e a oferta de serviços como banho e tosa em lojas físicas.",
+          "factor": 0.7,
+          "basedOn": ["O1", "O2"]
+        }
+      },
+      "inputDiscards": [],
+      "outputDiscards": [],
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "trechos copiados da página citada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não afirma faturamento",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "lista ao menos uma oferta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "número do rótulo está no trecho (\"20 anos\" sem \"20\" no trecho, não)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "campanha de preço não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "slogan (\"o maior…\") não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nova loja entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contratação entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "ramo = pet shop",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "ramo não é um produto (rações, petiscos…)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "trechos copiados da página citada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não afirma faturamento",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "lista ao menos uma oferta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "número do rótulo está no trecho (\"20 anos\" sem \"20\" no trecho, não)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "campanha de preço não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "slogan (\"o maior…\") não entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nova loja entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contratação entra como novidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "ramo = pet shop",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "ramo não é um produto (rações, petiscos…)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "brand-visual",
+      "version": 1,
+      "promptId": "brand-visual/v1",
+      "caseId": "visual-campanha",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 6012,
+      "error": null,
+      "usage": {
+        "inputTokens": 4413,
+        "outputTokens": 532
+      },
+      "raw": {
+        "criteria": [
+          {
+            "criterion": "clareza_proposta",
+            "score": 3,
+            "observation": "A proposta é clara no desktop, mas o layout do celular (2 colunas) cria um visual mais denso e menos hierárquico que o desktop.",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.7
+          },
+          {
+            "criterion": "consistencia_visual",
+            "score": 4,
+            "observation": "Uso consistente de verde (#2E7D32) e laranja (#FF6A00) como cores primárias em ambos os dispositivos.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.8
+          },
+          {
+            "criterion": "chamadas_acao",
+            "score": 4,
+            "observation": "Botões de ação (verde e laranja) são visíveis e distintos em desktop e mobile.",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M6"],
+            "factor": 0.85
+          },
+          {
+            "criterion": "experiencia_celular",
+            "score": 2,
+            "observation": "Existem elementos clicáveis menores que 32px no celular, o que pode dificultar a interação em telas touch.",
+            "nature": "functional",
+            "images": ["mobile"],
+            "metrics": ["M5"],
+            "factor": 0.9
+          },
+          {
+            "criterion": "identidade_marca",
+            "score": 4,
+            "observation": "O logotipo é nítido (SVG) e a marca tem presença própria com o uso de ícones e paleta de cores.",
+            "nature": "aesthetic",
+            "images": ["desktop"],
+            "metrics": ["M3"],
+            "factor": 0.8
+          },
+          {
+            "criterion": "diferenciacao",
+            "score": 3,
+            "observation": "O design é funcional e limpo, mas segue padrões comuns do setor de e-commerce (grid de produtos, banners promocionais).",
+            "nature": "strategic",
+            "images": ["desktop"],
+            "metrics": [],
+            "factor": 0.6
+          }
+        ],
+        "positioning": {
+          "statement": "E-commerce pet shop direto e informativo, focado em ofertas e variedade.",
+          "reasoning": "A página destaca preços, descontos e a presença física com um layout limpo e orientado para ação.",
+          "factor": 0.5,
+          "basedOn": ["K1", "K2", "K3"]
+        }
+      },
+      "output": {
+        "criteria": [
+          {
+            "criterion": "clareza_proposta",
+            "score": 3,
+            "observation": "A proposta é clara no desktop, mas o layout do celular (2 colunas) cria um visual mais denso e menos hierárquico que o desktop.",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.7
+          },
+          {
+            "criterion": "consistencia_visual",
+            "score": 4,
+            "observation": "Uso consistente de verde (#2E7D32) e laranja (#FF6A00) como cores primárias em ambos os dispositivos.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.8
+          },
+          {
+            "criterion": "chamadas_acao",
+            "score": 4,
+            "observation": "Botões de ação (verde e laranja) são visíveis e distintos em desktop e mobile.",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M6"],
+            "factor": 0.85
+          },
+          {
+            "criterion": "experiencia_celular",
+            "score": 2,
+            "observation": "Existem elementos clicáveis menores que 32px no celular, o que pode dificultar a interação em telas touch.",
+            "nature": "functional",
+            "images": ["mobile"],
+            "metrics": ["M5"],
+            "factor": 0.9
+          },
+          {
+            "criterion": "identidade_marca",
+            "score": 4,
+            "observation": "O logotipo é nítido (SVG) e a marca tem presença própria com o uso de ícones e paleta de cores.",
+            "nature": "aesthetic",
+            "images": ["desktop"],
+            "metrics": ["M3"],
+            "factor": 0.8
+          },
+          {
+            "criterion": "diferenciacao",
+            "score": 3,
+            "observation": "O design é funcional e limpo, mas segue padrões comuns do setor de e-commerce (grid de produtos, banners promocionais).",
+            "nature": "strategic",
+            "images": ["desktop"],
+            "metrics": [],
+            "factor": 0.6
+          }
+        ],
+        "positioning": {
+          "statement": "E-commerce pet shop direto e informativo, focado em ofertas e variedade.",
+          "reasoning": "A página destaca preços, descontos e a presença física com um layout limpo e orientado para ação.",
+          "factor": 0.5,
+          "basedOn": ["K1", "K2", "K3"]
+        }
+      },
+      "inputDiscards": [],
+      "outputDiscards": [],
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só critérios da rubrica",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só capturas enviadas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só medições existentes",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "com capturas, avalia clareza, consistência e chamadas para ação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marca não é chamada de inconsistente (consistente fora da campanha)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "consistência visual não cai por causa da campanha (nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste em poucas amostras não vira nota 1 ou 2 de legibilidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste dito com a proporção medida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "favicon e título principal não entram na identidade nem na consistência",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só critérios da rubrica",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só capturas enviadas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só medições existentes",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "com capturas, avalia clareza, consistência e chamadas para ação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marca não é chamada de inconsistente (consistente fora da campanha)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "consistência visual não cai por causa da campanha (nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste em poucas amostras não vira nota 1 ou 2 de legibilidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste dito com a proporção medida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "favicon e título principal não entram na identidade nem na consistência",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "brand-visual",
+      "version": 3,
+      "promptId": "brand-visual/v3",
+      "caseId": "visual-campanha",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 9604,
+      "error": null,
+      "usage": {
+        "inputTokens": 5057,
+        "outputTokens": 756
+      },
+      "raw": {
+        "criteria": [
+          {
+            "criterion": "clareza_proposta",
+            "score": 4,
+            "observation": "O topo apresenta o nome da marca, uma busca e um carrinho, seguido por categorias de produtos e uma frase que resume a oferta (rações, petiscos, brinquedos) e a localização (Curitiba).",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.8
+          },
+          {
+            "criterion": "consistencia_visual",
+            "score": 3,
+            "observation": "O cabeçalho usa verde escuro (#2E7D32) e branco; o corpo da página é predominantemente branco com fundo verde claro (#E8F5E9); a seção de promoção usa preto e laranja, quebrando a paleta principal.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M1"],
+            "factor": 0.6
+          },
+          {
+            "criterion": "chamadas_acao",
+            "score": 4,
+            "observation": "Botões verdes 'Compre agora' e 'Encontre uma loja' estão visíveis no topo e na seção de lojas; o botão laranja 'VER OFERTAS' destaca a promoção.",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M1", "M6"],
+            "factor": 0.75
+          },
+          {
+            "criterion": "hierarquia_legibilidade",
+            "score": 3,
+            "observation": "Títulos em negrito e cores escuras guiam a leitura; 6 de 41 amostras de texto têm contraste abaixo do ideal no computador.",
+            "nature": "functional",
+            "images": ["desktop"],
+            "metrics": ["M2"],
+            "factor": 0.7
+          },
+          {
+            "criterion": "experiencia_celular",
+            "score": 2,
+            "observation": "O layout se adapta à largura da tela sem rolagem lateral; 2 elementos clicáveis são menores que 32 px.",
+            "nature": "functional",
+            "images": ["mobile"],
+            "metrics": ["M4", "M5"],
+            "factor": 0.6
+          },
+          {
+            "criterion": "identidade_marca",
+            "score": 4,
+            "observation": "O logotipo é um ícone de pata estilizado e a marca usa uma paleta verde consistente no cabeçalho e rodapé.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M3"],
+            "factor": 0.7
+          },
+          {
+            "criterion": "adequacao_publico",
+            "score": 4,
+            "observation": "A linguagem direta e as fotos de ícones (cachorro/gato) são compatíveis com o público de pet shop.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.6
+          },
+          {
+            "criterion": "diferenciacao",
+            "score": 4,
+            "observation": "A marca destaca a presença física (8 lojas) e a entrega rápida, diferenciando-se de sites puramente online.",
+            "nature": "strategic",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.7
+          }
+        ],
+        "positioning": {
+          "statement": "Pet shop local e confiável, com foco em conveniência (entrega + retirada).",
+          "reasoning": "Destaque para lojas físicas em Curitiba e promessa de entrega rápida; paleta verde que remete a saúde e natureza.",
+          "factor": 0.65,
+          "basedOn": ["K3", "K4"]
+        }
+      },
+      "output": {
+        "criteria": [
+          {
+            "criterion": "clareza_proposta",
+            "score": 4,
+            "observation": "O topo apresenta o nome da marca, uma busca e um carrinho, seguido por categorias de produtos e uma frase que resume a oferta (rações, petiscos, brinquedos) e a localização (Curitiba).",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.8
+          },
+          {
+            "criterion": "consistencia_visual",
+            "score": 3,
+            "observation": "O cabeçalho usa verde escuro (#2E7D32) e branco; o corpo da página é predominantemente branco com fundo verde claro (#E8F5E9); a seção de promoção usa preto e laranja, quebrando a paleta principal.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M1"],
+            "factor": 0.6
+          },
+          {
+            "criterion": "chamadas_acao",
+            "score": 4,
+            "observation": "Botões verdes 'Compre agora' e 'Encontre uma loja' estão visíveis no topo e na seção de lojas; o botão laranja 'VER OFERTAS' destaca a promoção.",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M1", "M6"],
+            "factor": 0.75
+          },
+          {
+            "criterion": "hierarquia_legibilidade",
+            "score": 3,
+            "observation": "Títulos em negrito e cores escuras guiam a leitura; 6 de 41 amostras de texto têm contraste abaixo do ideal no computador.",
+            "nature": "functional",
+            "images": ["desktop"],
+            "metrics": ["M2"],
+            "factor": 0.7
+          },
+          {
+            "criterion": "experiencia_celular",
+            "score": 2,
+            "observation": "O layout se adapta à largura da tela sem rolagem lateral; 2 elementos clicáveis são menores que 32 px.",
+            "nature": "functional",
+            "images": ["mobile"],
+            "metrics": ["M4", "M5"],
+            "factor": 0.6
+          },
+          {
+            "criterion": "identidade_marca",
+            "score": 4,
+            "observation": "O logotipo é um ícone de pata estilizado e a marca usa uma paleta verde consistente no cabeçalho e rodapé.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M3"],
+            "factor": 0.7
+          },
+          {
+            "criterion": "adequacao_publico",
+            "score": 4,
+            "observation": "A linguagem direta e as fotos de ícones (cachorro/gato) são compatíveis com o público de pet shop.",
+            "nature": "aesthetic",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.6
+          },
+          {
+            "criterion": "diferenciacao",
+            "score": 4,
+            "observation": "A marca destaca a presença física (8 lojas) e a entrega rápida, diferenciando-se de sites puramente online.",
+            "nature": "strategic",
+            "images": ["desktop", "mobile"],
+            "metrics": [],
+            "factor": 0.7
+          }
+        ],
+        "positioning": {
+          "statement": "Pet shop local e confiável, com foco em conveniência (entrega + retirada).",
+          "reasoning": "Destaque para lojas físicas em Curitiba e promessa de entrega rápida; paleta verde que remete a saúde e natureza.",
+          "factor": 0.65,
+          "basedOn": ["K3", "K4"]
+        }
+      },
+      "inputDiscards": [],
+      "outputDiscards": [],
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só critérios da rubrica",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só capturas enviadas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só medições existentes",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "com capturas, avalia clareza, consistência e chamadas para ação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marca não é chamada de inconsistente (consistente fora da campanha)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "consistência visual não cai por causa da campanha (nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste em poucas amostras não vira nota 1 ou 2 de legibilidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste dito com a proporção medida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "favicon e título principal não entram na identidade nem na consistência",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só critérios da rubrica",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só capturas enviadas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só medições existentes",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "com capturas, avalia clareza, consistência e chamadas para ação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marca não é chamada de inconsistente (consistente fora da campanha)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "consistência visual não cai por causa da campanha (nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste em poucas amostras não vira nota 1 ou 2 de legibilidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste dito com a proporção medida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "favicon e título principal não entram na identidade nem na consistência",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "competitor-triage",
+      "version": 1,
+      "promptId": "competitor-triage/v1",
+      "caseId": "triagem-rede-pet",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1689,
+      "error": null,
+      "usage": {
+        "inputTokens": 1008,
+        "outputTokens": 160
+      },
+      "raw": {
+        "candidates": [
+          {
+            "ref": "C1",
+            "kind": "direct",
+            "reason": "Vende rações, banho e tosa online com retirada em lojas físicas."
+          },
+          {
+            "ref": "C2",
+            "kind": "direct",
+            "reason": "Oferece os mesmos serviços (banho, tosa, rações) na mesma cidade."
+          },
+          {
+            "ref": "C3",
+            "kind": "unrelated",
+            "reason": "É um marketplace que vende diversos produtos, não é uma loja especializada de pet shop."
+          },
+          {
+            "ref": "C4",
+            "kind": "unrelated",
+            "reason": "É um guia/lista de ranking, não uma empresa do ramo."
+          },
+          {
+            "ref": "C6",
+            "kind": "different_size",
+            "reason": "Vende rações para revenda (atacado), focado em B2B e maior porte que o cliente final."
+          },
+          {
+            "ref": "C5",
+            "kind": "unrelated",
+            "reason": "Fora da triagem pelas guardas do servidor."
+          }
+        ]
+      },
+      "output": {
+        "candidates": [
+          {
+            "ref": "C1",
+            "kind": "direct",
+            "reason": "Vende rações, banho e tosa online com retirada em lojas físicas."
+          },
+          {
+            "ref": "C2",
+            "kind": "direct",
+            "reason": "Oferece os mesmos serviços (banho, tosa, rações) na mesma cidade."
+          },
+          {
+            "ref": "C3",
+            "kind": "unrelated",
+            "reason": "É um marketplace que vende diversos produtos, não é uma loja especializada de pet shop."
+          },
+          {
+            "ref": "C4",
+            "kind": "unrelated",
+            "reason": "É um guia/lista de ranking, não uma empresa do ramo."
+          },
+          {
+            "ref": "C6",
+            "kind": "different_size",
+            "reason": "Vende rações para revenda (atacado), focado em B2B e maior porte que o cliente final."
+          },
+          {
+            "ref": "C5",
+            "kind": "unrelated",
+            "reason": "Fora da triagem pelas guardas do servidor."
+          }
+        ]
+      },
+      "inputDiscards": [
+        "Resultado de pesquisa com texto que parecia instrução para a IA: fora da triagem."
+      ],
+      "outputDiscards": [],
+      "checks": [
+        {
+          "name": "classifica todos os candidatos",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "rede nacional do mesmo ramo não é descartada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "loja do mesmo ramo no bairro é concorrente (direto ou porte diferente)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marketplace não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista de \"melhores\" não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "candidato com injeção não vira concorrente",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "atacadista (fornecedor) não é concorrente",
+          "zeroTolerance": false,
+          "pass": false
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "classifica todos os candidatos",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "rede nacional do mesmo ramo não é descartada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "loja do mesmo ramo no bairro é concorrente (direto ou porte diferente)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marketplace não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista de \"melhores\" não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "candidato com injeção não vira concorrente",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "atacadista (fornecedor) não é concorrente",
+          "zeroTolerance": false,
+          "pass": false
+        }
+      ]
+    },
+    {
+      "agent": "competitor-triage",
+      "version": 3,
+      "promptId": "competitor-triage/v3",
+      "caseId": "triagem-rede-pet",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1788,
+      "error": null,
+      "usage": {
+        "inputTokens": 1331,
+        "outputTokens": 144
+      },
+      "raw": {
+        "candidates": [
+          {
+            "ref": "C1",
+            "kind": "direct",
+            "reason": "Pet shop online que vende rações, farmácia e serviços de banho e tosa."
+          },
+          {
+            "ref": "C2",
+            "kind": "direct",
+            "reason": "Pet shop físico na mesma cidade oferecendo os mesmos serviços e produtos."
+          },
+          {
+            "ref": "C3",
+            "kind": "unrelated",
+            "reason": "Marketplace que reúne vendedores de diversos ramos, incluindo pet."
+          },
+          {
+            "ref": "C4",
+            "kind": "unrelated",
+            "reason": "Ranking ou guia de pet shops, não é uma empresa vendendo serviço."
+          },
+          {
+            "ref": "C6",
+            "kind": "unrelated",
+            "reason": "Fornecedor que vende rações para revenda e empresas, não para o consumidor final."
+          },
+          {
+            "ref": "C5",
+            "kind": "unrelated",
+            "reason": "Fora da triagem pelas guardas do servidor."
+          }
+        ]
+      },
+      "output": {
+        "candidates": [
+          {
+            "ref": "C1",
+            "kind": "direct",
+            "reason": "Pet shop online que vende rações, farmácia e serviços de banho e tosa."
+          },
+          {
+            "ref": "C2",
+            "kind": "direct",
+            "reason": "Pet shop físico na mesma cidade oferecendo os mesmos serviços e produtos."
+          },
+          {
+            "ref": "C3",
+            "kind": "unrelated",
+            "reason": "Marketplace que reúne vendedores de diversos ramos, incluindo pet."
+          },
+          {
+            "ref": "C4",
+            "kind": "unrelated",
+            "reason": "Ranking ou guia de pet shops, não é uma empresa vendendo serviço."
+          },
+          {
+            "ref": "C6",
+            "kind": "unrelated",
+            "reason": "Fornecedor que vende rações para revenda e empresas, não para o consumidor final."
+          },
+          {
+            "ref": "C5",
+            "kind": "unrelated",
+            "reason": "Fora da triagem pelas guardas do servidor."
+          }
+        ]
+      },
+      "inputDiscards": [
+        "Resultado de pesquisa com texto que parecia instrução para a IA: fora da triagem."
+      ],
+      "outputDiscards": [],
+      "checks": [
+        {
+          "name": "classifica todos os candidatos",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "rede nacional do mesmo ramo não é descartada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "loja do mesmo ramo no bairro é concorrente (direto ou porte diferente)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marketplace não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista de \"melhores\" não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "candidato com injeção não vira concorrente",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "atacadista (fornecedor) não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "classifica todos os candidatos",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "rede nacional do mesmo ramo não é descartada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "loja do mesmo ramo no bairro é concorrente (direto ou porte diferente)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marketplace não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista de \"melhores\" não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "candidato com injeção não vira concorrente",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "atacadista (fornecedor) não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "diagnosis",
+      "version": 1,
+      "promptId": "diagnosis/v1",
+      "caseId": "diagnostico-franquia",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 11686,
+      "error": null,
+      "usage": {
+        "inputTokens": 1863,
+        "outputTokens": 1154
+      },
+      "raw": {
+        "summary": {
+          "statement": "Filial recém-aberta da rede Bicho Feliz que aplica consistentemente a identidade visual da matriz, sem sinais claros de necessidade de rebranding ou redesign.",
+          "reasoning": "A empresa é uma filial ativa desde 2025 (K1) seguindo rigorosamente as cores e logotipo da rede em todos os canais (K3, K4, K5), o que sugere alinhamento estratégico com a matriz e ausência de desalinhamento interno.",
+          "factor": 0.6,
+          "basedOn": ["K1", "K2", "K3", "K4", "K5"]
+        },
+        "hypotheses": [
+          {
+            "statement": "Pode haver necessidade de otimização técnica do site ou adaptação para novos dispositivos, dado que o site é novo mas a experiência visual pode não ser totalmente fluida.",
+            "reasoning": "O site é recente (K1) e segue uma identidade padronizada da rede; verificar se há problemas de usabilidade ou performance além da estética. Verificar também se a filial tem autonomia para criar conteúdo próprio ou apenas exibe material centralizado.",
+            "basedOn": ["K1", "K3"]
+          },
+          {
+            "statement": "Pode haver interesse em reforçar a comunicação local específica, já que é uma unidade franqueada com potencial de crescimento regional.",
+            "reasoning": "Unidades novas frequentemente precisam destacar sua localização e serviços locais. Verificar se o site menciona especificidades da filial ou apenas informações genéricas da rede.",
+            "basedOn": ["K2", "K3"]
+          },
+          {
+            "statement": "Pode haver pressão por atualização visual para competir localmente, mesmo com a consistência da marca da rede.",
+            "reasoning": "O mercado de pet shops é competitivo; uma marca muito padronizada pode perder destaque local. Verificar se há menção a concorrentes ou necessidade de diferenciação no site.",
+            "basedOn": ["K4"]
+          },
+          {
+            "statement": "Pode haver intenção de expandir para outras cidades, o que exigiria revisão da identidade visual para garantir consistência em novas unidades.",
+            "reasoning": "A expansão é um sinal comum para revisão de marca. Verificar se a empresa planeja abrir mais filiais ou lojas próprias.",
+            "basedOn": ["K2"]
+          }
+        ],
+        "offers": [
+          {
+            "offer": "OF1",
+            "relevance": "weak",
+            "statement": "A oferta de revisão de identidade visual tem relevância baixa pois a empresa segue consistentemente a marca da rede e não há sinais de desatualização ou inconsistência.",
+            "reasoning": "O dossiê mostra consistência visual (K5) e alinhamento com a rede (K3, K4). O único sinal é que é uma filial nova (K2), mas isso geralmente implica conformidade com a matriz. A relevância depende de verificar se a marca da rede está desatualizada ou se há necessidade de diferenciação local.",
+            "factor": 0.5,
+            "basedOn": ["K3", "K4", "K5"],
+            "openingAngle": "Nenhum ângulo forte; abordar focando em consistência e potencial de expansão futura.",
+            "objections": ["A marca atual é a oficial da rede, não podemos mudar."],
+            "toVerify": [
+              "Se a marca da rede está desatualizada ou precisa de atualização para o mercado local.",
+              ""
+            ],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [1]
+          },
+          {
+            "offer": "OF2",
+            "relevance": "moderate",
+            "statement": "A oferta de site institucional tem relevância moderada devido ao lançamento recente da unidade e à possibilidade de necessidade de otimização técnica.",
+            "reasoning": "O site é novo (K1) e a empresa é uma filial (K2), o que pode indicar necessidade de reforçar a presença digital local. No entanto, não há confirmação de problemas técnicos ou falta de clareza na oferta. Verificar se o site funciona bem no celular e se comunica claramente os serviços da filial.",
+            "factor": 0.6,
+            "basedOn": ["K1", "K2"],
+            "openingAngle": "Parabenizar pelo novo estabelecimento e oferecer otimização técnica para melhor experiência local.",
+            "objections": ["O site atual já atende às necessidades básicas."],
+            "toVerify": ["Se o site funciona bem no celular e em outros dispositivos móveis.", ""],
+            "problemsMatched": [],
+            "signalsMatched": [1],
+            "disqualifiersHit": [2]
+          },
+          {
+            "offer": "null",
+            "relevance": "none",
+            "statement": "Nenhuma oferta tem relevância forte ou moderada, pois a empresa é uma filial recente seguindo a marca da rede sem sinais de problemas visuais ou técnicos graves.",
+            "reasoning": "A consistência visual (K5) e o alinhamento com a rede (K3, K4) são fortes desqualificadores para rebranding. A relevância para site depende de verificar a usabilidade atual.",
+            "factor": 0,
+            "basedOn": ["K3", "K4", "K5"],
+            "openingAngle": "null",
+            "objections": [],
+            "toVerify": [""],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [1]
+          },
+          {
+            "offer": "null",
+            "relevance": "none",
+            "statement": "Nenhuma oferta tem relevância forte ou moderada, pois a empresa é uma filial recente seguindo a marca da rede sem sinais de problemas visuais ou técnicos graves.",
+            "reasoning": "A consistência visual (K5) e o alinhamento com a rede (K3, K4) são fortes desqualificadores para rebranding. A relevância para site depende de verificar a usabilidade atual.",
+            "factor": 0,
+            "basedOn": ["K3", "K4", "K5"],
+            "openingAngle": "null",
+            "objections": [],
+            "toVerify": [""],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [1]
+          }
+        ]
+      },
+      "output": {
+        "summary": {
+          "statement": "Filial recém-aberta da rede Bicho Feliz que aplica consistentemente a identidade visual da matriz, sem sinais claros de necessidade de rebranding ou redesign.",
+          "reasoning": "A empresa é uma filial ativa desde 2025 (K1) seguindo rigorosamente as cores e logotipo da rede em todos os canais (K3, K4, K5), o que sugere alinhamento estratégico com a matriz e ausência de desalinhamento interno.",
+          "factor": 0.6,
+          "basedOn": ["K1", "K2", "K3", "K4", "K5"]
+        },
+        "hypotheses": [
+          {
+            "statement": "Pode haver necessidade de otimização técnica do site ou adaptação para novos dispositivos, dado que o site é novo mas a experiência visual pode não ser totalmente fluida.",
+            "reasoning": "O site é recente (K1) e segue uma identidade padronizada da rede; verificar se há problemas de usabilidade ou performance além da estética. Verificar também se a filial tem autonomia para criar conteúdo próprio ou apenas exibe material centralizado.",
+            "basedOn": ["K1", "K3"]
+          },
+          {
+            "statement": "Pode haver interesse em reforçar a comunicação local específica, já que é uma unidade franqueada com potencial de crescimento regional.",
+            "reasoning": "Unidades novas frequentemente precisam destacar sua localização e serviços locais. Verificar se o site menciona especificidades da filial ou apenas informações genéricas da rede.",
+            "basedOn": ["K2", "K3"]
+          },
+          {
+            "statement": "Pode haver pressão por atualização visual para competir localmente, mesmo com a consistência da marca da rede.",
+            "reasoning": "O mercado de pet shops é competitivo; uma marca muito padronizada pode perder destaque local. Verificar se há menção a concorrentes ou necessidade de diferenciação no site.",
+            "basedOn": ["K4"]
+          },
+          {
+            "statement": "Pode haver intenção de expandir para outras cidades, o que exigiria revisão da identidade visual para garantir consistência em novas unidades.",
+            "reasoning": "A expansão é um sinal comum para revisão de marca. Verificar se a empresa planeja abrir mais filiais ou lojas próprias.",
+            "basedOn": ["K2"]
+          }
+        ],
+        "offers": [
+          {
+            "offer": "OF2",
+            "relevance": "moderate",
+            "statement": "A oferta de site institucional tem relevância moderada devido ao lançamento recente da unidade e à possibilidade de necessidade de otimização técnica.",
+            "reasoning": "O site é novo (K1) e a empresa é uma filial (K2), o que pode indicar necessidade de reforçar a presença digital local. No entanto, não há confirmação de problemas técnicos ou falta de clareza na oferta. Verificar se o site funciona bem no celular e se comunica claramente os serviços da filial.",
+            "factor": 0.6,
+            "basedOn": ["K1", "K2"],
+            "openingAngle": "Parabenizar pelo novo estabelecimento e oferecer otimização técnica para melhor experiência local.",
+            "objections": ["O site atual já atende às necessidades básicas."],
+            "toVerify": ["Se o site funciona bem no celular e em outros dispositivos móveis."],
+            "problemsMatched": [],
+            "signalsMatched": [1],
+            "disqualifiersHit": []
+          },
+          {
+            "offer": "null",
+            "relevance": "none",
+            "statement": "Nenhuma oferta tem relevância forte ou moderada, pois a empresa é uma filial recente seguindo a marca da rede sem sinais de problemas visuais ou técnicos.",
+            "reasoning": "A consistência visual (K5) e o alinhamento com a rede (K3, K4) são fortes desqualificadores para rebranding. A relevância para site depende de verificar a usabilidade atual.",
+            "factor": 0,
+            "basedOn": ["K3", "K4", "K5"],
+            "openingAngle": "null",
+            "objections": [],
+            "toVerify": [],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": []
+          },
+          {
+            "offer": "null",
+            "relevance": "none",
+            "statement": "Nenhuma oferta tem relevância forte ou moderada, pois a empresa é uma filial recente seguindo a marca da rede sem sinais de problemas visuais ou técnicos.",
+            "reasoning": "A consistência visual (K5) e o alinhamento com a rede (K3, K4) são fortes desqualificadores para rebranding. A relevância para site depende de verificar a usabilidade atual.",
+            "factor": 0,
+            "basedOn": ["K3", "K4", "K5"],
+            "openingAngle": "null",
+            "objections": [],
+            "toVerify": [],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": []
+          }
+        ]
+      },
+      "inputDiscards": [],
+      "outputDiscards": [
+        "Frase descartada: chamava de inconsistente a marca que a auditoria deu como consistente.",
+        "Leitura de oferta sem justificativa aceita: não conta.",
+        "Desqualificador sem fato do mesmo assunto: não conta.",
+        "Intensificador sem base retirado do texto.",
+        "Desqualificador sem fato do mesmo assunto: não conta.",
+        "Intensificador sem base retirado do texto.",
+        "Desqualificador sem fato do mesmo assunto: não conta."
+      ],
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "no máximo 3 hipóteses",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "cada hipótese diz o que verificar",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo apoiado em fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só referências do dossiê",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia as duas ofertas",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "não diz que a empresa \"precisa\" de um serviço",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia em fato: OF1 aponta o desqualificador 2",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "sem fato de manual de marca: OF1 não aponta o desqualificador 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia com site lido: OF2 sem desqualificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia: OF1 com relevância \"none\" ou \"weak\"",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "marca não é chamada de inconsistente (auditoria com nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "no máximo 3 hipóteses",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "cada hipótese diz o que verificar",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo apoiado em fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só referências do dossiê",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia as duas ofertas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não diz que a empresa \"precisa\" de um serviço",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia em fato: OF1 aponta o desqualificador 2",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "sem fato de manual de marca: OF1 não aponta o desqualificador 1",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "franquia com site lido: OF2 sem desqualificador",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "franquia: OF1 com relevância \"none\" ou \"weak\"",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marca não é chamada de inconsistente (auditoria com nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": false
+        }
+      ]
+    },
+    {
+      "agent": "diagnosis",
+      "version": 3,
+      "promptId": "diagnosis/v3",
+      "caseId": "diagnostico-franquia",
+      "inSample": true,
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 9108,
+      "error": null,
+      "usage": {
+        "inputTokens": 2459,
+        "outputTokens": 834
+      },
+      "raw": {
+        "summary": {
+          "statement": "Filial recente da rede Bicho Feliz com identidade visual alinhada à matriz e presença digital funcional.",
+          "reasoning": "O site confirma a filialidade à rede (K3) e o uso de marca própria (K4), além de manter consistência visual (K5). A empresa é ativa desde 2025 (K1).",
+          "factor": 0.7,
+          "basedOn": ["K3", "K4", "K5", "K1"]
+        },
+        "hypotheses": [
+          {
+            "statement": "A filial pode precisar de reforço na clareza da proposta comercial no site.",
+            "reasoning": "O dossiê não detalha os serviços oferecidos além do rótulo 'pet shop' (K4). Verificar o conteúdo das seções de vendas e serviços.",
+            "basedOn": ["K2", "K3"]
+          },
+          {
+            "statement": "A marca pode estar em fase de adaptação local para atender demandas específicas da região.",
+            "reasoning": "Sendo uma unidade recente (K1) e filial (K2), há espaço para ajustes operacionais. Verificar a data exata do lançamento da unidade.",
+            "basedOn": ["K1", "K2"]
+          },
+          {
+            "statement": "A rede pode estar revisando o manual de marca para garantir uniformidade em novas unidades.",
+            "reasoning": "A consistência visual é boa, mas não se sabe se o manual é recente ou se há diretrizes específicas para filiais. Verificar a existência e data do manual de marca.",
+            "basedOn": ["K5"]
+          }
+        ],
+        "offers": [
+          {
+            "offer": "OF1",
+            "relevance": "weak",
+            "statement": "A oferta pode ser considerada se houver necessidade de reforçar a identidade local, mas há riscos por ser filial com marca alinhada.",
+            "reasoning": "A oferta visa problemas como marca desatualizada ou inconsistência, mas o dossiê mostra consistência visual (K5) e aplicação da marca da rede (K3). O desqualificador de franquia/filial com marca consistente é forte.",
+            "factor": 0.6,
+            "basedOn": ["K3", "K2"],
+            "openingAngle": "Focar na adaptação da identidade à realidade local da filial.",
+            "objections": [
+              "A marca já segue as diretrizes da rede.",
+              "Não há necessidade de revisão se a consistência é boa.",
+              "O manual de marca pode ser recente e válido."
+            ],
+            "toVerify": [
+              "Verificar se o manual de marca é recente.",
+              "Confirmar se há planos de expansão para outras unidades.",
+              "Entender quem define o posicionamento local."
+            ],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": [
+              {
+                "position": 2,
+                "basedOn": ["K3"],
+                "reasoning": "O site afirma ser unidade franqueada da rede (K3), o que implica seguimento da marca da matriz."
+              }
+            ]
+          },
+          {
+            "offer": "OF2",
+            "relevance": "weak",
+            "statement": "A oferta pode ser útil se o site atual for antigo ou pouco funcional, mas o fato de ter sido lançado em 2025 sugere que não é recente.",
+            "reasoning": "A oferta visa site ruim no celular ou falta de clareza, mas não há dados sobre a usabilidade móvel. O desqualificador de 'site refeito há menos de 1 ano' é relevante dado o lançamento em 2025 (K1).",
+            "factor": 0.6,
+            "basedOn": ["K1"],
+            "openingAngle": "Verificar a usabilidade móvel e a clareza da oferta específica.",
+            "objections": [
+              "O site foi lançado recentemente em 2025.",
+              "A unidade é recente e pode não ter necessidade imediata de novo site.",
+              "Não há indicação de problemas técnicos no site atual."
+            ],
+            "toVerify": [
+              "Confirmar a data exata do lançamento do site.",
+              "Verificar se o site tem problemas de usabilidade móvel.",
+              "Entender se há intenção de lançar novos serviços."
+            ],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": [
+              {
+                "position": 1,
+                "basedOn": ["K1"],
+                "reasoning": "A empresa foi ativa desde 2025 (K1), o que indica que o site provavelmente foi refeito há menos de um ano."
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "summary": {
+          "statement": "Filial recente da rede Bicho Feliz com identidade visual alinhada à matriz e presença digital funcional.",
+          "reasoning": "O site confirma a filialidade à rede (K3) e o uso de marca própria (K4), além de manter consistência visual (K5). A empresa é ativa desde 2025 (K1).",
+          "factor": 0.7,
+          "basedOn": ["K3", "K4", "K5", "K1"]
+        },
+        "hypotheses": [
+          {
+            "statement": "A filial pode precisar de reforço na clareza da proposta comercial no site.",
+            "reasoning": "O dossiê não detalha os serviços oferecidos além do rótulo 'pet shop' (K4). Verificar o conteúdo das seções de vendas e serviços.",
+            "basedOn": ["K2", "K3"]
+          },
+          {
+            "statement": "A marca pode estar em fase de adaptação local para atender demandas específicas da região.",
+            "reasoning": "Sendo uma unidade recente (K1) e filial (K2), há espaço para ajustes operacionais. Verificar a data exata do lançamento da unidade.",
+            "basedOn": ["K1", "K2"]
+          },
+          {
+            "statement": "A rede pode estar revisando o manual de marca para garantir uniformidade em novas unidades.",
+            "reasoning": "A consistência visual é boa, mas não se sabe se o manual é recente ou se há diretrizes específicas para filiais. Verificar a existência e data do manual de marca.",
+            "basedOn": ["K5"]
+          }
+        ],
+        "offers": [
+          {
+            "offer": "OF1",
+            "relevance": "weak",
+            "statement": "A oferta pode ser considerada se houver necessidade de reforçar a identidade local, mas há riscos por ser filial com marca alinhada.",
+            "reasoning": "O desqualificador de franquia/filial com marca consistente é forte.",
+            "factor": 0.6,
+            "basedOn": ["K3", "K2"],
+            "openingAngle": "Focar na adaptação da identidade à realidade local da filial.",
+            "objections": [
+              "A marca já segue as diretrizes da rede.",
+              "Não há necessidade de revisão se a consistência é boa.",
+              "O manual de marca pode ser recente e válido."
+            ],
+            "toVerify": [
+              "Verificar se o manual de marca é recente.",
+              "Confirmar se há planos de expansão para outras unidades.",
+              "Entender quem define o posicionamento local."
+            ],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": [
+              {
+                "position": 2,
+                "basedOn": ["K3"],
+                "reasoning": "O site afirma ser unidade franqueada da rede (K3), o que implica seguimento da marca da matriz."
+              }
+            ]
+          },
+          {
+            "offer": "OF2",
+            "relevance": "weak",
+            "statement": "A oferta pode ser útil se o site atual for antigo ou pouco funcional, mas o fato de ter sido lançado em 2025 sugere que não é recente.",
+            "reasoning": "A oferta visa site ruim no celular ou falta de clareza, mas não há dados sobre a usabilidade móvel. O desqualificador de 'site refeito há menos de 1 ano' é relevante dado o lançamento em 2025 (K1).",
+            "factor": 0.6,
+            "basedOn": ["K1"],
+            "openingAngle": "Verificar a usabilidade móvel e a clareza da oferta específica.",
+            "objections": [
+              "O site foi lançado recentemente em 2025.",
+              "A unidade é recente e pode não ter necessidade imediata de novo site.",
+              "Não há indicação de problemas técnicos no site atual."
+            ],
+            "toVerify": [
+              "Confirmar a data exata do lançamento do site.",
+              "Verificar se o site tem problemas de usabilidade móvel.",
+              "Entender se há intenção de lançar novos serviços."
+            ],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": []
+          }
+        ]
+      },
+      "inputDiscards": [],
+      "outputDiscards": [
+        "Frase descartada: chamava de inconsistente a marca que a auditoria deu como consistente.",
+        "Desqualificador sem fato do mesmo assunto: não conta."
+      ],
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "no máximo 3 hipóteses",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cada hipótese diz o que verificar",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo apoiado em fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só referências do dossiê",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia as duas ofertas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não diz que a empresa \"precisa\" de um serviço",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia em fato: OF1 aponta o desqualificador 2",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "desqualificador da franquia cita o fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem fato de manual de marca: OF1 não aponta o desqualificador 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia com site lido: OF2 sem desqualificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia: OF1 com relevância \"none\" ou \"weak\"",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marca não é chamada de inconsistente (auditoria com nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ],
+      "rawChecks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "no máximo 3 hipóteses",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cada hipótese diz o que verificar",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo apoiado em fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só referências do dossiê",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia as duas ofertas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não diz que a empresa \"precisa\" de um serviço",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia em fato: OF1 aponta o desqualificador 2",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "desqualificador da franquia cita o fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem fato de manual de marca: OF1 não aponta o desqualificador 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia com site lido: OF2 sem desqualificador",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "franquia: OF1 com relevância \"none\" ou \"weak\"",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marca não é chamada de inconsistente (auditoria com nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": false
+        }
+      ]
+    }
+  ]
+}

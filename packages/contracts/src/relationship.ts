@@ -426,6 +426,33 @@ export const OutboundMessage = z.object({
 });
 export type OutboundMessage = z.infer<typeof OutboundMessage>;
 
+/**
+ * Tipos de aviso da conferência automática do texto da IA (KI-150). A auditoria guarda só os
+ * tipos e as contagens, nunca o texto (ADR-0014 item 11); a tela mostra cada tipo em pt-BR.
+ */
+export const AiReviewKind = z.enum([
+  'source',
+  'added',
+  'invented',
+  'strategy',
+  'request',
+  'tone',
+  'proportion',
+  'agency',
+]);
+export type AiReviewKind = z.infer<typeof AiReviewKind>;
+
+/** O que a conferência deixou numa versão gerada pela IA (gravado com ela, na auditoria). */
+export const AiReviewRecord = z.object({
+  /** A IA foi chamada de novo para corrigir o próprio texto. */
+  corrected: z.boolean(),
+  /** Tipos do que ainda ficou no texto (avisos para quem revisa antes de aprovar). */
+  kinds: z.array(AiReviewKind).max(AiReviewKind.options.length).default([]),
+  /** Menções de fonte errada que o sistema tirou depois da correção. */
+  adjusted: z.number().int().min(0).max(50).default(0),
+});
+export type AiReviewRecord = z.infer<typeof AiReviewRecord>;
+
 /** Texto escrito pela IA (validado antes de virar rascunho). */
 export const MessageDraftText = z.object({
   subject: z.string().trim().max(200).nullable(),

@@ -1,4 +1,5 @@
 import type {
+  AiReviewRecord,
   ApproachBasis,
   ApproachPlan,
   ApproachStrategyContent,
@@ -197,6 +198,11 @@ export interface RelationshipRepository {
   listMessages(filter: MessageFilter): Promise<OutboundMessage[]>;
   getMessage(id: string): Promise<OutboundMessage | null>;
   latestVersionOf(threadId: string): Promise<OutboundMessage | null>;
+  /**
+   * Conferência automática gravada com cada versão gerada pela IA (`aiReview` do registro de
+   * auditoria da inclusão; só tipos e contagens, KI-150). Versões sem conferência ficam de fora.
+   */
+  messageReviews(messageIds: readonly string[]): Promise<Map<string, AiReviewRecord>>;
   /** Mais recente primeiro. */
   listApprovals(filter: { opportunityId?: string; limit?: number }): Promise<Approval[]>;
   getApproval(id: string): Promise<Approval | null>;

@@ -88,6 +88,16 @@ export interface CompanyRepository {
   ): Promise<Company>;
   /** Devolve false quando a empresa não existe (nada é gravado nem auditado). */
   setLifecycle(id: string, lifecycle: CompanyLifecycle, audit: PendingAudit): Promise<boolean>;
+  /**
+   * Acrescenta chaves a uma empresa já cadastrada (CNPJ vinculado depois do cadastro, KI-160): a
+   * chave forte passa a valer na busca de duplicadas. A chave que a empresa já tem é ignorada;
+   * chave forte de outra empresa: AppError('conflict', 'company_duplicate'), sem gravar nada.
+   */
+  addIdentifiers(
+    companyId: string,
+    identifiers: NewCompanyIdentifier[],
+    audit: PendingAudit,
+  ): Promise<void>;
 }
 
 /** Leitura e gravação do Evidence Ledger (ADR-0002). Fontes e evidências são só inclusão. */

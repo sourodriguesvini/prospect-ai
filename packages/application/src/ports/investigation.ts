@@ -158,6 +158,11 @@ export interface AnalysisCompany {
   uf: string | null;
   /** Descrição da atividade principal (CNAE), quando conhecida. */
   activity: string | null;
+  /**
+   * Domínio do site da empresa quando ele foi confirmado (o modelo não pode dizer que falta site,
+   * KI-152). Opcional para os testes antigos; o servidor sempre preenche.
+   */
+  site?: string | null;
 }
 
 /** Item numerado mostrado ao modelo (`ref` curto como `P1`, `M3`, `K7`). */

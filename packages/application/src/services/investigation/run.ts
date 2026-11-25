@@ -18,6 +18,7 @@ import {
   type WebPage,
 } from '@prospector/contracts';
 import {
+  deniesOwnSite,
   effectiveStatus,
   forbiddenAssertion,
   incompleteStatement,
@@ -39,6 +40,7 @@ import type {
 } from '../../ports/investigation';
 import type { AiTelemetryRepository } from '../../ports/copilot-repository';
 import type { StrategyRepository } from '../../ports/strategy-repository';
+import type { CompanyService } from '../company-service';
 import type { EvidenceDraft, EvidenceService } from '../evidence-service';
 import { WEBSITE_PAGE_KEY, type WebResearchService } from '../web-research-service';
 
@@ -64,6 +66,8 @@ export interface InvestigationDeps {
   ai: BrandAnalysisAi | null;
   /** `llm_calls` (ADR-0005): uma linha por análise, com tokens e tempo de GPU. */
   telemetry?: Pick<AiTelemetryRepository, 'recordLlmCall'> | null;
+  /** CNPJ publicado no site (`CompanyService.linkCnpjFromSite`); null/ausente = não procura. */
+  cnpjFromSite?: CompanyService['linkCnpjFromSite'] | null;
   clock: Clock;
   newId: () => string;
   log: (message: string) => void;
@@ -246,8 +250,9 @@ export function companyClaim(
  * devolve true. Vale para tudo que a IA escreve antes de virar claim.
  */
 export function rejectedByPolicy(run: Run, ...texts: Array<string | null | undefined>): boolean {
-  // A primeira é a afirmação; frase interrompida não vira claim (o raciocínio pode vir encurtado).
-  if (texts[0] && incompleteStatement(texts[0])) {
+  // Frase interrompida não vira claim, nem na afirmação nem no raciocínio (KI-131): o teto do
+  // contrato termina em "…", que não conta como interrupção.
+  if (texts.some((text) => text && incompleteStatement(text))) {
     recordDiscard(run.verification, 'Conclusão descartada: frase interrompida pelo modelo.');
     return true;
   }
@@ -256,6 +261,14 @@ export function rejectedByPolicy(run: Run, ...texts: Array<string | null | undef
     const hit = forbiddenAssertion(text);
     if (hit) {
       recordDiscard(run.verification, `Conclusão descartada: ${hit.reason}.`);
+      return true;
+    }
+    // Contradiz o dossiê: o site foi lido nesta investigação (KI-152).
+    if (analysisCompany(run).site && deniesOwnSite(text)) {
+      recordDiscard(
+        run.verification,
+        'Conclusão descartada: dizia que falta site, mas o site foi lido.',
+      );
       return true;
     }
   }
@@ -356,7 +369,19 @@ export function analysisCompany(run: Run): AnalysisCompany {
     city: run.company.city,
     uf: run.company.uf,
     activity: typeof cnae?.description === 'string' ? cnae.description : null,
+    // Só o site lido nesta investigação: "(lido nesta investigação)" e a guarda de "falta de site"
+    // dependem disso (revisão das guardas, 2026-11-25).
+    site: run.siteUrl && run.snapshot.siteReachable === true ? siteHost(run.siteUrl) : null,
   };
+}
+
+/** `https://www.exemplo.com.br/x` → `exemplo.com.br` (o que o modelo vê da empresa). */
+function siteHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
 }
 
 export function aiIssue(code: AnalysisErrorCode): InvestigationIssueCode {

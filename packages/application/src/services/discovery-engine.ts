@@ -3,7 +3,6 @@ import {
   DISCOVERY_SNIPPET_MAX,
   SERVICE_HINT_LABELS,
   WebSearchQuery,
-  isValidCnpj,
   type CompanyLifecycle,
   type CompanySize,
   type DiscoveryFailure,
@@ -30,6 +29,8 @@ import {
 import {
   assessProspect,
   distinctiveTokens,
+  expansionEventIn,
+  findCnpjsInText,
   findSameCompany,
   companyNameCore,
   homepageOf,
@@ -318,6 +319,537 @@ function stateNameIn(uf: UF, text: string): boolean {
   return cityIn(STATE_NAMES[uf], text);
 }
 
+/** Adjetivos de estado usados para regiões: "interior paulista", "Serra Gaúcha". */
+const STATE_ADJECTIVES: Partial<Record<UF, string>> = {
+  SP: 'paulista',
+  RJ: 'fluminense',
+  MG: 'mineir[ao]',
+  RS: 'gauch[ao]',
+  SC: 'catarinense',
+  PR: 'paranaense',
+  BA: 'baian[ao]',
+  GO: 'goian[ao]',
+  ES: 'capixaba',
+  CE: 'cearense',
+  PE: 'pernambucan[ao]',
+  RN: 'potiguar',
+  PB: 'paraiban[ao]',
+  AL: 'alagoan[ao]',
+  SE: 'sergipan[ao]',
+  PI: 'piauiense',
+  MA: 'maranhense',
+  PA: 'paraense',
+  AM: 'amazonense',
+  TO: 'tocantinense',
+  MT: 'mato grossense',
+  MS: 'sul mato grossense',
+};
+
+const DIRECTIONS = 'norte|sul|leste|oeste|nordeste|noroeste|sudeste|sudoeste|centro oeste';
+
+/**
+ * Formas que querem dizer o estado e não a cidade de mesmo nome, da mais longa para a mais curta
+ * ("Mato Grosso do Sul" antes de "Mato Grosso"): "interior de São Paulo", "litoral norte de São
+ * Paulo", "estado de Goiás", "interior paulista", "Serra Gaúcha", "sul de Minas", "norte do
+ * Paraná". "Zona norte de São Paulo" e "região sul do Rio de Janeiro" ficam na cidade: SP e RJ não
+ * entram na forma com direção.
+ */
+const STATE_FORMS: ReadonlyArray<{ uf: UF; pattern: RegExp; size: number }> = (
+  Object.keys(STATE_NAMES) as UF[]
+)
+  .flatMap((uf) => {
+    const name = normalizeCity(STATE_NAMES[uf]);
+    const names = uf === 'MG' ? `${name}|minas` : name;
+    const adjective = STATE_ADJECTIVES[uf];
+    const forms = [
+      {
+        uf,
+        size: name.length,
+        pattern: new RegExp(
+          ` (interior|litoral|estado)( (${DIRECTIONS}))?( do estado)? (de|do|da) (${names}|${uf.toLowerCase()}) `,
+        ),
+      },
+    ];
+    if (adjective) {
+      forms.push({
+        uf,
+        size: adjective.length,
+        pattern: new RegExp(
+          ` (interior|litoral|serra|vale|sertao|agreste|triangulo|planalto|${DIRECTIONS})( (${DIRECTIONS}))? ${adjective} `,
+        ),
+      });
+    }
+    if (uf !== 'SP' && uf !== 'RJ') {
+      forms.push({
+        uf,
+        size: name.length,
+        pattern: new RegExp(` (regiao )?(${DIRECTIONS}) (de|do|da) (${names}) `),
+      });
+    }
+    return forms;
+  })
+  .sort((a, b) => b.size - a.size);
+
+/**
+ * "Interior de São Paulo", "litoral norte de São Paulo", "estado de Goiás", "interior paulista":
+ * o lugar é o estado, não a cidade de mesmo nome. Na avaliação de 2026-11-25 o modelo pôs "São
+ * Paulo" em `cities` nas 3 vezes, e o servidor (que aceita cidade escrita no pedido) pesquisaria
+ * só a capital. null quando o pedido não tem essa forma.
+ */
+export function stateArea(request: string): UF | null {
+  const text = ` ${comparable(request)} `;
+  return STATE_FORMS.find((form) => form.pattern.test(text))?.uf ?? null;
+}
+
+/** UF cujo nome é exatamente este ("São Paulo" → SP); null para os demais. */
+function stateNamed(place: string): UF | null {
+  const name = normalizeCity(place);
+  return (
+    (Object.keys(STATE_NAMES) as UF[]).find((uf) => normalizeCity(STATE_NAMES[uf]) === name) ?? null
+  );
+}
+
+/** Até onde vai a região pedida além das cidades citadas. */
+export type RegionExtent = 'metropolitan' | 'surroundings';
+
+/**
+ * "Grande X" só com preposição antes ou no começo: em "Imobiliárias em Praia Grande, São Paulo",
+ * "Campina Grande, João Pessoa" e "Campo Grande, Rio de Janeiro", "Grande" é parte da cidade
+ * (segunda revisão do KI-148).
+ */
+function greaterPattern(names: string): RegExp {
+  return new RegExp(`(^| (na|no|da|do|a|o|em|de|pela|pelo|para|toda|e|ou)) grande (${names}) `);
+}
+
+/**
+ * "Grande X": as cidades e a UF que a expressão quer dizer. Sem isso, "Grande BH" virava
+ * "Brasil", porque o servidor só aceita cidade escrita no pedido (KI-148).
+ */
+const GREATER_AREAS: ReadonlyArray<{ pattern: RegExp; cities: readonly string[]; uf: UF }> = [
+  { pattern: greaterPattern('sao paulo|sp'), cities: ['São Paulo'], uf: 'SP' },
+  { pattern: greaterPattern('bh|belo horizonte'), cities: ['Belo Horizonte'], uf: 'MG' },
+  // "Grande Rio", mas não "grande Rio Verde" nem "Rio do Sul".
+  {
+    pattern: greaterPattern(
+      String.raw`rio(?! (verde|branco|claro|bonito|negro|largo|pardo|preto|novo|azul|grande|do|da|das|dos)\b)`,
+    ),
+    cities: ['Rio de Janeiro'],
+    uf: 'RJ',
+  },
+  { pattern: greaterPattern('porto alegre|poa'), cities: ['Porto Alegre'], uf: 'RS' },
+  { pattern: greaterPattern('curitiba'), cities: ['Curitiba'], uf: 'PR' },
+  { pattern: greaterPattern('recife'), cities: ['Recife'], uf: 'PE' },
+  { pattern: greaterPattern('salvador'), cities: ['Salvador'], uf: 'BA' },
+  { pattern: greaterPattern('fortaleza'), cities: ['Fortaleza'], uf: 'CE' },
+  { pattern: greaterPattern('vitoria'), cities: ['Vitória'], uf: 'ES' },
+  { pattern: greaterPattern('florianopolis|floripa'), cities: ['Florianópolis'], uf: 'SC' },
+  { pattern: greaterPattern('goiania'), cities: ['Goiânia'], uf: 'GO' },
+  { pattern: greaterPattern('natal'), cities: ['Natal'], uf: 'RN' },
+  { pattern: greaterPattern('sao luis'), cities: ['São Luís'], uf: 'MA' },
+  { pattern: greaterPattern('joao pessoa'), cities: ['João Pessoa'], uf: 'PB' },
+  { pattern: greaterPattern('belem'), cities: ['Belém'], uf: 'PA' },
+  { pattern: greaterPattern('manaus'), cities: ['Manaus'], uf: 'AM' },
+  { pattern: greaterPattern('cuiaba'), cities: ['Cuiabá'], uf: 'MT' },
+  { pattern: greaterPattern('maceio'), cities: ['Maceió'], uf: 'AL' },
+  { pattern: greaterPattern('aracaju'), cities: ['Aracaju'], uf: 'SE' },
+  { pattern: greaterPattern('teresina'), cities: ['Teresina'], uf: 'PI' },
+  { pattern: greaterPattern('campinas'), cities: ['Campinas'], uf: 'SP' },
+  { pattern: greaterPattern('londrina'), cities: ['Londrina'], uf: 'PR' },
+  {
+    pattern:
+      / (abc paulista|regiao do abc) |(^| (na|no|da|do|em|de|pelo|para|todo|e|ou)) grande abc /,
+    cities: ['Santo André', 'São Bernardo do Campo', 'São Caetano do Sul'],
+    uf: 'SP',
+  },
+];
+
+/** "Grande BH" → Belo Horizonte (MG); null quando o pedido não usa essa forma. */
+export function greaterArea(request: string): { cities: readonly string[]; uf: UF } | null {
+  const text = ` ${comparable(request)} `;
+  const area = GREATER_AREAS.find((item) => item.pattern.test(text));
+  return area ? { cities: area.cities, uf: area.uf } : null;
+}
+
+/**
+ * O pedido inclui a região em volta das cidades pedidas? Na pesquisa real de 2026-11-24
+ * (KI-148), "região metropolitana" sumia e nenhuma busca saía da capital. Só as formas que
+ * falam de fora da cidade contam: "região metropolitana", "Grande X", "e região", "região de
+ * <cidade pedida>", "e na região", "e entorno", "arredores", "cidades próximas", "e região norte do
+ * Paraná". "Região central de Campinas", "região da Savassi" (bairro) e "referência na região"
+ * ficam dentro da cidade.
+ */
+export function regionExtent(request: string, cities: readonly string[]): RegionExtent | null {
+  const text = ` ${comparable(request)} `;
+  if (/ regiao metropolitana | rm[a-z]{1,3} /.test(text) || greaterArea(request)) {
+    return 'metropolitan';
+  }
+  if (
+    new RegExp(
+      ` e (n[ao] |sua |seu |o )?(regiao|entorno|arredores)(?! (central|centro|${DIRECTIONS})\\b)`,
+    ).test(text)
+  ) {
+    return 'surroundings';
+  }
+  // "Londrina e região norte do Paraná": a parte do estado em volta da cidade.
+  if (
+    new RegExp(` e (n[ao] )?regiao (${DIRECTIONS}) (de|do|da) `).test(text) &&
+    stateArea(request)
+  ) {
+    return 'surroundings';
+  }
+  if (/ (arredores|cidades vizinhas|cidades proximas|municipios vizinhos) /.test(text)) {
+    return 'surroundings';
+  }
+  const around = cities.some((city) => {
+    const name = normalizeCity(city);
+    return new RegExp(` (regiao (de|do|da)|entorno (de|do|da)) ${name} `).test(text);
+  });
+  return around ? 'surroundings' : null;
+}
+
+/** Siglas de UF em minúsculas, como ficam no texto comparável ("Curitiba/PR" → "curitiba pr"). */
+const UF_WORDS = new Set(Object.keys(STATE_NAMES).map((uf) => uf.toLowerCase()));
+
+/**
+ * Prefixos de bairro ("Jardim Higienópolis", "Vila Madalena", "Gleba Palhano"). Município com
+ * esse começo ("Vila Velha", "Jardim Alegre") passa quando o texto o escreve como município.
+ */
+const DISTRICT_PREFIX =
+  /^(jardim|jd|vila|vl|gleba|parque|pq|conjunto|residencial|setor|loteamento|nucleo|chacaras?|bosque|recanto|condominio|bairro)( |$)|^centro$/;
+
+function districtLike(place: string): boolean {
+  return DISTRICT_PREFIX.test(normalizeCity(place));
+}
+
+/** Palavras que encerram um nome de lugar escrito sem maiúsculas ("batel em curitiba com vista"). */
+const PLACE_STOP_WORDS = new Set([
+  'a',
+  'o',
+  'as',
+  'os',
+  'ao',
+  'aos',
+  'e',
+  'ou',
+  'em',
+  'no',
+  'na',
+  'nos',
+  'nas',
+  'com',
+  'que',
+  'para',
+  'por',
+  'pelo',
+  'pela',
+  'perto',
+  'proximo',
+  'proxima',
+  'onde',
+  'ate',
+  'sem',
+  'mas',
+  'como',
+  'quando',
+  'se',
+  'ja',
+  'tambem',
+  'mais',
+  'entre',
+  'sobre',
+  'regiao',
+  'cidade',
+  'capital',
+  'estado',
+]);
+
+/**
+ * O nome de lugar no começo de `words`, até a primeira palavra que não é de nome ("Curitiba com
+ * vista" → "Curitiba"). Escrito todo em minúsculas, volta com as iniciais maiúsculas ("são paulo"
+ * → "São Paulo"). null quando não sobra nome.
+ */
+function leadingPlace(words: string): string | null {
+  const kept: string[] = [];
+  for (const word of words.trim().split(/\s+/)) {
+    const key = normalizeCity(word);
+    if (!key || PLACE_STOP_WORDS.has(key) || UF_WORDS.has(key)) break;
+    kept.push(word);
+  }
+  while (kept.length > 0 && /^d[aeo]s?$/i.test(kept.at(-1) ?? '')) kept.pop();
+  if (kept.length === 0) return null;
+  const name = kept.join(' ');
+  if (name !== name.toLowerCase()) return name;
+  return kept
+    .map((word, index) =>
+      index > 0 && /^(d[aeo]s?|e)$/.test(word)
+        ? word
+        : word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join(' ');
+}
+
+/** "bairro X" ou "bairro de X" (singular): X é bairro. "Bairros de X" fala da cidade X. */
+function districtWordBefore(needle: string, hay: string): boolean {
+  return new RegExp(` bairro (d[aeo] )?${needle} `).test(hay);
+}
+
+/**
+ * A "cidade" do modelo é um bairro, segundo o PEDIDO? "no bairro Savassi", "no Batel, em
+ * Curitiba" e "na região da Savassi, em Belo Horizonte" (com a outra cidade também no pedido).
+ * "Nos bairros de Curitiba" não conta: ali Curitiba é a cidade. Nem "no Guarujá, em São Paulo":
+ * depois de um município, o nome do estado é o estado (segunda revisão do KI-148).
+ */
+export function districtInRequest(
+  place: string,
+  request: string,
+  otherCities: readonly string[],
+): boolean {
+  const needle = normalizeCity(place);
+  if (needle.length < 3) return false;
+  const hay = ` ${comparable(request)} `;
+  if (districtWordBefore(needle, hay)) return true;
+  return otherCities.some((city) => {
+    const other = normalizeCity(city);
+    if (other === needle || (stateNamed(city) && !districtLike(place))) return false;
+    return new RegExp(` (no|na|nos|nas|regiao d[aeo]s?) ${needle} em ${other} `).test(hay);
+  });
+}
+
+/**
+ * A cidade que o extrator leu num resultado é um bairro da cidade pedida? Só com sinal forte: a
+ * palavra "bairro" antes, ou o nome seguido da cidade pedida no fim do endereço — com a UF
+ * ("Batel, Curitiba/PR"), o estado ou nada depois ("Café Alfa - Batel - Curitiba"). Numa lista
+ * ("Atendemos Cambé, Londrina e região") o município vizinho continua município, justo nas
+ * pesquisas de região metropolitana.
+ */
+export function districtInResult(
+  place: string,
+  text: string,
+  regionCities: readonly string[],
+): boolean {
+  const needle = normalizeCity(place);
+  if (needle.length < 3) return false;
+  const hay = ` ${comparable(text)} `;
+  if (districtWordBefore(needle, hay)) return true;
+  const plain = stripAccents(text).toLowerCase();
+  return regionCities.some((city) => {
+    const other = normalizeCity(city);
+    if (other === needle) return false;
+    const match = new RegExp(` ${needle} (em )?${other} ([a-z]{2}) `).exec(hay);
+    if (match !== null && UF_WORDS.has(match[2] ?? '')) return true;
+    return new RegExp(
+      String.raw`(^|[^\p{L}])${escapeRegExp(stripAccents(place).toLowerCase())}\s*(?:[,–—-]|\bem\b)\s*${escapeRegExp(stripAccents(city).toLowerCase())}\s*(?:$|[|.;)]|[,/–—(-]\s*(?:${STATE_WORDS})(?![\p{L}]))`,
+      'u',
+    ).test(plain);
+  });
+}
+
+/** Siglas e nomes de estado, sem acento e em minúsculas, para o fim de um endereço. */
+const STATE_WORDS = [
+  ...Object.keys(STATE_NAMES).map((uf) => uf.toLowerCase()),
+  ...Object.values(STATE_NAMES).map((name) => escapeRegExp(stripAccents(name).toLowerCase())),
+].join('|');
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Cidade do bairro no pedido: em "Cafeterias no Batel, em Curitiba", o bairro Batel é de
+ * Curitiba. O modelo às vezes devolve só "Batel" em `cities` (2 de 3 vezes na avaliação de
+ * 2026-11-25); aí a cidade escrita depois dele toma o lugar. Vale também escrito em minúsculas
+ * ("no batel, em curitiba"). Depois de um município, o nome do estado é o estado: em "Pousadas
+ * no Guarujá, em São Paulo" a cidade continua Guarujá (segunda revisão do KI-148). null quando o
+ * pedido não tem essa forma.
+ */
+export function districtHost(place: string, request: string): string | null {
+  const needle = normalizeCity(place);
+  for (const match of request.matchAll(
+    /(?<![\p{L}])(?:no|na|nos|nas|regi[aã]o d[aeo]s?) (?:bairro (?:d[aeo] )?)?(?!regi[aã]o )([\p{L}'’ -]+?),? em ([\p{L}'’ -]+)/giu,
+  )) {
+    if (!match[1] || !match[2] || normalizeCity(match[1]) !== needle) continue;
+    const host = leadingPlace(match[2]);
+    if (!host || (stateNamed(host) && !districtLike(place))) return null;
+    return host;
+  }
+  return null;
+}
+
+/**
+ * Bairro pedido ("no bairro Savassi, em Belo Horizonte", "no Batel, em Curitiba"), para o plano
+ * e o resumo citarem. `cities` são as cidades da pesquisa: com elas, "no Batel, em Curitiba" é
+ * achado mesmo quando o modelo (certo) não pôs o Batel em `cities`. null sem bairro.
+ */
+export function requestedDistrict(
+  request: string,
+  modelCities: readonly string[],
+  cities: readonly string[] = [],
+): string | null {
+  const written = /(?<![\p{L}])bairro (?:d[aeo] )?([\p{L}'’ -]+)/iu.exec(request);
+  const named = written?.[1] ? leadingPlace(written[1]) : null;
+  if (named) return named;
+  for (const match of request.matchAll(
+    /(?<![\p{L}])(?:no|na|nos|nas|regi[aã]o d[aeo]s?) (?!regi[aã]o )([\p{L}'’ -]+)/giu,
+  )) {
+    const place = match[1] ? leadingPlace(match[1]) : null;
+    if (place && districtInRequest(place, request, cities)) return place;
+  }
+  const fromModel = modelCities.find(
+    (city) =>
+      cityIn(city, request) &&
+      districtInRequest(
+        city,
+        request,
+        modelCities.filter((other) => other !== city),
+      ),
+  );
+  return fromModel ?? null;
+}
+
+/**
+ * Palavras de busca em inglês que não se usam assim no Brasil ("pet clinic"): o modelo às vezes
+ * propõe e a busca volta com resultados de fora (KI-148). Palavra que está no próprio pedido
+ * fica ("concept store", se a pessoa escreveu). Fonte única: os corretores da avaliação usam esta.
+ */
+const ENGLISH_ONLY = new Set([
+  'clinic',
+  'clinics',
+  'veterinary',
+  'grooming',
+  'near',
+  'best',
+  'company',
+  'companies',
+  'restaurant',
+  'restaurants',
+  'gym',
+  'gyms',
+  'bakery',
+  'bakeries',
+  'dentist',
+  'dentists',
+  'lawyer',
+  'lawyers',
+]);
+
+/** Palavras em inglês do texto que o pedido não usa ([] = tudo em português). */
+export function foreignSearchWords(text: string, request = ''): string[] {
+  const asked = new Set(comparable(request).split(' '));
+  return comparable(text)
+    .split(' ')
+    .filter((word) => ENGLISH_ONLY.has(word) && !asked.has(word));
+}
+
+/**
+ * Especialidades que estreitam um setor genérico: "clínicas" virava "clínica médica" nos termos e
+ * nas buscas (KI-115; avaliação de 2026-11-25, 3 de 3 vezes no v4). Só contam quando o pedido não
+ * usa a palavra.
+ */
+const NARROWING =
+  /^(odonto\w*|dent(al|ais|ista|istas|aria|arias|ario|arios)|medic[ao]s?|estetic[ao]s?|veterinari[ao]s?|popular|populares)$/;
+
+/**
+ * Palavras do texto que estreitam o setor e que o pedido não usa ([] = nenhuma). Gênero e número
+ * não contam: "clínica veterinária" cabe em "clínicas veterinárias".
+ */
+export function narrowingWords(text: string, request = ''): string[] {
+  const stem = (word: string) => word.replace(/(as|os|es|a|o|s)$/, '');
+  const asked = new Set(comparable(request).split(' ').map(stem));
+  return comparable(text)
+    .split(' ')
+    .filter((word) => NARROWING.test(word) && !asked.has(stem(word)));
+}
+
+/**
+ * Palavras que fazem uma busca procurar um sinal. Pelo texto, e não pelo rótulo do modelo:
+ * "hospital abre novas vagas marketing" vinha rotulada como expansão e "restaurante Savassi
+ * identidade visual" como busca de empresas (segunda revisão do KI-148). Investimento e mudança
+ * estratégica ficam de fora: as palavras deles se misturam às de expansão.
+ */
+const SIGNAL_WORDS: Partial<Record<SignalType, RegExp>> = {
+  expansion:
+    /(?<= )(inaugur\w*|nova unidade|novas unidades|nova loja|novas lojas|nova filial|novas filiais|abre nova|abrem novas|abre novas|expansao)(?= )/g,
+  hiring: /(?<= )(vagas?|contrat\w*|recrut\w*|trabalhe conosco|empregos?|processo seletivo)(?= )/g,
+  launch: /(?<= )(lanca|lancam|lancou|lancaram|lancando|lancar|lancamentos?)(?= )/g,
+  brand_communication:
+    /(?<= )(identidade visual|nova identidade|rebranding|redesign|nova marca|novo logo|nova logo|novo site|site novo|sites?)(?= )/g,
+};
+
+/**
+ * Palavras de sinal que o pedido não pede, no texto de uma busca ([] = nenhuma). Palavra que está
+ * no próprio pedido fica, no singular ou no plural ("agências de recrutamento", "clientes para
+ * desenvolvimento de sites").
+ */
+export function unrequestedSignalWords(
+  text: string,
+  request: string,
+  signals: readonly SignalType[],
+): string[] {
+  const singular = (words: string) =>
+    words
+      .split(' ')
+      .map((word) => (word.length > 3 ? word.replace(/s$/, '') : word))
+      .join(' ');
+  const hay = ` ${comparable(text)} `;
+  const asked = ` ${singular(comparable(request))} `;
+  return (Object.keys(SIGNAL_WORDS) as SignalType[])
+    .filter((signal) => !signals.includes(signal))
+    .flatMap((signal) => [...hay.matchAll(SIGNAL_WORDS[signal] ?? /$^/g)].map((match) => match[0]))
+    .filter((word) => !asked.includes(` ${singular(word)} `));
+}
+
+/**
+ * Palavras do PEDIDO que pedem cada sinal. O modelo às vezes acrescenta sinal a pedido que não pede
+ * nenhum: "Distribuidoras de alimentos no interior de Mato Grosso do Sul" ganhou expansão e
+ * lançamento (2 de 3 vezes no v4, avaliação de 2026-11-25), e duas das buscas iam para isso.
+ */
+const SIGNAL_ASKED: Record<SignalType, RegExp> = {
+  expansion:
+    /\b(expan\w*|abr(e|em|indo|iu|iram|ir)|abertura|inaugur\w*|cresc\w*|amplia\w*|filia(l|is)|franquia\w*|nov[ao]s? (lojas?|unidades?|sedes?|pontos?|enderecos?)|(lojas?|unidades?) nov[ao]s?)\b/,
+  hiring: /\b(contrat\w*|vagas?|recrut\w*|empregos?|selecao|seletivo)\b/,
+  launch: /\b(lanc(a|am|ou|aram|ando|ar|amento|amentos)|novos? produtos?|novidades?)\b/,
+  strategic_change:
+    /\b(mudanc\w*|mud(a|am|ou|aram|ando)|reposicion\w*|fusao|fusoes|aquisic\w*|reestrutur\w*|nova fase|nova gestao|sucessao|transforma\w*)\b/,
+  investment: /\b(invest\w*|aporte\w*|capta\w*|rodada|financiamento)\b/,
+  brand_communication:
+    /\b(marcas?|sites?|identidade|rebranding|branding|logo\w*|comunicacao|redesign|reposicion\w*)\b/,
+};
+
+/** "Sinais", "oportunidades", "momento": o pedido aceita qualquer sinal que o modelo propuser. */
+const ANY_SIGNAL = /\b(sinal|sinais|gatilhos?|oportunidades?|momento)\b/;
+
+/**
+ * Os sinais do modelo que o pedido pede, pelas palavras dele. Os escolhidos na tela (opções) não
+ * passam por aqui: valem sempre.
+ */
+export function signalsAsked(request: string, signals: readonly SignalType[]): SignalType[] {
+  const text = comparable(request);
+  if (ANY_SIGNAL.test(text)) return [...signals];
+  return signals.filter((signal) => SIGNAL_ASKED[signal].test(text));
+}
+
+/**
+ * Busca na região em volta que o pedido não pede: "bar região de Belo Horizonte" e "barzinho Belo
+ * Horizonte região metropolitana" apareciam no plano de "Bares na região de Lourdes, em Belo
+ * Horizonte" (avaliação de 2026-11-25). Região metropolitana só quando o pedido fala nela (ou em
+ * "Grande X"); "região de <cidade>", "<cidade> e região" e "entorno" só quando o pedido inclui a
+ * região em volta.
+ */
+export function aroundNotAsked(text: string, request: string, cities: readonly string[]): boolean {
+  const hay = ` ${comparable(text)} `;
+  const metroAsked =
+    / regiao metropolitana | rm[a-z]{1,3} /.test(` ${comparable(request)} `) ||
+    greaterArea(request) !== null;
+  if (!metroAsked && / regiao metropolitana | rm[a-z]{1,3} /.test(hay)) return true;
+  if (cities.length === 0 || regionExtent(request, cities) !== null) return false;
+  return cities.some((city) => {
+    const name = normalizeCity(city);
+    return new RegExp(
+      ` (regiao|entorno|arredores) (de|do|da) ${name} | ${name} e regiao | (entorno|arredores) `,
+    ).test(hay);
+  });
+}
+
 function clean(text: string | null | undefined, max: number): string | null {
   if (!text) return null;
   const value = text.replace(/\s+/g, ' ').trim();
@@ -332,15 +864,12 @@ function dateOnly(value: string | null): string | null {
   return value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null;
 }
 
-const CNPJ_IN_TEXT = /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g;
-
-/** Primeiro CNPJ válido (dígitos conferem) no texto da página. */
+/**
+ * CNPJ da própria empresa na página: o primeiro válido que não aparece como de quem fez o site
+ * (agência, hospedagem). Mesma leitura do vínculo pelo site da investigação (KI-152).
+ */
 export function cnpjInText(text: string): string | null {
-  for (const match of text.matchAll(CNPJ_IN_TEXT)) {
-    const digits = match[0].replace(/\D/g, '');
-    if (isValidCnpj(digits)) return digits;
-  }
-  return null;
+  return findCnpjsInText(text).find((mention) => !mention.thirdParty)?.cnpj ?? null;
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -382,9 +911,22 @@ function relationFor(
 // Interpretação e plano
 // -----------------------------------------------------------------------------
 
-export function regionLabel(intent: Pick<DiscoveryIntent, 'region'>): string {
+const EXTENT_LABELS: Record<RegionExtent, string> = {
+  metropolitan: 'e região metropolitana',
+  surroundings: 'e região',
+};
+
+export function regionLabel(
+  intent: Pick<DiscoveryIntent, 'region'>,
+  extent: RegionExtent | null = null,
+  district: string | null = null,
+): string {
   const { cities, ufs } = intent.region;
-  if (cities.length > 0) return `${cities.join(', ')}${ufs.length === 1 ? ` (${ufs[0]})` : ''}`;
+  if (cities.length > 0) {
+    const around = extent ? ` ${EXTENT_LABELS[extent]}` : '';
+    const where = district ? `${district}, ${cities.join(', ')}` : cities.join(', ');
+    return `${where}${around}${ufs.length === 1 ? ` (${ufs[0]})` : ''}`;
+  }
   if (ufs.length > 0) return ufs.join(', ');
   return 'Brasil';
 }
@@ -398,15 +940,66 @@ export function buildIntent(
   const defaults: string[] = [];
   // O modelo só propõe: cidade que não está no pedido é descartada (ele às vezes inventa a região),
   // e a UF dele só fica se estiver no pedido ou acompanhar uma cidade que está.
+  // Bairro citado como bairro ("no bairro Savassi", "no Batel, em Curitiba") não é cidade, e
+  // "Grande BH" quer dizer Belo Horizonte e a região metropolitana (KI-148).
+  const greater = options.city ? null : greaterArea(run.request);
+  // "Grande BH" e "BH", vindos do modelo, já estão na área: não viram cidade à parte.
+  const inGreater = (city: string) =>
+    greater !== null &&
+    (normalizeCity(city).startsWith('grande ') ||
+      ` ${comparable(run.request)} `.includes(` grande ${normalizeCity(city)} `));
+  // "Pousadas no Guarujá, em São Paulo": depois de um município, o nome do estado é o estado.
+  const hay = ` ${comparable(run.request)} `;
+  const named = output.cities.filter((city) => cityIn(city, run.request) && !inGreater(city));
+  const stateAfterCity =
+    (Object.keys(STATE_NAMES) as UF[]).find((uf) => {
+      const name = normalizeCity(STATE_NAMES[uf]);
+      return named.some(
+        (city) =>
+          normalizeCity(city) !== name &&
+          !districtLike(city) &&
+          hay.includes(` ${normalizeCity(city)} em ${name} `),
+      );
+    }) ?? null;
+  const state = options.city ? null : (stateArea(run.request) ?? stateAfterCity);
+  const stateName = state ? normalizeCity(STATE_NAMES[state]) : null;
+  const written = named.filter((city) => normalizeCity(city) !== stateName);
+  // "no Batel, em Curitiba" com só "Batel" do modelo: vale Curitiba, escrita no pedido.
+  const kept = written.flatMap((city) => {
+    const others = written.filter((other) => other !== city);
+    const host = districtHost(city, run.request);
+    const hostCity = host && cityIn(host, run.request) ? [host] : [];
+    if (districtInRequest(city, run.request, others)) return hostCity;
+    return hostCity.length > 0 ? hostCity : [city];
+  });
   const cities = options.city
     ? [options.city]
-    : output.cities.filter((city) => cityIn(city, run.request)).slice(0, 10);
+    : [...(greater?.cities ?? []), ...kept]
+        .filter(
+          (city, index, all) =>
+            all.findIndex((other) => normalizeCity(other) === normalizeCity(city)) === index,
+        )
+        .slice(0, 10);
+  const district = options.city ? null : requestedDistrict(run.request, output.cities, cities);
   const modelUfs = output.ufs.filter(
     (uf) => ufIn(uf, run.request) || stateNameIn(uf, run.request) || cities.length > 0,
   );
-  const ufs = unique([...(options.uf ? [options.uf] : []), ...modelUfs]).slice(0, 5);
+  const ufs = unique([
+    ...(options.uf ? [options.uf] : []),
+    ...(greater ? [greater.uf] : []),
+    ...(state ? [state] : []),
+    ...modelUfs,
+  ]).slice(0, 5);
+  // "Curitiba e região metropolitana": a região vai além das cidades citadas (KI-148).
+  const extent = cities.length > 0 && !options.city ? regionExtent(run.request, cities) : null;
   let scope = output.regionScope;
-  if (options.city || (cities.length > 0 && (scope === 'unspecified' || scope === 'country'))) {
+  if (extent) scope = 'region';
+  // Com cidades e sem região em volta no pedido, a pesquisa é na cidade ("região da Savassi",
+  // "região central de Campinas"): o "region" do modelo não amplia nada.
+  else if (
+    options.city ||
+    (cities.length > 0 && (scope === 'unspecified' || scope === 'country' || scope === 'region'))
+  ) {
     scope = 'city';
   } else if (cities.length === 0 && ufs.length > 0 && scope !== 'region') scope = 'state';
   if (cities.length === 0 && ufs.length === 0) {
@@ -420,12 +1013,31 @@ export function buildIntent(
     defaults.push(`Quantidade: até ${quantity} empresas (limite desta profundidade).`);
   }
   if (!options.depth) defaults.push('Profundidade: padrão.');
-  const signals = unique([...options.signals, ...output.signals]).slice(0, 6);
-  const segment = output.segment;
+  // Sinal que o pedido não pede (pelas palavras dele) não entra: o modelo às vezes acrescenta.
+  const modelSignals = signalsAsked(run.request, output.signals);
+  const signals = unique([...options.signals, ...modelSignals]).slice(0, 6);
+  // "Clínicas" não vira "clínicas médicas": a especialidade que o pedido não diz sai (KI-115),
+  // quando o que sobra é o que o pedido diz ("pet shops e clínicas" não sobra de "pet shops").
+  const narrowed = output.segment
+    ?.split(' ')
+    .filter((word) => narrowingWords(word, run.request).length === 0)
+    .join(' ')
+    .trim();
+  const segment =
+    narrowed && narrowed !== output.segment && stemsCover(run.request, narrowed)
+      ? narrowed
+      : output.segment;
+  // Termos em inglês que não se usam no Brasil trazem resultados de fora (KI-148), e termo com
+  // especialidade que o pedido não diz estreita a busca (KI-115).
+  const terms = output.segmentTerms.filter(
+    (term) =>
+      foreignSearchWords(term, run.request).length === 0 &&
+      narrowingWords(term, run.request).length === 0,
+  );
   const intent: DiscoveryIntent = {
     summary: '',
     segment,
-    segmentTerms: output.segmentTerms.length > 0 ? output.segmentTerms : segment ? [segment] : [],
+    segmentTerms: terms.length > 0 ? terms : segment ? [segment] : [],
     region: { scope, cities, ufs, label: null },
     sizeHint: output.sizeHint,
     services: output.services,
@@ -435,9 +1047,19 @@ export function buildIntent(
     constraints: output.constraints,
     defaultsApplied: defaults.slice(0, 8),
   };
-  intent.region.label = regionLabel(intent).slice(0, 120);
+  intent.region.label = regionLabel(intent, extent, district).slice(0, 120);
+  // Resumo do modelo que perdeu a região em volta das cidades ou o bairro pedido, ou que fala em
+  // região metropolitana sem o pedido falar ("Padarias em Piracicaba e região", 3 de 3 vezes na
+  // avaliação de 2026-11-25), dá lugar ao do servidor.
+  const lost =
+    (extent !== null && !/regi[aã]o/i.test(output.summary ?? '')) ||
+    (extent !== 'metropolitan' && /metropolitan/i.test(output.summary ?? '')) ||
+    (district !== null && !comparable(output.summary ?? '').includes(comparable(district))) ||
+    narrowingWords(output.summary ?? '', run.request).length > 0 ||
+    modelSignals.length < output.signals.length;
+  const summary = lost ? null : output.summary;
   intent.summary = (
-    output.summary ??
+    summary ??
     `Empresas${segment ? ` de ${segment}` : ''} em ${intent.region.label}${
       signals.length > 0 ? ', com sinais comerciais' : ''
     }.`
@@ -452,6 +1074,36 @@ function queryKey(text: string): string {
     .filter((word) => !['de', 'da', 'do', 'das', 'dos', 'em', 'e'].includes(word))
     .map((word) => (word.length > 3 ? word.replace(/s$/, '') : word))
     .join(' ');
+}
+
+/** Raízes das palavras de uma busca ("veterinário" e "veterinária" dão a mesma). */
+function stems(text: string): Set<string> {
+  return new Set(
+    queryKey(text)
+      .split(' ')
+      .filter(Boolean)
+      .map((word) => word.slice(0, 6)),
+  );
+}
+
+/** A busca já cobre o termo (todas as raízes do termo estão nela)? */
+function stemsCover(query: string, term: string): boolean {
+  const inQuery = stems(query);
+  return [...stems(term)].every((stem) => inQuery.has(stem));
+}
+
+/** Termos sem repetir o mesmo negócio ("clínica veterinária" já cobre "veterinário"). */
+function distinctByStem(terms: readonly string[]): string[] {
+  const kept: string[] = [];
+  const glued = (text: string) => queryKey(text).replace(/ /g, '');
+  for (const term of terms) {
+    if (!term.trim()) continue;
+    const same = (other: string) =>
+      stemsCover(other, term) || stemsCover(term, other) || glued(other) === glued(term);
+    if (kept.some(same)) continue;
+    kept.push(term);
+  }
+  return kept;
 }
 
 function queryText(text: string): string | null {
@@ -492,6 +1144,18 @@ export function buildPlan(
     });
   };
   for (const query of output.queries) {
+    // "pet clinic Curitiba" volta com resultados de fora (KI-148); "clínica médica" estreita
+    // "clínicas" (KI-115); "identidade visual" ou "vagas" numa busca procuram sinal que o pedido
+    // não pede, qualquer que seja o rótulo (segunda revisão do KI-148).
+    if (foreignSearchWords(query.text, request).length > 0) continue;
+    if (narrowingWords(query.text, request).length > 0) continue;
+    if (unrequestedSignalWords(query.text, request, intent.signals).length > 0) continue;
+    if (aroundNotAsked(query.text, request, intent.region.cities)) continue;
+    // Busca de sinal que o pedido não pede gasta crédito com o que a pessoa não quer: "Clínicas em
+    // Ribeirão Preto" ganhava "clínicas abre vagas marketing" (revisão do KI-148).
+    if (query.purpose === 'signals' && (!query.signal || !intent.signals.includes(query.signal))) {
+      continue;
+    }
     add(
       query.text,
       query.purpose,
@@ -500,13 +1164,63 @@ export function buildPlan(
     );
   }
   const subject = intent.segment ?? intent.segmentTerms[0] ?? request.slice(0, 120);
-  const where = intent.region.cities[0] ?? intent.region.ufs[0] ?? '';
-  if (!queries.some((query) => query.purpose === 'companies')) {
+  const city = intent.region.cities[0] ?? null;
+  // Bairro pedido ("no bairro Savassi, em Belo Horizonte") entra nas buscas: sem ele, o plano
+  // procurava a cidade inteira (revisão do KI-148).
+  const mentions = (text: string, place: string) => comparable(text).includes(comparable(place));
+  const named = city ? requestedDistrict(request, output.cities, intent.region.cities) : null;
+  // O mesmo bairro que a interpretação pôs no rótulo (pesquisa com cidade fixa não tem bairro).
+  const district = named && mentions(intent.region.label ?? '', named) ? named : null;
+  const where = city ? (district ? `${district} ${city}` : city) : (intent.region.ufs[0] ?? '');
+  if (
+    !queries.some(
+      // Com bairro, a busca de empresas precisa do bairro e da cidade: "cafeterias Batel" sozinha
+      // acha o Batel de outros lugares.
+      (query) =>
+        query.purpose === 'companies' &&
+        (!district || (mentions(query.text, district) && mentions(query.text, city ?? ''))),
+    )
+  ) {
     add(`${subject} ${where}`.trim(), 'companies', null, false);
   }
+  // Pedido com sinais: uma busca de sinal por tipo de negócio do pedido ("pet shops e clínicas
+  // veterinárias" → uma para cada) e uma na região em volta da cidade, quando o pedido inclui.
+  // Na pesquisa real de 2026-11-24 (KI-148) só 1 de 4 buscas procurava o sinal pedido.
+  const extent =
+    city && intent.region.scope === 'region' ? regionExtent(request, intent.region.cities) : null;
+  const around =
+    city && extent
+      ? `${extent === 'metropolitan' ? 'região metropolitana' : 'região'} de ${city}`
+      : null;
+  // Só os negócios que o próprio pedido cita: "saúde", sinônimo que o modelo acrescentou a
+  // "clínicas", não ganha busca de sinal só sua.
+  const asked = `${intent.segment ?? ''} ${request}`;
+  const signalSubjects = distinctByStem([
+    ...intent.segmentTerms.filter((term) => stemsCover(asked, term)),
+    subject,
+  ]).slice(0, 3);
+  const firstSubject = signalSubjects[0] ?? subject;
   for (const signal of intent.signals) {
     if (!queries.some((query) => query.signal === signal)) {
-      add(`${subject} ${SIGNAL_QUERY_TERMS[signal]} ${where}`.trim(), 'signals', signal, true);
+      add(`${firstSubject} ${SIGNAL_QUERY_TERMS[signal]} ${where}`.trim(), 'signals', signal, true);
+    }
+  }
+  if (around) {
+    for (const signal of intent.signals) {
+      add(`${firstSubject} ${SIGNAL_QUERY_TERMS[signal]} ${around}`, 'signals', signal, true);
+    }
+  }
+  for (const term of signalSubjects) {
+    for (const signal of intent.signals) {
+      const covered = queries.some(
+        (query) =>
+          query.signal === signal &&
+          !(around && query.text.endsWith(around)) &&
+          stemsCover(query.text, term),
+      );
+      if (!covered) {
+        add(`${term} ${SIGNAL_QUERY_TERMS[signal]} ${where}`.trim(), 'signals', signal, true);
+      }
     }
   }
   if (queries.length === 0) add(request, 'companies', null, false);
@@ -516,7 +1230,8 @@ export function buildPlan(
   const wanted = Math.ceil(intent.quantity / Math.max(1, RESULTS_PER_SEARCH[intent.depth] - 1));
   const subjectWords = new Set(queryKey(subject).split(' '));
   const variations = [
-    ...intent.region.cities.slice(1).map((city) => `${subject} ${city}`),
+    ...(around ? [`${subject} ${around}`] : []),
+    ...intent.region.cities.slice(1).map((other) => `${subject} ${other}`),
     ...(intent.region.cities.length === 0
       ? intent.region.ufs.slice(1).map((uf) => `${subject} ${uf}`)
       : []),
@@ -534,11 +1249,19 @@ export function buildPlan(
     if (queries.filter((query) => query.purpose === 'companies').length >= wanted) break;
     add(variation, 'companies', null, false);
   }
-  // Empresas primeiro, depois um sinal de cada tipo, até o limite.
+  // Empresas primeiro (a do bairro pedido na frente, de preferência com a cidade), depois um sinal
+  // de cada tipo, até o limite.
+  const companies = queries.filter((query) => query.purpose === 'companies');
+  const withDistrict = district ? companies.filter((query) => mentions(query.text, district)) : [];
+  const front = [
+    ...withDistrict.filter((query) => mentions(query.text, city ?? '')),
+    ...withDistrict.filter((query) => !mentions(query.text, city ?? '')),
+  ];
+  const rest = companies.filter((query) => !front.includes(query));
   const ordered = [
-    ...queries.filter((query) => query.purpose === 'companies').slice(0, 1),
+    ...[...front, ...rest].slice(0, 1),
     ...queries.filter((query) => query.purpose === 'signals'),
-    ...queries.filter((query) => query.purpose === 'companies').slice(1),
+    ...[...front, ...rest].slice(1),
   ];
   return { queries: ordered.slice(0, Math.min(maxSearches, DISCOVERY_MAX_QUERIES)) };
 }
@@ -913,8 +1636,7 @@ export function createDiscoveryEngine(deps: DiscoveryEngineDeps): DiscoveryEngin
         const host = hostOf(result.url);
         if (!host || seen.has(result.url)) continue;
         seen.add(result.url);
-        // Texto que tenta dar ordens ao modelo não é fonte: nem chega ao extrator.
-        if (looksLikeInstruction(`${result.title} ${result.snippet}`)) continue;
+        if (!extractableResult(result)) continue;
         rows.push({ ...result, host, hostKind: hostCategory(host) });
       }
     }
@@ -1290,12 +2012,94 @@ function findCandidate(candidates: readonly Candidate[], probe: DedupeCandidate)
  * Sem ela, a mesma empresa achada por uma notícia (sem cidade) e pelo site (com cidade) ficaria
  * duplicada: nome igual só junta com localização compatível (`findSameCompany`).
  */
-function regionPlace(
+function regionPlaceOf(
   text: string,
   region: DiscoveryIntent['region'],
 ): { city: string | null; uf: UF | null } {
   const city = region.cities.find((item) => cityIn(item, text)) ?? null;
   return { city, uf: city && region.ufs.length === 1 ? (region.ufs[0] ?? null) : null };
+}
+
+const UF_AFTER_PLACE = new RegExp(
+  String.raw`^\s*(?:[/,–-]\s*|\(\s*)(${Object.keys(STATE_NAMES).join('|')})\b`,
+);
+
+/**
+ * O texto escreve o lugar como município: "em Cambé", "cidade de Cambé", "Cambé/PR", "Cambé - PR"
+ * ou "Cambé (PR)". "Clínica Bem Cuidar – Jardim Higienópolis" não diz a cidade: o bairro virava a
+ * cidade da empresa (revisão do KI-148).
+ */
+function writtenAsMunicipality(place: string, text: string): boolean {
+  const needle = normalizeCity(place);
+  if (new RegExp(` (em|cidade de|municipio de) ${needle} `).test(` ${comparable(text)} `)) {
+    return true;
+  }
+  const plain = stripAccents(text);
+  const lower = plain.toLowerCase();
+  const target = stripAccents(place).toLowerCase();
+  for (let at = lower.indexOf(target); at >= 0; at = lower.indexOf(target, at + 1)) {
+    if (UF_AFTER_PLACE.test(plain.slice(at + target.length))) return true;
+  }
+  return false;
+}
+
+/**
+ * O resultado chega ao extrator? Texto que tenta dar ordens ao modelo não é fonte. A avaliação da
+ * Descoberta usa esta mesma conferência.
+ */
+export function extractableResult(result: { title: string; snippet: string }): boolean {
+  return !looksLikeInstruction(`${result.title} ${result.snippet}`);
+}
+
+/**
+ * Cidade e UF de uma empresa lida pelo extrator, conferidas no texto do resultado. A cidade do
+ * modelo só fica se estiver no texto e não houver sinal de bairro: a palavra "bairro", o nome
+ * seguido da cidade pedida no fim do endereço ("Batel, Curitiba/PR", KI-148) ou um começo de
+ * bairro ("Jardim Higienópolis") sem o texto escrevê-lo como município. O município vizinho
+ * ("Pet Shop – Cambé |", "Atendemos Cambé, Londrina e região") continua município (segunda
+ * revisão do KI-148). Sem cidade do modelo, vale a cidade pedida que o texto citar, ou nenhuma.
+ * A avaliação da Descoberta usa esta mesma conferência.
+ */
+export function companyPlace(
+  company: { city: string | null; uf: UF | null },
+  text: string,
+  region: DiscoveryIntent['region'],
+): { city: string | null; uf: UF | null } {
+  const stated =
+    company.city &&
+    cityIn(company.city, text) &&
+    !districtInResult(company.city, text, region.cities) &&
+    !(districtLike(company.city) && !writtenAsMunicipality(company.city, text))
+      ? company.city
+      : null;
+  const place = stated ? null : regionPlaceOf(text, region);
+  const city = stated ?? place?.city ?? null;
+  const uf = company.uf && (city || ufIn(company.uf, text)) ? company.uf : (place?.uf ?? null);
+  return { city, uf };
+}
+
+/**
+ * O servidor aceita o sinal que o extrator leu neste resultado? A citação precisa estar na fonte,
+ * num campo só (citação que atravessa título e trecho não existe); expansão precisa de um
+ * acontecimento no trecho, porque frase institucional ("mais uma unidade do maior pet shop do
+ * Brasil") não é sinal (KI-148); e a data fica só com o que o texto diz. null = descartado. A
+ * avaliação da Descoberta usa esta mesma conferência.
+ */
+export function acceptedSignal(
+  signal: Pick<ExtractorOutput['signals'][number], 'type' | 'quote' | 'eventDate'>,
+  result: { title: string; snippet: string },
+  now?: Date,
+): { eventDate: ExtractorOutput['signals'][number]['eventDate'] } | null {
+  if (
+    !signalQuoteFound(signal.quote, result.title) &&
+    !signalQuoteFound(signal.quote, result.snippet)
+  ) {
+    return null;
+  }
+  if (signal.type === 'expansion' && !expansionEventIn(signal.quote, now?.getUTCFullYear())) {
+    return null;
+  }
+  return { eventDate: supportedEventDate(signal.eventDate, `${result.title} ${result.snippet}`) };
 }
 
 /** Junta a resposta do extrator aos candidatos da pesquisa, descartando o que não se confirma. */
@@ -1322,10 +2126,7 @@ function absorb(
     const official = key !== null && nameMatchesHost(name, result.host);
     // Nome que não aparece na fonte (e não é o site da empresa) é invenção do modelo: descarta.
     if (!official && !nameFoundIn(name, text)) continue;
-    const stated = company.city && cityIn(company.city, text) ? company.city : null;
-    const place = stated ? null : regionPlace(text, region);
-    const city = stated ?? place?.city ?? null;
-    const uf = company.uf && (city || ufIn(company.uf, text)) ? company.uf : (place?.uf ?? null);
+    const { city, uf } = companyPlace(company, text, region);
     const probe: DedupeCandidate = {
       name,
       siteKey: official ? key : null,
@@ -1378,13 +2179,9 @@ function absorb(
     const result = batch[signal.result - 1];
     if (!result) continue;
     const text = `${result.title} ${result.snippet}`;
-    // Conferido em um campo só: citação que atravessa título e trecho não existe na fonte.
-    if (
-      !signalQuoteFound(signal.quote, result.title) &&
-      !signalQuoteFound(signal.quote, result.snippet)
-    )
-      continue;
-    const eventDate = supportedEventDate(signal.eventDate, text);
+    const accepted = acceptedSignal(signal, result, now);
+    if (!accepted) continue;
+    const eventDate = accepted.eventDate;
     const companyName = signal.company.replace(/\s+/g, ' ').trim();
     let candidate =
       byResultCompany.get(`${signal.result}|${normalizeCompanyName(companyName)}`) ??
@@ -1396,7 +2193,7 @@ function absorb(
       null;
     if (!candidate) {
       if (distinctiveTokens(companyName).length === 0 || !nameFoundIn(companyName, text)) continue;
-      const place = regionPlace(text, region);
+      const place = regionPlaceOf(text, region);
       candidate = findCandidate(candidates, {
         name: companyName,
         siteKey: null,

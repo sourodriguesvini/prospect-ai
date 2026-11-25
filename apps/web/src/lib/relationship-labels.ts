@@ -1,4 +1,5 @@
 import {
+  type AiReviewKind,
   APPROVAL_PROBLEM_LABELS,
   MESSAGE_CHANNEL_LABELS,
   MESSAGE_KIND_LABELS,
@@ -105,9 +106,45 @@ export function canPrepareReapproval(problems: readonly ApprovalProblem[]): bool
   );
 }
 
+/**
+ * O que cada tipo de aviso da conferência automática pede para conferir (KI-150). A versão gravada
+ * guarda só o tipo, não o trecho: o texto está no cartão, logo acima do aviso.
+ */
+export const AI_REVIEW_KIND_TEXT: Record<AiReviewKind, string> = {
+  source:
+    'Uma informação aparece como vista no site ou no Instagram da empresa, mas as evidências de lá não trazem isso. Confira de onde ela veio.',
+  added: 'A nova versão traz nome ou número que não estava na versão anterior nem no seu pedido.',
+  invented:
+    'O texto cita nome, número ou lugar que não está nas evidências da empresa nem no seu pedido.',
+  strategy: 'A estratégia cita algo que não está nas evidências da empresa nem no seu pedido.',
+  request: 'O seu pedido mandava citar algo que o texto não traz.',
+  tone: 'O texto usa palavra forte (como "grave" ou "urgente") que nenhum fato registrado sustenta.',
+  proportion: 'O texto diz uma proporção ou medida que as evidências não mostram.',
+  agency:
+    'O texto diz algo da agência (experiência, clientes, resultados) que não está nos dados da agência.',
+};
+
+/** Ajustes do sistema depois da correção: menções de fonte errada tiradas do texto. */
+export function adjustedSourcesText(count: number): string {
+  return count === 1
+    ? 'O sistema tirou do texto uma menção de fonte que não batia com as evidências (como "no site da empresa"). Confira se a frase continua correta.'
+    : `O sistema tirou do texto ${count} menções de fonte que não batiam com as evidências (como "no site da empresa"). Confira se as frases continuam corretas.`;
+}
+
+/** Aviso de conferência (a IA deixou trecho para checar) aparece como alerta, não como sucesso. */
+export function noticeTone(notice: OpportunityNotice): 'success' | 'warning' {
+  return notice === OPPORTUNITY_NOTICES.preparedReview ||
+    notice === OPPORTUNITY_NOTICES.messageRewrittenReview ||
+    notice === OPPORTUNITY_NOTICES.messageCreatedReview
+    ? 'warning'
+    : 'success';
+}
+
 export const NOTICE_TEXT: Record<OpportunityNotice, string> = {
   [OPPORTUNITY_NOTICES.prepared]:
     'Abordagem preparada: a estratégia e o primeiro rascunho estão abaixo. Revise o texto antes de aprovar; nada foi enviado.',
+  [OPPORTUNITY_NOTICES.preparedReview]:
+    'Abordagem preparada, mas a conferência automática deixou avisos no rascunho (veja no cartão da mensagem). Confira cada informação antes de aprovar; nada foi enviado.',
   [OPPORTUNITY_NOTICES.opened]:
     'Oportunidade aberta. Escreva a primeira mensagem, com ou sem a IA, ou registre um contato que já aconteceu.',
   [OPPORTUNITY_NOTICES.existing]:
@@ -122,6 +159,12 @@ export const NOTICE_TEXT: Record<OpportunityNotice, string> = {
     'Nova versão salva como rascunho. Revise e aprove antes de usar; uma aprovação anterior deixa de valer.',
   [OPPORTUNITY_NOTICES.messageRewritten]:
     'A IA escreveu uma nova versão, em rascunho. Revise e aprove antes de usar.',
+  [OPPORTUNITY_NOTICES.messageRewrittenReview]:
+    'A IA escreveu uma nova versão, em rascunho, mas a conferência automática deixou avisos (veja no cartão da mensagem). Confira cada informação antes de aprovar.',
+  [OPPORTUNITY_NOTICES.messageCreated]:
+    'A IA escreveu o rascunho. Revise e aprove antes de usar; nada foi enviado.',
+  [OPPORTUNITY_NOTICES.messageCreatedReview]:
+    'A IA escreveu o rascunho, mas a conferência automática deixou avisos (veja no cartão da mensagem). Confira cada informação antes de aprovar; nada foi enviado.',
   [OPPORTUNITY_NOTICES.messageDiscarded]:
     'Mensagem descartada. As versões continuam no histórico da auditoria.',
   [OPPORTUNITY_NOTICES.planDiscarded]: 'Estratégia descartada. As mensagens já escritas continuam.',

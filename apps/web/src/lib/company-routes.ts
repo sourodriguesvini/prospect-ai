@@ -11,6 +11,7 @@ export const COMPANY_NOTICES = {
   investigationResumed: 'investigacao-retomada',
   investigationCancelled: 'investigacao-cancelada',
   siteConfirmed: 'site-confirmado',
+  cnpjLinked: 'cnpj-vinculado',
 } as const;
 export type CompanyNotice = (typeof COMPANY_NOTICES)[keyof typeof COMPANY_NOTICES];
 

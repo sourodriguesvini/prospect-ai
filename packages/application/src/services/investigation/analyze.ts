@@ -11,16 +11,29 @@ import {
   type SourceInputDraft,
 } from '@prospector/contracts';
 import {
-  forbiddenAssertion,
   knowledgeGaps,
   quoteFoundIn,
   recordDiscard,
   resolveRefs,
+  sharesSubject,
   statementSimilarity,
   visualRubric,
 } from '@prospector/domain';
 import type { RefText } from '../../ports/investigation';
 import { ensurePages } from './collect';
+import {
+  checkText,
+  emptyGuardLog,
+  guardBusinessInput,
+  guardBusinessOutput,
+  guardDiagnosisInput,
+  guardDiagnosisOutput,
+  guardVisualInput,
+  guardVisualOutput,
+  type GuardContext,
+  type GuardLog,
+  recordGuardLog,
+} from './guards';
 import { coverageState } from './qualify';
 import {
   aiIssue,
@@ -65,6 +78,15 @@ function discardUnknownRefs(run: Run, unknown: readonly string[]): void {
   }
 }
 
+/** Contexto das guardas do servidor (`guards.ts`) para esta execução. */
+function guardContext(run: Run, extra: Partial<GuardContext> = {}): GuardContext {
+  return { siteRead: Boolean(analysisCompany(run).site), ...extra };
+}
+
+function recordDiscards(run: Run, log: GuardLog): void {
+  recordGuardLog(run.verification, log);
+}
+
 function isFact(claim: Claim | undefined): boolean {
   return claim?.epistemicType === 'fact';
 }
@@ -75,6 +97,19 @@ function unique(ids: readonly string[]): string[] {
 
 /** Texto curto de um claim para o modelo, com o tipo e a confiança. */
 function claimLine(claim: Claim): string {
+  // Leitura da auditoria visual vai com a nota e a natureza (KI-131): o diagnóstico pesa
+  // diferente um problema funcional e uma preferência estética.
+  const score = claim.value?.score;
+  const nature = claim.value?.nature;
+  if (
+    claim.key.startsWith('visual.audit.') &&
+    typeof score === 'number' &&
+    typeof nature === 'string' &&
+    nature in FINDING_NATURE_LABELS
+  ) {
+    const note = ` (nota ${score} de 5, ${FINDING_NATURE_LABELS[nature as keyof typeof FINDING_NATURE_LABELS]})`;
+    return `${cut(claim.statement, 300 - note.length)}${note}`;
+  }
   return cut(claim.statement, 300);
 }
 
@@ -122,23 +157,23 @@ export async function stepBusiness(run: Run): Promise<StepOutcome> {
   }
 
   const shown = pages.slice(0, MAX_PAGES_SHOWN);
-  const result = await ai.analyze(
-    'company-business',
-    {
-      company: analysisCompany(run),
-      pages: shown.map((page, index) => ({
-        ref: page.ref,
-        url: page.url,
-        category: page.category,
-        title: page.title,
-        text: clip(page.text, index === 0 ? PAGE_CHARS_FIRST : PAGE_CHARS_OTHER),
-      })),
-    },
-    { signal: run.signal },
-  );
+  const input = guardBusinessInput({
+    company: analysisCompany(run),
+    pages: shown.map((page, index) => ({
+      ref: page.ref,
+      url: page.url,
+      category: page.category,
+      title: page.title,
+      text: clip(page.text, index === 0 ? PAGE_CHARS_FIRST : PAGE_CHARS_OTHER),
+    })),
+  });
+  recordDiscards(run, input);
+  const result = await ai.analyze('company-business', input.value, { signal: run.signal });
   await countModel(run, result, 'company-business');
   if (!result.ok) return { state: 'failed', issue: aiIssue(result.code) };
-  const output = result.output;
+  const guarded = guardBusinessOutput(input.value, result.output, guardContext(run));
+  recordDiscards(run, guarded);
+  const output = guarded.value;
 
   const pageByRef = new Map(shown.map((page) => [page.ref.toUpperCase(), page]));
   const quotesByPage = new Map<PageMemo, string[]>();
@@ -196,6 +231,17 @@ export async function stepBusiness(run: Run): Promise<StepOutcome> {
         key: INVESTIGATION_KEYS.pageSignal(label),
         domain: 'signal',
         statement: `O site menciona: ${label}.`,
+      }),
+    },
+    // Ramo como o site se apresenta (`company-business/v2`): base da pesquisa de concorrentes.
+    {
+      prefix: 'G',
+      items: output.segment ? [output.segment] : [],
+      max: 1,
+      claim: (label) => ({
+        key: INVESTIGATION_KEYS.segment,
+        domain: 'positioning',
+        statement: `O site se apresenta como: ${label}.`,
       }),
     },
   ];
@@ -396,7 +442,18 @@ export async function stepVisual(run: Run): Promise<StepOutcome> {
     (strategy?.offers ?? []).filter((offer) => offer.status === 'active').map((offer) => offer.id),
   );
   const rubric = visualRubric(strategy?.rubrics ?? [], activeOffers);
-  const metricRefs: RefText[] = metrics.slice(0, 30).map((claim, index) => ({
+  // Favicon e o texto do H1 ficam para o diagnóstico (avaliador-ia, 2026-11-25): na auditoria, o
+  // modelo os citava como identidade da marca. "Nenhum H1" continua (hierarquia da página).
+  const shownMetrics = metrics.filter(
+    (claim) =>
+      claim.key !== INVESTIGATION_KEYS.metric('favicon') &&
+      !(
+        claim.key === INVESTIGATION_KEYS.metric('h1') &&
+        typeof claim.value?.text === 'string' &&
+        claim.value.text.trim() !== ''
+      ),
+  );
+  const metricRefs: RefText[] = shownMetrics.slice(0, 30).map((claim, index) => ({
     ref: `M${index + 1}`,
     text: claimLine(claim),
   }));
@@ -414,22 +471,30 @@ export async function stepVisual(run: Run): Promise<StepOutcome> {
     text: claimLine(claim),
   }));
 
-  const result = await ai.analyze(
-    'brand-visual',
-    { company: analysisCompany(run), rubric, metrics: metricRefs, images, context },
-    { signal: run.signal },
-  );
+  const input = guardVisualInput({
+    company: analysisCompany(run),
+    rubric,
+    metrics: metricRefs,
+    images,
+    context,
+  });
+  recordDiscards(run, input);
+  const result = await ai.analyze('brand-visual', input.value, { signal: run.signal });
   await countModel(run, result, 'brand-visual');
   if (!result.ok) return { state: 'failed', issue: aiIssue(result.code) };
+  const guarded = guardVisualOutput(result.output, guardContext(run));
+  recordDiscards(run, guarded);
 
   const refIds = new Map<string, string>([
-    ...metrics.slice(0, 30).map((claim, index): [string, string] => [`M${index + 1}`, claim.id]),
+    ...shownMetrics
+      .slice(0, 30)
+      .map((claim, index): [string, string] => [`M${index + 1}`, claim.id]),
     ...contextClaims.map((claim, index): [string, string] => [`K${index + 1}`, claim.id]),
   ]);
   const metricOnly = new Map([...refIds].filter(([ref]) => ref.startsWith('M')));
   const rubricByKey = new Map(rubric.map((criterion) => [criterion.key, criterion]));
   const claims: ClaimDraftItem[] = [];
-  for (const finding of result.output.criteria) {
+  for (const finding of guarded.value.criteria) {
     const criterion = rubricByKey.get(finding.criterion.trim().toLowerCase());
     if (!criterion) {
       recordDiscard(run.verification, 'Critério da auditoria fora da rubrica.');
@@ -473,8 +538,8 @@ export async function stepVisual(run: Run): Promise<StepOutcome> {
       }),
     });
   }
-  const positioning = result.output.positioning;
-  if (positioning && !rejectedByPolicy(run, positioning.statement, positioning.reasoning)) {
+  const positioning = guarded.value.positioning;
+  if (positioning) {
     const { resolved, unknown } = resolveRefs(positioning.basedOn, refIds);
     discardUnknownRefs(run, unknown);
     const dependsOn = unique([...shownImageIds, ...resolved]);
@@ -590,8 +655,17 @@ export async function stepCompetitive(run: Run): Promise<StepOutcome> {
 
   const byId = inForceById(run);
   const claims: ClaimDraftItem[] = [];
-  for (const finding of result.output.findings) {
-    if (rejectedByPolicy(run, finding.statement, finding.reasoning)) continue;
+  for (const found of result.output.findings) {
+    const log = emptyGuardLog();
+    const ctx = guardContext(run);
+    // O achado fala do concorrente: "sem site" ali não contradiz o site lido da empresa.
+    const statement = checkText(ctx, found.statement, { role: 'statement', site: false }, log);
+    const reasoning = statement
+      ? checkText(ctx, found.reasoning, { role: 'support', site: false }, log)
+      : null;
+    recordDiscards(run, log);
+    if (!statement || !reasoning) continue;
+    const finding = { ...found, statement, reasoning };
     const { resolved, unknown } = resolveRefs(finding.basedOn, refIds);
     discardUnknownRefs(run, unknown);
     const dependsOn = unique(resolved.flat()).filter(
@@ -630,6 +704,7 @@ export async function stepCompetitive(run: Run): Promise<StepOutcome> {
 
 /** O que o diagnóstico mostra ao modelo, na ordem de importância. */
 const DIAGNOSIS_PREFIXES = [
+  INVESTIGATION_KEYS.segment,
   'positioning.offering.',
   'positioning.audience.',
   'positioning.differentiator.',
@@ -649,19 +724,27 @@ const DIAGNOSIS_PREFIXES = [
   'registry.status',
   'registry.tax_regime',
   'registry.establishment_type',
-  'visual.metric.',
 ];
 const MAX_DIAGNOSIS_FACTS = 40;
+/** Medições guardam lugar no teto (KI-131): sem elas a proporção ("6 de 41") some do diagnóstico. */
+const RESERVED_METRICS = 6;
 
 function diagnosisClaims(run: Run): Claim[] {
+  const metrics = claimsWithPrefix(run, 'visual.metric.');
+  const room = MAX_DIAGNOSIS_FACTS - Math.min(RESERVED_METRICS, metrics.length);
   const picked: Claim[] = [];
   const seen = new Set<string>();
   for (const prefix of DIAGNOSIS_PREFIXES) {
     for (const claim of claimsWithPrefix(run, prefix)) {
-      if (seen.has(claim.id) || picked.length >= MAX_DIAGNOSIS_FACTS) continue;
+      if (seen.has(claim.id) || picked.length >= room) continue;
       seen.add(claim.id);
       picked.push(claim);
     }
+  }
+  for (const claim of metrics) {
+    if (seen.has(claim.id) || picked.length >= MAX_DIAGNOSIS_FACTS) continue;
+    seen.add(claim.id);
+    picked.push(claim);
   }
   return picked;
 }
@@ -722,14 +805,39 @@ export function reuseDiagnosis(run: Run): boolean {
   return true;
 }
 
-function clean(run: Run, text: string | null): string | null {
-  if (!text) return null;
-  const hit = forbiddenAssertion(text);
-  if (hit) {
-    recordDiscard(run.verification, `Texto descartado: ${hit.reason}.`);
-    return null;
+/**
+ * Desqualificadores que valem numa leitura de oferta. `diagnosis/v1` dá só as posições: valem com
+ * qualquer fato por trás da leitura (regra antiga, KI-133). `diagnosis/v2` cita o fato de cada um:
+ * vale só se o fato citado é fato do dossiê e fala do mesmo assunto do desqualificador, para não
+ * repetir "já tem manual de marca aplicado de forma consistente" sustentado por "sem H1" ou
+ * "franquia ou filial" para a própria rede (KI-152).
+ */
+function flaggedDisqualifiers(
+  run: Run,
+  input: {
+    positions: readonly number[];
+    cited: ReadonlyArray<{ position: number; basedOn: readonly string[] }>;
+    texts: readonly string[];
+    hasFact: boolean;
+    resolve: (refs: readonly string[]) => string[];
+    byId: ReadonlyMap<string, Claim>;
+  },
+): number[] {
+  const inRange = (position: number) => position >= 1 && position <= input.texts.length;
+  const flagged = new Set<number>();
+  if (input.hasFact)
+    for (const position of input.positions) if (inRange(position)) flagged.add(position);
+  for (const entry of input.cited) {
+    if (!inRange(entry.position)) continue;
+    const text = input.texts[entry.position - 1] ?? '';
+    const supported = input
+      .resolve(entry.basedOn)
+      .map((id) => input.byId.get(id))
+      .some((claim) => isFact(claim) && sharesSubject(text, claim?.statement ?? ''));
+    if (supported) flagged.add(entry.position);
+    else recordDiscard(run.verification, 'Desqualificador sem fato do mesmo assunto: não conta.');
   }
-  return text;
+  return [...flagged].sort((a, b) => a - b);
 }
 
 export async function stepDiagnosis(run: Run): Promise<StepOutcome> {
@@ -765,33 +873,39 @@ export async function stepDiagnosis(run: Run): Promise<StepOutcome> {
   const offerByRef = new Map(offers.map((offer, index) => [`OF${index + 1}`, offer]));
   const gaps = knowledgeGaps(coverageState(run)).map((gap) => gap.text);
 
-  const result = await ai.analyze(
-    'diagnosis',
-    {
-      company: analysisCompany(run),
-      facts: shownClaims.map((claim, index) => ({
-        ref: `K${index + 1}`,
-        text: claimLine(claim),
-        type: claim.epistemicType,
-        confidence: claim.confidence,
-      })),
-      offers: offers.map((offer, index) => {
-        const content = offer.current?.content;
-        return {
-          ref: `OF${index + 1}`,
-          name: content?.name ?? 'Oferta',
-          problems: content?.problems ?? [],
-          needSignals: content?.needSignals ?? [],
-          disqualifiers: content?.disqualifiers ?? [],
-        };
-      }),
-      gaps,
-    },
-    { signal: run.signal },
-  );
+  const input = guardDiagnosisInput({
+    company: analysisCompany(run),
+    facts: shownClaims.map((claim, index) => ({
+      ref: `K${index + 1}`,
+      text: claimLine(claim),
+      type: claim.epistemicType,
+      confidence: claim.confidence,
+    })),
+    offers: offers.map((offer, index) => {
+      const content = offer.current?.content;
+      return {
+        ref: `OF${index + 1}`,
+        name: content?.name ?? 'Oferta',
+        problems: content?.problems ?? [],
+        needSignals: content?.needSignals ?? [],
+        disqualifiers: content?.disqualifiers ?? [],
+      };
+    }),
+    gaps,
+  });
+  recordDiscards(run, input);
+  const result = await ai.analyze('diagnosis', input.value, { signal: run.signal });
   await countModel(run, result, 'diagnosis');
   if (!result.ok) return { state: 'failed', issue: aiIssue(result.code) };
-  const output = result.output;
+  const consistency = run.inForce.get(INVESTIGATION_KEYS.audit('consistencia_visual'))?.value
+    ?.score;
+  const guarded = guardDiagnosisOutput(
+    input.value,
+    result.output,
+    guardContext(run, { consistencyScore: typeof consistency === 'number' ? consistency : null }),
+  );
+  recordDiscards(run, guarded);
+  const output = guarded.value;
 
   const resolve = (refs: readonly string[]) => {
     const { resolved, unknown } = resolveRefs(refs, refIds);
@@ -806,10 +920,7 @@ export async function stepDiagnosis(run: Run): Promise<StepOutcome> {
 
   const claims: ClaimDraftItem[] = [];
   let summaryId: string | null = null;
-  if (
-    output.summary &&
-    !rejectedByPolicy(run, output.summary.statement, output.summary.reasoning)
-  ) {
+  if (output.summary) {
     const dependsOn = noHypotheses(resolve(output.summary.basedOn));
     if (dependsOn.some((id) => isFact(byId.get(id)))) {
       summaryId = run.deps.newId();
@@ -833,7 +944,6 @@ export async function stepDiagnosis(run: Run): Promise<StepOutcome> {
 
   const hypothesisIds: string[] = [];
   for (const hypothesis of output.hypotheses) {
-    if (rejectedByPolicy(run, hypothesis.statement, hypothesis.reasoning)) continue;
     if (!hypothesis.reasoning) continue;
     const dependsOn = resolve(hypothesis.basedOn);
     cite(dependsOn);
@@ -870,24 +980,27 @@ export async function stepDiagnosis(run: Run): Promise<StepOutcome> {
     cite(cited);
     const inRange = (list: readonly number[], length: number) =>
       [...new Set(list)].filter((position) => position >= 1 && position <= length);
-    // Desqualificador só conta com fato por trás (doc 08 §3.3).
-    const flagged = hasFact ? inRange(entry.disqualifiersHit, content.disqualifiers.length) : [];
+    // Desqualificador só conta com fato por trás (doc 08 §3.3); na v2, fato do mesmo assunto.
+    const flagged = flaggedDisqualifiers(run, {
+      positions: entry.disqualifiersHit,
+      cited: entry.disqualifiers ?? [],
+      texts: content.disqualifiers,
+      hasFact,
+      resolve,
+      byId,
+    });
     const relevance: OfferRelevance = entry.relevance;
-    const rationale = clean(run, entry.reasoning);
+    const rationale = entry.reasoning;
     const reading: OfferReading = {
       relevance,
       supporting: supportingIds.map((id) => ({ id, confidence: byId.get(id)?.confidence ?? null })),
       flaggedDisqualifiers: flagged,
       rationale,
-      openingAngle: clean(run, entry.openingAngle),
-      objections: entry.objections
-        .map((text) => clean(run, text))
-        .filter((text): text is string => Boolean(text)),
-      toVerify: entry.toVerify
-        .map((text) => clean(run, text))
-        .filter((text): text is string => Boolean(text)),
+      openingAngle: entry.openingAngle,
+      objections: entry.objections,
+      toVerify: entry.toVerify,
     };
-    if (!rationale || rejectedByPolicy(run, entry.statement)) {
+    if (!rationale) {
       recordDiscard(run.verification, 'Leitura de oferta sem justificativa aceita: não conta.');
       continue;
     }

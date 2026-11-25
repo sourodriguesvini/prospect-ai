@@ -10,6 +10,8 @@ import { CnpjRegistryRecord, normalizeCnpj } from '@prospector/contracts';
  *
  * - 77.888.999/0001-81: sociedade limitada com nome fantasia;
  * - 66.555.444/0001-00: MEI (a razão social é o "nome da pessoa", também sintético);
+ * - 12.345.678/0001-95: limitada sem nome fantasia, para vincular o CNPJ a uma empresa já
+ *   cadastrada sem ele (KI-152);
  * - 11.222.333/0001-81: simula o serviço fora do ar;
  * - qualquer outro: não encontrado.
  */
@@ -53,6 +55,22 @@ const RECORDS: ReadonlyMap<string, CnpjRegistryRecord> = new Map(
       size: 'me',
       isMei: true,
       capitalCents: 100_000,
+    },
+    {
+      ...BASE,
+      cnpj: '12345678000195',
+      legalName: 'MARCENARIA SINTETICA DE TESTE LTDA',
+      tradeName: null,
+      cnaeMain: {
+        code: '3101200',
+        description: 'Fabricação de móveis com predominância de madeira',
+      },
+      cnaeSecondary: [],
+      legalNature: 'Sociedade Empresária Limitada',
+      legalNatureCode: '2062',
+      size: 'epp',
+      isMei: false,
+      capitalCents: 20_000_000,
     },
   ].map((raw) => {
     const record = CnpjRegistryRecord.parse(raw);

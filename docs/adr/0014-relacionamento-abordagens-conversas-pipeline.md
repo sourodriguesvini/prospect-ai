@@ -106,6 +106,25 @@ Restrições que valem para esta decisão:
    - **Uso real só depois de avaliar.** Os três v1 passaram nos testes e numa rodada real pequena,
      mas o avaliador de IA recomendou não usá-los com empresas reais antes de um conjunto de
      avaliação (KI-124).
+   - **Emenda de 2026-11-25 (KI-150): abordagem e mensagem na v3, conferidas pelo servidor.**
+     Com o conjunto `packages/agents/evals/relationship` (5 casos de abordagem e 10 de mensagem,
+     3 repetições, parte fora da amostra), `relationship-approach/v3` e `relationship-message/v3`
+     viraram o padrão (`RELATIONSHIP_PROMPT_VERSIONS`); a leitura de resposta segue na v1. A v1
+     fica carregável pelo id. O que a v3 traz: (a) cada evidência vai com a fonte (site da
+     empresa, rede social, busca, notícia, cadastro, anotação), e ponto da estratégia apoiado em
+     ref que não diz aquilo sai; (b) a reescrita parte de `versao_anterior`, sem a estratégia, e
+     não traz de volta o que o usuário tirou; (c) o servidor confere o texto devolvido (fonte por
+     oração, nome ou número sem apoio, lugar inventado, intensificador, proporção, experiência
+     da agência, marcador entre colchetes, forma) e, se achar algo, pede **uma** correção ao
+     modelo e fica com a melhor das duas; (d) fonte que continua errada perde a menção da fonte
+     no código (`withoutWrongSources`), com o ajuste registrado em `review.adjusted`; (e) o que
+     sobra vai como aviso para a tela, sem bloquear a aprovação, que continua da pessoa; o
+     cartão do rascunho e a fila de aprovação mostram esses avisos até a versão ser editada,
+     lidos da auditoria da geração (`aiReview`: só tipos e contagem de ajustes, nunca o texto,
+     item 11); (f) a despedida com o nome da agência vem do código; (g) empresa individual não
+     manda ao modelo o nome nem o domínio, nem dentro das frases do dossiê (KI-124). Custo: com
+     correção, a mensagem leva cerca de 12 s no p95, contra 7 s da v1. Números e limites no
+     KI-150.
 11. **Minimização.** Nada de nome de pessoa: `counterpart_role` guarda só a função ou a área. O texto
     recebido fica guardado por 12 meses (`retention_until`, `RETENTION_DAYS = 365`). A auditoria
     guarda ids, etapas e classificações, nunca o texto. O valor estimado só aparece com a base

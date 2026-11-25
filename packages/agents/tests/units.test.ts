@@ -129,6 +129,34 @@ describe('loadPrompt', () => {
     ],
     ['discovery-extractor', 1, '306cf77b8496089317996b0a89a4ad79a02eda7f72fd069af52db0d8fe4054f6'],
     ['discovery-extractor', 2, 'c57fdde2337c8e8984d56990c7f68167b75766d14f77e4903e73f7f75b5e00b3'],
+    // Rodadas de 2026-11-25 (KI-148, KI-151, KI-152): sha nos resultados de cada `evals/<agente>`.
+    [
+      'discovery-interpreter',
+      2,
+      '49d3f4f2486635f4648314b042f54f8ece1368cc777f6050481990d4d96190d6',
+    ],
+    [
+      'discovery-interpreter',
+      3,
+      '516bb3a3e04d3a763abc4cfb8a232d909a71adf9eb477bc71c4b5a9689a2fe67',
+    ],
+    [
+      'discovery-interpreter',
+      4,
+      '0550684ab5b4c396358ae2c193733c3f28ff878d0955be3768f3efd3cdcf7629',
+    ],
+    ['discovery-extractor', 4, '96d67df244fbd012cd664c33b384b6312002ca48af52dafb9599f1acfe0d5f2e'],
+    ['copilot-tools', 4, '2034d532055446e8eb71ad1e55671d2063095b6549f9238cec5c64db75023465'],
+    ['copilot-tools', 5, '7809be5ffc5d2b788b052d3e858e2180702ddb0a36bd19659009042cc52453e5'],
+    ['copilot-tools', 6, '1ef841d6887647fae606f13d6d4d1d437d66b896d2fa01ef7a17c7580806d040'],
+    ['company-business', 2, 'b4bfa8fee5a142ef71683daae46df2dc4aaed9384fbec55b65a26582d0f6e269'],
+    ['company-business', 3, '05a018b1bdf52b352e41e2da6ea31a6246660a95bcbd5b93f8f7577470b1c4a0'],
+    ['brand-visual', 2, '0baa70ae5541881d032f185b86f0f2f7ee8f868baae2ebbf6235b52e5efb11c5'],
+    ['brand-visual', 3, 'a79b23e90c4dda42dbd9a4e555297ad361761423563ad5d7fb9c714e6c6ea4b5'],
+    ['competitor-triage', 2, '6061ce97bad99d9e85c61844ade45826a0066ec9be481f722ebe9fb7592751ba'],
+    ['competitor-triage', 3, 'fc5a9fd17e3b2613bfaafcd44654b0667fefe9817500c29de97bb233929644e3'],
+    ['diagnosis', 2, 'c8f5c1f4ac6a037c6ee0288966bc447b3c2c1ec2088890d6216ca4823fe1de20'],
+    ['diagnosis', 3, 'f227449a1aa594d31c522eee837b1906632575f8d2c3b060d43cd9732fb3835e'],
   ])('%s/v%i não foi editado depois de avaliado', (agent, version, sha256) => {
     expect(loadPrompt(agent, version).sha256).toBe(sha256);
   });

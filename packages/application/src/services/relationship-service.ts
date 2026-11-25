@@ -1,6 +1,7 @@
 import {
   AI_ERROR_MESSAGES,
   APPROVAL_PROBLEM_LABELS,
+  type AiReviewRecord,
   ApproachAiOutput,
   ApproveMessageInput,
   ChangeStageInput,
@@ -62,6 +63,7 @@ import {
   withContactFooter,
   withoutContactFooter,
   detectStopRequest,
+  hostOf,
   replyOwnText,
   type ApproachBasisAssessment,
   type MessageIssue,
@@ -74,6 +76,7 @@ import type {
   AiCase,
   AiContext,
   AiOutcome,
+  AiReview,
   ApproachInsightsSource,
   RelationshipAi,
 } from '../ports/relationship-ai';
@@ -157,6 +160,8 @@ export interface MessageView {
   firstContact: boolean;
   /** Estado do contato que decide identificação, opt-out e canais (domínio, `contactState`). */
   contact: ContactState;
+  /** Conferência automática gravada com esta versão (só rascunho da IA; null se não houve). */
+  review: AiReviewSummary | null;
 }
 
 export interface ComplianceState {
@@ -230,6 +235,19 @@ export interface ApprovalQueue {
   readAt: string;
 }
 
+/**
+ * Conferência automática do texto da IA (KI-150): `corrected` quando a IA foi chamada de novo
+ * para corrigir; `kinds`, os tipos do que ainda ficou (avisos para quem revisa antes de aprovar);
+ * `adjusted`, quantas menções de fonte errada o sistema tirou. Sem texto: é o que fica gravado
+ * com a versão, na auditoria (ADR-0014 item 11), e o que a tela mostra no cartão da mensagem.
+ */
+export type AiReviewSummary = AiReviewRecord;
+
+/** A conferência deixou algo para quem revisa (aviso ou ajuste feito pelo sistema). */
+export function reviewNeedsAttention(review: AiReviewSummary | null | undefined): boolean {
+  return Boolean(review && (review.kinds.length > 0 || review.adjusted > 0));
+}
+
 export type PrepareApproachResult =
   | {
       status: 'created';
@@ -237,12 +255,25 @@ export type PrepareApproachResult =
       plan: ApproachPlan;
       message: OutboundMessage;
       gaps: string[];
+      review: AiReviewSummary | null;
     }
   | { status: 'ai_failed'; failure: RelationshipAiFailure };
 
 export type GenerateMessageResult =
-  | { status: 'created'; message: OutboundMessage }
+  | { status: 'created'; message: OutboundMessage; review: AiReviewSummary | null }
   | { status: 'ai_failed'; failure: RelationshipAiFailure };
+
+/** O resumo da conferência que vai para a tela e para a auditoria (só tipos e contagens). */
+function reviewSummary(outcome: { review?: AiReview }): AiReviewSummary | null {
+  const review = outcome.review;
+  if (!review) return null;
+  return {
+    corrected: review.corrections.length > 0,
+    // Aviso sem tipo (outra implementação da porta) não some: vira o aviso genérico de fonte.
+    kinds: review.unresolvedKinds ?? (review.unresolved.length > 0 ? ['source'] : []),
+    adjusted: review.adjusted?.length ?? 0,
+  };
+}
 
 export type AnalyzeReplyResult =
   | { status: 'analyzed'; interaction: Interaction; suppressedByAi: boolean }
@@ -586,6 +617,18 @@ export function createRelationshipService(deps: {
           statement: view.claim.statement,
           epistemicType: view.claim.epistemicType,
           band: view.band,
+          // De onde veio cada evidência (KI-150): a IA não pode trocar a fonte de um achado.
+          sources: view.evidence.flatMap(({ evidence, source }) =>
+            source
+              ? [
+                  {
+                    kind: source.kind,
+                    tier: evidence.reliabilityTier,
+                    host: source.url ? hostOf(source.url) : null,
+                  },
+                ]
+              : [],
+          ),
         })),
       insights,
       offer: {
@@ -642,6 +685,7 @@ export function createRelationshipService(deps: {
     ctx: RequestContext,
     row: Omit<NewOutboundMessage, 'payloadHash'>,
     action: string,
+    aiReview: AiReviewSummary | null = null,
   ): Promise<OutboundMessage> {
     const payloadHash = await messageHash(row);
     return repo.insertMessage(
@@ -649,10 +693,37 @@ export function createRelationshipService(deps: {
       pendingAudit(ctx, {
         action,
         entityType: 'outbound_message',
-        diff: { opportunityId: row.opportunityId, threadId: row.threadId, origin: row.origin },
+        // A conferência da IA fica registrada (regra 8): se houve correção e o que sobrou.
+        diff: {
+          opportunityId: row.opportunityId,
+          threadId: row.threadId,
+          origin: row.origin,
+          ...(aiReview ? { aiReview } : {}),
+        },
         withVersion: true,
       }),
     );
+  }
+
+  /**
+   * A conferência gravada com os rascunhos da IA (avisos para quem revisa). Só rascunho: depois de
+   * aprovada ou descartada, a versão já foi decidida. Falha de leitura não derruba a tela.
+   */
+  async function draftReviews(
+    messages: readonly OutboundMessage[],
+  ): Promise<Map<string, AiReviewSummary>> {
+    const ids = messages
+      .filter((message) => message.status === 'draft' && message.origin !== 'user')
+      .map((message) => message.id);
+    if (ids.length === 0) return new Map();
+    try {
+      return await repo.messageReviews(ids);
+    } catch (error) {
+      console.warn(
+        `[relacionamento] conferência dos rascunhos não lida: ${error instanceof Error ? error.name : 'erro'}`,
+      );
+      return new Map();
+    }
   }
 
   async function buildViews(
@@ -684,6 +755,11 @@ export function createRelationshipService(deps: {
       byThread.set(message.threadId, list);
     }
     const approvalById = new Map(approvals.map((approval) => [approval.id, approval]));
+    const reviews = await draftReviews(
+      [...byThread.values()].map((versions) =>
+        versions.reduce((a, b) => (b.version > a.version ? b : a)),
+      ),
+    );
     const now = clock.now();
     const threads: MessageView[] = [];
     const previousVersions: Record<string, OutboundMessage[]> = {};
@@ -726,6 +802,7 @@ export function createRelationshipService(deps: {
         issues,
         firstContact: contact.firstContact,
         contact,
+        review: reviews.get(latest.id) ?? null,
       });
     }
     threads.sort((a, b) => b.message.createdAt.localeCompare(a.message.createdAt));
@@ -872,6 +949,7 @@ export function createRelationshipService(deps: {
     const parsed = MessageDraftText.safeParse(outcome.data);
     await recordAi(ctx, outcome, !parsed.success);
     if (!parsed.success) return { status: 'ai_failed', failure: aiFailure('invalid_output') };
+    const review = reviewSummary(outcome);
     // O rodapé vale pelo estado do contato, qualquer que seja o tipo (ADR-0014): opt-out até a
     // empresa responder e, no primeiro contato, o canal do titular. Quem garante é o sistema.
     const body = withContactFooter(parsed.data.body, footerPolicy(snapshot), contact);
@@ -896,8 +974,9 @@ export function createRelationshipService(deps: {
         isDemo: synthetic || args.dossier.company.isDemo,
       },
       args.previous ? 'relationship.message.regenerated' : 'relationship.message.generated',
+      review,
     );
-    return { status: 'created', message };
+    return { status: 'created', message, review };
   }
 
   // ---------------------------------------------------------------------------
@@ -1080,6 +1159,7 @@ export function createRelationshipService(deps: {
       const complianceOf = (offerId: string | null) =>
         (offerId ? states.get(offerId) : null) ?? noOffer;
       const pending: ApprovalQueueItem[] = [];
+      const reviews = await draftReviews(drafts);
       for (const message of drafts) {
         const opportunity = summaries.get(message.opportunityId);
         if (!opportunity || opportunity.closedAt) continue;
@@ -1104,6 +1184,7 @@ export function createRelationshipService(deps: {
             }),
             firstContact: contact.firstContact,
             contact,
+            review: reviews.get(message.id) ?? null,
           },
         });
       }
@@ -1278,6 +1359,7 @@ export function createRelationshipService(deps: {
       const parsed = ApproachAiOutput.safeParse(outcome.data);
       await recordAi(ctx, outcome, !parsed.success);
       if (!parsed.success) return { status: 'ai_failed', failure: aiFailure('invalid_output') };
+      const review = reviewSummary(outcome);
 
       const grounded = groundStrategy(
         parsed.data.strategy,
@@ -1322,6 +1404,7 @@ export function createRelationshipService(deps: {
             promptId: outcome.promptId,
             // Investigação de Empresas cujo diagnóstico entrou na geração (KI-129); null sem ele.
             diagnosisId: insights.diagnosis?.id ?? null,
+            ...(review ? { aiReview: review } : {}),
           },
           withVersion: true,
         }),
@@ -1349,8 +1432,9 @@ export function createRelationshipService(deps: {
           isDemo: synthetic || company.isDemo,
         },
         'relationship.message.generated',
+        review,
       );
-      return { status: 'created', opportunity, plan, message, gaps: content.gaps };
+      return { status: 'created', opportunity, plan, message, gaps: content.gaps, review };
     },
 
     async discardPlan(ctx, planId) {

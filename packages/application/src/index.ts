@@ -21,6 +21,7 @@ export * from './services/discovery-service';
 export * from './services/evidence-service';
 export * from './services/approach-insights';
 export * from './services/investigation-service';
+export * from './services/investigation/guards';
 export * from './services/pending-audit';
 export * from './services/relationship-service';
 export * from './services/strategy-service';

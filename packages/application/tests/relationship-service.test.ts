@@ -219,7 +219,12 @@ describe('RelationshipService (ADR-0014)', () => {
       evidence: companyRepo,
       evidenceService: createEvidenceService({ evidence: companyRepo, clock }),
       cnpjLookup: {
-        lookup: async () => ({ ok: true, record: RECORD, fetchedAt: now.toISOString() }),
+        // Matriz e filial do mesmo registro SINTÉTICO: o CNPJ pedido volta no registro.
+        lookup: async (cnpj) => ({
+          ok: true,
+          record: { ...RECORD, cnpj, headquarters: cnpj === RECORD.cnpj },
+          fetchedAt: now.toISOString(),
+        }),
       },
       clock,
     });
@@ -451,6 +456,10 @@ describe('RelationshipService (ADR-0014)', () => {
       );
       // A IA recebe o diagnóstico com o tipo de cada achado e o claim que o sustenta.
       const sent = fake.requests.approach.at(-1)!;
+      // Cada claim vai com a fonte da evidência (KI-150): aqui, o cadastro público (OpenCNPJ).
+      expect(sent.claims.find((claim) => claim.id === claimId)?.sources).toEqual([
+        { kind: 'api_record', tier: 'aggregator', host: 'api.opencnpj.org' },
+      ]);
       expect(sent.insights.diagnosis?.findings).toEqual([
         { statement: expect.stringMatching(/^Fato observado: /), claimIds: [claimId] },
       ]);
@@ -548,6 +557,55 @@ describe('RelationshipService (ADR-0014)', () => {
         status: 'ok',
         promptVersion: 'relationship-approach/v1',
       });
+    });
+
+    it('conferência da IA (KI-150): a versão grava só tipos e contagens, e o cartão mostra até alguém editar', async () => {
+      const { caseId } = await readyStrategy({ lia: true });
+      const { company, claimId } = await companyWithFacts();
+      fake.next.approach = {
+        ...(ok(approachOutput(claimId, caseId)) as Extract<AiOutcome, { ok: true }>),
+        review: {
+          corrections: ['Correção da sua resposta: «Vi no site da Padaria Sintética a loja nova».'],
+          unresolved: ['Confira a fonte de "Vila Aurora": o texto diz que foi visto no site.'],
+          unresolvedKinds: ['source', 'tone'],
+          adjusted: ['Tirada a menção da fonte em «Vi no site da Padaria Sintética a loja nova.».'],
+          first: { strategy: null },
+        },
+      };
+      const result = await service.prepareApproach(ctx, { companyId: company.id });
+      if (result.status !== 'created') throw new Error(result.failure.code);
+      const expected = { corrected: true, kinds: ['source', 'tone'], adjusted: 1 };
+      expect(result.review).toEqual(expected);
+      // Na auditoria, nenhum trecho do texto (ADR-0014 item 11): só tipos e contagens.
+      const generated = audit
+        .entries()
+        .filter((entry) =>
+          ['relationship.approach.generated', 'relationship.message.generated'].includes(
+            entry.action,
+          ),
+        );
+      expect(generated).toHaveLength(2);
+      for (const entry of generated) expect(entry.diff.aiReview).toEqual(expected);
+      const logged = JSON.stringify(audit.entries());
+      expect(logged).not.toContain('Vila Aurora');
+      expect(logged).not.toContain('Padaria Sintética a loja');
+
+      // O cartão da mensagem (oportunidade e Aprovações) mostra os avisos gravados com a versão.
+      const detail = await service.opportunity(ctx, result.opportunity.id);
+      expect(detail.threads[0]!.review).toEqual(expected);
+      const queue = await service.approvalQueue(ctx);
+      const pending = queue.pending.find((item) => item.view.message.id === result.message.id);
+      expect(pending?.view.review).toEqual(expected);
+
+      // A versão editada por quem revisa não herda os avisos.
+      await service.editMessage(ctx, {
+        messageId: result.message.id,
+        subject: result.message.subject,
+        body: `${result.message.body}\nAté breve.`,
+      });
+      const after = await service.opportunity(ctx, result.opportunity.id);
+      expect(after.threads[0]!.message.version).toBe(2);
+      expect(after.threads[0]!.review).toBeNull();
     });
 
     it('sem nenhum fato nem diagnóstico, não gera (e não chama a IA)', async () => {
@@ -1013,6 +1071,29 @@ describe('RelationshipService (ADR-0014)', () => {
           )
         ).reason,
       ).toBe('suppression_inherited');
+    });
+
+    it('supressão pela raiz alcança a empresa com o CNPJ vinculado depois do cadastro (KI-160)', async () => {
+      const { company: matriz } = await companyWithFacts();
+      await service.suppressCompany(ctx, { companyId: matriz.id });
+      const created = await companies.create(ctx, {
+        schemaVersion: 1,
+        displayName: 'Ateliê Exemplo Filial',
+        cnpj: '',
+        primaryDomain: '',
+        city: '',
+        uf: '',
+      });
+      if (created.status !== 'created') throw new Error('filial não criada');
+      const linked = await companies.linkCnpj(ctx, {
+        companyId: created.company.id,
+        cnpj: '11222333000262',
+        confirmName: true,
+      });
+      expect(linked.status).toBe('linked');
+      expect(
+        (await appError(service.prepareApproach(ctx, { companyId: created.company.id }))).reason,
+      ).toBe('company_suppressed');
     });
 
     it('o pedido da própria empresa fica registrado mesmo com supressão manual, ligado à resposta', async () => {

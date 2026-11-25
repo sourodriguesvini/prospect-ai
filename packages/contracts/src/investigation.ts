@@ -230,6 +230,18 @@ export const InvestigationSnapshot = z.object({
   captureHashes: z.object({ desktop: Sha256.nullable(), mobile: Sha256.nullable() }),
   signals: z.array(z.string().max(120)).max(10),
   competitors: z.array(z.string().max(253)).max(10),
+  /**
+   * Consultas da pesquisa de concorrentes desta investigação: com as mesmas consultas, uma
+   * pesquisa vazia é reaproveitada por 30 dias como a que achou (créditos da Tavily).
+   */
+  competitorQueries: z.array(z.string().max(200)).max(3).optional(),
+  /**
+   * Quando cada pesquisa paga rodou de verdade (a etapa reaproveitada copia a data da anterior):
+   * o prazo de 30 dias conta desta data, não da última investigação (revisão das guardas).
+   */
+  searchedAt: z
+    .object({ signals: IsoDateTime.optional(), competitors: IsoDateTime.optional() })
+    .optional(),
 });
 export type InvestigationSnapshot = z.infer<typeof InvestigationSnapshot>;
 
@@ -363,6 +375,10 @@ export const Diagnosis = z.object({
   verification: z
     .object({
       discarded: z.number().int().min(0),
+      /** Textos da IA que o servidor ajustou (intensificador tirado, frase cortada). */
+      altered: z.number().int().min(0).optional(),
+      /** Itens que o servidor acrescentou (sinal de vagas lido no site). */
+      added: z.number().int().min(0).optional(),
       reasons: z.array(z.string().min(1).max(160)).max(10),
     })
     .default({ discarded: 0, reasons: [] }),
@@ -454,6 +470,7 @@ export const INVESTIGATION_KEYS = {
   valueProposition: 'positioning.value_proposition',
   tone: 'positioning.tone_of_voice',
   businessModel: 'positioning.business_model',
+  segment: 'positioning.segment',
   pageSignal: (label: string) => `signal.site.${keySlug(label)}`,
   webSignal: (label: string) => `signal.web.${keySlug(label, 60)}`,
   competitor: (domain: string) => `competitive.competitor.${keySlug(domain, 60)}`,

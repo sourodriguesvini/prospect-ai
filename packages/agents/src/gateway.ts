@@ -14,7 +14,12 @@ import {
   insufficientVramError,
   UNMEASURED_VRAM_NOTICE,
 } from './admission';
-import { droppedNotice, estimateTokens, fitToContext, type BudgetMessage } from './context-budget';
+import {
+  droppedNotice,
+  estimateToolDefinitionsTokens,
+  fitToContext,
+  type BudgetMessage,
+} from './context-budget';
 import { AiError, toAiError } from './errors';
 import type { GpuProbe } from './gpu';
 import type { Limiter, LimiterTicket } from './limiter';
@@ -346,9 +351,7 @@ export function createLocalAiGateway(deps: {
           parameters: tool.parameters,
         },
       }));
-      const reservedTokens = toolDefinitions.length
-        ? estimateTokens(JSON.stringify(toolDefinitions))
-        : 0;
+      const reservedTokens = estimateToolDefinitionsTokens(toolDefinitions);
       // Pedido da chamada limitado ao dobro do da tarefa (nunca geração sem fim na GPU).
       const answerTokens = input.maxOutputTokens
         ? Math.min(Math.max(64, Math.round(input.maxOutputTokens)), taskPolicy.maxOutputTokens * 2)

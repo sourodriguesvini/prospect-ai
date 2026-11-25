@@ -245,6 +245,64 @@ test('empresa arquivada sai da lista e não recebe consultas', async ({ page }) 
   await expect(page.getByRole('link', { name: NAME })).toBeVisible();
 });
 
+test('empresa sem CNPJ: você informa, confere o nome e vincula com a Receita (KI-152)', async ({
+  page,
+}) => {
+  const name = 'Loja sem CNPJ E2E';
+  await page.goto('/empresas/nova');
+  await page.getByLabel('Nome da empresa').fill(name);
+  await page.getByLabel('Cidade').fill('Campinas');
+  await page.getByLabel('UF').fill('SP');
+  await page.getByRole('button', { name: 'Cadastrar à mão' }).click();
+  await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]{36}\?aviso=cadastrada$/);
+  const path = new URL(page.url()).pathname;
+  await expect(page.getByRole('region', { name: 'Cadastro' })).toContainText(
+    'Sem CNPJ: informe-o em Receita Federal',
+  );
+
+  const receita = page.getByRole('region', { name: 'Receita Federal' });
+  const field = receita.getByRole('textbox', { name: 'CNPJ da empresa' });
+  // Dígitos errados: erro no campo, nada consultado.
+  await field.fill('12.345.678/0001-90');
+  await receita.getByRole('button', { name: 'Consultar e vincular' }).click();
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+
+  // Nome diferente na Receita: aviso e confirmação, sem gravar nada ainda.
+  await field.fill('12.345.678/0001-95');
+  await receita.getByRole('button', { name: 'Consultar e vincular' }).click();
+  await expect(
+    receita.getByText(/MARCENARIA SINTETICA DE TESTE LTDA.*nome diferente/).first(),
+  ).toBeVisible();
+  // É aviso, não erro de digitação: o resumo recebe o foco e a caixa não fica marcada como inválida.
+  const mismatch = receita.locator('[data-cnpj-name-mismatch]');
+  await expect(mismatch).toContainText('Confira o nome antes de vincular');
+  await expect(mismatch.locator('..')).toBeFocused();
+  await expect(receita.getByRole('checkbox', { name: /É a mesma empresa/ })).not.toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await expect(page.getByText(/^Nenhum fato registrado./)).toBeVisible();
+  await expectNoA11yViolations(page);
+
+  const confirm = receita.getByRole('checkbox', { name: /É a mesma empresa/ });
+  await confirm.focus();
+  await page.keyboard.press('Space');
+  await expect(confirm).toBeChecked();
+  await receita.getByRole('button', { name: 'Consultar e vincular' }).press('Enter');
+
+  await expect(page).toHaveURL(new RegExp(`${path}\\?aviso=cnpj-vinculado$`));
+  await expect(page.locator('[data-aviso="cnpj-vinculado"]')).toContainText('CNPJ vinculado');
+  const registry = page.getByRole('region', { name: 'Cadastro' });
+  await expect(registry).toContainText('12.345.678/0001-95');
+  await expect(registry).toContainText('informado por você; a fonte está em Evidências');
+  // O CNPJ vinculado vira chave de duplicada (KI-160).
+  await expect(registry).toContainText('CNPJ: 12.345.678/0001-95 · conferido');
+  const evidence = page.getByRole('region', { name: 'Evidências' });
+  await expect(evidence).toContainText('CNPJ da empresa: 12.345.678/0001-95, informado por você.');
+  await expect(page.getByRole('button', { name: 'Consultar a Receita de novo' })).toBeVisible();
+  await expectNoA11yViolations(page);
+});
+
 test('id inexistente mostra "Empresa não encontrada"', async ({ page }) => {
   // O dossiê carrega dentro de um Suspense: o 404 chega como página, não como status HTTP.
   await page.goto('/empresas/00000000-0000-4000-8000-000000000000');

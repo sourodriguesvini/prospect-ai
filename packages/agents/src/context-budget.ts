@@ -83,6 +83,21 @@ export function estimateTokens(text: string): number {
   return Math.ceil(prose / CHARS_PER_TOKEN) + other + MESSAGE_OVERHEAD_TOKENS;
 }
 
+/**
+ * Definições das ferramentas: JSON escrito no próprio código, nunca texto colado. O teto de
+ * `estimateTokens` conta cada aspa, chave e dois-pontos como um token, e o tokenizador junta essas
+ * marcas: medido no qwen3.5:4b em 2026-11-25 (prompt_eval_count com e sem ferramentas), 12
+ * ferramentas deram 1956 tokens reais para 2840 estimados (0,69) e 26 deram 4394 para 6813 (0,64).
+ * O fator 0,8 deixa folga de 16% a 25% sobre a medida. Só para as definições: texto colado e
+ * resultados de ferramentas (conteúdo de fora) continuam com o teto.
+ */
+export const TOOL_DEFINITIONS_TOKEN_FACTOR = 0.8;
+
+export function estimateToolDefinitionsTokens(definitions: readonly unknown[]): number {
+  if (definitions.length === 0) return 0;
+  return Math.ceil(estimateTokens(JSON.stringify(definitions)) * TOOL_DEFINITIONS_TOKEN_FACTOR);
+}
+
 export interface ContextPlan<M extends BudgetMessage> {
   messages: M[];
   /** Mensagens da conversa (não de sistema) que ficaram de fora, das mais antigas. */

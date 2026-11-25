@@ -12,6 +12,20 @@ import {
   DiscoveryAiError,
   buildIntent,
   buildPlan,
+  districtInRequest,
+  districtInResult,
+  foreignSearchWords,
+  narrowingWords,
+  unrequestedSignalWords,
+  signalsAsked,
+  aroundNotAsked,
+  greaterArea,
+  requestedDistrict,
+  acceptedSignal,
+  companyPlace,
+  districtHost,
+  stateArea,
+  regionExtent,
   createCompanyService,
   createDiscoveryEngine,
   createDiscoveryScheduler,
@@ -407,7 +421,9 @@ describe('Descoberta (F4)', () => {
   });
 
   it('pesquisa completa: identifica, confere, deduplica e faz a triagem com fontes', async () => {
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     expect(run.status).toBe('queued');
     expect(actions()).toEqual(['discovery.run.created']);
 
@@ -470,7 +486,7 @@ describe('Descoberta (F4)', () => {
       publishedAt: null,
       score: 0.4,
     });
-    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto em expansão' });
     expect(await work()).toEqual({ kind: 'finished', status: 'completed' });
     const seen = ai.calls.inputs.flatMap((input) => input.results.map((result) => result.url));
     expect(seen).toContain(VIDA_SITE);
@@ -480,7 +496,9 @@ describe('Descoberta (F4)', () => {
   it('notícia sem cidade e site oficial da mesma empresa viram uma empresa só', async () => {
     // A notícia cita a cidade pedida no texto; o modelo não preencheu a cidade da empresa.
     build({ newsWithoutCity: true });
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     expect(await work()).toEqual({ kind: 'finished', status: 'completed' });
     const detail = await service.getRun(ctx, run.id);
     const names = detail.prospects.map((view) => view.prospect.displayName);
@@ -490,7 +508,9 @@ describe('Descoberta (F4)', () => {
 
   it('retoma depois de falha passageira sem repetir as buscas já feitas', async () => {
     build({ failExtractOnce: new DiscoveryAiError('busy') });
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     const first = await work();
     expect(first).toMatchObject({ kind: 'retry', errorCode: 'ai_busy' });
     expect((await service.getRun(ctx, run.id)).run.status).toBe('queued');
@@ -506,7 +526,7 @@ describe('Descoberta (F4)', () => {
   });
 
   it('pesquisa repetida não duplica empresas nem sinais (novidade só na primeira)', async () => {
-    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto em expansão' });
     await work();
     const second = await service.createRun(ctx, {
       request: 'Clínicas de Ribeirão Preto em expansão',
@@ -520,7 +540,7 @@ describe('Descoberta (F4)', () => {
 
   // Pesquisa real de 2026-11-11 (KI-117): perfil com a cidade no nome não era juntado.
   it('o mesmo nome com a cidade no fim junta à empresa já encontrada em outra pesquisa', async () => {
-    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto em expansão' });
     await work();
     build({ guideName: 'Sorriso Feliz - Ribeirão Preto' });
     const second = await service.createRun(ctx, {
@@ -552,14 +572,16 @@ describe('Descoberta (F4)', () => {
   });
 
   it('cancelar na fila encerra na hora; cancelar rodando para na próxima etapa', async () => {
-    const queued = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const queued = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     const cancelled = await service.cancelRun(ctx, queued.id);
     expect(cancelled.status).toBe('cancelled');
     expect(await store.queue.claim('w', ['discovery_run'], 60)).toBeNull();
     expect((await store.queue.expire()).map((job) => job.status)).toEqual(['cancelled']);
 
     const running = await service.createRun(ctx, {
-      request: 'Encontre clínicas em Ribeirão Preto',
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
     });
     const job = await store.queue.claim('w', ['discovery_run'], 60);
     await store.repository.updateRun(running.id, { status: 'running' });
@@ -579,14 +601,16 @@ describe('Descoberta (F4)', () => {
   it('sem buscador configurado, nenhuma pesquisa é criada (nada inventado)', async () => {
     web.setStatus('not_configured');
     await expect(
-      service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' }),
+      service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto em expansão' }),
     ).rejects.toMatchObject({
       reason: 'discovery_search_unavailable',
     });
   });
 
   it('orçamento acabando no meio: guarda o que achou e marca resultado parcial', async () => {
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     // Primeira busca ok; a segunda bate no orçamento.
     const original = web.service.search;
     let count = 0;
@@ -611,14 +635,18 @@ describe('Descoberta (F4)', () => {
 
   it('IA local fora do ar: falha antes de gastar qualquer busca', async () => {
     build({ failInterpret: new DiscoveryAiError('runtime_unavailable') });
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     expect(await work()).toEqual({ kind: 'finished', status: 'failed' });
     expect((await service.getRun(ctx, run.id)).run.failureCode).toBe('ai_unavailable');
     expect(web.searches).toHaveLength(0);
   });
 
   it('Investigar cria a empresa em Empresas com origem Descoberta e guarda as evidências', async () => {
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     await work();
     const vida = (await service.getRun(ctx, run.id)).prospects[0]!.prospect;
     const result = await service.investigate(ctx, vida.id);
@@ -659,7 +687,9 @@ describe('Descoberta (F4)', () => {
 
   it('CPF no nome (MEI em site de dados de CNPJ) fica de fora do nome da empresa', async () => {
     build({ cpfInName: true });
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     await work();
     const names = (await service.getRun(ctx, run.id)).prospects.map(
       (view) => view.prospect.displayName,
@@ -669,7 +699,7 @@ describe('Descoberta (F4)', () => {
   });
 
   it('decisões da pessoa ficam auditadas e ignoradas saem da lista', async () => {
-    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto em expansão' });
     await work();
     const [first] = await service.listProspects(ctx);
     await service.decide(ctx, {
@@ -741,7 +771,7 @@ describe('Descoberta (F4)', () => {
     );
     expect(noPlace.region).toMatchObject({ cities: [], ufs: [], scope: 'country' });
     const withCity = buildIntent(
-      { request: 'Encontre clínicas em Ribeirão Preto', options, limits },
+      { request: 'Encontre clínicas em Ribeirão Preto em expansão', options, limits },
       invented,
     );
     expect(withCity.region).toMatchObject({ cities: ['Ribeirão Preto'], ufs: ['SP'] });
@@ -787,7 +817,9 @@ describe('Descoberta (F4)', () => {
   });
 
   it('erro inesperado na última tentativa encerra a pesquisa (não fica rodando)', async () => {
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     const real = discoveryJobHandler(engine);
     const worker = createJobWorker({
       queue: store.queue,
@@ -814,7 +846,9 @@ describe('Descoberta (F4)', () => {
   });
 
   it('o trabalhador da fila executa a pesquisa e encerra a tarefa', async () => {
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     const worker = createJobWorker({
       queue: store.queue,
       workerId: 'w1',
@@ -827,7 +861,9 @@ describe('Descoberta (F4)', () => {
   });
 
   it('tarefa que caiu sem tentativas sobrando marca a pesquisa como interrompida', async () => {
-    const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+    const run = await service.createRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+    });
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const job = await store.queue.claim('w', ['discovery_run'], 10);
       expect(job).not.toBeNull();
@@ -962,7 +998,9 @@ describe('Descoberta (F4)', () => {
     });
 
     it('lê pesquisas, empresas e sinais com a fonte; nomes ficam fora da telemetria', async () => {
-      const run = await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto' });
+      const run = await service.createRun(ctx, {
+        request: 'Encontre clínicas em Ribeirão Preto em expansão',
+      });
       await work();
       const { tools, calls } = registry();
 
@@ -1087,6 +1125,314 @@ describe('plano de buscas e trechos', () => {
     expect(buildPlan('x', output, { ...intent, quantity: 4 }, 3).queries).toHaveLength(1);
   });
 
+  // Pesquisa real de 2026-11-24 (KI-148): "região metropolitana" sumia, buscas de diretório e em
+  // inglês ("pet clinic Curitiba") e só 1 de 4 buscas procurava o sinal pedido.
+  it('pedido com região metropolitana e sinal: região mantida e buscas de sinal por negócio', () => {
+    const request =
+      'Pet shops e clínicas veterinárias em Curitiba e região metropolitana com sinais de expansão, como loja nova ou nova unidade.';
+    const run = {
+      request,
+      options: { quantity: null, depth: null, uf: null, city: null, icpId: null, signals: [] },
+      limits: { maxSearches: 4, maxPages: 6, maxProspects: 25 },
+    };
+    const output = InterpreterOutput.parse({
+      summary: 'Pet shops e clínicas veterinárias de Curitiba com sinais de expansão.',
+      segment: 'pet shops e clínicas veterinárias',
+      segmentTerms: ['pet shop', 'clínica veterinária', 'veterinário', 'pet clinic'],
+      cities: ['Curitiba'],
+      ufs: ['PR'],
+      regionScope: 'city',
+      signals: ['expansion'],
+      queries: [
+        { text: 'pet shop Curitiba', purpose: 'companies' },
+        {
+          text: 'clínica veterinária inaugura nova unidade Curitiba',
+          purpose: 'signals',
+          signal: 'expansion',
+          recent: true,
+        },
+        { text: 'pet clinic Curitiba', purpose: 'companies' },
+        { text: 'veterinário Curitiba', purpose: 'companies' },
+      ],
+    });
+    const intent = buildIntent(run, output);
+    expect(intent.region).toMatchObject({
+      scope: 'region',
+      cities: ['Curitiba'],
+      label: 'Curitiba e região metropolitana (PR)',
+    });
+    expect(intent.summary).toContain('região metropolitana');
+    expect(intent.segmentTerms).not.toContain('pet clinic');
+    const plan = buildPlan(request, output, intent, 4).queries;
+    expect(plan.map((query) => [query.text, query.purpose])).toEqual([
+      ['pet shop Curitiba', 'companies'],
+      ['clínica veterinária inaugura nova unidade Curitiba', 'signals'],
+      ['pet shop inaugura nova unidade expansão região metropolitana de Curitiba', 'signals'],
+      ['pet shop inaugura nova unidade expansão Curitiba', 'signals'],
+    ]);
+    expect(plan.some((query) => query.text.includes('clinic '))).toBe(false);
+    // Sem sinal pedido, a região em volta vira busca de empresas.
+    const noSignals = buildIntent(
+      { ...run, request: 'Pet shops em Curitiba e região metropolitana' },
+      InterpreterOutput.parse({ ...output, signals: [], queries: [output.queries[0]] }),
+    );
+    expect(
+      buildPlan('Pet shops em Curitiba e região metropolitana', output, noSignals, 4).queries.map(
+        (query) => query.text,
+      ),
+    ).toContain('pet shops e clínicas veterinárias região metropolitana de Curitiba');
+  });
+
+  it('região em volta, bairro e cidade: o que o pedido diz', () => {
+    const lond = ['Londrina'];
+    expect(regionExtent('Clínicas em Curitiba e região metropolitana', ['Curitiba'])).toBe(
+      'metropolitan',
+    );
+    expect(regionExtent('Construtoras na Grande BH', ['Belo Horizonte'])).toBe('metropolitan');
+    expect(regionExtent('Padarias em Campinas e região', ['Campinas'])).toBe('surroundings');
+    expect(regionExtent('Padarias na região de Londrina', lond)).toBe('surroundings');
+    expect(regionExtent('Padarias em Londrina e cidades próximas', lond)).toBe('surroundings');
+    expect(regionExtent('Empresas de grande porte em Campinas', ['Campinas'])).toBe(null);
+    expect(regionExtent('Clínicas em Ribeirão Preto', ['Ribeirão Preto'])).toBe(null);
+    // Revisão do KI-148: "região" que fica dentro da cidade não amplia a busca.
+    expect(regionExtent('Restaurantes na região central de Campinas', ['Campinas'])).toBe(null);
+    expect(regionExtent('Bares da região da Savassi, em Belo Horizonte', ['Belo Horizonte'])).toBe(
+      null,
+    );
+    expect(regionExtent('Clínicas na região do Campolim, em Sorocaba', ['Sorocaba'])).toBe(null);
+    expect(regionExtent('Padarias referência na região, em Londrina', lond)).toBe(null);
+    expect(regionExtent('Padarias em Londrina e região central', lond)).toBe(null);
+    // "Grande X" diz a cidade e a UF.
+    expect(greaterArea('Lojas de móveis planejados na Grande BH')).toEqual({
+      cities: ['Belo Horizonte'],
+      uf: 'MG',
+    });
+    expect(greaterArea('Clínicas na Grande Floripa')?.uf).toBe('SC');
+    expect(greaterArea('Empresas de grande porte em Campinas')).toBe(null);
+    // Bairro no pedido: com a palavra "bairro" ou "no X, em <cidade>".
+    expect(districtInRequest('Savassi', 'Restaurantes no bairro Savassi, em BH', [])).toBe(true);
+    expect(districtInRequest('Batel', 'Cafeterias no Batel, em Curitiba', ['Curitiba'])).toBe(true);
+    // "Nos bairros de Curitiba" fala da cidade (bloqueante da revisão do KI-148).
+    expect(districtInRequest('Curitiba', 'Pet shops nos bairros de Curitiba', [])).toBe(false);
+    expect(districtInRequest('Fortaleza', 'Salões de beleza nos bairros de Fortaleza', [])).toBe(
+      false,
+    );
+    expect(requestedDistrict('Restaurantes no bairro Savassi, em Belo Horizonte', [])).toBe(
+      'Savassi',
+    );
+    expect(requestedDistrict('Cafeterias no Batel, em Curitiba', ['Batel', 'Curitiba'])).toBe(
+      'Batel',
+    );
+    expect(requestedDistrict('Pet shops nos bairros de Curitiba', ['Curitiba'])).toBe(null);
+    // Modelo certo, sem o bairro em `cities`: as cidades da pesquisa bastam.
+    expect(requestedDistrict('Cafeterias no Batel, em Curitiba', ['Curitiba'], ['Curitiba'])).toBe(
+      'Batel',
+    );
+    expect(
+      requestedDistrict('Bares no Moinhos de Vento, em Porto Alegre', [], ['Porto Alegre']),
+    ).toBe('Moinhos de Vento');
+    expect(requestedDistrict('Clínicas no Rio de Janeiro', [], ['Rio de Janeiro'])).toBe(null);
+    // Bairro no resultado: só com a palavra "bairro" ou com cidade e UF logo depois.
+    expect(districtInResult('Batel', 'Rua X, 120 – Batel, Curitiba/PR', ['Curitiba'])).toBe(true);
+    expect(districtInResult('Gleba Palhano', 'Rua Y – bairro Gleba Palhano', lond)).toBe(true);
+    expect(districtInResult('Pinhais', 'Atendemos em Pinhais/PR', ['Curitiba'])).toBe(false);
+    expect(districtInResult('Curitiba', 'Batel, Curitiba/PR', ['Curitiba'])).toBe(false);
+    // Município vizinho não vira bairro (item 2 da revisão do KI-148).
+    expect(districtInResult('Cambé', 'Atendemos Cambé, Londrina e região', lond)).toBe(false);
+    expect(
+      districtInResult('São José dos Pinhais', 'Lojas em São José dos Pinhais, Curitiba e região', [
+        'Curitiba',
+      ]),
+    ).toBe(false);
+  });
+
+  it('bairro e "Grande X" na interpretação: rótulo, resumo e buscas', () => {
+    const base = {
+      options: { quantity: null, depth: null, uf: null, city: null, icpId: null, signals: [] },
+      limits: { maxSearches: 4, maxPages: 6, maxProspects: 25 },
+    };
+    const savassi = 'Restaurantes no bairro Savassi, em Belo Horizonte';
+    const savassiOut = InterpreterOutput.parse({
+      ...INTERPRETED,
+      summary: 'Restaurantes de Belo Horizonte (MG).',
+      segment: 'restaurantes',
+      segmentTerms: ['restaurante'],
+      cities: ['Savassi', 'Belo Horizonte'],
+      ufs: ['MG'],
+      regionScope: 'city',
+      signals: [],
+      queries: [
+        { text: 'restaurante Belo Horizonte', purpose: 'companies' },
+        { text: 'lanchonete Belo Horizonte', purpose: 'companies' },
+      ],
+    });
+    const intent = buildIntent({ ...base, request: savassi }, savassiOut);
+    expect(intent.region).toMatchObject({
+      cities: ['Belo Horizonte'],
+      scope: 'city',
+      label: 'Savassi, Belo Horizonte (MG)',
+    });
+    // O resumo do modelo perdeu o bairro: vale o do servidor.
+    expect(intent.summary).toContain('Savassi');
+    const plan = buildPlan(savassi, savassiOut, intent, 3).queries;
+    expect(plan[0]?.text).toBe('restaurantes Savassi Belo Horizonte');
+    // "Nos bairros de X": X continua a cidade, e a região não vira "Brasil".
+    const bairros = buildIntent(
+      { ...base, request: 'Pet shops nos bairros de Curitiba' },
+      InterpreterOutput.parse({ ...INTERPRETED, cities: ['Curitiba'], ufs: ['PR'] }),
+    );
+    expect(bairros.region).toMatchObject({ cities: ['Curitiba'], ufs: ['PR'] });
+    expect(bairros.region.label).toBe('Curitiba (PR)');
+    // "Grande BH": Belo Horizonte, MG e região metropolitana, mesmo sem a cidade escrita.
+    const grande = buildIntent(
+      { ...base, request: 'Lojas de móveis planejados na Grande BH' },
+      InterpreterOutput.parse({ ...INTERPRETED, cities: ['Grande BH'], ufs: [] }),
+    );
+    expect(grande.region).toMatchObject({
+      scope: 'region',
+      cities: ['Belo Horizonte'],
+      ufs: ['MG'],
+      label: 'Belo Horizonte e região metropolitana (MG)',
+    });
+  });
+
+  it('estado, bairro sem cidade e cidade da empresa: o que o texto diz (avaliação de 2026-11-25)', () => {
+    const base = {
+      options: { quantity: null, depth: null, uf: null, city: null, icpId: null, signals: [] },
+      limits: { maxSearches: 4, maxPages: 6, maxProspects: 25 },
+    };
+    // "Interior de São Paulo" é o estado, não a capital.
+    expect(stateArea('Empresas do interior de São Paulo abrindo unidades')).toBe('SP');
+    expect(stateArea('Clínicas no litoral do Rio de Janeiro')).toBe('RJ');
+    expect(stateArea('Clínicas em São Paulo')).toBe(null);
+    const interior = buildIntent(
+      { ...base, request: 'Empresas do interior de São Paulo abrindo novas unidades' },
+      InterpreterOutput.parse({
+        ...INTERPRETED,
+        cities: ['São Paulo'],
+        ufs: [],
+        regionScope: 'region',
+      }),
+    );
+    expect(interior.region).toMatchObject({ cities: [], ufs: ['SP'], scope: 'region' });
+    // Modelo devolveu só o bairro: a cidade escrita depois dele toma o lugar.
+    expect(districtHost('Batel', 'Cafeterias no Batel, em Curitiba')).toBe('Curitiba');
+    const batel = buildIntent(
+      { ...base, request: 'Cafeterias no Batel, em Curitiba' },
+      InterpreterOutput.parse({ ...INTERPRETED, cities: ['Batel'], ufs: ['PR'] }),
+    );
+    expect(batel.region).toMatchObject({
+      cities: ['Curitiba'],
+      label: 'Batel, Curitiba (PR)',
+    });
+    // Cidade da empresa: fora das cidades pedidas, só escrita como município.
+    const region = {
+      scope: 'region' as const,
+      cities: ['Londrina'],
+      ufs: ['PR' as const],
+      label: 'Londrina e região metropolitana (PR)',
+    };
+    expect(
+      companyPlace(
+        { city: 'Jardim Higienópolis', uf: 'PR' },
+        'Clínica Veterinária Bem Cuidar – Jardim Higienópolis. Consultas no Jardim Higienópolis.',
+        region,
+      ),
+    ).toEqual({ city: null, uf: null });
+    expect(
+      companyPlace(
+        { city: 'Gleba Palhano', uf: 'PR' },
+        'Pet Center Aurora – Rua das Palmeiras, 300 – Gleba Palhano, Londrina/PR.',
+        region,
+      ),
+    ).toEqual({ city: 'Londrina', uf: 'PR' });
+    expect(
+      companyPlace({ city: 'Cambé', uf: 'PR' }, 'A Rede Animália abriu loja em Cambé.', region),
+    ).toEqual({ city: 'Cambé', uf: 'PR' });
+    expect(
+      companyPlace(
+        { city: 'Cambé', uf: 'PR' },
+        'Pet Shop Aurora – Av. Brasil, 10, Cambé/PR',
+        region,
+      ),
+    ).toEqual({ city: 'Cambé', uf: 'PR' });
+    // Pesquisa sem cidades (estado inteiro): a cidade escrita no texto vale como antes.
+    expect(
+      companyPlace({ city: 'Franca', uf: 'SP' }, 'Clínica Exemplo | Odontologia em Franca', {
+        scope: 'state',
+        cities: [],
+        ufs: ['SP'],
+        label: 'SP',
+      }),
+    ).toEqual({ city: 'Franca', uf: 'SP' });
+  });
+
+  it('plano sem busca de sinal que o pedido não pede e sem inglês fora do pedido', () => {
+    const run = {
+      request: 'Encontre 15 clínicas em Ribeirão Preto',
+      options: { quantity: null, depth: null, uf: null, city: null, icpId: null, signals: [] },
+      limits: { maxSearches: 4, maxPages: 6, maxProspects: 25 },
+    };
+    const output = InterpreterOutput.parse({
+      ...INTERPRETED,
+      segment: 'clínicas',
+      segmentTerms: ['clínica'],
+      cities: ['Ribeirão Preto'],
+      ufs: ['SP'],
+      regionScope: 'city',
+      signals: [],
+      quantity: 15,
+      queries: [
+        { text: 'clínica Ribeirão Preto', purpose: 'companies' },
+        {
+          text: 'clínicas abre vagas marketing Ribeirão Preto',
+          purpose: 'signals',
+          signal: 'hiring',
+          recent: true,
+        },
+      ],
+    });
+    const intent = buildIntent(run, output);
+    const plan = buildPlan(run.request, output, intent, 4).queries;
+    expect(plan.some((query) => query.purpose === 'signals')).toBe(false);
+    expect(plan[0]?.text).toBe('clínica Ribeirão Preto');
+    // Palavra em inglês que a própria pessoa escreveu fica.
+    expect(foreignSearchWords('pet clinic Curitiba')).toEqual(['clinic']);
+    expect(foreignSearchWords('concept store Curitiba', 'Concept stores em Curitiba')).toEqual([]);
+    expect(foreignSearchWords('clinic de estética', 'Clinic de estética em Curitiba')).toEqual([]);
+    expect(foreignSearchWords('pet shop Curitiba')).toEqual([]);
+  });
+
+  it('conferência do sinal pelo servidor (a avaliação usa a mesma)', () => {
+    const store = {
+      title: 'Rede Animália Londrina Centro – mais uma unidade da maior rede pet do Sul',
+      snippet: 'Rua Sergipe, 900 – Centro, Londrina/PR.',
+    };
+    const slogan = {
+      type: 'expansion' as const,
+      quote: 'mais uma unidade da maior rede pet do Sul',
+      eventDate: '2026-11',
+    };
+    expect(acceptedSignal(slogan, store)).toBe(null);
+    const news = {
+      title: 'Rede Animália abre nova loja em Cambé',
+      snippet: 'A Rede Animália inaugurou em outubro de 2026 sua nova loja em Cambé.',
+    };
+    const opening = {
+      type: 'expansion' as const,
+      quote: 'inaugurou em outubro de 2026 sua nova loja',
+      eventDate: '2026-10',
+    };
+    expect(acceptedSignal(opening, news)).toEqual({ eventDate: '2026-10' });
+    // Data que o texto não diz cai.
+    const title = {
+      ...opening,
+      quote: 'Rede Animália abre nova loja em Cambé',
+      eventDate: '2025-03',
+    };
+    expect(acceptedSignal(title, news)).toEqual({ eventDate: null });
+  });
+
   it('confere o trecho como o Evidence Ledger e recorta a fonte em volta dele', () => {
     const text = `${'x '.repeat(200)}A Clínica abriu uma nova unidade em Franca.${' y'.repeat(200)}`;
     expect(signalQuoteFound('abriu uma nova unidade em Franca', text)).toBe(true);
@@ -1117,5 +1463,367 @@ describe('plano de buscas e trechos', () => {
       },
     });
     await expect(service.createRun(ctx, { request: 'oi' })).rejects.toBeInstanceOf(AppError);
+  });
+});
+
+describe('guardas da interpretação e do plano (segunda revisão do KI-148)', () => {
+  const limits = { maxSearches: 6, maxPages: 6, maxProspects: 25 };
+  const options = { quantity: null, depth: null, uf: null, city: null, icpId: null, signals: [] };
+  /** Intenção e plano finais para um pedido e uma resposta do modelo. */
+  const server = (
+    request: string,
+    model: Partial<{
+      summary: string | null;
+      segment: string | null;
+      segmentTerms: string[];
+      cities: string[];
+      ufs: string[];
+      regionScope: 'city' | 'region' | 'state' | 'country' | 'unspecified';
+      signals: string[];
+      queries: {
+        text: string;
+        purpose: 'companies' | 'signals';
+        signal?: string;
+        recent?: boolean;
+      }[];
+    }>,
+  ) => {
+    const output = InterpreterOutput.parse({
+      summary: null,
+      segment: 'empresas',
+      segmentTerms: [],
+      cities: [],
+      ufs: [],
+      regionScope: 'city',
+      signals: [],
+      queries: [
+        { text: `empresas ${(model.cities ?? []).join(' ')}`.trim(), purpose: 'companies' },
+      ],
+      ...model,
+    });
+    const intent = buildIntent({ request, options, limits }, output);
+    return { intent, plan: buildPlan(request, output, intent, limits.maxSearches).queries };
+  };
+
+  it('"Grande" dentro do nome da cidade não é "Grande X"', () => {
+    expect(greaterArea('Imobiliárias em Praia Grande/SP')).toBeNull();
+    expect(greaterArea('Imobiliárias em Praia Grande, São Paulo')).toBeNull();
+    expect(greaterArea('Clínicas em Campina Grande, João Pessoa e Recife')).toBeNull();
+    expect(greaterArea('Academias em Campo Grande, Rio de Janeiro')).toBeNull();
+    expect(greaterArea('Lojas em Várzea Grande, Cuiabá')).toBeNull();
+    expect(greaterArea('Lojas de grande Rio Verde')).toBeNull();
+    expect(greaterArea('Grande BH: lojas de móveis')?.uf).toBe('MG');
+    expect(greaterArea('Lojas no Grande ABC')?.uf).toBe('SP');
+    expect(greaterArea('Lojas no ABC paulista')?.cities).toContain('Santo André');
+    expect(greaterArea('Lojas na Grande Campinas')?.cities).toEqual(['Campinas']);
+    expect(greaterArea('Lojas na Grande Londrina')?.cities).toEqual(['Londrina']);
+    const praia = server('Imobiliárias em Praia Grande/SP', {
+      segment: 'imobiliárias',
+      cities: ['Praia Grande'],
+      ufs: ['SP'],
+    });
+    expect(praia.intent.region.label).toBe('Praia Grande (SP)');
+    expect(praia.plan.some((query) => /São Paulo/.test(query.text))).toBe(false);
+  });
+
+  it('estado pelo nome mais longo, litoral, interior e apelidos', () => {
+    expect(stateArea('Empresas do interior de Mato Grosso do Sul')).toBe('MS');
+    expect(stateArea('Empresas do estado de Mato Grosso do Sul')).toBe('MS');
+    expect(stateArea('Empresas do interior de Mato Grosso')).toBe('MT');
+    expect(stateArea('Empresas do interior do Rio Grande do Sul')).toBe('RS');
+    expect(stateArea('Empresas do litoral norte de São Paulo')).toBe('SP');
+    expect(stateArea('Empresas do interior paulista')).toBe('SP');
+    expect(stateArea('Vinícolas da Serra Gaúcha')).toBe('RS');
+    expect(stateArea('Empresas do sul de Minas')).toBe('MG');
+    expect(stateArea('Pet shops em Londrina e região norte do Paraná')).toBe('PR');
+    expect(stateArea('Bares na zona norte de São Paulo')).toBeNull();
+    const ms = server('Empresas do interior de Mato Grosso do Sul', {
+      ufs: ['MS'],
+      regionScope: 'region',
+    });
+    expect(ms.intent.region.ufs).toEqual(['MS']);
+    const litoral = server('Empresas do litoral norte de São Paulo', {
+      cities: ['São Paulo'],
+      ufs: ['SP'],
+      regionScope: 'region',
+    });
+    expect(litoral.intent.region).toMatchObject({ cities: [], ufs: ['SP'] });
+    const paulista = server('Empresas do interior paulista', {
+      ufs: ['SP'],
+      regionScope: 'region',
+    });
+    expect(paulista.intent.region.label).toBe('SP');
+  });
+
+  it('cidade da empresa: município vizinho continua município, bairro só com sinal de bairro', () => {
+    const lon = {
+      scope: 'region' as const,
+      cities: ['Londrina'],
+      ufs: ['PR' as const],
+      label: null,
+    };
+    const cwb = {
+      scope: 'region' as const,
+      cities: ['Curitiba'],
+      ufs: ['PR' as const],
+      label: null,
+    };
+    const place = (city: string | null, text: string, region = lon) =>
+      companyPlace({ city, uf: 'PR' }, text, region).city;
+    expect(place('Cambé', 'Pet Shop Amigo | Atendemos Cambé, Londrina e região')).toBe('Cambé');
+    expect(place('Cambé', 'Pet Shop Amigo – Cambé | Rações e banho e tosa')).toBe('Cambé');
+    expect(place('Cambé', 'Pet Shop Amigo, Cambé, Paraná')).toBe('Cambé');
+    expect(place('Ibiporã', 'Clínica Vet Ibiporã | Atendimento 24h')).toBe('Ibiporã');
+    expect(place('São José dos Pinhais', 'PetZ São José dos Pinhais | Pet shop', cwb)).toBe(
+      'São José dos Pinhais',
+    );
+    expect(place('Arapongas', 'Móveis Gama – Arapongas. Fábrica e loja')).toBe('Arapongas');
+    // Sinal de bairro: palavra "bairro", cidade pedida no fim do endereço, começo de bairro.
+    expect(place('Batel', 'Café Alfa - Batel, Curitiba/PR', cwb)).toBe('Curitiba');
+    expect(place('Batel', 'Café Alfa - Batel - Curitiba', cwb)).toBe('Curitiba');
+    expect(place('Batel', 'Café Alfa, no bairro Batel', cwb)).toBeNull();
+    expect(place('Jardim Higienópolis', 'Clínica Bem Cuidar – Jardim Higienópolis')).toBeNull();
+    expect(
+      companyPlace({ city: 'Vila Velha', uf: 'ES' }, 'Loja Delta, Vila Velha/ES', {
+        scope: 'city',
+        cities: ['Vitória'],
+        ufs: ['ES'],
+        label: null,
+      }).city,
+    ).toBe('Vila Velha');
+  });
+
+  it('bairro em minúsculas e "região da Savassi"', () => {
+    const savassi = server('restaurantes no bairro savassi em belo horizonte', {
+      segment: 'restaurantes',
+      cities: ['Belo Horizonte'],
+      ufs: ['MG'],
+      summary: 'Restaurantes em Belo Horizonte.',
+    });
+    expect(savassi.intent.region.label).toBe('Savassi, Belo Horizonte (MG)');
+    expect(savassi.plan[0]?.text).toBe('restaurantes Savassi Belo Horizonte');
+    const batel = server('cafeterias no batel, em curitiba', {
+      segment: 'cafeterias',
+      cities: ['Batel'],
+      ufs: ['PR'],
+    });
+    expect(batel.intent.region).toMatchObject({
+      cities: ['Curitiba'],
+      label: 'Batel, Curitiba (PR)',
+    });
+    expect(batel.plan.some((query) => query.text === 'cafeterias Batel Curitiba')).toBe(true);
+    const regiao = server('Restaurantes na região da Savassi, em Belo Horizonte', {
+      segment: 'restaurantes',
+      cities: ['Savassi', 'Belo Horizonte'],
+      ufs: ['MG'],
+    });
+    expect(regiao.intent.region).toMatchObject({
+      scope: 'city',
+      cities: ['Belo Horizonte'],
+      label: 'Savassi, Belo Horizonte (MG)',
+    });
+    // Modelo com só o bairro, escrito com a palavra "bairro" e em minúsculas: vale a cidade.
+    const jardim = server('floriculturas no bairro jardim botânico, em curitiba', {
+      segment: 'floriculturas',
+      cities: ['Jardim Botânico'],
+      ufs: ['PR'],
+      queries: [{ text: 'floricultura jardim botânico', purpose: 'companies' }],
+    });
+    expect(jardim.intent.region).toMatchObject({
+      cities: ['Curitiba'],
+      label: 'Jardim Botânico, Curitiba (PR)',
+    });
+    expect(jardim.plan[0]?.text).toBe('floriculturas Jardim Botânico Curitiba');
+    // "region" do modelo sem região em volta no pedido: a pesquisa é na cidade.
+    const central = server('Restaurantes na região central de Campinas', {
+      segment: 'restaurantes',
+      cities: ['Campinas'],
+      ufs: ['SP'],
+      regionScope: 'region',
+    });
+    expect(central.intent.region).toMatchObject({ scope: 'city', label: 'Campinas (SP)' });
+  });
+
+  it('nome do estado depois de um município é o estado', () => {
+    expect(districtHost('Guarujá', 'Pousadas no Guarujá, em São Paulo')).toBeNull();
+    expect(districtHost('Vila Madalena', 'Bares na Vila Madalena, em São Paulo')).toBe('São Paulo');
+    expect(districtHost('Batel', 'Cafeterias no Batel em Curitiba com vista')).toBe('Curitiba');
+    const guaruja = server('Pousadas no Guarujá, em São Paulo', {
+      segment: 'pousadas',
+      cities: ['Guarujá'],
+      ufs: ['SP'],
+    });
+    expect(guaruja.intent.region.label).toBe('Guarujá (SP)');
+    const both = server('Academias na Praia Grande, em São Paulo', {
+      segment: 'academias',
+      cities: ['Praia Grande', 'São Paulo'],
+      ufs: ['SP'],
+    });
+    expect(both.intent.region).toMatchObject({ cities: ['Praia Grande'], ufs: ['SP'] });
+  });
+
+  it('formas de "região em volta"', () => {
+    const lond = ['Londrina'];
+    expect(regionExtent('Pet shops em Londrina e região norte do Paraná', lond)).toBe(
+      'surroundings',
+    );
+    expect(regionExtent('Pet shops em Londrina e na região', lond)).toBe('surroundings');
+    expect(regionExtent('Pet shops em Londrina e entorno', lond)).toBe('surroundings');
+    expect(regionExtent('Restaurantes em Londrina e região central', lond)).toBeNull();
+  });
+
+  it('resumo só fala em região metropolitana quando o pedido fala', () => {
+    const { intent } = server('Padarias em Piracicaba e região', {
+      segment: 'padarias',
+      cities: ['Piracicaba'],
+      ufs: ['SP'],
+      regionScope: 'region',
+      summary: 'Padarias em Piracicaba e região metropolitana.',
+    });
+    expect(intent.summary).not.toMatch(/metropolitana/);
+    expect(intent.region.label).toBe('Piracicaba e região (SP)');
+  });
+
+  it('busca com palavra de sinal não pedido sai, qualquer que seja o rótulo', () => {
+    expect(
+      unrequestedSignalWords('hospital abre novas vagas marketing', 'Saúde', ['expansion']),
+    ).toEqual(['vagas']);
+    expect(
+      unrequestedSignalWords('restaurante Savassi identidade visual', 'Restaurantes', []),
+    ).toEqual(['identidade visual']);
+    expect(unrequestedSignalWords('lanchonete Campinas', 'Lanchonetes', [])).toEqual([]);
+    expect(
+      unrequestedSignalWords('empresas busca site institucional', 'Clientes para sites', []),
+    ).toEqual([]);
+    const { plan } = server('Encontre empresas do setor de saúde em expansão.', {
+      segment: 'saúde',
+      signals: ['expansion'],
+      queries: [
+        { text: 'hospital abre novas vagas marketing', purpose: 'signals', signal: 'expansion' },
+        { text: 'clínica saúde identidade visual', purpose: 'companies' },
+        { text: 'hospital inaugura nova unidade', purpose: 'signals', signal: 'expansion' },
+      ],
+    });
+    const texts = plan.map((query) => query.text);
+    expect(texts).toContain('hospital inaugura nova unidade');
+    expect(texts.some((text) => /vagas|identidade visual/.test(text))).toBe(false);
+  });
+
+  it('setor genérico não é estreitado nos termos nem nas buscas (KI-115)', () => {
+    expect(narrowingWords('clínica médica Ribeirão Preto', 'Encontre 15 clínicas')).toEqual([
+      'medica',
+    ]);
+    expect(narrowingWords('clínica veterinária', 'Pet shops e clínicas veterinárias')).toEqual([]);
+    const { intent, plan } = server('Encontre 15 clínicas em Ribeirão Preto', {
+      segment: 'clínicas médicas',
+      segmentTerms: ['clínica médica', 'consultório'],
+      cities: ['Ribeirão Preto'],
+      ufs: ['SP'],
+      summary: 'Clínicas médicas em Ribeirão Preto.',
+      queries: [
+        { text: 'clínica médica Ribeirão Preto', purpose: 'companies' },
+        { text: 'clínicas Ribeirão Preto', purpose: 'companies' },
+      ],
+    });
+    expect(intent.segment).toBe('clínicas');
+    expect(intent.segmentTerms).toEqual(['consultório']);
+    expect(intent.summary).not.toMatch(/médica/);
+    expect(plan.some((query) => /médic/.test(query.text))).toBe(false);
+  });
+
+  it('sinal que o pedido não pede não vira busca, com qualquer prompt', () => {
+    expect(signalsAsked('Distribuidoras no interior de Mato Grosso do Sul', ['expansion'])).toEqual(
+      [],
+    );
+    expect(signalsAsked('Clínicas em expansão', ['expansion', 'launch'])).toEqual(['expansion']);
+    expect(signalsAsked('Indústrias com vagas abertas', ['hiring', 'expansion'])).toEqual([
+      'hiring',
+    ]);
+    expect(signalsAsked('Lojas que abriram filial', ['expansion'])).toEqual(['expansion']);
+    expect(signalsAsked('Restaurantes que lançaram cardápio novo', ['launch'])).toEqual(['launch']);
+    expect(signalsAsked('Lanchonetes em Bauru', ['launch'])).toEqual([]);
+    expect(signalsAsked('Empresas com site antigo', ['brand_communication'])).toEqual([
+      'brand_communication',
+    ]);
+    // "Sinais", "oportunidades", "momento": qualquer sinal proposto vale.
+    expect(signalsAsked('Construtoras com sinais de compra', ['expansion', 'hiring'])).toEqual([
+      'expansion',
+      'hiring',
+    ]);
+    const { intent, plan } = server(
+      'Distribuidoras de alimentos no interior de Mato Grosso do Sul',
+      {
+        cities: [],
+        ufs: ['MS'],
+        regionScope: 'state',
+        signals: ['expansion', 'launch'],
+        summary: 'Distribuidoras de alimentos no interior de MS em expansão.',
+        queries: [
+          { text: 'distribuidora de alimentos interior MS', purpose: 'companies' },
+          { text: 'distribuidora inaugura centro MS', purpose: 'signals', signal: 'expansion' },
+        ],
+      },
+    );
+    expect(intent.signals).toEqual([]);
+    expect(plan.every((query) => query.purpose === 'companies')).toBe(true);
+    // O resumo que falava do sinal inventado é trocado pelo do servidor.
+    expect(intent.summary).not.toMatch(/expansão/);
+  });
+
+  it('sinal escolhido na tela vale mesmo sem palavra no pedido', () => {
+    const intent = buildIntent(
+      {
+        request: 'Clínicas em Ribeirão Preto',
+        options: { ...options, signals: ['hiring'] },
+        limits,
+      },
+      InterpreterOutput.parse({
+        summary: null,
+        segment: 'clínicas',
+        segmentTerms: [],
+        cities: ['Ribeirão Preto'],
+        ufs: ['SP'],
+        regionScope: 'city',
+        signals: ['expansion'],
+        queries: [{ text: 'clínicas Ribeirão Preto', purpose: 'companies' }],
+      }),
+    );
+    expect(intent.signals).toEqual(['hiring']);
+  });
+
+  it('região em volta que o pedido não pede não vira busca', () => {
+    const cities = ['Belo Horizonte'];
+    const request = 'Bares na região de Lourdes, em Belo Horizonte';
+    expect(aroundNotAsked('bar região de Belo Horizonte', request, cities)).toBe(true);
+    expect(aroundNotAsked('barzinho Belo Horizonte região metropolitana', request, cities)).toBe(
+      true,
+    );
+    expect(aroundNotAsked('bar Belo Horizonte e região', request, cities)).toBe(true);
+    expect(aroundNotAsked('bar Lourdes Belo Horizonte', request, cities)).toBe(false);
+    // Pedidos que incluem a região em volta.
+    expect(
+      aroundNotAsked('bar Belo Horizonte e região', 'Bares em Belo Horizonte e região', cities),
+    ).toBe(false);
+    expect(
+      aroundNotAsked('bar região metropolitana de Belo Horizonte', 'Bares na Grande BH', cities),
+    ).toBe(false);
+    expect(
+      aroundNotAsked(
+        'bar região metropolitana Belo Horizonte',
+        'Bares na região metropolitana de Belo Horizonte',
+        cities,
+      ),
+    ).toBe(false);
+    const { plan } = server(request, {
+      cities: ['Lourdes', 'Belo Horizonte'],
+      ufs: ['MG'],
+      queries: [
+        { text: 'bar Lourdes Belo Horizonte', purpose: 'companies' },
+        { text: 'bar região de Belo Horizonte', purpose: 'companies' },
+        { text: 'barzinho Belo Horizonte região metropolitana', purpose: 'companies' },
+      ],
+    });
+    expect(plan.some((query) => /regiao|região/.test(query.text))).toBe(false);
+    expect(plan.some((query) => /Lourdes/.test(query.text))).toBe(true);
   });
 });

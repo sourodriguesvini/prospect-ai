@@ -226,6 +226,31 @@ describe('createSupabaseRelationshipRepository', () => {
     expect(calls[0]!.url.searchParams.get('status')).toBe('eq.draft');
   });
 
+  it('messageReviews: lê só a chave aiReview do registro de inclusão; registro torto fica de fora', async () => {
+    const OTHER_ID = '88888888-8888-4888-8888-888888888888';
+    const { repo, calls } = stub(() =>
+      json(200, [
+        { entity_id: MESSAGE_ID, ai_review: { corrected: true, kinds: ['source'], adjusted: 1 } },
+        // Formato antigo ou estranho não derruba a tela: só não aparece.
+        { entity_id: OTHER_ID, ai_review: { corrected: 'sim', unresolved: ['texto'] } },
+      ]),
+    );
+    const reviews = await repo.messageReviews([MESSAGE_ID, OTHER_ID, MESSAGE_ID]);
+    expect([...reviews]).toEqual([
+      [MESSAGE_ID, { corrected: true, kinds: ['source'], adjusted: 1 }],
+    ]);
+    expect(path(calls[0]!)).toBe('audit_log');
+    const params = calls[0]!.url.searchParams;
+    expect(params.get('select')).toBe('entity_id,ai_review:diff->aiReview');
+    expect(params.get('entity_type')).toBe('eq.outbound_message');
+    expect(params.get('entity_id')).toBe(`in.(${MESSAGE_ID},${OTHER_ID})`);
+    expect(params.get('diff->aiReview')).toBe('not.is.null');
+    // Sem ids, nenhum pedido.
+    const empty = stub(() => json(200, []));
+    expect((await empty.repo.messageReviews([])).size).toBe(0);
+    expect(empty.calls).toHaveLength(0);
+  });
+
   it('linha fora do formato esperado falha alto (mudança de esquema)', async () => {
     const { repo } = stub(() => json(200, [{ ...INTERACTION_ROW, direction: 'sideways' }]));
     await expect(repo.listInteractions({ opportunityId: OPPORTUNITY_ID })).rejects.toThrow();

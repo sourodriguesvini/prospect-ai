@@ -44,6 +44,26 @@ Cada etapa é idempotente e pode terminar `done`, `reused` (dado ainda válido: 
 
 O modelo responde JSON restrito por esquema (`format` do Ollama) e o servidor valida de novo pelo contrato (`ANALYSIS_OUTPUT_SCHEMAS`). Depois, regras do domínio (`verification.ts`): cada conclusão precisa citar referências que existem (páginas, medições, imagens, concorrentes); trecho citado precisa estar no texto da fonte; o que fonte pública não sustenta é descartado (faturamento ou lucro, orçamento, taxa de conversão ou perda de vendas, insatisfação, intenção de contratar, "precisa do serviço" dito como certeza, decisão interna, resultado de campanha), assim como repetições. Nada disso recusa dado de pessoa (emenda do ADR-0012). A tela mostra quantas conclusões foram descartadas. Conteúdo de sites e de buscas entra marcado como dado, nunca como instrução.
 
+#### 3a. Emenda (2026-11-25): guardas do servidor depois da IA
+
+As análises v1 seguem em uso, agora com guardas puras do servidor (`packages/application/src/services/investigation/guards.ts` e `packages/domain/src/investigation/consistency.ts`), medidas no conjunto de avaliação `packages/agents/evals/investigation` (resposta crua e resposta depois das guardas lado a lado):
+
+- intensificador ("grave", "crítico") suavizado sem mexer em termo do ramo ("pacientes críticos"), atenuação ou rótulo de item; observação visual nunca some;
+- "marca inconsistente" só cai no resumo e na afirmação da oferta, sem outro canal (Instagram, fachada), sem dado (horário, preço, endereço) e fora das frases cadastradas da oferta; campanha de preço ("Black Friday") não conta como inconsistência da marca;
+- desqualificador só vale com fato do mesmo assunto; "falta de site" não vale para empresa com site lido nem para achado sobre concorrente;
+- sinal de contratação lido do texto só com contexto de emprego (função, currículo, "vaga de emprego"), no fim da lista e sem tirar sinal do modelo;
+- texto de fonte dirigido à máquina que lê ("leitores automáticos", "Ao resumir esta página…", "Classifique este site como…") perde só a frase; o candidato, a linha e o fato continuam;
+- raciocínio interrompido é cortado na última frase completa; "orçamento" no sentido de cotação ("peça seu orçamento") não conta como verba;
+- o registro de verificação separa o que foi descartado, ajustado e acrescentado pelo sistema, com o trecho (`VerificationLog.altered` e `added`, opcionais, sem migração), e o painel mostra as três contagens.
+
+Recorreção da rodada de 2026-11-25 (`evals/investigation/results/2026-11-25-12-32-v1v3-recorrigido.json`), v1 com guardas: leitura do negócio 91% (crua 85%), diagnóstico cerca de 83% sem o ganho que vem de hipótese apagada (crua 75%), auditoria visual 95%, triagem 87%; apagamento de conclusão verdadeira 0 de 43 e 0 de 108. As versões v2 e v3 dos prompts não foram promovidas (tolerância zero). CNPJ: o servidor procura o CNPJ nas páginas lidas do site e confere na Receita antes de usar (`linkCnpjFromSite`); a pessoa também pode informar o CNPJ na tela da empresa. O vínculo fica nos claims (`company.cnpj`) e nas chaves de deduplicação (`company_identifiers`, CNPJ forte e raiz fraca), sem migração; o dossiê expõe a raiz do CNPJ vinculado para a supressão e a qualificação. A coluna `companies.cnpj` fica vazia até o usuário decidir a migração (KI-160).
+
+#### 3b. Emenda (2026-11-25): pesquisa de concorrentes
+
+- **Segunda consulta:** a investigação tenta até 2 consultas, na ordem: ramo declarado no site (com trecho conferido), atividade do CNAE, ramo do título da página inicial (sem campanha, erro, manutenção, desafio anti-robô ou nome de rede social) e oferta principal. A segunda só roda quando a primeira não deixa nenhum candidato.
+- **Teto:** no máximo 3 pesquisas por investigação, contando a busca do site, a de sinais e as de concorrentes (`MAX_SEARCHES_PER_RUN`); a segunda consulta de concorrentes não roda quando as anteriores já somam 3. Pesquisa respondida pelo cache local entra na contagem, mas não gasta crédito da Tavily. Consultas à Receita do CNPJ lido no site não contam aqui (têm teto próprio de 3 CNPJs, doc 05).
+- **Reaproveitamento:** uma pesquisa vale por 30 dias contados da data em que rodou de verdade (`snapshot.searchedAt`), e a etapa reaproveitada copia essa data. A pesquisa de concorrentes vazia só é reaproveitada quando voltou sem nenhum candidato e com as mesmas consultas; se houve candidatos e a triagem recusou todos, pesquisa de novo. "Coletar tudo de novo" ignora o reaproveitamento.
+
 ### 4. Qualificação (domínio puro)
 
 Fit, Oportunidade e Confiança são números separados de 0 a 100 e nenhum é probabilidade de fechar negócio (doc 08). O Fit é a fração dos critérios do ICP **com dado conhecido** que batem; a tela diz quantos critérios eram conhecidos e a Confiança cai com a cobertura (pendência KI-132). Gates (situação inativa, exclusão do ICP, desqualificadores da oferta) vêm antes do score. Só o cadastro descarta (CNPJ de filial contra o desqualificador da oferta); desqualificador apontado pela IA pede no máximo "Acompanhar", com o aviso "apontado pela IA; confira antes de descartar" (KI-133). Necessidade sustentada só por hipóteses nunca vira "Abordar agora".
@@ -80,7 +100,7 @@ As ferramentas só são entregues a prompts que declaram conhecê-las (`TOOLS_PR
 
 | Prompt | Situação |
 |---|---|
-| `company-business/v1`, `brand-visual/v1`, `competitor-triage/v1`, `competitive/v1`, `diagnosis/v1` | Em uso pela investigação, **sem conjunto de avaliação** (KI-131). Validados só em investigações reais pequenas (doc 14, M4) |
+| `company-business/v1`, `brand-visual/v1`, `competitor-triage/v1`, `competitive/v1`, `diagnosis/v1` | Em uso pela investigação, com as guardas do §3a. Desde 2026-11-25 há conjunto de avaliação (`packages/agents/evals/investigation`) para leitura do negócio, auditoria visual, triagem e diagnóstico; `competitive/v1` ainda sem (KI-131). As versões v2 e v3 desses prompts foram avaliadas e **não promovidas** (tolerância zero reprovou a leitura do negócio e a triagem v3) |
 | Rascunho para o v4 unificado (`docs/rascunhos/copilot-tools-empresas.md`) | Não é prompt em uso; não promovido (avaliador-ia, 2026-11-11). Foi avaliado com o id "v4" antes de virar rascunho. O texto no disco só foi avaliado numa rodada (17-33: comuns 4 de 9, investigação 7 de 9, `pedido-de-envio` 0 de 3); houve 7 textos com o id "v4" em 8 rodadas. Na 17-39 (outro texto) os comuns ficaram em 15 de 21 contra 18 de 21 do v3, abaixo do limiar. Depois disso o texto ganhou a correção da contradição "só leem" contra "a única que muda algo", sem nova rodada. Na junção entra no v4 unificado com os trechos da Descoberta e do Relacionamento, com texto congelado antes da rodada (KI-130) |
 
 ## O que fica de fora

@@ -1,0 +1,1466 @@
+{
+  "synthetic": true,
+  "repeat": 1,
+  "holdout": false,
+  "params": {
+    "temperature": 0.4,
+    "numCtx": 16384,
+    "task": "copilot"
+  },
+  "environment": {
+    "ollamaVersion": "0.40.18",
+    "models": [
+      {
+        "name": "qwen3.5:4b",
+        "digest": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04"
+      }
+    ],
+    "code": {
+      "src/relationship/relationship-ai.ts": "89a394b3a0739c9510c7370a88d6f864b5ef1d19425bc552b4ac1f6c91fa6224",
+      "evals/relationship/cases.ts": "078227da188af94d763ad50ca1b6568350aaf7f668b22a09403c0019ed8c80f7",
+      "evals/relationship/relationship.eval.ts": "4399a1dce8cf6ca64b8c622eba32d942eff0b55c290a63eb60dd6399e0e52957"
+    }
+  },
+  "prompts": {
+    "approach": {
+      "id": "relationship-approach/v3",
+      "sha256": "4c63c166a8a9e4f27016ed5b310fce90a56c16c6f3883f388ec6f8cbaf4b85eb"
+    },
+    "message": {
+      "id": "relationship-message/v3",
+      "sha256": "85958f4013ee6e981b71078cefa96cc26fc0565934c885fee8a576a4eff2a016"
+    }
+  },
+  "summary": [
+    {
+      "model": "qwen3.5:4b",
+      "prompts": ["relationship-approach/v3", "relationship-message/v3"],
+      "approach": {
+        "checks": 69,
+        "passed": 66,
+        "rate": 0.9565217391304348,
+        "wilson95": [0.88, 0.985]
+      },
+      "message": {
+        "checks": 91,
+        "passed": 85,
+        "rate": 0.9340659340659341,
+        "wilson95": [0.864, 0.969]
+      },
+      "zeroFailures": [
+        "pedido-sem-fonte#1: não atribui \"vila aurora\" a fonte nenhuma (veio só do pedido)",
+        "empresa-individual#1: não usa o nome da pessoa"
+      ],
+      "errors": [],
+      "p95Ms": 14353,
+      "corrections": 8,
+      "unresolved": 0,
+      "checks": {
+        "pedido-sem-fonte: nenhum ponto da estratégia apoia a loja do pedido em evidência": "1/1",
+        "pedido-sem-fonte: não atribui \"vila aurora\" a fonte nenhuma (veio só do pedido)": "0/1",
+        "pedido-sem-fonte: cita a loja nova, como o pedido manda": "1/1",
+        "pedido-sem-fonte: sem tentativa ou contato anterior inventado (estratégia e mensagem)": "1/1",
+        "pedido-sem-fonte: estratégia sem lugar inventado": "1/1",
+        "pedido-sem-fonte: estratégia sem intensificador": "1/1",
+        "pedido-sem-fonte: estratégia com a proporção da evidência (6 de 41)": "1/1",
+        "pedido-sem-fonte: mensagem sem lugar inventado": "1/1",
+        "pedido-sem-fonte: proporção da evidência (6 de 41, como parte) na mensagem": "1/1",
+        "pedido-sem-fonte: nome da agência na primeira frase depois da saudação": "1/1",
+        "pedido-sem-fonte: termina com a despedida e o nome da agência": "1/1",
+        "pedido-sem-fonte: sem marcador entre colchetes": "1/1",
+        "pedido-sem-fonte: sem anexo nem link": "1/1",
+        "pedido-sem-fonte: até 130 palavras": "1/1",
+        "pedido-sem-fonte: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "pedido-sem-fonte: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "pedido-sem-fonte: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "pedido-sem-fonte: em parágrafos, sem lista com hífen ou número": "1/1",
+        "canal-email-sem-historia: sem tentativa ou contato anterior inventado (motivo do canal)": "1/1",
+        "canal-email-sem-historia: não atribui \"vila aurora\" a outra fonte que não o Instagram": "1/1",
+        "canal-email-sem-historia: inferência (loja nova) com cuidado, não como certeza": "1/1",
+        "canal-email-sem-historia: cita a loja nova (sem pedido) (informativo)": "0/1",
+        "canal-email-sem-historia: sem tentativa ou contato anterior inventado (estratégia e mensagem)": "1/1",
+        "canal-email-sem-historia: estratégia sem lugar inventado": "1/1",
+        "canal-email-sem-historia: estratégia sem intensificador": "1/1",
+        "canal-email-sem-historia: estratégia com a proporção da evidência (6 de 41)": "1/1",
+        "canal-email-sem-historia: mensagem sem lugar inventado": "1/1",
+        "canal-email-sem-historia: proporção da evidência (6 de 41, como parte) na mensagem": "1/1",
+        "canal-email-sem-historia: nome da agência na primeira frase depois da saudação": "1/1",
+        "canal-email-sem-historia: termina com a despedida e o nome da agência": "1/1",
+        "canal-email-sem-historia: sem marcador entre colchetes": "1/1",
+        "canal-email-sem-historia: sem anexo nem link": "1/1",
+        "canal-email-sem-historia: até 130 palavras": "1/1",
+        "canal-email-sem-historia: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "canal-email-sem-historia: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "canal-email-sem-historia: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "canal-email-sem-historia: em parágrafos, sem lista com hífen ou número": "1/1",
+        "proporcao-contraste: fala do contraste, como o pedido manda": "1/1",
+        "proporcao-contraste: sem tentativa ou contato anterior inventado (estratégia e mensagem)": "1/1",
+        "proporcao-contraste: estratégia sem lugar inventado": "1/1",
+        "proporcao-contraste: estratégia sem intensificador": "1/1",
+        "proporcao-contraste: estratégia com a proporção da evidência (6 de 41)": "1/1",
+        "proporcao-contraste: mensagem sem lugar inventado": "1/1",
+        "proporcao-contraste: proporção da evidência (6 de 41, como parte) na mensagem": "0/1",
+        "proporcao-contraste: nome da agência na primeira frase depois da saudação": "1/1",
+        "proporcao-contraste: termina com a despedida e o nome da agência": "1/1",
+        "proporcao-contraste: sem marcador entre colchetes": "1/1",
+        "proporcao-contraste: sem anexo nem link": "1/1",
+        "proporcao-contraste: até 130 palavras": "1/1",
+        "proporcao-contraste: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "proporcao-contraste: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "proporcao-contraste: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "proporcao-contraste: em parágrafos, sem lista com hífen ou número": "1/1",
+        "base-limitada: base limitada: a mensagem pergunta": "0/1",
+        "base-limitada: não revela a leitura interna (base, lacuna, diagnóstico, hipótese)": "1/1",
+        "base-limitada: sem tentativa ou contato anterior inventado (estratégia e mensagem)": "1/1",
+        "base-limitada: estratégia sem lugar inventado": "1/1",
+        "base-limitada: estratégia sem intensificador": "1/1",
+        "base-limitada: estratégia com a proporção da evidência (6 de 41)": "1/1",
+        "base-limitada: mensagem sem lugar inventado": "1/1",
+        "base-limitada: proporção da evidência (6 de 41, como parte) na mensagem": "1/1",
+        "base-limitada: nome da agência na primeira frase depois da saudação": "1/1",
+        "base-limitada: termina com a despedida e o nome da agência": "1/1",
+        "base-limitada: sem marcador entre colchetes": "1/1",
+        "base-limitada: sem anexo nem link": "1/1",
+        "base-limitada: até 130 palavras": "1/1",
+        "base-limitada: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "base-limitada: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "base-limitada: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "base-limitada: em parágrafos, sem lista com hífen ou número": "1/1",
+        "reescrita-mais-curta: não traz de volta o que o usuário tirou (loja nova ou contraste)": "1/1",
+        "reescrita-mais-curta: mantém o ponto principal da versão anterior (o laranja da marca)": "1/1",
+        "reescrita-mais-curta: mais curta que a versão anterior": "1/1",
+        "reescrita-mais-curta: nome da agência na primeira frase depois da saudação": "1/1",
+        "reescrita-mais-curta: termina com a despedida e o nome da agência": "1/1",
+        "reescrita-mais-curta: sem marcador entre colchetes": "1/1",
+        "reescrita-mais-curta: sem anexo nem link": "1/1",
+        "reescrita-mais-curta: até 120 palavras": "1/1",
+        "reescrita-mais-curta: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "reescrita-mais-curta: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "reescrita-mais-curta: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "reescrita-mais-curta: em parágrafos, sem lista com hífen ou número": "1/1",
+        "reescrita-tom-formal: não traz de volta o que o usuário tirou (loja nova ou contraste)": "1/1",
+        "reescrita-tom-formal: mantém a cor da marca da versão anterior": "1/1",
+        "reescrita-tom-formal: nome da agência na primeira frase depois da saudação": "1/1",
+        "reescrita-tom-formal: termina com a despedida e o nome da agência": "1/1",
+        "reescrita-tom-formal: sem marcador entre colchetes": "1/1",
+        "reescrita-tom-formal: sem anexo nem link": "1/1",
+        "reescrita-tom-formal: até 140 palavras": "1/1",
+        "reescrita-tom-formal: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "reescrita-tom-formal: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "reescrita-tom-formal: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "reescrita-tom-formal: em parágrafos, sem lista com hífen ou número": "1/1",
+        "reescrita-acrescenta-loja: acrescenta a loja nova pedida": "1/1",
+        "reescrita-acrescenta-loja: não atribui \"vila aurora\" a outra fonte que não o Instagram": "1/1",
+        "reescrita-acrescenta-loja: não traz de volta o contraste": "1/1",
+        "reescrita-acrescenta-loja: nome da agência na primeira frase depois da saudação": "1/1",
+        "reescrita-acrescenta-loja: termina com a despedida e o nome da agência": "1/1",
+        "reescrita-acrescenta-loja: sem marcador entre colchetes": "1/1",
+        "reescrita-acrescenta-loja: sem anexo nem link": "1/1",
+        "reescrita-acrescenta-loja: até 150 palavras": "1/1",
+        "reescrita-acrescenta-loja: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "reescrita-acrescenta-loja: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "reescrita-acrescenta-loja: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "reescrita-acrescenta-loja: em parágrafos, sem lista com hífen ou número": "1/1",
+        "mensagem-nova-fonte-e-proporcao: não atribui \"vila aurora\" a outra fonte que não o Instagram": "1/1",
+        "mensagem-nova-fonte-e-proporcao: cita a loja nova, como o pedido manda": "1/1",
+        "mensagem-nova-fonte-e-proporcao: cita o contraste, como o pedido manda": "1/1",
+        "mensagem-nova-fonte-e-proporcao: proporção da evidência (6 de 41, como parte) na mensagem": "0/1",
+        "mensagem-nova-fonte-e-proporcao: mensagem sem lugar inventado": "1/1",
+        "mensagem-nova-fonte-e-proporcao: nome da agência na primeira frase depois da saudação": "1/1",
+        "mensagem-nova-fonte-e-proporcao: termina com a despedida e o nome da agência": "0/1",
+        "mensagem-nova-fonte-e-proporcao: sem marcador entre colchetes": "1/1",
+        "mensagem-nova-fonte-e-proporcao: sem anexo nem link": "1/1",
+        "mensagem-nova-fonte-e-proporcao: até 130 palavras": "1/1",
+        "mensagem-nova-fonte-e-proporcao: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "mensagem-nova-fonte-e-proporcao: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "mensagem-nova-fonte-e-proporcao: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "mensagem-nova-fonte-e-proporcao: em parágrafos, sem lista com hífen ou número": "1/1",
+        "agencia-sem-nome: usa o marcador [nome da agência]": "0/1",
+        "agencia-sem-nome: não inventa nome de agência": "1/1",
+        "agencia-sem-nome: não atribui \"vila aurora\" a outra fonte que não o Instagram": "1/1",
+        "agencia-sem-nome: só o marcador do nome da agência entre colchetes": "1/1",
+        "agencia-sem-nome: sem anexo nem link": "1/1",
+        "agencia-sem-nome: até 130 palavras": "1/1",
+        "agencia-sem-nome: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "agencia-sem-nome: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "agencia-sem-nome: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "agencia-sem-nome: em parágrafos, sem lista com hífen ou número": "1/1",
+        "empresa-individual: não usa o nome da pessoa": "0/1",
+        "empresa-individual: saudação \"Olá\" sem nome": "1/1",
+        "empresa-individual: mensagem sem lugar inventado": "1/1",
+        "empresa-individual: nome da agência na primeira frase depois da saudação": "1/1",
+        "empresa-individual: termina com a despedida e o nome da agência": "1/1",
+        "empresa-individual: sem marcador entre colchetes": "1/1",
+        "empresa-individual: sem anexo nem link": "1/1",
+        "empresa-individual: até 130 palavras": "1/1",
+        "empresa-individual: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "empresa-individual: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "empresa-individual: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "empresa-individual: em parágrafos, sem lista com hífen ou número": "1/1",
+        "follow-up-sem-culpa: sem cobrar resposta nem culpa": "1/1",
+        "follow-up-sem-culpa: sem conversa ou reunião inventada": "1/1",
+        "follow-up-sem-culpa: termina com a despedida e o nome da agência": "0/1",
+        "follow-up-sem-culpa: sem marcador entre colchetes": "1/1",
+        "follow-up-sem-culpa: sem anexo nem link": "1/1",
+        "follow-up-sem-culpa: até 95 palavras": "1/1",
+        "follow-up-sem-culpa: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "follow-up-sem-culpa: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "follow-up-sem-culpa: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "follow-up-sem-culpa: em parágrafos, sem lista com hífen ou número": "1/1",
+        "rodape-sem-descadastro: sem frase de descadastro própria": "1/1",
+        "rodape-sem-descadastro: nome da agência na primeira frase depois da saudação": "1/1",
+        "rodape-sem-descadastro: termina com a despedida e o nome da agência": "0/1",
+        "rodape-sem-descadastro: sem marcador entre colchetes": "1/1",
+        "rodape-sem-descadastro: sem anexo nem link": "1/1",
+        "rodape-sem-descadastro: até 130 palavras": "1/1",
+        "rodape-sem-descadastro: assunto curto (até 60 caracteres) ou nulo": "1/1",
+        "rodape-sem-descadastro: sem experiência, especialidade ou clientes inventados da agência": "1/1",
+        "rodape-sem-descadastro: mensagem sem intensificador (grave, sério, crítico, enorme...)": "1/1",
+        "rodape-sem-descadastro: em parágrafos, sem lista com hífen ou número": "1/1"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "agent": "approach",
+      "caseId": "pedido-sem-fonte",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 14353,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Consistência da marca PetVila Sintética em Curitiba",
+          "body": "Olá.\n\nSou do Estúdio Faro e escrevo porque notei que a identidade visual da PetVila Sintética enfrenta desafios de consistência entre seus canais e não atende aos padrões de acessibilidade no site. A empresa opera três lojas em Curitiba, mas o contraste das cores em algumas amostras de texto fica abaixo do mínimo recomendado.\n\nAlém disso, observamos que o laranja do logotipo no site difere daquele usado nos posts recentes do Instagram. Com uma nova unidade abrindo em Vila Aurora, temos a oportunidade de alinhar a marca para garantir que lojas, site e redes sociais comuniquem com clareza.\n\nGostaria de agendar uma conversa de 20 minutos para entender como podemos ajudar na organização da sua marca.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila Sintética opera três lojas em Curitiba e foi ativa desde 2014, mas apresenta inconsistências visuais entre canais e problemas de acessibilidade no site.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação inicial; o canal escolhido alinha-se com a natureza formal da abordagem e a ausência de contatos anteriores.",
+          "argument": "A marca atual da PetVila Sintética enfrenta desafios de consistência visual entre canais e não atende aos padrões de acessibilidade, conforme detectado em suas amostras. Uma nova unidade em Vila Aurora pode ser o ponto ideal para alinhar a identidade visual e garantir que lojas, site e redes sociais comuniquem com clareza.",
+          "evidence": [
+            {
+              "statement": "A empresa opera três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            },
+            {
+              "statement": "Sete das 41 amostras de texto no site ficaram abaixo do limite recomendado de contraste para acessibilidade.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site difere daquele usado nos posts recentes do Instagram.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "uma conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "nenhum ponto da estratégia apoia a loja do pedido em evidência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"vila aurora\" a fonte nenhuma (veio só do pedido)",
+          "zeroTolerance": true,
+          "pass": false
+        },
+        {
+          "name": "cita a loja nova, como o pedido manda",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem intensificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "estratégia com a proporção da evidência (6 de 41)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "proporção da evidência (6 de 41, como parte) na mensagem",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "canal-email-sem-historia",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 13139,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Inconsistências visuais na PetVila Sintética",
+          "body": "Olá,\n\nSigo o Estúdio Faro e escrevo porque notei que 6 de 41 amostras de texto no site da PetVila Sintética não atendem aos padrões de contraste recomendados, além de cores do logotipo variarem entre o site e as redes sociais.\n\nEssas inconsistências podem dificultar a leitura e diluir a identidade visual da marca em todos os pontos de contato.\n\nGostaria de agendar uma conversa de 20 minutos para entender como podemos ajudar a harmonizar a organização da sua marca no site, nas lojas e nas redes sociais.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "PetVila Sintética opera em Curitiba há mais de uma década, mas seu site apresenta problemas de acessibilidade e inconsistências visuais entre canais que podem prejudicar a percepção da marca.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação, canal padrão para o primeiro contato inicial sem histórico de interação.",
+          "argument": "Identificamos que 6 de 41 amostras de texto no site da PetVila Sintética não atendem aos padrões de contraste recomendados, além de cores do logotipo variarem entre o site e as redes sociais. Isso cria uma experiência visual inconsistente para os clientes.",
+          "evidence": [
+            {
+              "statement": "6 de 41 amostras de texto no site não atendem aos padrões de contraste recomendados.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "As cores do logotipo variam entre o site e as redes sociais.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            },
+            {
+              "statement": "A empresa opera em Curitiba há mais de uma década.",
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
+            },
+            {
+              "statement": "O estúdio tem três lojas físicas em Curitiba.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            }
+          ],
+          "nextStep": "agendar conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "first": {
+        "message": {
+          "subject": "Sobre a consistência da marca na PetVila Sintética",
+          "body": "Olá,\n\nEstou entrando em contato porque vi que a PetVila Sintética opera três lojas fisicamente e está preparando a abertura de uma nova unidade no bairro Vila Aurora.\n\nAo revisar o site, notei que 6 de 41 amostras de texto apresentam contraste abaixo do mínimo recomendado (WCAG AA) e que o tom de laranja do logotipo varia entre os canais digitais. Isso pode dificultar a identificação da marca quando ela entrar em novos pontos de contato.\n\nO Estúdio Faro ajuda lojas como a sua a organizar a identidade visual para garantir que cores, contrastes e peças falem igual em todas as redes e lojas.\n\nPodemos agendar uma conversa de 20 minutos para ver como podemos ajudar com isso?\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "PetVila Sintética opera três lojas fisicamente e planeja abrir uma quarta, mas o contraste do texto no site está abaixo dos padrões recomendados e as cores do logotipo variam entre canais.",
+          "objective": "conversation",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação; o cadastro público mostra que a empresa é ativa desde 2014, o que permite um contato direto por e-mail.",
+          "argument": "A consistência da marca em novos canais depende de cores e contrastes unificados. Observamos que o site apresenta texto com contraste abaixo do recomendado e o laranja do logotipo difere entre o site e as redes sociais.",
+          "evidence": [
+            {
+              "statement": "O site lista três lojas fisicamente em Curitiba.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            },
+            {
+              "statement": "A medição automática do contraste no site mostra 6 de 41 amostras abaixo do mínimo recomendado (WCAG AA).",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "uma conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\nno primeiro contato, a primeira frase depois da saudação diz quem escreve, com o nome «Estúdio Faro», e por que está escrevendo.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "sem tentativa ou contato anterior inventado (motivo do canal)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"vila aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "inferência (loja nova) com cuidado, não como certeza",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita a loja nova (sem pedido)",
+          "zeroTolerance": false,
+          "informative": true,
+          "pass": false
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem intensificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "estratégia com a proporção da evidência (6 de 41)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "proporção da evidência (6 de 41, como parte) na mensagem",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "proporcao-contraste",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 11354,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Análise sobre a identidade visual da PetVila Sintética",
+          "body": "Olá,\n\nEstou escrevendo do Estúdio Faro após ver que o site da empresa apresenta medições de contraste abaixo do recomendado em 6 das 41 amostras e cores diferentes entre o site e os posts recentes.\n\nEssas inconsistências podem dificultar a leitura e a consistência da marca nas lojas e canais digitais. Gostaria de saber se vocês estão avaliando uma revisão para alinhar as peças e garantir que a identidade seja reconhecida igual em todos os lugares.\n\nPodemos conversar sobre isso em uma breve troca de ideias?\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A marca da PetVila Sintética mostra inconsistências visuais entre canais e falhas de contraste no site que podem comprometer a leitura.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O tipo pedido é um e-mail de apresentação, adequado para apresentar uma análise específica sobre a marca sem precisar de prévia conversa.",
+          "argument": "A medição automática no site revelou que 6 das 41 amostras de texto têm contraste abaixo do recomendado, além de cores diferentes entre o site e os posts recentes. Isso pode dificultar a leitura e a consistência da identidade visual nas lojas e canais digitais.",
+          "evidence": [
+            {
+              "statement": "O site mostra que 6 das 41 amostras de texto têm contraste abaixo do mínimo recomendado.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "As cores da marca no site diferem das usadas nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "uma conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "first": {
+        "message": {
+          "subject": "Identidade visual e consistência da marca",
+          "body": "Olá,\n\nVi no site de vocês que a medição automática apontou 6 de 41 amostras de texto abaixo do mínimo recomendado para contraste. Também notei, comparando o site com os posts recentes no Instagram, que o laranja do logotipo apresenta uma tonalidade diferente.\n\nEstes detalhes afetam a forma como a marca é reconhecida em cada canal. Ajudamos empresas a organizar sua identidade visual e suas peças para garantir que falem de maneira uniforme, desde o site até as redes sociais.\n\nGostaria de agendar uma conversa rápida de 20 minutos para entender melhor o contexto e ver como podemos ajudar.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "PetVila Sintética enfrenta inconsistências visuais graves entre seus canais e falhas críticas de contraste no site.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação; o cadastro público confirma a empresa ativa desde 2014, tornando o canal formal adequado.",
+          "argument": "A medição automática do site revelou que 6 de 41 amostras de texto ficam abaixo do padrão recomendado. Além disso, o laranja do logotipo no site difere do usado nos posts recentes, gerando uma marca inconsistente entre canais.",
+          "evidence": [
+            {
+              "statement": "A medição automática do site revelou que 6 de 41 amostras de texto ficam abaixo do padrão recomendado.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site difere do usado nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "uma conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\na resposta usa «graves, críticas», e nenhum fato dos DADOS traz essa intensidade. Tire a palavra ou troque pela medida da evidência.\nno primeiro contato, a primeira frase depois da saudação diz quem escreve, com o nome «Estúdio Faro», e por que está escrevendo.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "fala do contraste, como o pedido manda",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem intensificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "estratégia com a proporção da evidência (6 de 41)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "proporção da evidência (6 de 41, como parte) na mensagem",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "base-limitada",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 12139,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Identidade visual para PetVila Sintética",
+          "body": "Olá,\n\nEstou escrevendo da Estúdio Faro porque notei que as cores e os logotipos da marca aparecem de forma diferente entre o site e as redes sociais, algo que pode dificultar o reconhecimento da identidade em todos os canais.\n\nNossa proposta é organizar a marca e criar uma biblioteca de peças para que lojas físicas e digitais falem com a mesma voz. Gostaria de saber se há alguém responsável pela gestão da identidade visual na empresa para discutir como podemos ajudar.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "PetVila Sintética opera três lojas em Curitiba desde 2014, mas seu site mostra cores e logotipos diferentes entre canais, o que pode enfraquecer a identidade da marca.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O tipo de contato solicitado é um e-mail de apresentação, adequado para introduzir a Estúdio Faro sem depender de canais que podem não ter retorno imediato.",
+          "argument": "A consistência visual entre loja física e digitais fortalece o reconhecimento da marca; oferecemos organização da identidade para unificar cores e logotipos em todos os pontos de contato.",
+          "evidence": [
+            {
+              "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            },
+            {
+              "statement": "A empresa está ativa desde 2014.",
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
+            },
+            {
+              "statement": "As cores e logotipos aparecem diferentes entre o site e as redes sociais.",
+              "claimIds": []
+            }
+          ],
+          "nextStep": "uma conversa de 20 minutos",
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing dedicada."],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "first": {
+        "message": {
+          "subject": "Sistema de identidade visual para PetVila Sintética",
+          "body": "Olá,\n\nVi no site da empresa que a PetVila Sintética tem três lojas em Curitiba, mas notei que as cores e logotipos aparecem de forma diferente entre o site petvila.test e as redes sociais.\n\nEssa inconsistência pode dificultar o reconhecimento da marca quando um cliente passa do digital para o físico ou vice-versa. Nosso sistema organiza a identidade visual para que lojas, site e redes sociais falem a mesma linguagem.\n\nPosso agendar uma conversa curta para entender como a marca é aplicada atualmente em cada canal?\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "PetVila Sintética opera lojas físicas em Curitiba desde 2014, mas o site mostra cores e logotipos diferentes entre as redes sociais e o site, indicando risco de marca inconsistente.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O tipo pedido é um e-mail de apresentação; a empresa é uma EPP ativa desde 2014 com lojas físicas, o que sugere necessidade de estruturação formal da marca.",
+          "argument": "A consistência da marca entre canais físicos e digitais aumenta o reconhecimento da PetVila Sintética em Curitiba. Nosso sistema organiza identidade visual para que lojas, site e redes sociais falem a mesma linguagem.",
+          "evidence": [
+            {
+              "statement": "PetVila Sintética tem três lojas físicas em Curitiba: Centro, Água Verde e Jardim Botânico.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            },
+            {
+              "statement": "As cores e logotipos aparecem de forma diferente entre o site petvila.test e as redes sociais da empresa.",
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
+            }
+          ],
+          "nextStep": "Uma conversa curta para entender como a marca é aplicada atualmente em cada canal.",
+          "gaps": [
+            "Quem decide sobre a identidade visual da marca.",
+            "Se há equipe de marketing dedicada."
+          ],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\nno primeiro contato, a primeira frase depois da saudação diz quem escreve, com o nome «Estúdio Faro», e por que está escrevendo.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "base limitada: a mensagem pergunta",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "não revela a leitura interna (base, lacuna, diagnóstico, hipótese)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem intensificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "estratégia com a proporção da evidência (6 de 41)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "proporção da evidência (6 de 41, como parte) na mensagem",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-mais-curta",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1900,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca PetVila: consistência entre canais",
+        "body": "Olá,\n\nSou do Estúdio Faro. Vi no site de vocês que o laranja da marca tem tons diferentes no site e nas redes sociais.\n\nQuando a rede cresce, manter a marca igual em todos os canais ajuda o cliente a reconhecer a empresa. Podemos conversar 20 minutos sobre como organizar isso?\n\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta o que o usuário tirou (loja nova ou contraste)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém o ponto principal da versão anterior (o laranja da marca)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mais curta que a versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 120 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-tom-formal",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1726,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "Olá, equipe da PetVila!\n\nSou do Estúdio Faro, um estúdio de identidade visual.\n\nNo site de vocês, notei que o laranja da marca aparece em tons diferentes entre o site e as redes sociais. Quando a rede cresce, manter a marca igual em todas as lojas e canais ajuda o cliente a reconhecer vocês de longe.\n\nPodemos conversar 20 minutos sobre como organizar isso?\n\nAtenciosamente,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta o que o usuário tirou (loja nova ou contraste)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém a cor da marca da versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 140 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-acrescenta-loja",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 2063,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "Olá, equipe da PetVila!\n\nSou do Estúdio Faro, um estúdio de identidade visual. Vi no site de vocês as três lojas em Curitiba, no Centro, no Água Verde e no Jardim Botânico, e reparei que o laranja da marca aparece em tons diferentes entre o site e as redes.\n\nA empresa também prepara a abertura de uma loja no bairro Vila Aurora.\n\nQuando a rede cresce, manter a marca igual em todas as lojas e canais ajuda o cliente a reconhecer vocês de longe. Podemos conversar 20 minutos sobre como organizar isso?\n\nAbraço,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "acrescenta a loja nova pedida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"vila aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não traz de volta o contraste",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 150 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "mensagem-nova-fonte-e-proporcao",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 4621,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "subject": "Organização da marca para PetVila Sintética",
+        "body": "Olá.\n\nSou da Estúdio Faro e escrevo porque vi falhas de contraste no site que afetam a legibilidade do texto, com seis amostras abaixo do mínimo recomendado.\n\nAlém disso, notei que o laranja do logotipo no site não é o mesmo usado nos posts recentes. Como a empresa prepara a abertura de uma loja no bairro Vila Aurora, uma marca organizada evita que cada canal fale de um jeito.\n\nPodemos conversar sobre isso?"
+      },
+      "first": {
+        "subject": "Organização da marca para PetVila Sintética",
+        "body": "Olá.\n\nSou da Estúdio Faro e escrevo porque vi falhas de contraste no site que afetam a legibilidade do texto, com seis amostras abaixo do mínimo recomendado.\n\nAlém disso, notei que o laranja do logotipo no site não é o mesmo usado nos posts recentes. Como a empresa prepara a abertura de uma loja no bairro Vila Aurora, uma marca organizada evita que cada canal fale de um jeito.\n\nPodemos conversar sobre isso?"
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\ntermine com a despedida e o nome «Estúdio Faro», numa linha própria.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "não atribui \"vila aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "cita a loja nova, como o pedido manda",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita o contraste, como o pedido manda",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "proporção da evidência (6 de 41, como parte) na mensagem",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "mensagem sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "agencia-sem-nome",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 4634,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "subject": "Identidade visual para a rede PetVila Sintética",
+        "body": "Olá.\n\nSua marca enfrenta um desafio concreto: o laranja do logotipo no site é diferente do usado nos posts recentes, e seis de cada quarenta e uma amostras de texto no site ficam abaixo do mínimo recomendado para leitura. Isso cria risco de que lojas e canais falem de jeitos diferentes.\n\nA empresa opera em Curitiba há doze anos e já prepara a abertura de uma loja no bairro Vila Aurora.\n\nMinha proposta é organizar sua marca e suas peças para que todas as lojas, o site e as redes sociais se comuniquem com consistência. O resultado é um manual de marca e uma biblioteca de peças que garantem reconhecimento igual em todos os canais.\n\nPosso agendar uma conversa de vinte minutos para alinharmos como resolver isso?"
+      },
+      "first": {
+        "subject": "Identidade visual para a rede PetVila Sintética",
+        "body": "Olá.\n\nSua marca enfrenta um desafio concreto: o laranja do logotipo no site é diferente do usado nos posts recentes, e seis de cada quarenta e uma amostras de texto no site ficam abaixo do mínimo recomendado para leitura. Isso cria risco de que lojas e canais falem de jeitos diferentes.\n\nA empresa opera em Curitiba há doze anos e já prepara a abertura de uma loja no bairro Vila Aurora.\n\nMinha proposta é organizar sua marca e suas peças para que todas as lojas, o site e as redes sociais se comuniquem com consistência. O resultado é um manual de marca e uma biblioteca de peças que garantem reconhecimento igual em todos os canais.\n\nPosso agendar uma conversa de vinte minutos para alinharmos como resolver isso?"
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\nno primeiro contato, a primeira frase depois da saudação diz quem escreve, com o nome «[nome da agência]», e por que está escrevendo.\ntermine com a despedida e o nome «[nome da agência]», numa linha própria.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "usa o marcador [nome da agência]",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "não inventa nome de agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"vila aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "só o marcador do nome da agência entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "empresa-individual",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 3856,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "subject": "Organização da marca para Ana Luíza Prado Sintética",
+        "body": "Olá.\n\nEstúdio Faro escreve porque vi no site de vocês que o logotipo do site é diferente do usado na assinatura das fotos, o que gera uma marca aplicada de jeitos diferentes em cada canal. Nosso sistema de identidade visual organiza a marca e as peças para que lojas, site e redes sociais falem igual.\n\nEntregamos manual de marca e biblioteca de peças para redes sociais, garantindo que a marca seja reconhecida igual em todos os canais."
+      },
+      "first": {
+        "subject": "Sua marca é reconhecida igual online e offline?",
+        "body": "Olá\n\nVi no seu site que você faz ensaios de família e produtos.\n\nTambém notei que o logotipo do site não é o mesmo usado na assinatura das fotos.\n\nIsso pode deixar sua marca com uma identidade inconsistente entre os canais.\n\nNo Estúdio Faro, organizamos a marca para que ela fale igual em todas as lojas e redes.\n\nEnviamos um manual de marca e uma biblioteca de peças específicas para cada rede social.\n\nO resultado é que seu nome é reconhecido da mesma forma, seja no site ou nas fotos.\n\nGostaria de saber se isso está alinhado com o que você quer transmitir hoje.\n\nAtenciosamente,\nEstúdio Faro"
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\nno primeiro contato, a primeira frase depois da saudação diz quem escreve, com o nome «Estúdio Faro», e por que está escrevendo.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "não usa o nome da pessoa",
+          "zeroTolerance": true,
+          "pass": false
+        },
+        {
+          "name": "saudação \"Olá\" sem nome",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem lugar inventado",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "follow-up-sem-culpa",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 4695,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "subject": "Marca PetVila: consistência entre lojas e canais",
+        "body": "Olá,\n\nVi no site de vocês que a marca já está presente em três lojas em Curitiba.\n\nNotei também que o laranja do logotipo varia entre o site e os posts recentes, e que uma nova unidade está sendo preparada para abrir no bairro Vila Aurora.\n\nSe organizar a identidade visual agora, a marca será reconhecida igual em todas as lojas e canais, evitando que cada canal fale de um jeito.\n\nPosso agendar uma conversa de 20 minutos para explorarmos isso?"
+      },
+      "first": {
+        "subject": "Ajustes na identidade visual da PetVila Sintética",
+        "body": "Olá,\n\nVi no site de vocês que a marca já está presente em três lojas em Curitiba, e também notei uma nova unidade planejada para Vila Aurora.\n\nAlém disso, ao comparar o site com os posts recentes do Instagram, percebi que o tom de laranja do logotipo varia entre os canais. Isso pode fazer com que a identidade não seja reconhecida da mesma forma em todas as lojas e redes.\n\nPosso ajudar a organizar a marca e criar uma biblioteca de peças para garantir que cores e logotipos falem igual no site, nas redes sociais e nas novas lojas?\n\nFico no aguardo."
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\no trecho «Vi no site de vocês que a marca já está presente em três lojas em Curitiba, e também notei uma nova unidade planejada p…» diz que «Vila Aurora» foi visto no site, e nenhuma evidência de lá traz isso. Deixe o que a evidência mostra numa frase e ponha «Vila Aurora» noutra frase, sem dizer onde foi visto.\ntermine com a despedida e o nome «Estúdio Faro», numa linha própria.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "sem cobrar resposta nem culpa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem conversa ou reunião inventada",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 95 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "rodape-sem-descadastro",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 4134,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "subject": "Identidade visual para PetVila Sintética",
+        "body": "Olá.\n\nO Estúdio Faro está escrevendo porque vi no site da empresa que vocês operam lojas em Curitiba e, ao comparar com o Instagram, notei que o laranja do logotipo tem uma tonalidade diferente entre os canais.\n\nIsso pode gerar confusão na marca quando clientes veem a loja e depois as redes sociais. O nosso sistema de identidade visual organiza cores e peças para que todas as lojas e canais falem da mesma forma, entregando um manual e uma biblioteca pronta para uso.\n\nPodemos conversar em 20 minutos para ver se faz sentido aplicar isso ao PetVila Sintética?"
+      },
+      "first": {
+        "subject": "Identidade visual para PetVila Sintética",
+        "body": "Olá.\n\nO Estúdio Faro está escrevendo porque vi no site da empresa que vocês operam lojas em Curitiba e, ao comparar com o Instagram, notei que o laranja do logotipo tem uma tonalidade diferente entre os canais.\n\nIsso pode gerar confusão na marca quando clientes veem a loja e depois as redes sociais. O nosso sistema de identidade visual organiza cores e peças para que todas as lojas e canais falem da mesma forma, entregando um manual e uma biblioteca pronta para uso.\n\nPodemos conversar em 20 minutos para ver se faz sentido aplicar isso ao PetVila Sintética?"
+      },
+      "corrections": [
+        "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\ntermine com a despedida e o nome «Estúdio Faro», numa linha própria.\nResponda de novo o JSON inteiro, com o resto igual."
+      ],
+      "unresolved": [],
+      "checks": [
+        {
+          "name": "sem frase de descadastro própria",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "nome da agência na primeira frase depois da saudação",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "termina com a despedida e o nome da agência",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem experiência, especialidade ou clientes inventados da agência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico, enorme...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "em parágrafos, sem lista com hífen ou número",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

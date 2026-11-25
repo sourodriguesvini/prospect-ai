@@ -10,6 +10,7 @@ import {
 import {
   detectChanges,
   knowledgeGaps,
+  linkedCnpjFromClaims,
   nextStepFor,
   pickRecommendedOffer,
   qualifyOffer,
@@ -77,7 +78,11 @@ export function firmographics(run: Run): {
         ? establishment.value.headquarters
         : null,
     shareCapitalCents: typeof capital?.value?.cents === 'number' ? capital.value.cents : null,
-    cnpjRoot: run.company.cnpjRoot,
+    // Sem CNPJ no cadastro, vale o vinculado depois (lido no site ou informado por você).
+    cnpjRoot:
+      run.company.cnpjRoot ??
+      linkedCnpjFromClaims([...run.inForce.values()])?.cnpj.slice(0, 8) ??
+      null,
     domain: run.company.primaryDomain,
   };
   return {
@@ -255,7 +260,12 @@ export async function stepQualification(run: Run): Promise<StepOutcome> {
     recommendation,
     nextStep: nextStepFor(recommendation, coverage.hasSite),
     confidence,
-    verification: { discarded: run.verification.discarded, reasons: [...run.verification.reasons] },
+    verification: {
+      discarded: run.verification.discarded,
+      altered: run.verification.altered ?? 0,
+      added: run.verification.added ?? 0,
+      reasons: [...run.verification.reasons],
+    },
   };
   run.diagnosis = diagnosis;
   run.changes = detectChanges(run.previous?.snapshot ?? null, run.snapshot).slice(0, 30);

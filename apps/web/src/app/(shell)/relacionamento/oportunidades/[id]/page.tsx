@@ -42,7 +42,13 @@ import { companyRoutes } from '@/lib/company-routes';
 import { centsToBrl } from '@/lib/form-data';
 import { formatCents, formatDate, formatDateTime } from '@/lib/format';
 import { isoToLocalDate, isoToLocalDateTime, localDateInDays } from '@/lib/relationship-dates';
-import { channelPhrase, NOTICE_TEXT, preparedOfferId, stageLabel } from '@/lib/relationship-labels';
+import {
+  channelPhrase,
+  NOTICE_TEXT,
+  noticeTone,
+  preparedOfferId,
+  stageLabel,
+} from '@/lib/relationship-labels';
 import {
   FOCUS_MESSAGE_PARAM,
   focusMessageId,
@@ -674,7 +680,7 @@ async function Opportunity({ params, searchParams }: Pick<Props, 'params' | 'sea
         }
       />
       {notice ? (
-        <Alert tone="success" role="status" data-aviso={notice}>
+        <Alert tone={noticeTone(notice)} role="status" data-aviso={notice}>
           {NOTICE_TEXT[notice]}
         </Alert>
       ) : null}

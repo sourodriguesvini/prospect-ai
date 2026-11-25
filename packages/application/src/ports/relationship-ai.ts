@@ -1,5 +1,6 @@
 import type {
   AiErrorCode,
+  AiReviewKind,
   ApproachBasis,
   ApproachInsights,
   ApproachStrategyContent,
@@ -8,6 +9,8 @@ import type {
   MessageKind,
   MessageTone,
   ReplyAnalysis,
+  SourceKind,
+  SourceReliabilityTier,
   VoiceGuideContent,
 } from '@prospector/contracts';
 import type { RequestContext } from '../context';
@@ -15,16 +18,34 @@ import type { RequestContext } from '../context';
 /**
  * IA local do Relacionamento (ADR-0008, ADR-0014). Implementada em packages/agents (gateway único);
  * aqui só o formato. Tudo que entra no pedido é DADO (dossiê, resposta do prospect, pedido livre do
- * usuário), nunca instrução de sistema. A saída volta crua e é validada pelo serviço com Zod.
+ * usuário), nunca instrução de sistema. A partir da v2 dos prompts, o adaptador confere a resposta
+ * com regras fixas (fonte, tom, pedido, proporção, agência), pede no máximo uma correção ao modelo
+ * e conserta a menção de fonte sem chamar de novo (KI-150); o que sobra volta em `review`, só como
+ * aviso: aprovar continua sendo decisão humana. O formato (`data`) ainda é validado pelo serviço
+ * com Zod.
  */
 
-/** Claim do dossiê como a IA vê: id para citar, frase e tipo epistêmico. */
+/**
+ * De onde veio uma evidência do claim (KI-150): tipo da fonte, categoria de confiabilidade e host
+ * da URL. A IA usa para não atribuir um achado a uma fonte que não é a dele ("o site destaca…"
+ * quando veio de um post).
+ */
+export interface AiClaimSource {
+  kind: SourceKind;
+  tier: SourceReliabilityTier;
+  /** Host da URL, sem `www.`; null quando a fonte não tem URL (cadastro, anotação). */
+  host: string | null;
+}
+
+/** Claim do dossiê como a IA vê: id para citar, frase, tipo epistêmico e fontes. */
 export interface AiClaim {
   id: string;
   domain: string;
   statement: string;
   epistemicType: 'fact' | 'inference' | 'hypothesis';
   band: ConfidenceBand;
+  /** Fontes das evidências; vazio quando o claim é derivado de outros (leitura do Prospector). */
+  sources?: AiClaimSource[];
 }
 
 export interface AiCase {
@@ -108,6 +129,23 @@ export interface AiUsage {
   loadMs: number | null;
 }
 
+/**
+ * Conferência automática da resposta (prompts v2+ do Relacionamento, KI-150): a correção pedida
+ * ao modelo numa segunda chamada e o que ainda ficou. Ausente quando a conferência não achou nada.
+ */
+export interface AiReview {
+  /** Correções pedidas ao modelo (uma segunda chamada, no máximo). */
+  corrections: string[];
+  /** Avisos para quem revisa: o que a conferência ainda encontra no texto devolvido. */
+  unresolved: string[];
+  /** Tipos dos avisos em `unresolved`, sem o texto: é o que fica gravado (ADR-0014 item 11). */
+  unresolvedKinds?: AiReviewKind[];
+  /** Ajustes feitos pelo sistema depois da correção (menção de fonte errada tirada, KI-150). */
+  adjusted?: string[];
+  /** A primeira resposta (já traduzida), para a avaliação comparar; não vai para o banco. */
+  first: unknown;
+}
+
 export type AiOutcome =
   | {
       ok: true;
@@ -117,6 +155,7 @@ export type AiOutcome =
       model: string;
       doneReason: string | null;
       usage: AiUsage | null;
+      review?: AiReview;
     }
   | {
       ok: false;

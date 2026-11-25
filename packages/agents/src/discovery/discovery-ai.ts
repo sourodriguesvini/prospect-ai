@@ -21,7 +21,14 @@ import { loadPrompt, type PromptDoc } from '../prompts';
  *
  * Versões em uso. Trocar exige `pnpm evals` (evals/discovery) e aprovação (skill capacidade-ia).
  */
-export const DISCOVERY_INTERPRETER_PROMPT_VERSION = 1;
+/**
+ * Intérprete v4 (2026-11-25, KI-148): lugar pedido no rótulo e na primeira busca (bairro com a
+ * cidade, estado sem cidade inventada), sem sinal de mercado que o pedido não pede e sem estreitar
+ * o setor. 95,0% contra 85,8% do v1 (`results/2026-11-25-12-34.json` × `12-31.json`, mesmas
+ * guardas do servidor, 3 repetições, tolerância zero 0). Os v2 e v3 foram etapas da mesma rodada,
+ * não usadas. As guardas do motor (`discovery-engine.ts`) valem com qualquer versão.
+ */
+export const DISCOVERY_INTERPRETER_PROMPT_VERSION = 4;
 /**
  * Extrator v2 (2026-11-11): título e trecho em linhas separadas e citação de um campo só (o v1
  * colava os dois na citação, que o servidor recusava) e resultado com ordens ao modelo não é

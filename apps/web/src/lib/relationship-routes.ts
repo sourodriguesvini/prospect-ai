@@ -11,6 +11,7 @@ const APPROVALS = '/aprovacoes';
  */
 export const OPPORTUNITY_NOTICES = {
   prepared: 'abordagem-preparada',
+  preparedReview: 'abordagem-preparada-conferir',
   opened: 'oportunidade-aberta',
   existing: 'oportunidade-existente',
   approved: 'mensagem-aprovada',
@@ -18,6 +19,9 @@ export const OPPORTUNITY_NOTICES = {
   reapproval: 'nova-versao-para-aprovar',
   messageEdited: 'nova-versao-salva',
   messageRewritten: 'versao-reescrita',
+  messageRewrittenReview: 'versao-reescrita-conferir',
+  messageCreated: 'rascunho-criado',
+  messageCreatedReview: 'rascunho-criado-conferir',
   messageDiscarded: 'mensagem-descartada',
   planDiscarded: 'estrategia-descartada',
   contactRecorded: 'contato-registrado',
@@ -33,6 +37,7 @@ export const APPROVAL_NOTICES = {
   approved: OPPORTUNITY_NOTICES.approved,
   messageEdited: OPPORTUNITY_NOTICES.messageEdited,
   messageRewritten: OPPORTUNITY_NOTICES.messageRewritten,
+  messageRewrittenReview: OPPORTUNITY_NOTICES.messageRewrittenReview,
   messageDiscarded: OPPORTUNITY_NOTICES.messageDiscarded,
 } as const;
 export type ApprovalNotice = (typeof APPROVAL_NOTICES)[keyof typeof APPROVAL_NOTICES];

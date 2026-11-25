@@ -1,13 +1,14 @@
-import type {
-  ApproachPlan,
-  Approval,
-  Company,
-  Interaction,
-  Opportunity,
-  OutboundMessage,
-  StageChange,
-  SuppressionEntry,
-  Task,
+import {
+  AiReviewRecord,
+  type ApproachPlan,
+  type Approval,
+  type Company,
+  type Interaction,
+  type Opportunity,
+  type OutboundMessage,
+  type StageChange,
+  type SuppressionEntry,
+  type Task,
 } from '@prospector/contracts';
 import { systemClock, type Clock } from '../clock';
 import { AppError } from '../errors';
@@ -45,6 +46,8 @@ export function createMemoryRelationshipRepository(options: {
   const interactions = new Map<string, Interaction>();
   const tasks = new Map<string, Task>();
   const suppressions = new Map<string, SuppressionEntry>();
+  /** `aiReview` do registro de inclusão de cada versão (o banco lê do `audit_log`). */
+  const reviews = new Map<string, AiReviewRecord>();
 
   async function audited(audit: PendingAudit, id: string, version?: number): Promise<void> {
     await options.audit.append({
@@ -267,6 +270,15 @@ export function createMemoryRelationshipRepository(options: {
       return latest ? clone(latest) : null;
     },
 
+    async messageReviews(messageIds) {
+      const found = new Map<string, AiReviewRecord>();
+      for (const id of messageIds) {
+        const review = reviews.get(id);
+        if (review) found.set(id, clone(review));
+      }
+      return found;
+    },
+
     async listApprovals(filter) {
       return clone(
         [...approvals.values()]
@@ -426,6 +438,8 @@ export function createMemoryRelationshipRepository(options: {
       };
       messages.set(created.id, created);
       await audited(audit, created.id, created.version);
+      const review = AiReviewRecord.safeParse(audit.diff.aiReview);
+      if (review.success) reviews.set(created.id, review.data);
       return clone(created);
     },
 

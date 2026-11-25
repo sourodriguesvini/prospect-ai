@@ -1,5 +1,6 @@
 'use server';
 
+import { reviewNeedsAttention } from '@prospector/application';
 import { brlToCents, checked, formValues, text } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
 import { localDateTimeToIso, localDateToIso } from '@/lib/relationship-dates';
@@ -39,7 +40,12 @@ export async function prepareApproachAction(
       instruction: optionalText(values, 'instruction'),
     });
     if (result.status === 'ai_failed') return { error: result.failure.message };
-    return relationshipRoutes.opportunity(result.opportunity.id, OPPORTUNITY_NOTICES.prepared);
+    return relationshipRoutes.opportunity(
+      result.opportunity.id,
+      reviewNeedsAttention(result.review)
+        ? OPPORTUNITY_NOTICES.preparedReview
+        : OPPORTUNITY_NOTICES.prepared,
+    );
   });
 }
 
@@ -122,7 +128,13 @@ export async function regenerateMessageAction(
       instruction: optionalText(values, 'instruction'),
     });
     if (result.status === 'ai_failed') return { error: result.failure.message };
-    return backWith(from, OPPORTUNITY_NOTICES.messageRewritten, result.message.id);
+    return backWith(
+      from,
+      reviewNeedsAttention(result.review)
+        ? OPPORTUNITY_NOTICES.messageRewrittenReview
+        : OPPORTUNITY_NOTICES.messageRewritten,
+      result.message.id,
+    );
   });
 }
 
@@ -142,7 +154,15 @@ export async function newMessageAction(
       replyToInteractionId: optionalText(values, 'replyToInteractionId'),
     });
     if (result.status === 'ai_failed') return { error: result.failure.message };
-    return { message: 'Rascunho criado. Revise antes de aprovar.' };
+    // Volta para a página com o aviso e o foco no rascunho novo, como reescrever (KI-154): o
+    // aviso de conferência é alerta, e os detalhes ficam no cartão da mensagem (KI-150).
+    return relationshipRoutes.opportunity(
+      opportunityId,
+      reviewNeedsAttention(result.review)
+        ? OPPORTUNITY_NOTICES.messageCreatedReview
+        : OPPORTUNITY_NOTICES.messageCreated,
+      result.message.id,
+    );
   });
 }
 

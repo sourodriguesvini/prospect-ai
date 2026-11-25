@@ -159,13 +159,260 @@ export const ANALYSIS_JSON_SCHEMAS: Record<AnalysisAgent, Schema> = {
   }),
 };
 
+// Esquemas das versões novas dos prompts (KI-131, KI-133, KI-152). A ordem dos campos importa: o
+// modelo gera na ordem do esquema, então a justificativa vem antes da nota e o motivo antes da
+// relevância. Os contratos Zod aceitam as duas formas. Com a entrada em mãos (`analysisFormat`),
+// referências e chaves viram listas fechadas: o modelo não inventa referência ("<lacunas>", "K1"
+// como medição), não repete oferta nem esquece candidato.
+
+/** Referência livre (`undefined`) ou fechada nas que a entrada mostrou. */
+const oneOf = (values?: readonly string[]): Schema =>
+  values && values.length > 0 ? { type: 'string', enum: [...values] } : ref;
+/** Lista de referências; fechada e vazia quando a entrada não mostrou nenhuma. */
+const refList = (values: readonly string[] | undefined, max: number): Schema =>
+  values && values.length === 0 ? list(ref, 0) : list(oneOf(values), max);
+const exactly = (items: Schema, count: number): Schema => ({
+  type: 'array',
+  items,
+  minItems: count,
+  maxItems: count,
+});
+
+const inferenceFrom = (basedOn?: readonly string[]): Schema =>
+  object({ statement: text(300), reasoning: text(600), factor, basedOn: refList(basedOn, 8) });
+
+function businessV2(pages?: readonly string[]): Schema {
+  const item = object({ label: text(80), page: oneOf(pages), quote: text(300) });
+  return object({
+    segment: nullable(item),
+    offerings: list(item, 8),
+    audiences: list(item, 3),
+    differentiators: list(item, 4),
+    regions: list(item, 3),
+    signals: list(item, 3),
+    valueProposition: nullable(INFERENCE),
+    toneOfVoice: nullable(INFERENCE),
+    businessModel: nullable(INFERENCE),
+  });
+}
+
+/**
+ * Critérios que as capturas sempre permitem avaliar: com imagens, vêm obrigatórios em `core`
+ * (avaliador-ia, 2026-11-25: a v2 deixava consistência e chamadas de fora). O agente junta `core`
+ * a `criteria` antes de validar (`mergeVisualCore`).
+ */
+export const VISUAL_CORE_CRITERIA = ['clareza_proposta', 'consistencia_visual', 'chamadas_acao'];
+
+interface VisualShown {
+  criteria?: readonly string[];
+  metrics?: readonly string[];
+  images?: readonly string[];
+  context?: readonly string[];
+}
+
+/**
+ * Auditoria visual. `order` `v1` mantém a ordem de campos da v1 (nota antes da observação); `v2`
+ * põe a observação antes da nota. Com a entrada em mãos, referências e chaves vêm fechadas nas
+ * duas (ganho de esquema sem mudar o texto da v1).
+ */
+function visualSchema(order: 'v1' | 'v2', shown: VisualShown = {}): Schema {
+  const images: Schema = !shown.images
+    ? list({ enum: ['desktop', 'mobile'] }, 2)
+    : shown.images.length > 0
+      ? list({ enum: [...shown.images] }, shown.images.length)
+      : list(text(10), 0);
+  const score: Schema = { type: 'integer', minimum: 1, maximum: 5 };
+  const finding = (criterion: Schema | null): Schema => {
+    const head: Record<string, Schema> = criterion ? { criterion } : {};
+    return order === 'v1'
+      ? object({
+          ...head,
+          score,
+          observation: text(300),
+          nature: { enum: FindingNature.options },
+          images,
+          metrics: refList(shown.metrics, 6),
+          factor,
+        })
+      : object({
+          ...head,
+          observation: text(300),
+          metrics: refList(shown.metrics, 6),
+          images,
+          nature: { enum: FindingNature.options },
+          score,
+          factor,
+        });
+  };
+  const core =
+    shown.images && shown.images.length > 0 && shown.criteria
+      ? VISUAL_CORE_CRITERIA.filter((key) => shown.criteria?.includes(key))
+      : [];
+  const others = shown.criteria?.filter((key) => !core.includes(key));
+  const criteria =
+    others && others.length === 0
+      ? list(text(10), 0)
+      : list(finding(others ? oneOf(others) : text(40)), Math.min(12, others?.length || 12));
+  return object({
+    ...(core.length > 0
+      ? { core: object(Object.fromEntries(core.map((key) => [key, finding(null)]))) }
+      : {}),
+    criteria,
+    positioning: nullable(
+      inferenceFrom(
+        shown.metrics && shown.context ? [...shown.metrics, ...shown.context] : undefined,
+      ),
+    ),
+  });
+}
+
+/** Junta os critérios obrigatórios (`core`) aos demais, no formato do contrato. */
+export function mergeVisualCore(json: Record<string, unknown>): Record<string, unknown> {
+  const core = json.core;
+  if (!core || typeof core !== 'object' || Array.isArray(core)) return json;
+  const { core: _core, ...rest } = json;
+  const fromCore = Object.entries(core as Record<string, unknown>)
+    .filter(([, value]) => value && typeof value === 'object')
+    .map(([criterion, value]) => ({ criterion, ...(value as Record<string, unknown>) }));
+  const criteria = Array.isArray(rest.criteria) ? rest.criteria : [];
+  return { ...rest, criteria: [...fromCore, ...criteria] };
+}
+
+function triageV2(candidates?: readonly string[]): Schema {
+  // O motivo antes do tipo: o modelo escrevia "vende por atacado para revendas" e, já decidido,
+  // marcava "porte diferente".
+  const item = object({
+    ref: oneOf(candidates),
+    reason: text(200),
+    kind: { enum: CompetitorKind.options },
+  });
+  return object({
+    candidates:
+      candidates && candidates.length > 0
+        ? exactly(item, Math.min(10, candidates.length))
+        : list(item, 10),
+  });
+}
+
+function diagnosisV2(
+  shown: { offers?: readonly string[]; refs?: readonly string[]; facts?: readonly string[] } = {},
+): Schema {
+  const offer = object({
+    offer: oneOf(shown.offers),
+    problemsMatched: list(position, 20),
+    signalsMatched: list(position, 20),
+    basedOn: refList(shown.refs, 8),
+    reasoning: text(600),
+    relevance: { enum: OfferRelevance.options },
+    statement: text(300),
+    factor,
+    // Desqualificador só com FATO (KI-133): as referências de inferência e hipótese nem entram, e
+    // pelo menos uma é obrigatória (o modelo listava o desqualificador para dizer que não havia fato).
+    disqualifiers: list(
+      object({
+        position,
+        basedOn:
+          shown.facts && shown.facts.length === 0
+            ? refList(shown.facts, 4)
+            : { ...refList(shown.facts, 4), minItems: 1 },
+        reasoning: text(300),
+      }),
+      shown.facts && shown.facts.length === 0 ? 0 : 6,
+    ),
+    openingAngle: nullable(text(300)),
+    objections: list(text(200), 3),
+    toVerify: list(text(200), 3),
+  });
+  return object({
+    summary: nullable(inferenceFrom(shown.refs)),
+    hypotheses: list(
+      object({ statement: text(300), reasoning: text(600), basedOn: refList(shown.refs, 6) }),
+      3,
+    ),
+    offers:
+      shown.offers && shown.offers.length > 0
+        ? exactly(offer, Math.min(6, shown.offers.length))
+        : list(offer, 6),
+  });
+}
+
+// A v3 (avaliador-ia, 2026-11-25) muda o texto e usa os mesmos esquemas da v2.
+const VERSIONED_JSON_SCHEMAS: Partial<Record<AnalysisAgent, Record<number, Schema>>> = {
+  'company-business': { 2: businessV2(), 3: businessV2() },
+  'brand-visual': { 2: visualSchema('v2'), 3: visualSchema('v2') },
+  'competitor-triage': { 2: triageV2(), 3: triageV2() },
+  diagnosis: { 2: diagnosisV2(), 3: diagnosisV2() },
+};
+
+/** Esquema JSON da resposta para a versão do prompt (`company-business/v2` → 2). */
+export function analysisJsonSchema(agent: AnalysisAgent, version: number): Schema {
+  return VERSIONED_JSON_SCHEMAS[agent]?.[version] ?? ANALYSIS_JSON_SCHEMAS[agent];
+}
+
+/**
+ * Esquema da resposta para esta entrada. Da v2 em diante, referências, chaves da rubrica,
+ * capturas e ofertas fechadas nas que a entrada mostrou, uma entrada por candidato e por oferta, e
+ * desqualificador só com referência de fato. Na v1, o mesmo de sempre, menos a auditoria visual:
+ * referências fechadas e, com capturas, os três critérios centrais obrigatórios (esquema, não
+ * texto: o prompt da v1 não muda).
+ */
+export function analysisFormat<A extends AnalysisAgent>(
+  agent: A,
+  version: number,
+  input: AnalysisInputs[A],
+): Schema {
+  if (agent === 'brand-visual') {
+    const value = input as AnalysisInputs['brand-visual'];
+    return visualSchema(version >= 2 ? 'v2' : 'v1', {
+      criteria: value.rubric.map((criterion) => criterion.key),
+      metrics: value.metrics.map((metric) => metric.ref),
+      images: imageOrder(value.images),
+      context: value.context.map((item) => item.ref),
+    });
+  }
+  if (version < 2 || !VERSIONED_JSON_SCHEMAS[agent]?.[version]) {
+    return analysisJsonSchema(agent, version);
+  }
+  switch (agent) {
+    case 'company-business': {
+      const value = input as AnalysisInputs['company-business'];
+      return businessV2(value.pages.map((page) => page.ref));
+    }
+    case 'competitor-triage': {
+      const value = input as AnalysisInputs['competitor-triage'];
+      return triageV2(value.candidates.map((candidate) => candidate.ref));
+    }
+    case 'diagnosis': {
+      const value = input as AnalysisInputs['diagnosis'];
+      return diagnosisV2({
+        offers: value.offers.map((offer) => offer.ref),
+        refs: value.facts.map((item) => item.ref),
+        facts: value.facts.filter((item) => item.type === 'fact').map((item) => item.ref),
+      });
+    }
+    default:
+      return analysisJsonSchema(agent, version);
+  }
+}
+
+/** Número da versão a partir do id do prompt (`diagnosis/v2` → 2); 1 se não der para ler. */
+export function promptVersionNumber(id: string): number {
+  const match = /\/v(\d+)$/.exec(id);
+  return match ? Number(match[1]) : 1;
+}
+
 // -----------------------------------------------------------------------------
 // Mensagens (dado de terceiros entre marcas; nunca abre nem fecha as marcas)
 // -----------------------------------------------------------------------------
 
-/** Uma linha: sem `<`/`>` e sem quebras. */
+/**
+ * Uma linha: sem `<`/`>`, sem quebras e com aspas simples no lugar das duplas. O modelo copia as
+ * aspas duplas do dossiê (`H1: "Pet Shop Online"`) para dentro dos textos, e no JSON restrito a
+ * aspa sem escape fecha o campo: a frase sai cortada e o servidor a descarta. O texto das páginas
+ * (`block`) fica como está, porque o trecho citado precisa bater letra por letra.
+ */
 function line(value: string): string {
-  return value.replace(/[<>]/g, ' ').replace(/\s+/g, ' ').trim();
+  return value.replace(/[<>]/g, ' ').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim();
 }
 
 /** Bloco de texto de página: sem `<`/`>`, quebras de linha mantidas, linhas vazias juntas. */
@@ -187,6 +434,7 @@ function companyBlock(company: AnalysisInputs['diagnosis']['company']): string {
     `Nome: ${line(company.name)}`,
     `Cidade: ${place || 'não informada'}`,
     `Atividade principal (CNAE): ${company.activity ? line(company.activity) : 'não informada'}`,
+    ...(company.site ? [`Site: ${line(company.site)} (lido nesta investigação)`] : []),
     '</empresa>',
   ].join('\n');
 }
@@ -336,6 +584,7 @@ export function createLocalBrandAnalysisAi(deps: {
     agent: AnalysisAgent,
     user: string,
     images: GatewayImage[],
+    format: Schema,
     signal: AbortSignal | undefined,
   ): Promise<{
     json: Record<string, unknown> | null;
@@ -356,7 +605,7 @@ export function createLocalBrandAnalysisAi(deps: {
           { role: 'user', content: user, ...(images.length ? { images } : {}) },
         ],
         think: false,
-        format: ANALYSIS_JSON_SCHEMAS[agent],
+        format,
         maxOutputTokens: MAX_TOKENS[agent],
       },
       signal,
@@ -382,6 +631,7 @@ export function createLocalBrandAnalysisAi(deps: {
       const promptVersion = prompts[agent].id;
       const elapsed = () => Math.round(performance.now() - started);
       const user = (analysisMessages[agent] as (value: typeof input) => string)(input);
+      const format = analysisFormat(agent, promptVersionNumber(promptVersion), input);
       const images =
         agent === 'brand-visual'
           ? gatewayImages((input as AnalysisInputs['brand-visual']).images)
@@ -401,7 +651,7 @@ export function createLocalBrandAnalysisAi(deps: {
       try {
         // Uma segunda tentativa quando a resposta vem cortada ou fora do formato.
         for (let attempt = 0; attempt < 2; attempt += 1) {
-          const out = await generate(agent, user, images, options?.signal);
+          const out = await generate(agent, user, images, format, options?.signal);
           model = out.model ?? model;
           doneReason = out.doneReason ?? doneReason;
           if (out.usage) {
@@ -411,7 +661,9 @@ export function createLocalBrandAnalysisAi(deps: {
             total.loadMs = add(total.loadMs, out.usage.loadMs);
           }
           if (!out.json) continue;
-          const parsed = ANALYSIS_OUTPUT_SCHEMAS[agent].safeParse(out.json);
+          const parsed = ANALYSIS_OUTPUT_SCHEMAS[agent].safeParse(
+            agent === 'brand-visual' ? mergeVisualCore(out.json) : out.json,
+          );
           if (parsed.success) {
             return {
               ok: true,

@@ -8,8 +8,10 @@ import type {
   ToolSpec,
   ToolStatus,
 } from '@prospector/contracts';
+import { estimateTokens, estimateToolDefinitionsTokens } from '../context-budget';
 import { toAiError } from '../errors';
 import type { GatewayMessage, LocalAiGateway } from '../gateway';
+import { DEFAULT_POLICY, type TaskPolicy } from '../model-policy';
 import type { PromptDoc } from '../prompts';
 
 /**
@@ -42,15 +44,18 @@ type ToolsPromptCapability = 'web' | 'investigation' | 'discovery' | 'relationsh
  * suas; versão sem declaração não recebe nenhuma ferramenta além das de leitura do banco. Por
  * declaração, e não por "versão >= N": várias frentes criam ferramentas em paralelo (Empresas,
  * Descoberta, Relacionamento), e uma versão que não fala de uma ferramenta não pode recebê-la.
- * Nenhuma versão declara 'investigation', 'discovery' nem 'relationship' ainda: os trechos estão
- * em `docs/rascunhos/` (copilot-tools-empresas, -v4-descoberta e -v4-relacionamento), e o v4
- * unificado, montado e avaliado depois da mesclagem das branches, declara aqui o que ensinar
- * (KI-110, KI-121, KI-130).
+ * O v4 é o unificado do KI-130: junta os trechos de `docs/rascunhos/` (copilot-tools-empresas,
+ * -v4-descoberta e -v4-relacionamento) e as correções do KI-151, e declara as quatro. Declarar não
+ * promove: o app usa `COPILOT_TOOLS_PROMPT_VERSION`, e o v4 só vira padrão com avaliação e
+ * aprovação do usuário.
  */
 const TOOLS_PROMPT_CAPABILITIES: Readonly<Record<number, readonly ToolsPromptCapability[]>> = {
   1: [],
   2: [],
   3: ['web'],
+  4: ['web', 'investigation', 'discovery', 'relationship'],
+  5: ['web', 'investigation', 'discovery', 'relationship'],
+  6: ['web', 'investigation', 'discovery', 'relationship'],
 };
 
 function toolsPromptKnows(promptVersion: number, capability: ToolsPromptCapability): boolean {
@@ -100,6 +105,150 @@ export function copilotPromptSupportsRelationshipTools(promptVersion: number): b
 export const MAX_COPILOT_ROUNDS = 8;
 
 /**
+ * Anúncio antes da consulta ("Vou consultar as empresas…"): numa rodada com ferramentas, o texto
+ * que começa com cara de anúncio (`looksLikeAnnouncement`) fica retido até este tamanho; se a
+ * rodada termina chamando ferramentas, ele não aparece (a tela já mostra a consulta como status).
+ * Texto que começa de outro jeito, ou que passa do tamanho, aparece enquanto é gerado, e o retido
+ * aparece se a geração falhar ou for cancelada. Nada disso muda o que o modelo recebe: o texto
+ * escrito antes de uma consulta já não voltava a ele (KI-076 A4).
+ */
+export const COPILOT_PREAMBLE_MAX_CHARS = 150;
+
+/** Caracteres para decidir se o começo é anúncio; até lá o texto espera (poucos tokens). */
+const PREAMBLE_DECIDE_CHARS = 16;
+
+const ANNOUNCEMENT =
+  /^(?:(?:claro|certo|ok|okay|beleza|perfeito|entendi|ótimo|otimo|tudo bem|combinado)[!,.]?\s+)?(?:vou\b|irei\b|primeiro\b|primeiramente\b|deixa eu\b|deixe[- ]me\b|vamos\b|antes de\b|um momento|só um momento|aguarde|para (?:te )?responder|preciso (?:verificar|consultar|ver|checar|buscar|pesquisar|olhar)|consultando|verificando|buscando|pesquisando|procurando)/i;
+
+/**
+ * Começo de resposta com cara de anúncio da consulta: `true`, `false`, ou `null` enquanto o texto é
+ * curto demais para decidir.
+ */
+export function looksLikeAnnouncement(start: string): boolean | null {
+  const text = start.trimStart();
+  if (ANNOUNCEMENT.test(text)) return true;
+  return text.length < PREAMBLE_DECIDE_CHARS && !text.includes('\n') ? null : false;
+}
+
+/**
+ * Frases prontas do próprio Prospector no resultado de uma ferramenta: `comece_a_resposta_com`
+ * (estado da investigação, rascunho da Descoberta, "não contatar") e `termine_a_resposta_com`
+ * (etapa só sugerida). O modelo de 4B não as repetia com confiança (copilot-tools/v4, rodada
+ * 2026-11-25-10-33), então o servidor as mostra ele mesmo, no começo e no fim da resposta, e o
+ * modelo recebe os campos renomeados para não repetir. São fatos do sistema, nunca correção do
+ * que o modelo escreveu.
+ */
+export function takeFixedSentences(forModel: string): {
+  open: string[];
+  close: string[];
+  forModel: string;
+} {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(forModel);
+  } catch {
+    return { open: [], close: [], forModel };
+  }
+  const data = (parsed as { dados?: unknown }).dados;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { open: [], close: [], forModel };
+  }
+  const record = data as Record<string, unknown>;
+  const open =
+    typeof record.comece_a_resposta_com === 'string' ? [record.comece_a_resposta_com] : [];
+  const close =
+    typeof record.termine_a_resposta_com === 'string' ? [record.termine_a_resposta_com] : [];
+  if (open.length === 0 && close.length === 0) return { open, close, forModel };
+  const renamed = Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key === 'comece_a_resposta_com'
+        ? 'ja_mostrado_no_comeco'
+        : key === 'termine_a_resposta_com'
+          ? 'ja_mostrado_no_fim'
+          : key,
+      value,
+    ]),
+  );
+  return { open, close, forModel: JSON.stringify({ ...(parsed as object), dados: renamed }) };
+}
+
+const ECHO_SKIP = /[\s*_"'“”‘’>#]/;
+/** Marcação que fecha a repetição, colada nela. */
+const ECHO_CLOSE = /[*_"'”’]/;
+
+/**
+ * O modelo repetindo, logo depois, a frase do Prospector que acabou de aparecer (3 de 3 em
+ * `investigacao-injecao` no copilot-tools/v5): devolve onde a repetição termina no texto,
+ * `'partial'` se o texto ainda pode virar a repetição, ou `null`. Ignora maiúsculas, espaços e
+ * marcação (negrito, aspas, citação).
+ */
+export function echoEnd(text: string, sentence: string): number | 'partial' | null {
+  let i = 0;
+  let j = 0;
+  for (;;) {
+    while (j < sentence.length && ECHO_SKIP.test(sentence.charAt(j))) j += 1;
+    if (j >= sentence.length) {
+      // Fecha só a marcação colada na repetição (negrito, aspas) e os espaços: a marcação do
+      // texto seguinte fica ("**Importante:** x" não vira "Importante:** x").
+      while (i < text.length && ECHO_CLOSE.test(text.charAt(i))) i += 1;
+      while (i < text.length && /\s/.test(text.charAt(i))) i += 1;
+      return i;
+    }
+    while (i < text.length && ECHO_SKIP.test(text.charAt(i))) i += 1;
+    if (i >= text.length) return 'partial';
+    if (text.charAt(i).toLowerCase() !== sentence.charAt(j).toLowerCase()) return null;
+    i += 1;
+    j += 1;
+  }
+}
+
+/** Janela e resposta do Copiloto, como o gateway as usa (`DEFAULT_POLICY.copilot` por padrão). */
+export type CopilotContextLimits = Pick<
+  TaskPolicy,
+  'numCtx' | 'maxOutputTokens' | 'maxOutputTokensThinking'
+>;
+
+/** Folga do gateway para o template do Ollama (`SAFETY_MARGIN_TOKENS` em context-budget). */
+const TEMPLATE_MARGIN_TOKENS = 128;
+
+/**
+ * Maior resultado que uma consulta costuma trazer (página lida, detalhe de oportunidade), em
+ * tokens estimados. Uma consulta só roda se ainda cabe isso; se o resultado de verdade não couber,
+ * ele não vai ao modelo (`TOOL_RESULT_TOO_BIG`).
+ */
+export const TOOL_RESULT_RESERVE_TOKENS = 1600;
+
+/**
+ * Espaço da janela para os resultados de ferramentas de uma pergunta, em tokens estimados como o
+ * gateway estima (`estimateTokens`, `estimateToolDefinitionsTokens`): a janela menos a resposta, a folga do template, as
+ * instruções, os fatos, a pergunta e as definições das ferramentas. Calculado a cada pergunta a
+ * partir do tamanho real do prompt: o teto fixo de 20 mil caracteres foi calibrado para o v3, e um
+ * prompt maior, com mais ferramentas, estourava a janela (`web-pesquisa-aprofundada` 0 de 3 no
+ * copilot-tools/v5, `invalid_request` depois de uma busca e duas leituras).
+ */
+export function toolResultsBudget(input: {
+  limits: CopilotContextLimits;
+  think: boolean;
+  fixedMessages: readonly string[];
+  specs: readonly ToolSpec[];
+}): number {
+  const definitions = input.specs.map((tool) => ({
+    type: 'function' as const,
+    function: { name: tool.name, description: tool.description, parameters: tool.parameters },
+  }));
+  const answer = input.think ? input.limits.maxOutputTokensThinking : input.limits.maxOutputTokens;
+  const fixed =
+    input.fixedMessages.reduce((total, text) => total + estimateTokens(text), 0) +
+    estimateToolDefinitionsTokens(definitions);
+  return input.limits.numCtx - answer - TEMPLATE_MARGIN_TOKENS - fixed;
+}
+
+/** Custo de uma consulta na janela: o pedido do modelo e o resultado. */
+function callTokens(call: ToolCallRequest, forModel: string): number {
+  return estimateTokens(forModel) + estimateTokens(JSON.stringify([call]));
+}
+
+/**
  * Teto do que os resultados de ferramentas de uma pergunta levam ao modelo (caracteres). Passado
  * o teto, as chamadas que faltam na mesma rodada não rodam (recebem `TOOL_BUDGET_SPENT`) e a
  * próxima rodada vem sem ferramentas: o modelo responde com o que já tem, em vez de a conversa
@@ -111,6 +260,10 @@ export const COPILOT_TOOL_RESULTS_MAX_CHARS = 20_000;
 /** Resposta às chamadas que chegam depois do teto: o modelo entende que deve responder já. */
 export const TOOL_BUDGET_SPENT =
   'Limite de texto desta pergunta atingido: esta consulta não foi feita. Responda com o que já tem.';
+
+/** Resultado que não cabe no que sobrou da janela: não vai ao modelo. */
+export const TOOL_RESULT_TOO_BIG =
+  'O resultado desta consulta não cabe no que sobrou do limite de texto desta pergunta e não foi entregue. Responda com o que já tem.';
 
 /** O que a tela e o modelo recebem de uma ferramenta executada no servidor. */
 export interface CopilotToolOutcome {
@@ -175,9 +328,12 @@ export function createCopilot(deps: {
   prompt: () => PromptDoc;
   /** Prompt do modo com ferramentas; sem ele, as ferramentas nunca são oferecidas. */
   toolsPrompt?: () => PromptDoc;
+  /** Janela e resposta da tarefa `copilot` na política em uso (padrão: `DEFAULT_POLICY.copilot`). */
+  limits?: CopilotContextLimits;
   log?: (message: string) => void;
 }): Copilot {
   const log = deps.log ?? ((message: string) => console.warn(message));
+  const limits = deps.limits ?? DEFAULT_POLICY.copilot;
   return {
     get promptId() {
       return deps.prompt().id;
@@ -195,6 +351,85 @@ export function createCopilot(deps: {
           log(`[copiloto] telemetria falhou trace=${options.traceId}: ${String(error)}`);
         }
       };
+
+      // Texto que vai para a tela. Fica fora do `try`: o anúncio retido aparece mesmo se a geração
+      // falhar ou for cancelada.
+      let wroteText = false;
+      let separated = true;
+      let shownText = '';
+      // Frases do próprio Prospector que abrem ou fecham a resposta (ver `takeFixedSentences`).
+      const openings: string[] = [];
+      const closings: string[] = [];
+      // Anúncio retido nesta rodada (ver COPILOT_PREAMBLE_MAX_CHARS); null quando nada é retido.
+      let held: string | null = null;
+      // Se o texto retido tem cara de anúncio (null: curto demais para decidir).
+      let announcement: boolean | null;
+      // Frases do Prospector que acabaram de aparecer: a repetição pelo modelo, logo em seguida, não
+      // aparece de novo (ver `echoEnd`).
+      let echoes: string[] = [];
+      let echoBuffer = '';
+      let trimNext = false;
+
+      const emit = (text: string): CopilotEvent[] => {
+        let shown = text;
+        if (trimNext) {
+          shown = shown.trimStart();
+          if (!shown) return [];
+          trimNext = false;
+        }
+        if (!shown) return [];
+        wroteText = true;
+        shownText += shown;
+        return [{ type: 'delta', text: shown }];
+      };
+      const dropEchoes = (final: boolean): string => {
+        for (;;) {
+          let partial = false;
+          let matched: string | null = null;
+          for (const sentence of echoes) {
+            const end = echoEnd(echoBuffer, sentence);
+            if (end === 'partial') {
+              partial = true;
+            } else if (end !== null) {
+              matched = sentence;
+              echoBuffer = echoBuffer.slice(end);
+              break;
+            }
+          }
+          if (matched !== null) {
+            echoes = echoes.filter((sentence) => sentence !== matched);
+            trimNext = true;
+            if (echoes.length > 0) continue;
+          } else if (partial && !final) {
+            return '';
+          }
+          echoes = [];
+          const rest = echoBuffer;
+          echoBuffer = '';
+          return rest;
+        }
+      };
+      const release = (text: string): CopilotEvent[] => {
+        const out: CopilotEvent[] = [];
+        if (!separated) {
+          // Texto de uma rodada anterior e o desta ficam em parágrafos separados na tela.
+          separated = true;
+          out.push({ type: 'delta', text: '\n\n' });
+        }
+        if (openings.length > 0) {
+          const sentences = openings.splice(0);
+          const opening = `${sentences.join(' ')}\n\n`;
+          wroteText = true;
+          shownText += opening;
+          out.push({ type: 'delta', text: opening });
+          echoes = sentences;
+          echoBuffer = '';
+        }
+        if (echoes.length === 0) return [...out, ...emit(text)];
+        echoBuffer += text;
+        return [...out, ...emit(dropEchoes(false))];
+      };
+
       try {
         const toolbox = options.tools && deps.toolsPrompt ? options.tools : undefined;
         const prompt = toolbox && deps.toolsPrompt ? deps.toolsPrompt() : deps.prompt();
@@ -208,9 +443,22 @@ export function createCopilot(deps: {
           },
           ...request.messages,
         ];
+        const lastUser = request.messages.findLast((message) => message.role === 'user');
+        const resultsBudget = toolbox
+          ? toolResultsBudget({
+              limits,
+              think: request.think,
+              fixedMessages: [
+                ...conversation
+                  .filter((message) => message.role === 'system')
+                  .map((message) => message.content),
+                lastUser?.content ?? '',
+              ],
+              specs: toolbox.specs,
+            })
+          : 0;
 
         let started = false;
-        let wroteText = false;
         const shownNotices = new Set<string>();
         const answered = new Map<string, string>();
         const usedIds = new Set<string>();
@@ -218,15 +466,23 @@ export function createCopilot(deps: {
         let lastDone: Extract<CopilotEvent, { type: 'done' }> | null = null;
 
         let toolResultChars = 0;
+        let toolResultTokens = 0;
+        // A primeira consulta da pergunta não exige a reserva inteira: com a janela apertada
+        // (`AI_NUM_CTX` baixo, texto colado longo), o modelo ficaria sem nenhuma ferramenta e a
+        // resposta sem pesquisa pareceria recusa. Resultado que não couber volta como
+        // `TOOL_RESULT_TOO_BIG`, sem ir ao modelo.
+        const roomForAnother = () =>
+          toolResultChars < COPILOT_TOOL_RESULTS_MAX_CHARS &&
+          (toolResultTokens === 0
+            ? resultsBudget > 0
+            : toolResultTokens + TOOL_RESULT_RESERVE_TOKENS <= resultsBudget);
         for (round = 1; round <= MAX_COPILOT_ROUNDS; round += 1) {
           const offer =
-            toolbox &&
-            round < MAX_COPILOT_ROUNDS &&
-            toolResultChars < COPILOT_TOOL_RESULTS_MAX_CHARS
-              ? toolbox.specs
-              : undefined;
+            toolbox && round < MAX_COPILOT_ROUNDS && roomForAnother() ? toolbox.specs : undefined;
           let calls: ToolCallRequest[] = [];
-          let separated = !wroteText;
+          separated = !wroteText;
+          held = offer ? '' : null;
+          announcement = null;
           roundOpen = true;
           roundModel = null;
           for await (const event of deps.gateway.chat(
@@ -254,14 +510,21 @@ export function createCopilot(deps: {
                 }
                 break;
               case 'delta':
-                if (!separated) {
-                  // Texto de uma rodada anterior (antes das ferramentas) e o desta ficam em
-                  // parágrafos separados na tela.
-                  separated = true;
-                  yield { type: 'delta', text: '\n\n' };
+                if (held !== null) {
+                  held += event.text;
+                  announcement ??= looksLikeAnnouncement(held);
+                  if (
+                    announcement === null ||
+                    (announcement && held.length <= COPILOT_PREAMBLE_MAX_CHARS)
+                  ) {
+                    break;
+                  }
+                  const text = held;
+                  held = null;
+                  yield* release(text);
+                  break;
                 }
-                wroteText = true;
-                yield event;
+                yield* release(event.text);
                 break;
               case 'tool_calls':
                 calls = event.calls;
@@ -287,7 +550,14 @@ export function createCopilot(deps: {
             }
           }
 
-          if (!toolbox || calls.length === 0 || !offer) break;
+          // Rodada que termina em consulta: o anúncio retido não aparece. Qualquer outro texto
+          // retido (curto demais para decidir, ou rodada sem consulta) aparece.
+          const consulted = Boolean(toolbox && calls.length > 0 && offer);
+          if (held && !(consulted && announcement === true)) yield* release(held);
+          held = null;
+          if (echoBuffer) yield* emit(dropEchoes(true));
+
+          if (!toolbox || !consulted) break;
           // Ids repetidos entre rodadas (o gateway numera quando o Ollama não manda) confundiriam
           // a tela e o modelo: cada chamada da pergunta tem id único.
           calls = calls.map((call) => {
@@ -311,18 +581,18 @@ export function createCopilot(deps: {
             const key = callKey(call);
             let outcome: CopilotToolOutcome;
             const repeated = answered.get(key);
-            if (toolResultChars >= COPILOT_TOOL_RESULTS_MAX_CHARS) {
+            const denied = (summary: string, resumo: string): CopilotToolOutcome => ({
+              status: 'denied',
+              summary,
+              links: [],
+              forModel: JSON.stringify({ status: 'denied', resumo, dados: null }),
+            });
+            if (!roomForAnother()) {
               // Várias leituras pedidas de uma vez passariam muito do teto (até 6 mil cada).
-              outcome = {
-                status: 'denied',
-                summary: 'Não consultado: a pergunta já juntou texto demais.',
-                links: [],
-                forModel: JSON.stringify({
-                  status: 'denied',
-                  resumo: TOOL_BUDGET_SPENT,
-                  dados: null,
-                }),
-              };
+              outcome = denied(
+                'Não consultado: a pergunta já juntou texto demais.',
+                TOOL_BUDGET_SPENT,
+              );
             } else if (repeated !== undefined) {
               outcome = {
                 status: 'ok',
@@ -332,7 +602,19 @@ export function createCopilot(deps: {
               };
             } else {
               outcome = await toolbox.execute(call, options.signal);
-              answered.set(key, outcome.forModel);
+              // Ferramenta que age (rascunho, fila) já agiu: trocar o resultado por "não coube"
+              // diria que nada aconteceu e perderia as frases do Prospector. O resultado dela é
+              // curto e vai inteiro; o corte vale só para leituras.
+              const acted = Boolean(spec?.draft || spec?.queue);
+              if (!acted && toolResultTokens + callTokens(call, outcome.forModel) > resultsBudget) {
+                // Maior que a reserva: entregue, estouraria a janela e a pergunta toda falharia.
+                outcome = denied(
+                  'Consultado, mas o resultado não coube no limite de texto da pergunta.',
+                  TOOL_RESULT_TOO_BIG,
+                );
+              } else {
+                answered.set(key, outcome.forModel);
+              }
             }
             yield {
               type: 'tool_result',
@@ -342,14 +624,30 @@ export function createCopilot(deps: {
               summary: outcome.summary,
               links: outcome.links,
             };
-            if (outcome.status !== 'denied') toolResultChars += outcome.forModel.length;
+            const fixed = takeFixedSentences(outcome.forModel);
+            if (outcome.status !== 'denied') toolResultChars += fixed.forModel.length;
+            toolResultTokens += callTokens(call, fixed.forModel);
+            for (const sentence of fixed.open)
+              if (!openings.includes(sentence)) openings.push(sentence);
+            for (const sentence of fixed.close)
+              if (!closings.includes(sentence)) closings.push(sentence);
             conversation.push({
               role: 'tool',
-              content: outcome.forModel,
+              content: fixed.forModel,
               toolName: call.name,
               toolCallId: call.id,
             });
           }
+        }
+
+        // Frases do Prospector que o modelo não chegou a abrir (respondeu sem texto) e as de fecho.
+        const tail = [
+          ...(openings.length > 0 ? [openings.splice(0).join(' ')] : []),
+          ...closings.filter((sentence) => !shownText.includes(sentence)),
+        ].join(' ');
+        if (tail) {
+          shownText += tail;
+          yield { type: 'delta', text: wroteText ? `\n\n${tail}` : tail };
         }
 
         if (lastDone) {
@@ -380,6 +678,9 @@ export function createCopilot(deps: {
             `[copiloto] falha ${failure.code} trace=${options.traceId} prompt=${promptId}${failure.detail ? ` detalhe=${failure.detail}` : ''}`,
           );
         }
+        // Nada do que o modelo escreveu some da tela por causa da falha.
+        if (held) yield* release(held);
+        if (echoBuffer) yield* emit(dropEchoes(true));
         yield { type: 'error', code: failure.code, message: failure.message };
       } finally {
         // Quem consome desistiu no meio da geração (navegador fechou): conta como cancelada.

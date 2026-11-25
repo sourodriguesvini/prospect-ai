@@ -10,7 +10,7 @@ import { Alert, Badge, DemoBadge, Panel, PanelHeader, Well } from '@prospector/u
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
-import { LifecycleForm } from '@/components/companies/company-forms';
+import { CnpjLinkForm, LifecycleForm } from '@/components/companies/company-forms';
 import { EvidenceGroups } from '@/components/companies/evidence-groups';
 import { CompanyRelationshipPanel } from '@/components/relationship/company-panel';
 import {
@@ -30,7 +30,7 @@ import { formatDate, formatDateTime } from '@/lib/format';
 import { companyDossier, companyTitle, loadCompanies } from '@/server/companies';
 import { cnpjLookupEnabled } from '@/server/env';
 import { loadInvestigationPanel } from '@/server/investigations';
-import { changeLifecycleAction, refreshRegistryAction } from '../actions';
+import { changeLifecycleAction, linkCnpjAction, refreshRegistryAction } from '../actions';
 
 type Props = PageProps<'/empresas/[id]'>;
 
@@ -85,6 +85,8 @@ function noticeText(notice: CompanyNotice, changed: number | null): string {
       return 'Cancelamento pedido. A etapa atual para no meio; o que já foi coletado fica guardado.';
     case COMPANY_NOTICES.siteConfirmed:
       return 'Site oficial confirmado. Investigue de novo para ler as páginas e capturar a marca.';
+    case COMPANY_NOTICES.cnpjLinked:
+      return 'CNPJ vinculado: os dados da Receita estão em Evidências. Investigue de novo para a adequação ao ICP usar porte, atividade e situação.';
   }
 }
 
@@ -103,6 +105,16 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** CNPJ do cadastro ou, sem ele, o vinculado depois (lido no site ou informado por você). */
+function companyCnpj(dossier: CompanyDossier): string | null {
+  return dossier.company.cnpj ?? dossier.linkedCnpj?.cnpj ?? null;
+}
+
+const LINKED_ORIGIN_LABELS = {
+  company_site: 'lido no site da empresa',
+  user: 'informado por você',
+} as const;
+
 function identifierValue(identifier: CompanyIdentifier): string {
   return identifier.kind === 'cnpj'
     ? formatCnpj(identifier.valueNormalized)
@@ -113,12 +125,28 @@ function Registry({ dossier }: { dossier: CompanyDossier }) {
   const { company } = dossier;
   const identifiers = dossier.identifiers.filter((item) => IDENTIFIER_LABELS[item.kind]);
   const empty = <span className="text-muted-foreground">Não informado</span>;
+  const linked = company.cnpj ? null : dossier.linkedCnpj;
+  const editing = companyCnpj(dossier) ? (
+    'Editar os outros dados do cadastro ainda não é possível nesta versão.'
+  ) : (
+    <>
+      Sem CNPJ: informe-o em{' '}
+      <a href="#receita" className="underline underline-offset-4">
+        Receita Federal
+      </a>{' '}
+      para trazer porte, atividade e situação.
+    </>
+  );
   return (
     <Panel aria-labelledby="cadastro">
       <PanelHeader
         titleId="cadastro"
         title="Cadastro"
-        description={`${REGISTRY_DESCRIPTIONS[company.origin]} Editar o cadastro ainda não é possível nesta versão.`}
+        description={
+          <>
+            {REGISTRY_DESCRIPTIONS[company.origin]} {editing}
+          </>
+        }
       />
       {dossier.individual ? (
         <Alert tone="warning" className="mb-5">
@@ -129,7 +157,20 @@ function Registry({ dossier }: { dossier: CompanyDossier }) {
       ) : null}
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Razão social">{company.legalName ?? empty}</Field>
-        <Field label="CNPJ">{company.cnpj ? formatCnpj(company.cnpj) : empty}</Field>
+        <Field label="CNPJ">
+          {company.cnpj ? (
+            formatCnpj(company.cnpj)
+          ) : linked ? (
+            <>
+              {formatCnpj(linked.cnpj)}
+              <span className="block text-xs text-muted-foreground">
+                {LINKED_ORIGIN_LABELS[linked.origin]}; a fonte está em Evidências
+              </span>
+            </>
+          ) : (
+            empty
+          )}
+        </Field>
         <Field label="Site">{company.primaryDomain ?? empty}</Field>
         <Field label="Cidade">
           {company.city ? [company.city, company.uf].filter(Boolean).join('/') : empty}
@@ -187,8 +228,9 @@ function Claims({ dossier }: { dossier: CompanyDossier }) {
       />
       {claims.length === 0 ? (
         <Well className="py-8 text-center text-sm text-muted-foreground">
-          Nenhum fato registrado. Com o CNPJ cadastrado, consulte a Receita para trazer os dados do
-          registro com a fonte.
+          {companyCnpj(dossier)
+            ? 'Nenhum fato registrado. Consulte a Receita para trazer os dados do registro com a fonte.'
+            : 'Nenhum fato registrado. Informe o CNPJ em Receita Federal ou investigue a empresa para coletar o que o site e a internet mostram, com a fonte.'}
         </Well>
       ) : (
         <EvidenceGroups views={claims} />
@@ -232,12 +274,21 @@ function RegistryLookup({ dossier }: { dossier: CompanyDossier }) {
         Empresa arquivada não recebe novas consultas. Mude a etapa para consultar.
       </p>
     );
-  } else if (!company.cnpj) {
+  } else if (!companyCnpj(dossier) && !cnpjLookupEnabled()) {
     body = (
       <p className="text-sm text-muted-foreground">
-        Sem CNPJ cadastrado, não há o que consultar na Receita. Editar o cadastro ainda não é
-        possível nesta versão.
+        Sem CNPJ cadastrado, e a consulta de CNPJ está desligada nesta instalação.
       </p>
+    );
+  } else if (!companyCnpj(dossier)) {
+    body = (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Sem CNPJ cadastrado. A investigação procura o CNPJ no site da empresa; se não achar,
+          informe aqui. Nada é gravado se a Receita não confirmar.
+        </p>
+        <CnpjLinkForm action={linkCnpjAction.bind(null, company.id)} />
+      </div>
     );
   } else if (!cnpjLookupEnabled()) {
     body = (
@@ -291,6 +342,7 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
   const query = await searchParams;
   const notice = Object.values(COMPANY_NOTICES).find((value) => value === query.aviso);
   const archived = company.lifecycle === 'archived';
+  const cnpj = companyCnpj(dossier);
 
   return (
     <>
@@ -309,9 +361,8 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
           </>
         }
         description={
-          [company.legalName, company.cnpj ? formatCnpj(company.cnpj) : null]
-            .filter(Boolean)
-            .join(' · ') || undefined
+          [company.legalName, cnpj ? formatCnpj(cnpj) : null].filter(Boolean).join(' · ') ||
+          undefined
         }
       />
       {notice ? (

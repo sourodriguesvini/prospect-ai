@@ -34,6 +34,7 @@ import {
   stepSignals,
   stepSite,
 } from './investigation/collect';
+import { withCnpjFromSite } from './investigation/cnpj-from-site';
 import { stepQualification } from './investigation/qualify';
 import {
   claimsWithPrefix,
@@ -57,7 +58,7 @@ export type { InvestigationDeps } from './investigation/run';
 const STEPS: StepTable = {
   context: stepContext,
   site: stepSite,
-  pages: stepPages,
+  pages: withCnpjFromSite(stepPages),
   capture: stepCapture,
   business_analysis: stepBusiness,
   visual_analysis: stepVisual,

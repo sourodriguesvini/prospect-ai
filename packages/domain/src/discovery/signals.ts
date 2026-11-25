@@ -186,3 +186,99 @@ export function formatPartialDate(date: PartialDate): string {
   }
   return `${day}/${month}/${year}`;
 }
+
+/** Lugares que uma expansão abre: "nova loja", "3ª unidade", "abre filial". */
+const UNIT = String.raw`(unidades?|lojas?|filia(l|is)|sedes?|clinicas?|enderecos?|pontos?|espacos?|fabricas?|franquias?|restaurantes?|escritorios?|operac(ao|oes)|plantas?|hospita(l|is)|consultorios?|academias?|escolas?|farmacias?|agencias?|centros? de distribuicao|galp(ao|oes)|quiosques?)`;
+
+/** Palavras que podem vir entre o verbo e o lugar ("abre sua segunda loja"). */
+const BEFORE_UNIT = String.raw`((a|o|as|os|sua|seu|suas|seus|mais|uma?|duas|tres|\d+|primeir[ao]s?|segund[ao]s?|terceir[ao]s?|quart[ao]s?|nov[ao]s?) )*`;
+
+/** Dias e horários: "abrimos no sábado", "abre aos domingos" falam do horário, não de loja nova. */
+const SCHEDULE = String.raw`(sabados?|domingos?|feriados?|segundas?|tercas?|quartas?|quintas?|sextas?|dias?|fins? de semana|fim de semana|horarios?|periodos?|natal|carnaval|mesmo dia|manha|tarde|noite|madrugada|\d)`;
+
+/** Depois de "chega em/no": prazo de entrega ou frase feita, não cidade nova. */
+const NOT_A_PLACE = String.raw`(hora|horas|vez|momento|fim|final|ate|mesmo|sua|seu|suas|seus|casa|lojas?|minutos?|dias?|\d)`;
+
+/**
+ * Marcas de acontecimento num trecho de expansão: verbo de abrir, inaugurar, ampliar, chegar ou
+ * anunciar com o lugar que abre, "nova unidade", "3ª loja", "em breve mais uma". Sem nenhuma delas
+ * o trecho só descreve o que já existe. Palavra solta não basta: "a nova forma de cuidar", "rede
+ * em expansão", "abre às 8h", "móveis planejados" e "instalações modernas" são frases de loja
+ * (revisão do KI-148). Também não bastam horário ("abrimos no sábado"), prazo de entrega ("chega
+ * em até 2 horas"), especialidade ("especialistas em reforma"), programa de pontos ("acumule
+ * novos pontos") e serviço ("ampliação de cílios") (segunda revisão do KI-148).
+ */
+const EXPANSION_EVENT = new RegExp(
+  [
+    String.raw`\b(re)?inaugur\w*`,
+    String.raw`\breabr(e|em|iu|iram|ira|irao|indo)\b`,
+    String.raw`\babr(e|em|iu|iram|ira|irao|indo|ir|imos|iremos) (as portas|${BEFORE_UNIT}${UNIT}\b|(em|no|na|nos|nas) (?!${SCHEDULE}\b))`,
+    String.raw`\babertura (d[aeo]s? )?${BEFORE_UNIT}${UNIT}\b`,
+    String.raw`\babertura em\b`,
+    String.raw`\b(foi|foram|sera|serao|recem|acaba de ser|acabou de ser) abert[ao]s?\b`,
+    String.raw`\bnov[ao]s? (${UNIT}|cidades?|estados?|pracas?)\b`,
+    String.raw`\b(proxim|futur)[ao]s? ${UNIT}\b`,
+    String.raw`\bexpand(e|em|iu|iram|ira|irao|ir|indo)\b`,
+    String.raw`\bplanos? de expansao\b`,
+    String.raw`(?<!\bem )\bexpansao (para|pelo|pela|no|na|nos|nas|em|ate|rumo|d[aeo]s? ${UNIT})\b`,
+    String.raw`\bampli(a|am|ou|aram|ara|ar|ando) ${BEFORE_UNIT}(${UNIT}|presenca|atuacao|estrutura|capacidade|rede|area|operacao)\b`,
+    String.raw`\bampliacao d[aeo]s? ${BEFORE_UNIT}(${UNIT}|presenca|atuacao|estrutura|capacidade|rede|area|operacao)\b`,
+    String.raw`\bganh(a|am|ou|aram|ara|ar|ando) ${BEFORE_UNIT}${UNIT}\b`,
+    String.raw`\bganh(a|am|ou|aram|ara|ar|ando) (mais|nova|novo|novas|novos)\b`,
+    String.raw`\bcheg(a|am|ou|aram|ara|ar|ando|ada) (a|ao|em|no|na|nos|nas) (?!${NOT_A_PLACE}\b)`,
+    String.raw`\bdesembarc(a|am|ou|aram|ara|ar|ando)\b`,
+    String.raw`\bestrei(a|am|ou|aram|ara) ((em|no|na|nos|nas)\b|${BEFORE_UNIT}${UNIT}\b)`,
+    String.raw`\b(comec|pass)(a|am|ou|aram|ara|ar) a (atender|operar|funcionar)\b`,
+    String.raw`\binici(a|am|ou|aram|ara|ar) (as )?(atividades|operac(ao|oes))\b`,
+    String.raw`\bse instal(a|am|ou|aram|ara|ar|ando) (em|no|na|nos|nas)\b`,
+    String.raw`\binstal(a|am|ou|aram|ara|ar|ando)( se)? (em|no|na|nos|nas) (?!${NOT_A_PLACE}\b|residencias?\b|empresas?\b)`,
+    String.raw`\binstal(a|am|ou|aram|ara|ar|ando) ${BEFORE_UNIT}${UNIT}\b`,
+    String.raw`\bagora tambem (em|no|na|nos|nas)\b`,
+    String.raw`\blev(a|am|ou|aram|ara|ar|ando) ${BEFORE_UNIT}(${UNIT}|marca|rede|negocio) (para|a|ao)\b`,
+    String.raw`\bter(a|ao) ${BEFORE_UNIT}${UNIT} (em|no|na|nos|nas)\b`,
+    String.raw`\banunci(a|am|ou|aram|ara|ando)\b`,
+    String.raw`\bplanej(a|am|ou|aram|ava|avam|ando)\b`,
+    String.raw`\b(preve|preveem|prevista|previsto|previstas|previstos|pretende|pretendem)\b`,
+    String.raw`\b(vai|vao|ira|irao) (abrir|inaugurar|ganhar|chegar|ampliar|expandir|instalar)\b`,
+    String.raw`\b(vai|vao|ira|irao|deve|devem) (somar|ter|alcancar|atingir|chegar a) ${BEFORE_UNIT}${UNIT}\b`,
+    String.raw`(?<!\b(especialistas?|especializad[ao]s?|especialidade|servicos?|atuamos|atua|trabalhamos|trabalha|experiencia|referencia|solucoes) )\bem (obras|construcao|reforma)\b(?! (civil|de|residencia\w*|comercia\w*|predia\w*)\b)`,
+    String.raw`\b(obras|construcao|reforma) d[aeo]s? ${BEFORE_UNIT}${UNIT}\b`,
+    String.raw`\bem breve (mais|nova|novo|novas|novos|uma?|em|no|na|${UNIT})\b`,
+    String.raw`\b(segund|terceir|quart|quint|sext|setim|oitav|non|decim)[ao]s? ${UNIT}\b`,
+    String.raw`\b\d+[ao] ${UNIT}\b`,
+    String.raw`\bmud(a|am|ou|aram|ara)( se)? (para|de endereco|de sede)\b`,
+    String.raw`\bmudanca (de endereco|de sede|para)\b`,
+  ].join('|'),
+);
+
+/** Trechos que falam do passado ou de outra coisa e saem antes da conferência. */
+const NOT_AN_EVENT: readonly RegExp[] = [
+  // Programa de pontos: "acumule novos pontos e troque por descontos".
+  /\b(acumul\w*|junte|juntar|ganhe|troque|trocar|resgate|resgatar|some|somar)( (seus|os|mais|novos|seus novos))* pontos?\b/g,
+];
+
+/** "Inaugurada em 1987", "fundada em 1998": história da empresa, não acontecimento recente. */
+const PAST_YEAR =
+  /\b(foi |foram |e |sendo )?(re)?(inaugurad|fundad|criad|abert)[ao]s? (em|no ano de) ((19|20)\d\d)\b/g;
+
+/**
+ * O trecho de um sinal de expansão mostra um acontecimento (KI-148)? Frase institucional de
+ * página de loja ("mais uma unidade do maior pet shop do Brasil", "a maior rede do Sul",
+ * "presente em 20 cidades") descreve o que já existe e não é sinal: o servidor descarta.
+ * `referenceYear` é o ano da pesquisa: "inaugurada em <ano>" só conta se o ano for este ou o
+ * anterior; sem ele, a frase com ano conta como história.
+ */
+export function expansionEventIn(quote: string, referenceYear?: number): boolean {
+  // NFKD também desfaz "ª" e "º" ("3ª unidade" → "3a unidade").
+  let text = ` ${quote
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')} `;
+  text = text.replace(PAST_YEAR, (whole: string, ...groups: unknown[]) => {
+    const year = Number(groups[4]);
+    return referenceYear !== undefined && year >= referenceYear - 1 ? whole : ' ';
+  });
+  for (const pattern of NOT_AN_EVENT) text = text.replace(pattern, ' ');
+  return EXPANSION_EVENT.test(text);
+}

@@ -64,6 +64,11 @@ export const BusinessAnalysisOutput = z.object({
   regions: items(3),
   /** Sinais de momento declarados no próprio site (nova unidade, vagas, lançamento…). */
   signals: items(3),
+  /**
+   * O ramo como o site se apresenta ("pet shop", "clínica odontológica"), com trecho literal.
+   * Só a partir do `company-business/v2` (na v1 não vem). Serve para a pesquisa de concorrentes.
+   */
+  segment: ExtractedItem.nullable().optional().catch(undefined),
   valueProposition: ModelInference.nullable().default(null),
   toneOfVoice: ModelInference.nullable().default(null),
   businessModel: ModelInference.nullable().default(null),
@@ -211,6 +216,21 @@ export const DiagnosisOutput = z.object({
         problemsMatched: z.array(z.number().int().min(1).max(20)).default([]),
         signalsMatched: z.array(z.number().int().min(1).max(20)).default([]),
         disqualifiersHit: z.array(z.number().int().min(1).max(20)).default([]),
+        /**
+         * Desqualificadores com o fato que os mostra (`diagnosis/v2`, KI-133): o servidor só aceita
+         * quando o fato citado existe, é fato e fala do mesmo assunto. Na v1 não vem.
+         */
+        disqualifiers: z
+          .array(
+            z.object({
+              position: z.number().int().min(1).max(20),
+              basedOn: Refs(4),
+              reasoning: cut(300),
+            }),
+          )
+          .transform((list) => list.slice(0, 6))
+          .optional()
+          .catch(undefined),
       }),
     )
     .transform((list) => list.slice(0, 6))

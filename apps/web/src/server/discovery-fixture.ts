@@ -110,7 +110,7 @@ export function syntheticDiscoveryWeb(
 }
 
 export const syntheticDiscoveryAi: DiscoveryAi = {
-  promptIds: { interpreter: 'discovery-interpreter/v1', extractor: 'discovery-extractor/v2' },
+  promptIds: { interpreter: 'discovery-interpreter/v4', extractor: 'discovery-extractor/v2' },
   async interpret(input) {
     const empty = input.request.toLowerCase().includes(FIXTURE_EMPTY_TERM);
     return InterpreterOutput.parse({

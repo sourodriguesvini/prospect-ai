@@ -139,6 +139,36 @@ export function createSupabaseCompanyRepository(
       ).map(mapIdentifier);
     },
 
+    async addIdentifiers(companyId, identifiers, audit) {
+      const existing = (await rows(
+        client
+          .from('company_identifiers')
+          .select('kind, value_normalized')
+          .eq('company_id', companyId),
+      )) as Array<{ kind?: unknown; value_normalized?: unknown }>;
+      const fresh = identifiers.filter(
+        (key) =>
+          !existing.some(
+            (item) => item.kind === key.kind && item.value_normalized === key.valueNormalized,
+          ),
+      );
+      if (fresh.length === 0) return;
+      try {
+        await run(
+          client
+            .from('company_identifiers')
+            .insert(fresh.map((key) => ({ company_id: companyId, ...identifierColumns(key) })))
+            .setHeader(AUDIT_HEADER, encodeAuditHeader('company_identifiers', audit)),
+        );
+      } catch (error) {
+        // Índice único das chaves fortes: o CNPJ já é de outra empresa.
+        if (error instanceof AppError && error.reason === 'concurrent_change') {
+          throw new AppError('conflict', 'company_duplicate', { cause: error });
+        }
+        throw error;
+      }
+    },
+
     async create(company, identifiers, batch, audit) {
       const id = await run(
         client

@@ -34,11 +34,11 @@ function fold(text: string): string {
 const PATTERNS: readonly [ForbiddenCode, RegExp][] = [
   [
     'revenue',
-    /\b(faturamento|fatura (cerca|mais|menos|ate|r\$)|receita (anual|mensal|bruta|liquida)|lucro|lucrativ|margem de lucro)/,
+    /\b(faturamento|fatura (cerca|mais|menos|ate|r\$)|receita (anual|mensal|bruta|liquida)|lucro|lucra|lucrativ|margem de lucro)/,
   ],
   [
     'budget',
-    /\b(orcamento|verba)\b|\b(investe|gasta|investiu|gastou|destina)\b[^.]{0,40}(r\$|\bmil\b|milh)|\b(falta de (investimento|recursos|dinheiro)|(nao|pouco) (investe|investiu|investimento)|investe pouco|investiu pouco|sem (dinheiro|recursos financeiros)|(reduzir|cortar|corte de|reducao de) custos)/,
+    /\b(orcamento|verba)\b|\b(investe|gasta|investiu|gastou|destina)\b[^.]{0,40}(r\$|\bmil\b|milh)|\b(falta de (investimento|recursos|dinheiro)|(nao|pouco) (investe|investiu|investimento)|investe pouco|investiu pouco|sem (dinheiro|recursos financeiros)|(reduzir|cortar|corte de|reducao de) custos(?! (de|dos|das|para|com|na|no|nas|nos|em) \w))/,
   ],
   [
     'conversion',
@@ -71,11 +71,26 @@ export interface ForbiddenHit {
   reason: string;
 }
 
-/** Primeira afirmação proibida no texto, ou null. */
-export function forbiddenAssertion(text: string): ForbiddenHit | null {
+/**
+ * "Orçamento" no sentido de cotação ("Peça seu orçamento", "orçamento grátis", "Orçamento na
+ * hora") é chamada do site, não verba da empresa.
+ */
+const QUOTE_REQUEST =
+  /\b(peca|pecam|solicite|solicitem|pedir|solicitar|solicitacao de|pedido de|faca|facam|fazer|fazemos|receba|receber|envie|enviamos|enviar|elaboramos|elaborar|gere|gerar|simule|simular|calcule|calcular)( o| um| seu| sua| o seu| uma| seus)? (orcamento|cotacao)s?\b|\b(orcamento|cotacao)s? (gratis|gratuit\w*|sem compromisso|na hora|online|on-line|rapid\w*|imediat\w*|personalizad\w*|sob medida|(pelo|por|via) whatsapp|em ate|no mesmo dia|express\w*|sem custo)\b/g;
+
+/**
+ * Primeira afirmação proibida no texto, ou null. `allow` libera códigos onde o assunto é legítimo
+ * (a objeção "Não temos orçamento agora" é o que a empresa pode dizer, não afirmação sobre ela).
+ */
+export function forbiddenAssertion(
+  text: string,
+  options: { allow?: readonly ForbiddenCode[] } = {},
+): ForbiddenHit | null {
   const folded = fold(text);
   for (const [code, pattern] of PATTERNS) {
-    if (pattern.test(folded)) return { code, reason: FORBIDDEN_REASONS[code] };
+    if (options.allow?.includes(code)) continue;
+    const subject = code === 'budget' ? folded.replace(QUOTE_REQUEST, ' ') : folded;
+    if (pattern.test(subject)) return { code, reason: FORBIDDEN_REASONS[code] };
   }
   for (const sentence of folded.split(/(?<=[.!?;])\s+/)) {
     if (NEEDS_SERVICE.test(sentence) && !HEDGE.test(sentence)) {
@@ -174,8 +189,18 @@ export function resolveRefs<T>(
   return { resolved, unknown };
 }
 
+/**
+ * O que a verificação fez com o que a IA escreveu: conclusões descartadas, textos ajustados
+ * (intensificador tirado, frase contra a auditoria cortada) e itens que o servidor acrescentou
+ * (sinal de vagas lido no site). Os motivos levam o trecho atingido (regra 8: o usuário vê o que
+ * saiu e o que mudou).
+ */
 export interface VerificationLog {
   discarded: number;
+  /** Textos da IA que o servidor mudou (sem descartar a conclusão). */
+  altered?: number;
+  /** Itens que o servidor acrescentou ao que a IA trouxe. */
+  added?: number;
   reasons: string[];
 }
 
@@ -183,10 +208,30 @@ export function emptyVerificationLog(): VerificationLog {
   return { discarded: 0, reasons: [] };
 }
 
+function pushReason(log: VerificationLog, reason: string): void {
+  const text = reason.length > 160 ? `${reason.slice(0, 159)}…` : reason;
+  if (!log.reasons.includes(text) && log.reasons.length < 10) log.reasons.push(text);
+}
+
 /** Conta um descarte; o motivo entra uma vez só (no máximo 10 motivos, 160 caracteres cada). */
 export function recordDiscard(log: VerificationLog, reason: string, count = 1): void {
   if (count <= 0) return;
   log.discarded += count;
-  const text = reason.length > 160 ? `${reason.slice(0, 159)}…` : reason;
-  if (!log.reasons.includes(text) && log.reasons.length < 10) log.reasons.push(text);
+  pushReason(log, reason);
+}
+
+/** Conta um texto ajustado ou um item acrescentado pelo servidor (não é descarte). */
+export function recordChange(
+  log: VerificationLog,
+  kind: 'altered' | 'added',
+  reason: string,
+): void {
+  log[kind] = (log[kind] ?? 0) + 1;
+  pushReason(log, reason);
+}
+
+/** Trecho curto entre aspas para o motivo ("…"), dentro do limite de 160 caracteres. */
+export function excerpt(text: string, max = 70): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return `“${flat.length > max ? `${flat.slice(0, max - 1)}…` : flat}”`;
 }

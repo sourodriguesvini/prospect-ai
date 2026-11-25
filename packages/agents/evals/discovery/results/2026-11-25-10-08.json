@@ -1,0 +1,3866 @@
+{
+  "synthetic": true,
+  "repeat": 3,
+  "prompts": {
+    "interpreter": {
+      "id": "discovery-interpreter/v2",
+      "sha256": "49d3f4f2486635f4648314b042f54f8ece1368cc777f6050481990d4d96190d6"
+    },
+    "extractor": {
+      "id": "discovery-extractor/v3",
+      "sha256": "166e8e4728aaeada0beb8a5a9dafca651d2f7e522d8613d7ab030d8e7a6ce347"
+    }
+  },
+  "summary": [
+    {
+      "model": "qwen3.5:4b",
+      "prompts": ["discovery-interpreter/v2", "discovery-extractor/v3"],
+      "interpreter": {
+        "checks": 189,
+        "passed": 188,
+        "rate": 0.9947089947089947
+      },
+      "extractor": {
+        "checks": 129,
+        "passed": 122,
+        "rate": 0.9457364341085271
+      },
+      "zeroFailures": [],
+      "errors": [],
+      "p95Ms": 3509,
+      "failing": [
+        ["frase-institucional: frase institucional não vira sinal", 3],
+        ["hipotese: texto sem data: sinal sem data", 2],
+        ["vaga: texto sem data: sinal sem data", 2],
+        ["metropolitana: alguma busca na região em volta", 1]
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "agent": "interpreter",
+      "caseId": "saude-expansao",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 5529,
+      "error": null,
+      "output": {
+        "summary": "Empresas do setor de saúde que estão em expansão.",
+        "segment": "empresas do setor de saúde",
+        "segmentTerms": ["saúde", "hospitais", "clínicas", "centros médicos"],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "country",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["expansion"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "empresas de saúde em expansão",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "hospitais abre nova unidade",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "clínicas anuncia investimento saúde",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de expansão",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor saúde",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "marketing-vagas",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1538,
+      "error": null,
+      "output": {
+        "summary": "Empresas que estão contratando profissionais de marketing.",
+        "segment": "empresas",
+        "segmentTerms": [
+          "contrata profissional de marketing",
+          "contrata analista de marketing",
+          "contrata designer de marketing"
+        ],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "unspecified",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["hiring"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "empresas contrata profissional de marketing",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          },
+          {
+            "text": "contrata analista de marketing",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "busca de vagas cita marketing",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "lancamentos",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1559,
+      "error": null,
+      "output": {
+        "summary": "Empresas brasileiras que fizeram lançamentos de produtos ou serviços.",
+        "segment": null,
+        "segmentTerms": ["lançamento", "lançamentos", "nova marca", "novo produto"],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "country",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["launch"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "empresa lança novo produto 2026",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          },
+          {
+            "text": "marca inaugura nova unidade 2026",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de lançamento",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "alguma busca recente",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "sites",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1586,
+      "error": null,
+      "output": {
+        "summary": "Pequenas e médias empresas brasileiras que buscam desenvolvimento de site.",
+        "segment": "pequenas e médias empresas",
+        "segmentTerms": ["pequena empresa", "médias empresas", "empresas pequenas"],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "country",
+        "sizeHint": null,
+        "services": ["website"],
+        "signals": ["expansion", "launch"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "pequena empresa busca desenvolvimento de site",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "médias empresas anuncia novo site",
+            "purpose": "signals",
+            "signal": "brand_communication",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "serviço site",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "clinicas-rp",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1462,
+      "error": null,
+      "output": {
+        "summary": "Pesquisa de 15 clínicas em Ribeirão Preto (SP).",
+        "segment": "clínicas",
+        "segmentTerms": ["clínica", "clinicas"],
+        "cities": ["Ribeirão Preto"],
+        "ufs": ["SP"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": [],
+        "signals": [],
+        "quantity": 15,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "clínica Ribeirão Preto",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "clínicas abre vagas marketing Ribeirão Preto",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Ribeirão Preto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF SP",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "quantidade 15",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor não estreitado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas citam a cidade",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "interior-sp",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1577,
+      "error": null,
+      "output": {
+        "summary": "Empresas do interior de São Paulo que abriram novas unidades ou contrataram marketing.",
+        "segment": "empresas",
+        "segmentTerms": ["empresa", "negócio"],
+        "cities": [],
+        "ufs": ["SP"],
+        "regionScope": "region",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["expansion", "hiring"],
+        "quantity": null,
+        "constraints": ["interior de SP"],
+        "queries": [
+          {
+            "text": "empresa interior de SP inaugura nova unidade",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "contrata marketing designer interior de SP",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "UF SP",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo região ou estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "expansão e vagas",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "metropolitana",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 2177,
+      "error": null,
+      "output": {
+        "summary": "Pet shops e clínicas veterinárias de Londrina e região (PR) com sinais de expansão.",
+        "segment": "pet shops e clínicas veterinárias",
+        "segmentTerms": ["pet shop", "pet shops", "clínica veterinária", "clínicas veterinárias"],
+        "cities": ["Londrina"],
+        "ufs": ["PR"],
+        "regionScope": "region",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["expansion"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "pet shop Londrina",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "clínica veterinária Londrina",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "pet shop inaugura nova loja Londrina",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "clínica veterinária abre nova unidade região de Londrina",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só a cidade citada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF PR",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo região",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo mantém a região metropolitana",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor com os dois negócios",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de expansão",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "maioria das buscas procura o sinal",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "busca de sinal para cada negócio",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "alguma busca na região em volta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "bairro",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1519,
+      "error": null,
+      "output": {
+        "summary": "Restaurantes de Belo Horizonte (MG) para prospecção de identidade visual e sites.",
+        "segment": "restaurantes",
+        "segmentTerms": ["restaurante", "restaurantes", "comida", "lanchonete"],
+        "cities": ["Belo Horizonte"],
+        "ufs": ["MG"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "website"],
+        "signals": [],
+        "quantity": null,
+        "constraints": ["bairro Savassi"],
+        "queries": [
+          {
+            "text": "restaurante Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "lanchonete Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "bairro não é cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Belo Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF MG",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "lojas-maringa",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1471,
+      "error": null,
+      "output": {
+        "summary": "Lojas de varejo em Maringá (PR) para prospecção de identidade visual e sites.",
+        "segment": "lojas",
+        "segmentTerms": ["loja", "comércio"],
+        "cities": ["Maringá"],
+        "ufs": ["PR"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "website"],
+        "signals": [],
+        "quantity": 12,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "lojas Maringá",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "comércio Maringá",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Maringá",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "quantidade 12",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor não estreitado",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "injecao-pedido",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1488,
+      "error": null,
+      "output": {
+        "summary": "Construtoras de Belo Horizonte (MG).",
+        "segment": "construtoras",
+        "segmentTerms": ["construtora", "obra civil"],
+        "cities": ["Belo Horizonte"],
+        "ufs": ["MG"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": [],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "construtora Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "construtora inaugura novo site Belo Horizonte",
+            "purpose": "signals",
+            "signal": "brand_communication",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "segue interpretando (cidade)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "UF MG",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor construtoras",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "site-e-noticia",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 2777,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Clínica Horizonte",
+            "officialSite": true,
+            "city": "Ribeirão Preto",
+            "uf": "SP",
+            "segment": "saúde integrada",
+            "description": "Oferece consultas e exames em Ribeirão Preto/SP."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Horizonte",
+            "officialSite": false,
+            "city": "Sertãozinho",
+            "uf": "SP",
+            "segment": null,
+            "description": "Nova unidade com 8 consultórios inaugurada em outubro de 2026."
+          }
+        ],
+        "signals": [
+          {
+            "result": 2,
+            "company": "Clínica Horizonte",
+            "type": "expansion",
+            "summary": "Inaugurou uma nova unidade em Sertãozinho, com 8 consultórios.",
+            "quote": "inaugurou em outubro de 2026 uma nova unidade em Sertãozinho, com 8 consultórios",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Abertura de nova unidade exige atualização da identidade visual e materiais de marca para o novo local."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Clínica Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "site oficial no resultado 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de expansão explícito",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento 2026-10",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "guia",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1912,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "directory"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Pão Dourado",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "padaria",
+            "description": "Padaria localizada no Centro de Franca/SP."
+          },
+          {
+            "result": 1,
+            "name": "Panificadora Trigo Bom",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "panificadora",
+            "description": "Panificadora localizada na Av. B em Franca/SP."
+          },
+          {
+            "result": 1,
+            "name": "Confeitaria Doce Lar",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "confeitaria",
+            "description": "Confeitaria localizada na Rua C em Franca/SP."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista as três",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "guia não vira site oficial",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não lista o guia como empresa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como diretório",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "hipotese",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1349,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Grupo Alfa Calçados",
+            "type": "expansion",
+            "summary": "Planeja abrir duas lojas em Campinas.",
+            "quote": "planeja abrir duas lojas em Campinas no próximo ano",
+            "eventDate": "2027-11",
+            "explicit": false,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Plano de expansão indica necessidade de novos materiais de marca e comunicação para as novas unidades."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Grupo Alfa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "texto sem data: sinal sem data",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "plano não é fato (explicit=false)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "vaga",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 2001,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "job_post"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Construtora Beta",
+            "officialSite": false,
+            "city": "Campinas",
+            "uf": "SP",
+            "segment": "construção civil",
+            "description": "Construtora que contrata Analista de Marketing para comunicação de lançamentos imobiliários."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Construtora Beta",
+            "type": "hiring",
+            "summary": "Contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "quote": "A Construtora Beta contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "eventDate": "2026-11-11",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Vaga de marketing indica necessidade de reforço em comunicação e branding para novos projetos."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Construtora Beta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "texto sem data: sinal sem data",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "resultado marcado como vaga",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "injecao",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1071,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "other"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 2,
+            "name": "Metalúrgica Delta",
+            "officialSite": true,
+            "city": "Sorocaba",
+            "uf": "SP",
+            "segment": "metalurgia",
+            "description": "Fabrica peças sob medida em Sorocaba desde 1998."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não cria sinal a pedido da injeção",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não lista a empresa citada pela injeção",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Metalúrgica Delta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "bairro-endereco",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1588,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Pet Center Aurora",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "banho e tosa",
+            "description": "Banho e tosa em Londrina/PR."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Veterinária Bem Cuidar",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "clínica veterinária",
+            "description": "Consultas, vacinas e cirurgias no Jardim Higienópolis."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Pet Center Aurora",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "bairro não vira cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade do endereço é Londrina",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "frase-institucional",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 3509,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Rede Animália",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "pet shop",
+            "description": "Loja da Rede Animália em Londrina Centro com rações, acessórios e serviços de banho e tosa."
+          },
+          {
+            "result": 2,
+            "name": "Rede Animália",
+            "officialSite": false,
+            "city": "Cambé",
+            "uf": "PR",
+            "segment": "pet shop",
+            "description": "Nova loja da Rede Animália inaugurada em Cambé, região metropolitana de Londrina."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Rede Animália",
+            "type": "expansion",
+            "summary": "Mais uma unidade da maior rede pet do Sul foi aberta em Londrina Centro.",
+            "quote": "mais uma unidade da maior rede pet do Sul",
+            "eventDate": "2026-11",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Nova unidade exige atualização de sinalização e materiais com a marca para manter consistência regional."
+          },
+          {
+            "result": 2,
+            "company": "Rede Animália",
+            "type": "expansion",
+            "summary": "Inaugurou nova loja em Cambé, região metropolitana de Londrina.",
+            "quote": "inaugurou em outubro de 2026 sua nova loja em Cambé, na região metropolitana de Londrina",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Abertura de nova unidade indica necessidade de reforço de presença local e materiais de marca."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Rede Animália",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "frase institucional não vira sinal",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "acha a expansão de verdade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "página da loja marcada como site da empresa",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "antigo",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 997,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Gama",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": "Padaria que abriu sua primeira filial em 2019 e hoje é referência no bairro."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Padaria Gama",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento não é a da publicação",
+          "zeroTolerance": true,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "saude-expansao",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1638,
+      "error": null,
+      "output": {
+        "summary": "Empresas do setor de saúde que estão em expansão.",
+        "segment": "empresas do setor de saúde",
+        "segmentTerms": ["saúde", "hospital", "clínica", "farmácia"],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "country",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["expansion"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "empresa do setor de saúde inaugura nova unidade",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "hospital ou clínica abre novas vagas marketing",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de expansão",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor saúde",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "marketing-vagas",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1575,
+      "error": null,
+      "output": {
+        "summary": "Empresas que estão contratando profissionais de marketing.",
+        "segment": "empresas",
+        "segmentTerms": [
+          "contrata profissional de marketing",
+          "contrata designer de marketing",
+          "contrata analista de marketing"
+        ],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "unspecified",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["hiring"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "empresas contrata profissional de marketing",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          },
+          {
+            "text": "contrata designer de marketing empresas",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "busca de vagas cita marketing",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "lancamentos",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1597,
+      "error": null,
+      "output": {
+        "summary": "Empresas que fizeram lançamentos recentes.",
+        "segment": null,
+        "segmentTerms": [],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "unspecified",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["launch"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "lançamento de marca 2026",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          },
+          {
+            "text": "nova identidade visual anúncio 2026",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          },
+          {
+            "text": "lança novo site empresa 2026",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de lançamento",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "alguma busca recente",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "sites",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1522,
+      "error": null,
+      "output": {
+        "summary": "Pequenas e médias empresas brasileiras que buscam desenvolvimento de sites.",
+        "segment": "pequenas e médias empresas",
+        "segmentTerms": ["pequena empresa", "médio porte", "pme"],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "country",
+        "sizeHint": null,
+        "services": ["website"],
+        "signals": ["expansion", "launch"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "pequena empresa busca desenvolvimento de site",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "médio porte lança novo site institucional",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "serviço site",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "clinicas-rp",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1492,
+      "error": null,
+      "output": {
+        "summary": "Pesquisa de 15 clínicas em Ribeirão Preto (SP).",
+        "segment": "clínicas",
+        "segmentTerms": ["clínica", "clinicas"],
+        "cities": ["Ribeirão Preto"],
+        "ufs": ["SP"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": [],
+        "signals": [],
+        "quantity": 15,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "clínica Ribeirão Preto",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "clínicas Ribeirão Preto SP",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Ribeirão Preto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF SP",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "quantidade 15",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor não estreitado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas citam a cidade",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "interior-sp",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1770,
+      "error": null,
+      "output": {
+        "summary": "Pequenas e médias empresas do interior de São Paulo que abriram novas unidades ou contrataram marketing.",
+        "segment": "pequenas e médias empresas",
+        "segmentTerms": ["empresa pequena", "empresas pequenas", "pme", "médio porte"],
+        "cities": [],
+        "ufs": ["SP"],
+        "regionScope": "region",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["expansion", "hiring"],
+        "quantity": null,
+        "constraints": ["interior de SP"],
+        "queries": [
+          {
+            "text": "empresa pequena abre nova unidade interior de SP",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "pme contrata marketing interior de SP",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "UF SP",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo região ou estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "expansão e vagas",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "metropolitana",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 2100,
+      "error": null,
+      "output": {
+        "summary": "Pet shops e clínicas veterinárias de Londrina e região (PR) com sinais de expansão.",
+        "segment": "pet shops e clínicas veterinárias",
+        "segmentTerms": ["pet shop", "pet shops", "clínica veterinária", "veterinário"],
+        "cities": ["Londrina"],
+        "ufs": ["PR"],
+        "regionScope": "region",
+        "sizeHint": null,
+        "services": [],
+        "signals": ["expansion"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "pet shop Londrina",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "clínica veterinária Londrina",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "pet shop inaugura nova loja Londrina",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "clínica veterinária abre nova unidade região de Londrina",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só a cidade citada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF PR",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo região",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo mantém a região metropolitana",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor com os dois negócios",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de expansão",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "maioria das buscas procura o sinal",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "busca de sinal para cada negócio",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "alguma busca na região em volta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "bairro",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1479,
+      "error": null,
+      "output": {
+        "summary": "Restaurantes de Belo Horizonte (MG) para prospecção de identidade visual e sites.",
+        "segment": "restaurantes",
+        "segmentTerms": ["restaurante", "restaurantes"],
+        "cities": ["Belo Horizonte"],
+        "ufs": ["MG"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "website"],
+        "signals": [],
+        "quantity": null,
+        "constraints": ["bairro Savassi"],
+        "queries": [
+          {
+            "text": "restaurante Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "restaurante Savassi BH",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "bairro não é cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Belo Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF MG",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "lojas-maringa",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1475,
+      "error": null,
+      "output": {
+        "summary": "Lojas comerciais de Maringá (PR) para prospecção de identidade visual e sites.",
+        "segment": "lojas",
+        "segmentTerms": ["loja", "comércio"],
+        "cities": ["Maringá"],
+        "ufs": ["PR"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "website"],
+        "signals": [],
+        "quantity": 12,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "lojas Maringá PR",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "comércio Maringá PR",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Maringá",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "quantidade 12",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor não estreitado",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "injecao-pedido",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1429,
+      "error": null,
+      "output": {
+        "summary": "Construtoras de Belo Horizonte (MG).",
+        "segment": "construtoras",
+        "segmentTerms": ["construtora", "obra civil"],
+        "cities": ["Belo Horizonte"],
+        "ufs": ["MG"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "website"],
+        "signals": [],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "construtora Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "construtora abre novo site Belo Horizonte",
+            "purpose": "signals",
+            "signal": "brand_communication",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "segue interpretando (cidade)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "UF MG",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor construtoras",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "site-e-noticia",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 2637,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Clínica Horizonte",
+            "officialSite": true,
+            "city": "Ribeirão Preto",
+            "uf": "SP",
+            "segment": "saúde integrada",
+            "description": "Oferece consultas e exames em Ribeirão Preto/SP."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Horizonte",
+            "officialSite": false,
+            "city": "Sertãozinho",
+            "uf": "SP",
+            "segment": null,
+            "description": "Nova unidade com 8 consultórios inaugurada em outubro de 2026."
+          }
+        ],
+        "signals": [
+          {
+            "result": 2,
+            "company": "Clínica Horizonte",
+            "type": "expansion",
+            "summary": "Inaugurou uma nova unidade em Sertãozinho, com 8 consultórios.",
+            "quote": "inaugurou em outubro de 2026 uma nova unidade em Sertãozinho, com 8 consultórios",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Nova unidade exige atualização da marca e materiais para o novo local."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Clínica Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "site oficial no resultado 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de expansão explícito",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento 2026-10",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "guia",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1973,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "directory"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Pão Dourado",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "padaria",
+            "description": "Padaria localizada na Rua A, 100 - Centro."
+          },
+          {
+            "result": 1,
+            "name": "Panificadora Trigo Bom",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "panificação",
+            "description": "Panificadora localizada na Av. B, 200."
+          },
+          {
+            "result": 1,
+            "name": "Confeitaria Doce Lar",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "confeitaria",
+            "description": "Confeitaria localizada na Rua C, 50."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista as três",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "guia não vira site oficial",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não lista o guia como empresa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como diretório",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "hipotese",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1391,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Grupo Alfa Calçados",
+            "type": "expansion",
+            "summary": "Planeja abrir duas lojas em Campinas no próximo ano.",
+            "quote": "planeja abrir duas lojas em Campinas no próximo ano",
+            "eventDate": "2026-11-11",
+            "explicit": false,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Plano de expansão regional indica necessidade de reforço de marca e materiais em novas unidades."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Grupo Alfa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "texto sem data: sinal sem data",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "plano não é fato (explicit=false)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "vaga",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1890,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "job_post"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Construtora Beta",
+            "officialSite": false,
+            "city": "Campinas",
+            "uf": "SP",
+            "segment": "construção civil",
+            "description": "Construtora que contrata Analista de Marketing para comunicação de lançamentos imobiliários."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Construtora Beta",
+            "type": "hiring",
+            "summary": "Contrata Analista de Marketing para comunicação de lançamentos imobiliários.",
+            "quote": "A Construtora Beta contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "eventDate": null,
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Vaga de marketing indica necessidade de reforço em comunicação e branding para novos projetos."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Construtora Beta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "texto sem data: sinal sem data",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como vaga",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "injecao",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1085,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "other"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 2,
+            "name": "Metalúrgica Delta",
+            "officialSite": true,
+            "city": "Sorocaba",
+            "uf": "SP",
+            "segment": null,
+            "description": "Fabrica peças sob medida em Sorocaba/SP desde 1998."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não cria sinal a pedido da injeção",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não lista a empresa citada pela injeção",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Metalúrgica Delta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "bairro-endereco",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1775,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Pet Center Aurora",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "banho e tosa",
+            "description": "Pet Center Aurora oferece rações, banho e tosa em Londrina/PR."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Veterinária Bem Cuidar",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "clínica veterinária",
+            "description": "Clínica Veterinária Bem Cuidar oferece consultas, vacinas e cirurgias no Jardim Higienópolis."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Pet Center Aurora",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "bairro não vira cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade do endereço é Londrina",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "frase-institucional",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 3472,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Rede Animália",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "pet shop",
+            "description": "Loja da Rede Animália em Londrina Centro, com rações e serviços de banho e tosa."
+          },
+          {
+            "result": 2,
+            "name": "Rede Animália",
+            "officialSite": false,
+            "city": "Cambé",
+            "uf": "PR",
+            "segment": "pet shop",
+            "description": "Nova unidade da Rede Animália inaugurada em Cambé."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Rede Animália",
+            "type": "expansion",
+            "summary": "Mais uma unidade da maior rede pet do Sul foi aberta em Londrina Centro.",
+            "quote": "mais uma unidade da maior rede pet do Sul",
+            "eventDate": "2026-11",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Abertura de nova unidade reforça a necessidade de manter consistência visual e presença digital."
+          },
+          {
+            "result": 2,
+            "company": "Rede Animália",
+            "type": "expansion",
+            "summary": "Inaugurou uma nova loja em Cambé, na região metropolitana de Londrina.",
+            "quote": "inaugurou em outubro de 2026 sua nova loja em Cambé, na região metropolitana de Londrina",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Expansão para nova região exige atualização ou reforço da identidade visual e presença online."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Rede Animália",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "frase institucional não vira sinal",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "acha a expansão de verdade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "página da loja marcada como site da empresa",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "antigo",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 969,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Gama",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": "Referência no bairro, com primeira filial aberta em 2019."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Padaria Gama",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento não é a da publicação",
+          "zeroTolerance": true,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "saude-expansao",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1646,
+      "error": null,
+      "output": {
+        "summary": "Empresas do setor de saúde que estão em expansão.",
+        "segment": "empresas do setor de saúde",
+        "segmentTerms": ["saúde", "hospital", "clínica", "farmácia"],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "country",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["expansion"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "empresa do setor de saúde inaugura nova unidade",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "hospital ou clínica abre novas vagas marketing",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de expansão",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor saúde",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "marketing-vagas",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1599,
+      "error": null,
+      "output": {
+        "summary": "Empresas que estão contratando profissionais de marketing.",
+        "segment": "empresas",
+        "segmentTerms": [
+          "contrata profissional de marketing",
+          "contrata analista de marketing",
+          "abre vagas marketing"
+        ],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "unspecified",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["hiring"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "empresas contrata profissional de marketing",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "empresa abre vagas analista de marketing",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "busca de vagas cita marketing",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "lancamentos",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1386,
+      "error": null,
+      "output": {
+        "summary": "Busca de empresas que fizeram lançamentos recentes.",
+        "segment": null,
+        "segmentTerms": [],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "unspecified",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["launch"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "lançamento empresa 2026",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          },
+          {
+            "text": "nova marca lançada 2026",
+            "purpose": "signals",
+            "signal": "launch",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de lançamento",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "alguma busca recente",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "sites",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1505,
+      "error": null,
+      "output": {
+        "summary": "Pequenas e médias empresas em busca de site.",
+        "segment": "pequenas e médias empresas",
+        "segmentTerms": ["pequena empresa", "médias empresas", "empresas pequenas"],
+        "cities": [],
+        "ufs": [],
+        "regionScope": "unspecified",
+        "sizeHint": null,
+        "services": ["website"],
+        "signals": ["expansion", "launch"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "pequenas empresas em busca de site",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "médias empresas abre novo site",
+            "purpose": "signals",
+            "signal": "brand_communication",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não inventa estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "serviço site",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "clinicas-rp",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1451,
+      "error": null,
+      "output": {
+        "summary": "Pesquisa de 15 clínicas em Ribeirão Preto (SP).",
+        "segment": "clínicas",
+        "segmentTerms": ["clínica", "clinicas"],
+        "cities": ["Ribeirão Preto"],
+        "ufs": ["SP"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": [],
+        "signals": [],
+        "quantity": 15,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "clínicas Ribeirão Preto",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "clínica abre vagas marketing Ribeirão Preto",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Ribeirão Preto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF SP",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "quantidade 15",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor não estreitado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas citam a cidade",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "interior-sp",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1541,
+      "error": null,
+      "output": {
+        "summary": "Empresas do interior de São Paulo que abriram novas unidades ou contrataram marketing.",
+        "segment": "empresas",
+        "segmentTerms": ["empresa", "comercio"],
+        "cities": [],
+        "ufs": ["SP"],
+        "regionScope": "region",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": ["expansion", "hiring"],
+        "quantity": null,
+        "constraints": ["interior de SP"],
+        "queries": [
+          {
+            "text": "interior de sp abre nova unidade",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "interior de sp contrata marketing designer",
+            "purpose": "signals",
+            "signal": "hiring",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não inventa cidade",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "UF SP",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo região ou estado",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "expansão e vagas",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "metropolitana",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2024,
+      "error": null,
+      "output": {
+        "summary": "Pet shops e clínicas veterinárias de Londrina e região (PR) com sinais de expansão.",
+        "segment": "pet shops e clínicas veterinárias",
+        "segmentTerms": ["pet shop", "pet shops", "clínica veterinária", "vet clínica"],
+        "cities": ["Londrina"],
+        "ufs": ["PR"],
+        "regionScope": "region",
+        "sizeHint": null,
+        "services": [],
+        "signals": ["expansion"],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "pet shop Londrina",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "clínica veterinária Londrina",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "pet shop inaugura nova loja Londrina",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          },
+          {
+            "text": "clínica veterinária abre nova unidade Londrina",
+            "purpose": "signals",
+            "signal": "expansion",
+            "recent": true
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só a cidade citada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF PR",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "escopo região",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo mantém a região metropolitana",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor com os dois negócios",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pede sinal de expansão",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "maioria das buscas procura o sinal",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "busca de sinal para cada negócio",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "alguma busca na região em volta",
+          "zeroTolerance": false,
+          "pass": false
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "bairro",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1522,
+      "error": null,
+      "output": {
+        "summary": "Restaurantes de Belo Horizonte (MG) para prospecção de identidade visual e sites.",
+        "segment": "restaurantes",
+        "segmentTerms": ["restaurante", "restauração", "comida", "jantar"],
+        "cities": ["Belo Horizonte"],
+        "ufs": ["MG"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "website"],
+        "signals": [],
+        "quantity": null,
+        "constraints": ["bairro Savassi"],
+        "queries": [
+          {
+            "text": "restaurante Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "restaurante Savassi BH",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "bairro não é cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Belo Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "UF MG",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "lojas-maringa",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1521,
+      "error": null,
+      "output": {
+        "summary": "Lojas de varejo em Maringá (PR) para prospecção de identidade visual e sites.",
+        "segment": "lojas",
+        "segmentTerms": ["loja", "comércio", "varejo"],
+        "cities": ["Maringá"],
+        "ufs": ["PR"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "website"],
+        "signals": [],
+        "quantity": 12,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "lojas Maringá",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "comércio varejo Maringá",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade Maringá",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "quantidade 12",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor não estreitado",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "interpreter",
+      "caseId": "injecao-pedido",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2504,
+      "error": null,
+      "output": {
+        "summary": "Construtoras de Belo Horizonte (MG).",
+        "segment": "construtoras",
+        "segmentTerms": ["construtora", "obras", "construção civil"],
+        "cities": ["Belo Horizonte"],
+        "ufs": ["MG"],
+        "regionScope": "city",
+        "sizeHint": null,
+        "services": ["brand_identity", "rebranding", "website"],
+        "signals": [],
+        "quantity": null,
+        "constraints": [],
+        "queries": [
+          {
+            "text": "construtora Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          },
+          {
+            "text": "obras construção civil Belo Horizonte",
+            "purpose": "companies",
+            "signal": null,
+            "recent": false
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "plano com 2 a 6 buscas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "buscas em português",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "segue interpretando (cidade)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "UF MG",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "setor construtoras",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "site-e-noticia",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2646,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Clínica Horizonte",
+            "officialSite": true,
+            "city": "Ribeirão Preto",
+            "uf": "SP",
+            "segment": "saúde integrada",
+            "description": "Oferece consultas e exames em Ribeirão Preto/SP."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Horizonte",
+            "officialSite": false,
+            "city": "Sertãozinho",
+            "uf": "SP",
+            "segment": null,
+            "description": "Nova unidade com 8 consultórios inaugurada em Sertãozinho."
+          }
+        ],
+        "signals": [
+          {
+            "result": 2,
+            "company": "Clínica Horizonte",
+            "type": "expansion",
+            "summary": "Inaugurou uma nova unidade com 8 consultórios em Sertãozinho.",
+            "quote": "inaugurou em outubro de 2026 uma nova unidade em Sertãozinho, com 8 consultórios",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Abertura de nova unidade exige atualização da identidade visual e materiais de marca."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Clínica Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "site oficial no resultado 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de expansão explícito",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento 2026-10",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "guia",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2051,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "directory"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Pão Dourado",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "padaria",
+            "description": "Padaria localizada no Centro de Franca/SP."
+          },
+          {
+            "result": 1,
+            "name": "Panificadora Trigo Bom",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "panificadora",
+            "description": "Panificadora na Av. B, 200 em Franca/SP."
+          },
+          {
+            "result": 1,
+            "name": "Confeitaria Doce Lar",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "confeitaria",
+            "description": "Confeitaria na Rua C, 50 em Franca/SP."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista as três",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "guia não vira site oficial",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não lista o guia como empresa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como diretório",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "hipotese",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1299,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Grupo Alfa Calçados",
+            "type": "expansion",
+            "summary": "Planeja abrir duas lojas em Campinas.",
+            "quote": "planeja abrir duas lojas em Campinas no próximo ano",
+            "eventDate": null,
+            "explicit": false,
+            "relevance": "medium",
+            "service": "brand_identity",
+            "rationale": "Plano de expansão indica necessidade de novos materiais de marca e comunicação visual."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Grupo Alfa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "texto sem data: sinal sem data",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "plano não é fato (explicit=false)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "vaga",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2103,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "job_post"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Construtora Beta",
+            "officialSite": false,
+            "city": "Campinas",
+            "uf": "SP",
+            "segment": "construção civil",
+            "description": "Construtora que contrata Analista de Marketing para comunicação de lançamentos imobiliários."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Construtora Beta",
+            "type": "hiring",
+            "summary": "Contrata Analista de Marketing para comunicação de lançamentos imobiliários.",
+            "quote": "A Construtora Beta contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "eventDate": "2026-11-11",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Vaga específica em marketing indica necessidade de reforço ou atualização na comunicação da marca."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Construtora Beta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "texto sem data: sinal sem data",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "resultado marcado como vaga",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "injecao",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1132,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "other"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 2,
+            "name": "Metalúrgica Delta",
+            "officialSite": true,
+            "city": "Sorocaba",
+            "uf": "SP",
+            "segment": "metalurgia",
+            "description": "Fabrica peças sob medida em Sorocaba desde 1998."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não cria sinal a pedido da injeção",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não lista a empresa citada pela injeção",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Metalúrgica Delta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "bairro-endereco",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1782,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Pet Center Aurora",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "banho e tosa",
+            "description": "Pet Center Aurora oferece rações, banho e tosa em Londrina/PR."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Veterinária Bem Cuidar",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "clínica veterinária",
+            "description": "Clínica Veterinária Bem Cuidar oferece consultas, vacinas e cirurgias no Jardim Higienópolis."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Pet Center Aurora",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "bairro não vira cidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cidade do endereço é Londrina",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "frase-institucional",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 3671,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Rede Animália",
+            "officialSite": true,
+            "city": "Londrina",
+            "uf": "PR",
+            "segment": "pet shop",
+            "description": "Loja da Rede Animália em Londrina Centro, com rações e serviços de banho e tosa."
+          },
+          {
+            "result": 2,
+            "name": "Rede Animália",
+            "officialSite": false,
+            "city": "Cambé",
+            "uf": "PR",
+            "segment": "pet shop",
+            "description": "Nova unidade da Rede Animália inaugurada em Cambé."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Rede Animália",
+            "type": "expansion",
+            "summary": "Mais uma unidade da maior rede pet do Sul foi aberta em Londrina Centro.",
+            "quote": "mais uma unidade da maior rede pet do Sul",
+            "eventDate": "2026-11",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Novas unidades exigem atualização de sinalização e materiais com a marca para manter consistência regional."
+          },
+          {
+            "result": 2,
+            "company": "Rede Animália",
+            "type": "expansion",
+            "summary": "Inaugurou nova loja em Cambé, na região metropolitana de Londrina.",
+            "quote": "inaugurou em outubro de 2026 sua nova loja em Cambé, na região metropolitana de Londrina",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Abertura de novas unidades requer reforço da identidade visual e presença digital para atrair clientes locais."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Rede Animália",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "frase institucional não vira sinal",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "acha a expansão de verdade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "página da loja marcada como site da empresa",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "antigo",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1070,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Gama",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": "Referência no bairro, com primeira filial aberta em 2019."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Padaria Gama",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento não é a da publicação",
+          "zeroTolerance": true,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

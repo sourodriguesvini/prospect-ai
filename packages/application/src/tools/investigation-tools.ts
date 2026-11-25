@@ -66,6 +66,20 @@ function active(investigation: Investigation): boolean {
   return ACTIVE_INVESTIGATION_STATUSES.includes(investigation.status);
 }
 
+/**
+ * O estado numa frase pronta, no topo do resultado: o modelo de 4B dizia "terminou" com
+ * `concluida: false` no meio dos dados (copilot-tools/v4, rodada 2026-11-25-10-33).
+ */
+function stateSentence(name: string, investigation: Investigation): string {
+  if (active(investigation)) {
+    return `A investigação de ${name} ainda não terminou (${INVESTIGATION_STATUS_LABELS[investigation.status].toLowerCase()}); o resultado aparece no dossiê quando ela acabar.`;
+  }
+  if (concluded(investigation)) {
+    return `A investigação de ${name} terminou em ${localDay(investigation.finishedAt ?? investigation.createdAt)}.`;
+  }
+  return `A investigação de ${name} não terminou com resultado: ${INVESTIGATION_STATUS_LABELS[investigation.status].toLowerCase()}.`;
+}
+
 function claimsById(views: readonly ClaimView[], ids: readonly string[]) {
   const byId = new Map(views.map((view) => [view.claim.id, view]));
   return ids.flatMap((id) => {
@@ -193,11 +207,34 @@ function analysisPart(dossier: CompanyDossier, latest: Investigation | null, par
   };
 }
 
+/**
+ * Investigações postas na fila pelo Copiloto numa mesma pergunta (`traceId`): no máximo uma
+ * (KI-138). Sem isso, uma página com ordem injetada podia levar o modelo a enfileirar várias, com
+ * créditos de busca, GPU e acessos aos sites. Limitado em memória (pedidos antigos saem primeiro).
+ */
+export const INVESTIGATIONS_PER_REQUEST = 1;
+
+function startedPerRequest(maxRequests = 200) {
+  const byTrace = new Map<string, number>();
+  return {
+    count: (traceId: string) => byTrace.get(traceId) ?? 0,
+    add(traceId: string) {
+      byTrace.set(traceId, (byTrace.get(traceId) ?? 0) + 1);
+      while (byTrace.size > maxRequests) {
+        const oldest = byTrace.keys().next().value;
+        if (oldest === undefined) break;
+        byTrace.delete(oldest);
+      }
+    },
+  };
+}
+
 export function investigationTools(deps: {
   investigations: InvestigationService;
   companies: CompanyService;
 }): ToolDefinition[] {
   const { investigations, companies } = deps;
+  const started = startedPerRequest();
   return [
     defineTool({
       name: 'get_company_investigation',
@@ -244,6 +281,7 @@ export function investigationTools(deps: {
           summary: `${name}: investigação ${state.toLowerCase()}.`,
           telemetrySummary: `Investigação ${state.toLowerCase()}.`,
           data: {
+            comece_a_resposta_com: stateSentence(name, latest),
             empresa: companyView(dossier.company),
             investigacao: progressView(latest),
             diagnostico: diagnosis,
@@ -336,6 +374,22 @@ export function investigationTools(deps: {
           };
         }
         const company = (await companies.dossier(ctx, id)).company;
+        if (started.count(ctx.traceId) >= INVESTIGATIONS_PER_REQUEST) {
+          return {
+            summary: `Investigação de ${company.displayName} não posta na fila: só uma por pergunta.`,
+            telemetrySummary: 'Limite de uma investigação por pergunta; nada na fila.',
+            data: {
+              falhou: true,
+              motivo: 'request_limit',
+              mensagem: `Nesta pergunta já pus uma investigação na fila; a de ${company.displayName} não entrou. Para investigar outra, a pessoa pede de novo numa nova mensagem ou usa "Investigar" no dossiê da empresa.`,
+              empresa: companyView(company),
+              investigacao: null,
+            },
+            refs: [companyRef(company)],
+          };
+        }
+        // Conta antes de pôr na fila: uma tentativa que falha também gasta a vez desta pergunta.
+        started.add(ctx.traceId);
         const investigation = await investigations.start(ctx, {
           companyId: id,
           trigger: 'copilot',
@@ -344,6 +398,7 @@ export function investigationTools(deps: {
           summary: `Investigação de ${company.displayName} na fila.`,
           telemetrySummary: 'Investigação na fila.',
           data: {
+            comece_a_resposta_com: `Pus a investigação de ${company.displayName} na fila. Ela leva alguns minutos e ainda não terminou; o resultado aparece no dossiê da empresa.`,
             empresa: companyView(company),
             investigacao: progressView(investigation),
             // Estado, não ordem (resultado de ferramenta é dado): sem resultado ainda.

@@ -579,6 +579,7 @@ function investigationService(parts: {
         log,
       })
     : null;
+  const companies = companyServices(parts.companies);
   const service = createInvestigationService(
     {
       investigations: parts.repo,
@@ -600,6 +601,8 @@ function investigationService(parts: {
         log,
       }),
       telemetry: parts.telemetry,
+      // CNPJ publicado no site: consultado na Receita e vinculado só se o nome bater (KI-152).
+      cnpjFromSite: (...args) => companies.linkCnpjFromSite(...args),
       clock: systemClock,
       newId: () => crypto.randomUUID(),
       log,

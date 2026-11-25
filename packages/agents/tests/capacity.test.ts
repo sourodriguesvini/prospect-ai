@@ -7,6 +7,8 @@ import {
   DEFAULT_POLICY,
   estimateModelMiB,
   estimateTokens,
+  estimateToolDefinitionsTokens,
+  TOOL_DEFINITIONS_TOKEN_FACTOR,
   fitToContext,
   insufficientVramError,
   kvCacheBytes,
@@ -356,6 +358,26 @@ describe('chooseModel', () => {
     expect(DEFAULT_POLICY.copilot.requires).toEqual(['completion']);
     expect(DEFAULT_POLICY.vision.requires).toContain('vision');
     expect(DEFAULT_POLICY.embedding.requires).toEqual(['embedding']);
+  });
+});
+
+describe('estimateToolDefinitionsTokens', () => {
+  it('JSON das definições pelo fator medido; sem ferramentas, zero', () => {
+    const definitions = [
+      {
+        type: 'function',
+        function: {
+          name: 'list_offers',
+          description: 'Lista as ofertas.',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+    ];
+    expect(estimateToolDefinitionsTokens([])).toBe(0);
+    expect(estimateToolDefinitionsTokens(definitions)).toBe(
+      Math.ceil(estimateTokens(JSON.stringify(definitions)) * TOOL_DEFINITIONS_TOKEN_FACTOR),
+    );
+    expect(TOOL_DEFINITIONS_TOKEN_FACTOR).toBeLessThan(1);
   });
 });
 

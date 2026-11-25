@@ -211,6 +211,53 @@ describe('M2 — empresas e Evidence Ledger no banco', () => {
     expect(await count('companies')).toBe(before);
   });
 
+  it('chave de CNPJ vinculado depois (KI-160): grava com auditoria por chave; a de outra empresa não', async () => {
+    const { id } = await createCompany({ domain: 'vinculo-depois.test' });
+    const insertKeys = (companyId: string, keys: Array<[string, string, string]>) =>
+      asServer(async (q) => {
+        await viaApi(
+          q,
+          encodeAuditHeader(
+            'company_identifiers',
+            pending({
+              action: 'prospect.company.identifiers_added',
+              entityType: 'company_identifier',
+              diff: { companyId, origin: 'user' },
+            }),
+          ),
+        );
+        for (const [kind, value, strength] of keys) {
+          await q.query(
+            `insert into public.company_identifiers (company_id, kind, value_normalized, strength, verified)
+             values ($1, $2, $3, $4, true)`,
+            [companyId, kind, value, strength],
+          );
+        }
+      });
+    await insertKeys(id, [
+      ['cnpj', '66777888000181', 'strong'],
+      ['cnpj_root', '66777888', 'weak'],
+    ]);
+    const rows = await db.query<{ action: string; entity_type: string }>(
+      `select a.action, a.entity_type from public.audit_log a
+         join public.company_identifiers i on i.id::text = a.entity_id
+        where i.company_id = $1 order by a.id`,
+      [id],
+    );
+    expect(rows).toEqual([
+      { action: 'prospect.company.identifiers_added', entity_type: 'company_identifier' },
+      { action: 'prospect.company.identifiers_added', entity_type: 'company_identifier' },
+    ]);
+    // Outra empresa não fica com a mesma chave forte (o adaptador traduz para company_duplicate).
+    const other = await createCompany({ domain: 'vinculo-outra.test' });
+    await expectDbError(insertKeys(other.id, [['cnpj', '66777888000181', 'strong']]), {
+      code: '23505',
+    });
+    // A raiz (chave fraca) pode repetir: matriz e filial são empresas diferentes no cadastro.
+    await insertKeys(other.id, [['cnpj_root', '66777888', 'weak']]);
+    expect(await count('company_identifiers', 'company_id = $1', [other.id])).toBe(1);
+  });
+
   it('CNPJ fora do formato e ciclo de vida desconhecido são recusados pelo banco', async () => {
     await expectDbError(createCompany({ cnpj: '11.222.333/0001-81' }), { code: '23514' });
     const { id } = await createCompany();

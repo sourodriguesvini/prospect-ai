@@ -1,6 +1,6 @@
 # ADR-0013 — Descoberta inteligente: pedido em linguagem natural, sinais com trecho conferido e triagem por regras
 
-- Status: **Aceito** (implementado na M3; migração aplicada no `prospector-dev` em 2026-11-11, com a confirmação do usuário; prompts `discovery-interpreter/v1` e `discovery-extractor/v2` esperando a promoção pelo usuário). Emenda o [ADR-0002](0002-evidence-ledger.md) e o [doc 06](../06-modelo-de-dados.md) §4.3 (ver §6)
+- Status: **Aceito** (implementado na M3; migração aplicada no `prospector-dev` em 2026-11-11, com a confirmação do usuário; prompts `discovery-interpreter/v4` e `discovery-extractor/v2` como padrão desde 2026-11-25, por avaliação; ver a emenda do §3). Emenda o [ADR-0002](0002-evidence-ledger.md) e o [doc 06](../06-modelo-de-dados.md) §4.3 (ver §6)
 - Data: 2026-11-11
 - Fatia: M3 / F4 (Módulo 01 — Descoberta Inteligente)
 - Depende de: [ADR-0002](0002-evidence-ledger.md) (evidências), [ADR-0008](0008-ia-local-com-ollama.md) (IA local), [ADR-0011](0011-fila-duravel-no-postgres.md) (fila), [ADR-0012](0012-busca-web-tavily-playwright.md) (busca e leitura de páginas)
@@ -26,6 +26,11 @@ Profundidade rápida (3 buscas, 3 páginas, 15 empresas), padrão (6, 6, 25) e a
 - **CPF fora do nome:** sites de dados de CNPJ mostram o nome do MEI com o CPF; o servidor tira o CPF do nome antes de guardar (`withoutCpf`, regra 7). A empresa continua entrando: é minimização, não recusa.
 - Datas, recência, confiança do sinal (0 a 1) e prioridade são calculadas no servidor, nunca copiadas do modelo.
 - Duas camadas contra injeção: o filtro do servidor tira o resultado antes do extrator, e o prompt `discovery-extractor/v2` manda tratar resultado com ordens como fonte inválida. A avaliação (`packages/agents/evals/discovery`) mede o caso com tolerância zero para sinal criado pela injeção.
+- **Emenda (2026-11-25, KI-115 e KI-148): o plano do intérprete também passa pelo servidor.** O modelo de 4B ignora regra repetida no prompt; o que dá para conferir com código vale com qualquer versão do prompt (`discovery-engine.ts`):
+  - **Lugar:** bairro fica na cidade (inclusive em minúsculas e em "região da Savassi"); município vizinho continua município (a cidade só é recusada com sinal positivo de bairro); "Grande X" só com "grande" no começo ou depois de preposição (Praia Grande, Campina Grande, Campo Grande e Várzea Grande são cidades) e só para as áreas cadastradas; Mato Grosso do Sul não vira Mato Grosso; bairro com cidade-sede não troca a cidade pelo estado nem pela capital; a busca na região em volta ou na região metropolitana só entra se o pedido incluir essa região, e o resumo só fala em "metropolitana" se o pedido falar.
+  - **Sinais:** busca de sinal (expansão, vagas, lançamento…) só entra se o pedido pedir, pelas palavras dele ou por "sinais", "oportunidades" ou "momento"; os sinais escolhidos na tela valem sempre. Evento de expansão é reconhecido por frase com verbo de abertura ou chegada (`expansionEventIn`); horário, entrega, especialidade e "inaugurada em 1987" não contam (o ano só conta se for o da pesquisa ou o anterior).
+  - **Setor:** palavras que estreitam o setor ("médica", "odonto"…) saem dos termos e das buscas quando o pedido não as usa.
+  - **Versões (2026-11-25):** intérprete `discovery-interpreter/v4` (95,0% contra 85,8% do v1, intervalos sem sobreposição, tolerância zero 0; `evals/discovery/results/2026-11-25-12-34.json` × `12-31.json`) e extrator `discovery-extractor/v2` mantido (os v3 e v4 do extrator falharam a tolerância zero de data antiga). Limites conhecidos no KI-148.
 
 ### 4. Deduplicação
 

@@ -1,6 +1,7 @@
 'use server';
 
-import { formValues, text } from '@/lib/form-data';
+import { normalizeCnpj } from '@prospector/contracts';
+import { checked, formValues, text } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
 import { COMPANY_NOTICES, companyRoutes } from '@/lib/company-routes';
 import { runCompanyAction } from '@/server/companies';
@@ -78,6 +79,32 @@ export async function refreshRegistryAction(
       return companyRoutes.company(companyId, COMPANY_NOTICES.unchanged);
     }
     return companyRoutes.company(companyId, COMPANY_NOTICES.refreshed, result.changed);
+  });
+}
+
+/**
+ * CNPJ informado no dossiê de uma empresa sem CNPJ: o serviço consulta a Receita e confere o
+ * nome; com nome diferente, a tela pede a confirmação (campo `confirmName`) antes de gravar.
+ */
+export async function linkCnpjAction(companyId: string, _prev: FormState, formData: FormData) {
+  const values = formValues(formData);
+  return runCompanyAction(values, async (companies, ctx) => {
+    const cnpj = text(values, 'cnpj');
+    const result = await companies.linkCnpj(ctx, {
+      companyId,
+      cnpj,
+      // A confirmação vale só para o CNPJ cujo nome a tela mostrou.
+      confirmName:
+        checked(values, 'confirmName') &&
+        normalizeCnpj(text(values, 'confirmedFor')) === normalizeCnpj(cnpj),
+    });
+    if (result.status === 'failed') return { error: result.message };
+    if (result.status === 'duplicate') {
+      return {
+        error: `Esse CNPJ já é de outra empresa cadastrada: ${result.company.displayName}. Nada foi gravado.`,
+      };
+    }
+    return companyRoutes.company(companyId, COMPANY_NOTICES.cnpjLinked);
   });
 }
 

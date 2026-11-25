@@ -203,10 +203,10 @@ describe('leitura do JSON', () => {
 });
 
 describe('prompts versionados', () => {
-  it('os prompts em uso (intérprete v1, extrator v2) existem e carregam pelo id', () => {
+  it('os prompts em uso (intérprete v4, extrator v2) existem e carregam pelo id', () => {
     const ai = createLocalDiscoveryAi({ gateway: scripted([]).gateway });
     expect(ai.promptIds).toEqual({
-      interpreter: 'discovery-interpreter/v1',
+      interpreter: 'discovery-interpreter/v4',
       extractor: 'discovery-extractor/v2',
     });
   });

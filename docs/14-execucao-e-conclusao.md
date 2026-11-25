@@ -243,6 +243,30 @@ Pedido do usuário: "Ainda faltam muitos testes para fazer, todos eles devem ser
 
 Não testado de propósito, porque gravaria fatos que não aconteceram no banco do usuário: registrar contato feito, resposta recebida ou nota, "Não contatar" (supressão), mudar a etapa no pipeline, follow-ups e monitoramento recorrente (gasta créditos todo dia).
 
+## Qualidade da IA (2026-11-25)
+
+Pedido do usuário: "Resolva isso. A IA é o recurso mais principal desse produto", sobre os erros de conteúdo do teste real de 2026-11-24 (KI-148 itens 2 a 5, KI-150, KI-151, KI-152 itens 1 a 5). Princípio seguido: o `qwen3.5:4b` ignora regra repetida no prompt, então o que dá para conferir com código virou guarda no servidor (vale com qualquer versão do prompt), e prompt novo só virou padrão com `pnpm evals` melhor que o anterior. Toda avaliação rodou no Ollama local (sem custo em dinheiro), uma por vez na GPU.
+
+| Módulo | O que mudou | Avaliação | Situação |
+|---|---|---|---|
+| Descoberta (KI-148, KI-115) | Guardas no plano do intérprete: lugar só do pedido ("Grande X", MS ≠ MT, município vizinho), sinal só quando pedido, setor não estreitado; `discovery-interpreter/v4` | 22 + 11 casos × 3: intérprete v4 95,0% contra 85,8% do v1; extrator v2 87,7 a 90,2%; tolerância zero 0 | **v4 promovido**; extrator v2 mantido (v3 e v4 falharam data antiga). ADR-0013 §3 |
+| Investigação (KI-152, KI-156, KI-133) | Guardas depois da IA (novidade, "falta de site", campanha de preço, intensificador, desqualificador com fato do mesmo assunto, injeção pelo destinatário); concorrentes com segunda consulta, teto de 3 buscas por investigação e reuso de 30 dias; CNPJ lido no site e conferido na Receita, ou informado na tela | 17 casos × 3: v1 com guardas 91% / 95% / 87% / 86% (negócio, visual, triagem, diagnóstico); apagamento por engano 0 | **v1 mantidos com guardas**; v3 não promovidos. ADR-0015 §3a e §3b |
+| Relacionamento (KI-150, KI-124) | Fonte em cada evidência; conferência da resposta no servidor com uma correção pelo modelo; menção de fonte errada tirada pelo código; avisos na tela; reescrita a partir da versão revisada; despedida pelo código | 15 casos × 3 em quatro rodadas: estratégia 91 a 96%, mensagem 96 a 97,5%, 1 a 6 falhas de tolerância zero (v1: 92% / 90%, 13 falhas) | **abordagem e mensagem v3 promovidas**; resposta continua v1. ADR-0014 item 10 |
+| Copiloto (KI-151, KI-159, KI-130) | Guardas revistas (ficaram só as que não recusam pesquisa nem apagam texto legítimo); reserva de 1.600 tokens por consulta, com a primeira consulta isenta; pesquisa diz "sem data" quando o trecho não tem data | 61 casos × 3: v3 65% (39 casos que valem para ele), v6 74% | **`copilot-tools/v3` preservado** (regra do usuário); v4 a v6 guardados, sem promoção |
+
+**Revisões finais (arquitetura, segurança, UX e conformidade, 2026-11-25).** Nenhuma achou bloqueio além do da UX, corrigido. O que mudou depois delas:
+
+- **Avisos da conferência no cartão** (UX, bloqueio): o rascunho e a fila de aprovação mostram os avisos que sobraram enquanto ninguém edita a versão; a auditoria da geração guarda só os tipos e a contagem de ajustes, nunca o texto (ADR-0014 item 11, KI-150 item g). "Novo rascunho" leva ao cartão em vez de só dizer que deu certo.
+- **Segurança:** a leitura de página que falha devolve ao Copiloto a URL sem o fragmento (`#...` podia carregar instrução) e, quando o endereço é bloqueado (rede local), nem a URL; resultado de ferramenta que age (rascunho, fila) nunca é trocado por "resultado grande demais".
+- **CNPJ vinculado (KI-160, sem migração):** grava as chaves de deduplicação, devolve duplicada quando outra empresa já tem o CNPJ e expõe a raiz para a supressão por raiz; a Descoberta passa a ignorar o CNPJ de quem fez o site, como a investigação.
+- **Conformidade:** empresa individual (v3 do Relacionamento) não manda ao modelo o nome nem o domínio nem dentro das frases do dossiê e da leitura interna; doc 05 e ADR-0015 §3b descrevem a consulta automática à Receita (até 3 CNPJs) e o teto real de buscas.
+- **UX do vínculo:** nome diferente na Receita vira aviso próprio com foco (não erro de campo); o campo diz que razão social, cidade/UF, CNAE e porte passam a ser os da Receita; "informe-o em Receita Federal" leva à seção; o texto de evidências vazias muda quando não há CNPJ.
+- **Travas:** o sha de cada versão de prompt avaliada hoje está fixado em teste (intérprete v2 a v4, extrator v4, `copilot-tools` v4 a v6, análises v2 e v3; Relacionamento já estava).
+
+Adiados com registro: regras de conferência para o domínio (KI-161), uma linha de `llm_calls` por chamada (KI-162), índice em `audit_log.entity_id` (KI-163, migração) e pendências menores de UX (KI-164).
+
+O que ficou aberto: instrução escondida sem destinatário (KI-157), contradição que o dossiê não guarda (KI-158), a coluna `companies.cnpj` do CNPJ vinculado (KI-160: as chaves já são gravadas; a coluna é decisão do usuário, com migração), homônimo no Copiloto v3 (KI-151) e os limites do Relacionamento listados no KI-150. Nada disso foi conferido no app instalado ainda: o app em `D:\Prospector` só recebe as mudanças com `pnpm app:install`.
+
 ## Decisões desta execução
 
 | Decisão | Registro |
@@ -257,6 +281,10 @@ Não testado de propósito, porque gravaria fatos que não aconteceram no banco 
 | **Usuário, 2026-11-10:** `copilot-tools/v3` promovido a padrão e instalado | `packages/agents/src/copilot/copilot.ts`, KI-096 |
 | Fila durável no próprio Postgres (`ai_jobs`), trabalhador dentro do app, um por banco (`PROSPECTOR_JOB_WORKER`) | ADR-0011 |
 | Descoberta pela internet (Tavily + IA local) em vez de base CNPJ por filtros; triagem fora do ledger até o Investigar | ADR-0013, emenda do ADR-0002 |
+| **2026-11-25:** `discovery-interpreter/v4` vira o padrão da Descoberta (95,0% contra 85,8% do v1, sem falha de tolerância zero); extrator fica no v2 | ADR-0013 §3, KI-115, KI-148 |
+| **2026-11-25:** `relationship-approach/v3` e `relationship-message/v3` viram o padrão do Relacionamento, com conferência e correção pelo servidor; a v1 continua carregável | ADR-0014 item 10, KI-150 |
+| **2026-11-25:** análises de Empresas ficam nos v1 com guardas do servidor; os v3 não superaram | ADR-0015 §3a, KI-131, KI-156 |
+| **2026-11-25:** `copilot-tools/v3` continua o padrão do Copiloto (regra do usuário); v4 a v6 ficam guardados sem promoção | KI-130 |
 
 ## Bloqueios externos
 
@@ -268,7 +296,9 @@ Não testado de propósito, porque gravaria fatos que não aconteceram no banco 
 
 ## Próxima atividade exata
 
-1. Conferir no app instalado as correções de código do teste real de 2026-11-24 (feitas no mesmo dia, com testes): datas no fuso de Brasília (KI-149), deduplicação do ramo pet (KI-147), órgãos públicos e escolas como bloqueio na triagem (KI-148, item 1), interface (KI-154), "migrações pendentes" com o banco subindo (KI-155) e trechos sem HTML (KI-152, item 6). Os erros de conteúdo da IA (KI-148 itens 2 a 5, KI-150, KI-151, KI-152 itens 1 a 5) entram nos conjuntos de avaliação dos itens 3 e 4.
-2. Acompanhar o CI do PR de `conclusao-produto` (aberto; nada de merge sem o usuário).
-3. `copilot-tools/v4` unificado (Descoberta, Empresas e Relacionamento; KI-110, KI-121, KI-130), com `pnpm evals` e aprovação do usuário.
-4. Decisões dos prompts dos módulos (KI-115, KI-124, KI-131) e o KI-118.
+1. Com a autorização do usuário: commit e push da qualidade da IA (2026-11-25) no PR de `conclusao-produto` e `pnpm app:install`. Depois, conferir no app instalado as correções de 2026-11-24 (KI-147, KI-148 item 1, KI-149, KI-152 item 6, KI-154, KI-155) e as de 2026-11-25: uma Descoberta com lugar e sinal, uma investigação (concorrentes, CNPJ achado no site, contagens da verificação no painel), uma abordagem com diagnóstico e uma reescrita (avisos na tela) e o Copiloto com pesquisa.
+2. Decisão do usuário sobre a coluna `companies.cnpj` do CNPJ vinculado (KI-160; as chaves em `company_identifiers` já são gravadas sem migração) e o índice `audit_log (entity_type, entity_id)` (KI-163): ambos exigem migração e confirmação (skill `migracao-supabase`).
+3. Acompanhar o CI do PR de `conclusao-produto` (aberto; nada de merge sem o usuário).
+4. Copiloto: `copilot-tools/v7` a partir do v6 (homônimo, contradição, KI-130, KI-151), com `pnpm evals` acima do limiar e aprovação do usuário antes de trocar o v3.
+5. Casos novos fora da amostra para a injeção sem destinatário (KI-157) e contradições no dossiê (KI-158); conjunto da leitura de resposta do Relacionamento (KI-124) e do `competitive/v1`.
+6. KI-118 (alcance da emenda "sem recusas" na coleta recorrente da Descoberta).

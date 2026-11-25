@@ -21,7 +21,12 @@ import { PageHeader, StorageNotice, Unavailable } from '@/components/strategy/pa
 import { companyRoutes } from '@/lib/company-routes';
 import { formatDateTime } from '@/lib/format';
 import { isoToLocalDateTime } from '@/lib/relationship-dates';
-import { approvalStateLabel, NOTICE_TEXT, problemLabels } from '@/lib/relationship-labels';
+import {
+  approvalStateLabel,
+  NOTICE_TEXT,
+  noticeTone,
+  problemLabels,
+} from '@/lib/relationship-labels';
 import {
   APPROVAL_NOTICES,
   FOCUS_MESSAGE_PARAM,
@@ -177,7 +182,7 @@ async function Notice({ searchParams }: { searchParams: Props['searchParams'] })
   const focusId = focusMessageId(query[FOCUS_MESSAGE_PARAM]);
   return (
     <>
-      <Alert tone="success" role="status" data-aviso={notice}>
+      <Alert tone={noticeTone(notice)} role="status" data-aviso={notice}>
         {NOTICE_TEXT[notice]}
       </Alert>
       {focusId ? <FocusOnArrival key={focusId} targetId={`mensagem-${focusId}`} /> : null}

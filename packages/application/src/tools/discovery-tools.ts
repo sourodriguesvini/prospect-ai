@@ -194,6 +194,9 @@ export function discoveryTools(deps: { discovery: DiscoveryService }): ToolDefin
         return {
           summary: `Rascunho de pesquisa criado: só roda depois que você confirmar na tela (até ${searches} na internet).`,
           data: {
+            // Frase pronta: "a pesquisa está pronta" (v4, 2026-11-25-10-33) soava como pesquisa feita.
+            comece_a_resposta_com:
+              'Deixei a pesquisa preparada como rascunho: ela só começa quando você clicar em "Confirmar e pesquisar" na tela da Descoberta, e ainda não achei nenhuma empresa.',
             pesquisa: runView(run),
             buscas_maximas: run.limits.maxSearches,
             aviso:

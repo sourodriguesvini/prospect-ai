@@ -132,6 +132,32 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function counted(count: number, one: string, many: string): string | null {
+  if (count <= 0) return null;
+  return count === 1 ? `1 ${one}` : `${count} ${many}`;
+}
+
+/**
+ * O que a verificação fez com o texto da IA, separado: descartado não é o mesmo que ajustado nem
+ * que acrescentado pelo sistema (regra 8 do CLAUDE.md). null quando nada aconteceu.
+ */
+function verificationSummary(verification: {
+  discarded: number;
+  altered?: number;
+  added?: number;
+}): string | null {
+  const parts = [
+    counted(verification.discarded, 'conclusão da IA descartada', 'conclusões da IA descartadas'),
+    counted(verification.altered ?? 0, 'texto da IA ajustado', 'textos da IA ajustados'),
+    counted(
+      verification.added ?? 0,
+      'item acrescentado pelo sistema',
+      'itens acrescentados pelo sistema',
+    ),
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? `Verificação: ${parts.join(', ')}` : null;
+}
+
 function usageText(investigation: Investigation): string {
   const { usage } = investigation;
   const parts = [
@@ -582,12 +608,10 @@ export function DiagnosisPanel({
             </ul>
           </Section>
         ) : null}
-        {diagnosis.verification.discarded > 0 ? (
+        {verificationSummary(diagnosis.verification) ? (
           <details className="text-sm">
             <summary className="cursor-pointer underline underline-offset-4">
-              {diagnosis.verification.discarded === 1
-                ? '1 conclusão da IA foi descartada na verificação'
-                : `${diagnosis.verification.discarded} conclusões da IA foram descartadas na verificação`}
+              {verificationSummary(diagnosis.verification)}
             </summary>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
               {diagnosis.verification.reasons.map((reason) => (

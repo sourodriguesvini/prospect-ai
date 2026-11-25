@@ -38,6 +38,10 @@ const EXTERNAL_NOTICE =
 /** Texto da página entregue ao modelo: cabe no limite do registro (6 mil caracteres) com folga. */
 const PAGE_TEXT_FOR_MODEL = 3500;
 const SNIPPET_FOR_MODEL = 320;
+
+/** Resultado sem data de publicação: o modelo não pode supor o ano. */
+const UNDATED = 'sem data';
+
 /**
  * Por pedido do usuário (traceId). Pesquisa aprofundada: várias buscas e leituras na mesma
  * resposta, até o teto de rodadas e de texto do Copiloto (`MAX_COPILOT_ROUNDS`).
@@ -50,6 +54,17 @@ const MAX_URL_QUERY_CHARS = 256;
 function cut(text: string, max: number): string {
   const clean = text.replace(/\s+/g, ' ').trim();
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
+}
+
+/** O endereço sem o fragmento (`#…`), como a busca o conferiu. */
+function withoutFragment(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 function hostOf(url: string): string {
@@ -182,7 +197,9 @@ export function webResearchTools(deps: { research: WebResearchService }): ToolDe
               titulo: cut(result.title, 160),
               url: result.url,
               trecho: cut(result.snippet, SNIPPET_FOR_MODEL),
-              ...(result.publishedAt ? { publicado_em: result.publishedAt } : {}),
+              // "sem data" explícito: o modelo de 4B punha ano em trecho sem data
+              // (`web-trecho-sem-data`, copilot-tools/v5).
+              publicado_em: result.publishedAt ?? UNDATED,
             })),
           },
         };
@@ -227,12 +244,22 @@ export function webResearchTools(deps: { research: WebResearchService }): ToolDe
         usage.reads += 1;
         const outcome = await research.readPage(ctx, { url: input.url });
         if (!outcome.ok) {
+          // Sem a URL aqui, o v4 deixava de citar o perfil achado na busca
+          // (`web-site-com-login`, 0 de 3 na rodada 2026-11-25-10-33). Volta sem o fragmento: o
+          // `#…` não conta na conferência da busca e levaria texto escolhido por uma injeção.
+          // Endereço bloqueado (rede local, interno) não volta: não há o que citar.
+          const echoed = outcome.failure === 'blocked_address' ? null : withoutFragment(input.url);
           return {
             summary: outcome.message,
             data: {
               falhou: true,
               motivo: outcome.failure,
               mensagem: PAGE_READ_MESSAGES[outcome.failure],
+              ...(echoed ? { url: echoed } : {}),
+              // A URL no fim, sem pontuação colada: o modelo copia o endereço como está.
+              diga_a_pessoa: echoed
+                ? `Não consegui ler esta página. ${PAGE_READ_MESSAGES[outcome.failure]} O que a busca mostrou dela vale, com o endereço ${echoed}`
+                : `Não consegui ler esta página. ${PAGE_READ_MESSAGES[outcome.failure]}`,
             },
           };
         }

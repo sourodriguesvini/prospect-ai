@@ -932,7 +932,15 @@ describe('InvestigationService (ADR-0015)', () => {
             factor: 0.9,
             basedOn: [fact],
           },
-          hypotheses: [],
+          // A leitura da oferta sai inteira nas guardas (afirmação proibida); a referência
+          // inexistente fica registrada pela hipótese.
+          hypotheses: [
+            {
+              statement: 'A identidade visual pode ser revisada.',
+              reasoning: 'Conferir com a empresa.',
+              basedOn: ['K999'],
+            },
+          ],
           offers: input.offers.map((offer) => ({
             offer: offer.ref,
             relevance: 'moderate' as const,
@@ -963,6 +971,261 @@ describe('InvestigationService (ADR-0015)', () => {
     expect(claims.some((claim) => /fatura|precisa de/i.test(claim.statement))).toBe(false);
     // Sem claim que sustente, a necessidade fica no máximo fraca.
     expect(investigation.diagnosis?.offers[0]?.recommendation).not.toBe('prepare_access');
+  });
+
+  it('concorrentes: pesquisa pelo ramo e tenta outro termo quando só vêm lojas virtuais (KI-152)', async () => {
+    ai = fakeAi({
+      'company-business': (input) => ({
+        ...defaultHandlers()['company-business'](input),
+        segment: {
+          label: 'móveis planejados',
+          page: input.pages[0]?.ref ?? 'P1',
+          quote: 'Móveis planejados sob medida',
+        },
+      }),
+    });
+    const base = fakeSearch();
+    const queries: string[] = [];
+    const custom: WebSearch = {
+      ...base.search,
+      async search(request) {
+        queries.push(request.query);
+        if (request.query.startsWith('móveis planejados')) {
+          return {
+            ok: true,
+            creditsCharged: 1,
+            results: [
+              result(
+                1,
+                'https://www.mercadolivre.com.br/moveis',
+                'Móveis | Mercado Livre',
+                'Compre',
+              ),
+              result(2, 'https://www.amazon.com.br/moveis', 'Móveis planejados', 'Ofertas'),
+            ],
+          };
+        }
+        return base.search.search(request);
+      },
+    };
+    const customWeb = createWebResearchService({
+      search: custom,
+      pages: reader.fetcher,
+      usage: createMemoryWebResearchUsage(),
+      companies: repo,
+      evidence: repo,
+      evidenceService: createEvidenceService({ evidence: repo, clock }),
+      monthlyCreditBudget: 50,
+      clock,
+      log: (message) => logs.push(message),
+    });
+    const company = await importCompany();
+    const investigation = await run(service({ webResearch: customWeb }), company.id);
+
+    const competitorQueries = queries.filter((query) => !query.startsWith('"'));
+    expect(competitorQueries).toHaveLength(2);
+    expect(competitorQueries[0]).toMatch(/^móveis planejados em /);
+    // Depois do ramo declarado no site, a atividade do CNAE (o título é heurística).
+    expect(competitorQueries[1]).toMatch(/^Fabricação de móveis/);
+    expect(investigation.steps.find((step) => step.key === 'competitors')).toMatchObject({
+      state: 'done',
+      issue: null,
+    });
+    const claims = await repo.claimsFor('company', company.id);
+    expect(claims.find((claim) => claim.key === 'positioning.segment')?.statement).toBe(
+      'O site se apresenta como: móveis planejados.',
+    );
+    expect(
+      claims.some(
+        (claim) =>
+          claim.key.startsWith('competitive.competitor.') &&
+          claim.value?.domain === 'moveis-rival.test',
+      ),
+    ).toBe(true);
+  });
+
+  it('concorrentes: crédito que acaba na segunda consulta é dito como tal, e pesquisa vazia com as mesmas consultas é reaproveitada', async () => {
+    ai = fakeAi({
+      'company-business': (input) => ({
+        ...defaultHandlers()['company-business'](input),
+        segment: {
+          label: 'móveis planejados',
+          page: input.pages[0]?.ref ?? 'P1',
+          quote: 'Móveis planejados sob medida',
+        },
+      }),
+    });
+    const base = fakeSearch();
+    const queries: string[] = [];
+    let secondFails = true;
+    const custom: WebSearch = {
+      ...base.search,
+      async search(request) {
+        queries.push(request.query);
+        if (request.query.startsWith('móveis planejados')) {
+          return { ok: true, creditsCharged: 1, results: [] };
+        }
+        if (request.query.startsWith('Fabricação de móveis')) {
+          return secondFails
+            ? { ok: false, failure: 'quota_exceeded', creditsCharged: 0, retryAfterSeconds: null }
+            : { ok: true, creditsCharged: 1, results: [] };
+        }
+        return base.search.search(request);
+      },
+    };
+    const customWeb = createWebResearchService({
+      search: custom,
+      pages: reader.fetcher,
+      usage: createMemoryWebResearchUsage(),
+      companies: repo,
+      evidence: repo,
+      evidenceService: createEvidenceService({ evidence: repo, clock }),
+      monthlyCreditBudget: 50,
+      clock,
+      log: (message) => logs.push(message),
+    });
+    const company = await importCompany();
+    const first = await run(service({ webResearch: customWeb }), company.id);
+    expect(first.steps.find((step) => step.key === 'competitors')).toMatchObject({
+      state: 'failed',
+      issue: 'search_budget',
+    });
+
+    // Com crédito, as duas consultas não acham ninguém: "nenhum concorrente".
+    secondFails = false;
+    now = new Date('2026-11-11T12:00:00Z');
+    const second = await run(service({ webResearch: customWeb }), company.id);
+    expect(second.steps.find((step) => step.key === 'competitors')).toMatchObject({
+      state: 'done',
+      issue: 'no_competitors',
+    });
+    expect(second.snapshot?.competitorQueries).toHaveLength(2);
+
+    // Dias depois, as mesmas consultas: a pesquisa vazia vale, sem gastar crédito de novo.
+    now = new Date('2026-11-20T12:00:00Z');
+    const before = queries.filter((query) => !query.startsWith('"')).length;
+    const third = await run(service({ webResearch: customWeb }), company.id);
+    expect(third.steps.find((step) => step.key === 'competitors')).toMatchObject({
+      state: 'reused',
+      issue: 'no_competitors',
+    });
+    expect(queries.filter((query) => !query.startsWith('"')).length).toBe(before);
+
+    // Os 30 dias contam da pesquisa real (11/11), não da etapa reaproveitada (20/11): em 15/12 a
+    // pesquisa roda de novo (revisão das guardas, 2026-11-25).
+    expect(third.snapshot?.searchedAt?.competitors).toBe('2026-11-11T12:00:00.000Z');
+    now = new Date('2026-12-15T12:00:00Z');
+    const fourth = await run(service({ webResearch: customWeb }), company.id);
+    expect(fourth.steps.find((step) => step.key === 'competitors')).toMatchObject({
+      state: 'done',
+      issue: 'no_competitors',
+    });
+    expect(queries.filter((query) => !query.startsWith('"')).length).toBeGreaterThan(before);
+    expect(fourth.snapshot?.searchedAt?.competitors).toBe('2026-12-15T12:00:00.000Z');
+  });
+
+  it('concorrentes: triagem que recusou todos não vira pesquisa vazia reaproveitada', async () => {
+    ai = fakeAi({
+      'competitor-triage': (input) => ({
+        candidates: input.candidates.map((candidate) => ({
+          ref: candidate.ref,
+          kind: 'unrelated' as const,
+          reason: 'Outro ramo.',
+        })),
+      }),
+    });
+    const base = fakeSearch();
+    const queries: string[] = [];
+    const custom: WebSearch = {
+      ...base.search,
+      async search(request) {
+        queries.push(request.query);
+        return base.search.search(request);
+      },
+    };
+    const customWeb = createWebResearchService({
+      search: custom,
+      pages: reader.fetcher,
+      usage: createMemoryWebResearchUsage(),
+      companies: repo,
+      evidence: repo,
+      evidenceService: createEvidenceService({ evidence: repo, clock }),
+      monthlyCreditBudget: 50,
+      clock,
+      log: (message) => logs.push(message),
+    });
+    const company = await importCompany();
+    const first = await run(service({ webResearch: customWeb }), company.id);
+    const step = first.steps.find((item) => item.key === 'competitors');
+    expect(step).toMatchObject({ state: 'done', issue: 'no_competitors' });
+    expect(step?.counts.candidates).toBeGreaterThan(0);
+
+    now = new Date(now.getTime() + 5 * 24 * 3600_000);
+    const before = queries.filter((query) => !query.startsWith('"')).length;
+    const second = await run(service({ webResearch: customWeb }), company.id);
+    expect(second.steps.find((item) => item.key === 'competitors')?.state).toBe('done');
+    expect(queries.filter((query) => !query.startsWith('"')).length).toBeGreaterThan(before);
+  });
+
+  it('diagnóstico v2: desqualificador só com fato do mesmo assunto; "falta de site" com o site lido é descartado (KI-133, KI-152)', async () => {
+    const about = pages['https://atelie-exemplo.test/sobre'];
+    if (about) about.text = `${about.text}\nSomos uma franquia da rede Exemplo Móveis.`;
+    ai = fakeAi({
+      'company-business': (input) => ({
+        ...defaultHandlers()['company-business'](input),
+        signals: [
+          {
+            label: 'franquia da rede Exemplo Móveis',
+            page: input.pages.find((page) => page.category === 'about')?.ref ?? 'P2',
+            quote: 'Somos uma franquia da rede Exemplo Móveis',
+          },
+        ],
+      }),
+      diagnosis: (input) => {
+        const fact = input.facts.find((item) => item.type === 'fact')?.ref ?? 'K1';
+        const region = ref(input.facts, (text) => text.includes('região metropolitana')) ?? fact;
+        const franchise = ref(input.facts, (text) => text.includes('franquia')) ?? fact;
+        return {
+          summary: {
+            statement: 'Marcenaria estabelecida, mas com falta de site próprio.',
+            reasoning: 'O dossiê mostra a empresa ativa.',
+            factor: 0.7,
+            basedOn: [fact],
+          },
+          hypotheses: [],
+          offers: input.offers.map((offer) => ({
+            offer: offer.ref,
+            relevance: 'moderate' as const,
+            statement: 'A revisão de marca se relaciona com o site no celular.',
+            reasoning: 'A auditoria apontou problema no celular.',
+            factor: 0.6,
+            basedOn: [fact],
+            openingAngle: null,
+            objections: [],
+            toVerify: [],
+            problemsMatched: [2],
+            signalsMatched: [],
+            disqualifiersHit: [],
+            disqualifiers: [
+              // "Rebranding recente" sustentado por um fato da região: outro assunto, não conta.
+              { position: 1, basedOn: [region], reasoning: 'Atende a região metropolitana.' },
+              // "Filial ou franquia" com o fato da franquia: conta.
+              { position: 2, basedOn: [franchise], reasoning: 'O site diz que é franquia.' },
+            ],
+          })),
+        };
+      },
+    });
+    const company = await importCompany();
+    const investigation = await run(service(), company.id);
+
+    expect(investigation.diagnosis?.summaryClaimId).toBeNull();
+    const reasons = investigation.diagnosis?.verification.reasons.join(' ') ?? '';
+    expect(reasons).toMatch(/falta site/);
+    expect(reasons).toMatch(/mesmo assunto/);
+    const gates = investigation.diagnosis?.offers[0]?.gates.join(' ') ?? '';
+    expect(gates).toMatch(/filial ou franquia/);
+    expect(gates).not.toMatch(/Rebranding recente/);
   });
 
   it('cancela no meio: para na etapa atual e não chama mais a IA', async () => {
@@ -1338,6 +1601,74 @@ describe('InvestigationService (ADR-0015)', () => {
     expect((await svc.get(ctx, waiting.id))?.status).not.toBe('queued');
   });
 
+  it('CNPJ no rodapé do site: vinculado na leitura das páginas e usado na adequação ao ICP (KI-152)', async () => {
+    pages['https://atelie-exemplo.test/sobre'] = {
+      title: 'Sobre | Ateliê Exemplo',
+      text: [
+        'Desde 2015 criamos móveis com madeira certificada e acabamento artesanal.',
+        '© Ateliê Exemplo - CNPJ 11.222.333/0001-81',
+        'Site desenvolvido por Agência Modelo Digital - CNPJ 44.555.666/0001-81',
+      ].join('\n'),
+    };
+    // Empresa vinda da Descoberta: sem CNPJ no cadastro.
+    const created = await companies.create(ctx, {
+      schemaVersion: 1,
+      displayName: 'Ateliê Exemplo',
+      cnpj: '',
+      primaryDomain: '',
+      city: 'Curitiba',
+      uf: 'PR',
+    });
+    const svc = service({ cnpjFromSite: (...args) => companies.linkCnpjFromSite(...args) });
+    const company = await svc.confirmSite(ctx, {
+      companyId: created.company.id,
+      domain: 'atelie-exemplo.test',
+    });
+    const investigation = await run(svc, company.id);
+
+    expect(investigation.steps.find((step) => step.key === 'pages')?.counts).toMatchObject({
+      cnpj: 1,
+    });
+    const claims = await repo.claimsFor('company', company.id);
+    const linked = claims.find((claim) => claim.key === 'firmographic.cnpj');
+    expect(linked?.value).toMatchObject({
+      cnpj: RECORD.cnpj,
+      origin: 'company_site',
+      url: 'https://atelie-exemplo.test/sobre',
+    });
+    expect(claims.some((claim) => claim.key === 'registry.size')).toBe(true);
+    // A coluna do cadastro continua vazia (só muda com migração); a projeção recebe a Receita.
+    const after = await repo.get(company.id);
+    expect(after).toMatchObject({ cnpj: null, sizeBand: 'epp', cnaeMain: '3101-2/00' });
+
+    const checks = investigation.diagnosis?.offers[0]?.fit.checks ?? [];
+    const known = checks.filter((check) => check.met !== null).map((check) => check.criterion);
+    expect(known).toEqual(expect.arrayContaining(['size', 'registry_status']));
+  });
+
+  it('sem a ligação com o cadastro, a leitura das páginas não procura CNPJ', async () => {
+    pages['https://atelie-exemplo.test/sobre'] = {
+      title: 'Sobre | Ateliê Exemplo',
+      text: '© Ateliê Exemplo - CNPJ 11.222.333/0001-81',
+    };
+    const created = await companies.create(ctx, {
+      schemaVersion: 1,
+      displayName: 'Ateliê Exemplo',
+      cnpj: '',
+      primaryDomain: '',
+      city: 'Curitiba',
+      uf: 'PR',
+    });
+    const svc = service();
+    await svc.confirmSite(ctx, { companyId: created.company.id, domain: 'atelie-exemplo.test' });
+    const investigation = await run(svc, created.company.id);
+    expect(investigation.steps.find((step) => step.key === 'pages')?.counts).not.toHaveProperty(
+      'cnpj',
+    );
+    const claims = await repo.claimsFor('company', created.company.id);
+    expect(claims.some((claim) => claim.key === 'firmographic.cnpj')).toBe(false);
+  });
+
   // ---------------------------------------------------------------------------
   // Ferramentas do Copiloto (§15): leem o estado real e só põem na fila
   // ---------------------------------------------------------------------------
@@ -1453,6 +1784,41 @@ describe('InvestigationService (ADR-0015)', () => {
     // Empresa fora do cadastro: o resultado diz o caminho e nada entra na fila.
     expect(unknown.body.resumo).toMatch(/não está cadastrada.*Nada foi posto na fila/s);
     expect(unknown.body.dados.investigacao).toBeNull();
+    expect(
+      audit.entries().filter((entry) => entry.action === 'company.investigation.started'),
+    ).toHaveLength(1);
+    release();
+    await svc.idle();
+  });
+
+  it('Copiloto: uma investigação por pergunta (KI-138), a segunda não entra na fila', async () => {
+    const company = await importCompany();
+    const svc = service();
+    const release = ai.hold('company-business');
+    const registry = createToolRegistry({
+      tools: investigationTools({ investigations: svc, companies }),
+      telemetry: null,
+    });
+    const run = async (id: string, empresa: string) =>
+      JSON.parse(
+        (
+          await registry.execute(ctx, {
+            id,
+            name: 'start_company_investigation',
+            arguments: { empresa },
+          })
+        ).forModel,
+      ) as { status: string; resumo: string; dados: Record<string, unknown> };
+
+    expect((await run('c1', company.id)).status).toBe('ok');
+    // Mesma pergunta (mesmo traceId), outro pedido: recusado antes de chegar à fila.
+    const second = await run('c2', company.displayName);
+    expect(second.resumo).toMatch(/só uma por pergunta/);
+    expect(second.dados).toMatchObject({
+      falhou: true,
+      motivo: 'request_limit',
+      investigacao: null,
+    });
     expect(
       audit.entries().filter((entry) => entry.action === 'company.investigation.started'),
     ).toHaveLength(1);

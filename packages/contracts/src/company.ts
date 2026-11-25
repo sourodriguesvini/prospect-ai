@@ -348,3 +348,40 @@ export const CNPJ_REFRESH_MESSAGES: Record<CnpjLookupFailure, string> = {
 
 export const CnpjLookupInput = z.object({ cnpj: Cnpj });
 export type CnpjLookupInput = z.infer<typeof CnpjLookupInput>;
+
+// -----------------------------------------------------------------------------
+// CNPJ vinculado por evidência (KI-152, item 5)
+// -----------------------------------------------------------------------------
+
+/**
+ * Fato com o CNPJ da empresa quando ele chega depois do cadastro: lido no site oficial pela
+ * investigação ou informado por você no dossiê. A coluna `companies.cnpj` não muda depois de
+ * criada (a migração das empresas não dá esse privilégio ao servidor); enquanto isso não for
+ * decidido, o CNPJ vale por este fato e pelos fatos da Receita gravados junto.
+ */
+export const COMPANY_CNPJ_KEY = 'firmographic.cnpj';
+
+/** De onde veio o CNPJ vinculado depois do cadastro. */
+export const CompanyCnpjOrigin = z.enum(['company_site', 'user']);
+export type CompanyCnpjOrigin = z.infer<typeof CompanyCnpjOrigin>;
+
+/** CNPJ informado no dossiê; `confirmName` = vincular mesmo com o nome da Receita diferente. */
+export const LinkCompanyCnpjInput = z.object({
+  companyId: Uuid,
+  cnpj: Cnpj,
+  confirmName: z.boolean().default(false),
+});
+export type LinkCompanyCnpjInput = z.infer<typeof LinkCompanyCnpjInput>;
+export type LinkCompanyCnpjDraft = z.input<typeof LinkCompanyCnpjInput>;
+
+/** Falhas da consulta ao vincular: a empresa já existe, então nada de "cadastre à mão". */
+export const CNPJ_LINK_MESSAGES: Record<CnpjLookupFailure, string> = {
+  not_found:
+    'Esse CNPJ não aparece na base aberta da Receita Federal. Confira os números; nada foi gravado.',
+  rate_limited: CNPJ_LOOKUP_MESSAGES.rate_limited,
+  unavailable:
+    'Não consegui consultar o CNPJ agora (serviço fora do ar ou sem internet). Nada foi gravado; tente de novo mais tarde.',
+  invalid_response:
+    'O serviço de consulta de CNPJ respondeu num formato inesperado. Nada foi gravado; tente de novo mais tarde.',
+  anonymized: CNPJ_LOOKUP_MESSAGES.anonymized,
+};

@@ -56,6 +56,7 @@ export function createLocalAiRuntime(
     policy,
     copilot: createCopilot({
       gateway,
+      limits: policy.copilot,
       prompt: () => loadPrompt('copilot', COPILOT_PROMPT_VERSION),
       toolsPrompt: () => loadPrompt('copilot-tools', COPILOT_TOOLS_PROMPT_VERSION),
     }),

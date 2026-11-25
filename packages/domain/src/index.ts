@@ -7,6 +7,7 @@
  * Relacionamento (ADR-0014): opt-out, aprovação de uso, base da abordagem e atenção.
  * Módulo 02: investigação — páginas, medições da marca, verificação, qualificação e mudanças.
  */
+export * from './company/cnpj-in-text';
 export * from './company/registry';
 export * from './evidence';
 export * from './investigation';

@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bicho Feliz | Pet Shop Online em Curitiba</title>
+    <!-- Página SINTÉTICA da avaliação da auditoria visual (synthetic: true). Empresa inventada. -->
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #1f2937;
+        background: #fff;
+      }
+      .top {
+        background: #2e7d32;
+        color: #fff;
+        font-size: 13px;
+        text-align: center;
+        padding: 6px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        padding: 16px 48px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        font-size: 26px;
+        color: #2e7d32;
+      }
+      .logo svg {
+        width: 40px;
+        height: 40px;
+      }
+      .search {
+        flex: 1;
+        border: 2px solid #2e7d32;
+        border-radius: 24px;
+        padding: 10px 18px;
+        color: #6b7280;
+        font-size: 15px;
+      }
+      .cart {
+        background: #2e7d32;
+        color: #fff;
+        border-radius: 24px;
+        padding: 10px 18px;
+        font-weight: 700;
+      }
+      nav {
+        display: flex;
+        gap: 28px;
+        padding: 12px 48px;
+        font-weight: 700;
+        font-size: 15px;
+        color: #2e7d32;
+        background: #f1f8f1;
+      }
+      .hero {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        padding: 40px 48px;
+        background: #e8f5e9;
+      }
+      .hero h1 {
+        font-size: 44px;
+        color: #1b5e20;
+        margin-bottom: 12px;
+      }
+      .hero p {
+        font-size: 18px;
+        margin-bottom: 20px;
+      }
+      .btn {
+        display: inline-block;
+        background: #2e7d32;
+        color: #fff;
+        padding: 14px 26px;
+        border-radius: 28px;
+        font-weight: 700;
+      }
+      .hero .art {
+        flex: 0 0 340px;
+        height: 240px;
+        border-radius: 24px;
+        background: #a5d6a7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .cats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        padding: 28px 48px;
+      }
+      .cat {
+        border: 2px solid #c8e6c9;
+        border-radius: 16px;
+        padding: 18px;
+        text-align: center;
+        font-weight: 700;
+        color: #2e7d32;
+      }
+      .cat .ico {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #c8e6c9;
+        margin: 0 auto 10px;
+      }
+      .black {
+        background: #111;
+        color: #fff;
+        padding: 36px 48px;
+      }
+      .black .tag {
+        display: inline-block;
+        background: #ff6a00;
+        color: #111;
+        font-weight: 900;
+        padding: 6px 14px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        letter-spacing: 1px;
+      }
+      .black h2 {
+        font-size: 40px;
+        font-weight: 900;
+        color: #ff6a00;
+        font-style: italic;
+        text-transform: uppercase;
+      }
+      .black p {
+        font-size: 18px;
+        margin: 8px 0 18px;
+        color: #f5f5f5;
+      }
+      .black .grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+      .black .card {
+        background: #1f1f1f;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .black .card .img {
+        height: 90px;
+        background: #2a2a2a;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+      .black .card .off {
+        color: #ff6a00;
+        font-weight: 900;
+        font-size: 20px;
+      }
+      .black .card .old {
+        color: #6b6b6b;
+        font-size: 11px;
+        text-decoration: line-through;
+      }
+      .black .btn2 {
+        display: inline-block;
+        margin-top: 18px;
+        background: #ff6a00;
+        color: #111;
+        padding: 14px 26px;
+        border-radius: 6px;
+        font-weight: 900;
+      }
+      .lojas {
+        padding: 32px 48px;
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
+      .lojas h3 {
+        font-size: 26px;
+        color: #1b5e20;
+      }
+      .lojas p {
+        color: #4b5563;
+      }
+      .prods {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        padding: 0 48px 32px;
+      }
+      .prod {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .prod .img {
+        height: 110px;
+        background: #f1f8f1;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+      .prod .price {
+        color: #2e7d32;
+        font-weight: 800;
+        font-size: 18px;
+      }
+      .prod small {
+        color: #9ca3af;
+        font-size: 11px;
+      }
+      footer {
+        background: #1b5e20;
+        color: #e8f5e9;
+        padding: 24px 48px;
+        font-size: 14px;
+      }
+      @media (max-width: 600px) {
+        header {
+          padding: 12px 16px;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .search {
+          order: 3;
+          flex-basis: 100%;
+        }
+        nav {
+          padding: 10px 16px;
+          gap: 14px;
+          font-size: 13px;
+          overflow: hidden;
+          white-space: nowrap;
+        }
+        .hero {
+          flex-direction: column;
+          padding: 24px 16px;
+          gap: 16px;
+        }
+        .hero h1 {
+          font-size: 30px;
+        }
+        .hero .art {
+          flex-basis: auto;
+          width: 100%;
+          height: 160px;
+        }
+        .cats {
+          grid-template-columns: repeat(2, 1fr);
+          padding: 20px 16px;
+        }
+        .black {
+          padding: 24px 16px;
+        }
+        .black h2 {
+          font-size: 28px;
+        }
+        .black .grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .lojas {
+          padding: 24px 16px;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .prods {
+          grid-template-columns: repeat(2, 1fr);
+          padding: 0 16px 24px;
+        }
+        footer {
+          padding: 20px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top">Frete grátis acima de R$ 199 · Compre pelo site e retire na loja</div>
+    <header>
+      <div class="logo">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="24" r="9" fill="#2e7d32" />
+          <circle cx="10" cy="13" r="4" fill="#2e7d32" />
+          <circle cx="17" cy="8" r="4" fill="#2e7d32" />
+          <circle cx="25" cy="8" r="4" fill="#2e7d32" />
+          <circle cx="31" cy="13" r="4" fill="#2e7d32" />
+        </svg>
+        Bicho Feliz
+      </div>
+      <div class="search">O que seu pet precisa hoje?</div>
+      <div class="cart">Carrinho</div>
+    </header>
+    <nav>
+      <span>Cachorros</span><span>Gatos</span><span>Rações</span><span>Farmácia</span
+      ><span>Banho e tosa</span><span>Nossas lojas</span>
+    </nav>
+    <section class="hero">
+      <div>
+        <h1>Pet Shop Online</h1>
+        <p>
+          Rações, petiscos, brinquedos e acessórios para cães e gatos, com entrega rápida em
+          Curitiba.
+        </p>
+        <span class="btn">Compre agora</span>
+      </div>
+      <div class="art">
+        <svg width="200" height="160" viewBox="0 0 200 160" aria-hidden="true">
+          <ellipse cx="70" cy="110" rx="50" ry="36" fill="#66bb6a" />
+          <circle cx="70" cy="62" r="30" fill="#66bb6a" />
+          <ellipse cx="148" cy="118" rx="36" ry="26" fill="#43a047" />
+          <circle cx="148" cy="80" r="22" fill="#43a047" />
+          <polygon points="132,64 138,46 146,62" fill="#43a047" />
+          <polygon points="152,62 160,46 166,66" fill="#43a047" />
+        </svg>
+      </div>
+    </section>
+    <section class="cats">
+      <div class="cat">
+        <div class="ico"></div>
+        Rações
+      </div>
+      <div class="cat">
+        <div class="ico"></div>
+        Petiscos
+      </div>
+      <div class="cat">
+        <div class="ico"></div>
+        Brinquedos
+      </div>
+      <div class="cat">
+        <div class="ico"></div>
+        Banho e tosa
+      </div>
+    </section>
+    <section class="black">
+      <span class="tag">MEGA BLACK</span>
+      <h2>Mega Black Bicho Feliz</h2>
+      <p>Até 50% OFF em rações selecionadas. Só até domingo!</p>
+      <div class="grid">
+        <div class="card">
+          <div class="img"></div>
+          <div class="off">-40%</div>
+          <div class="old">de R$ 189,90</div>
+        </div>
+        <div class="card">
+          <div class="img"></div>
+          <div class="off">-35%</div>
+          <div class="old">de R$ 99,90</div>
+        </div>
+        <div class="card">
+          <div class="img"></div>
+          <div class="off">-50%</div>
+          <div class="old">de R$ 59,90</div>
+        </div>
+        <div class="card">
+          <div class="img"></div>
+          <div class="off">-30%</div>
+          <div class="old">de R$ 249,90</div>
+        </div>
+      </div>
+      <span class="btn2">VER OFERTAS</span>
+    </section>
+    <section class="lojas">
+      <div>
+        <h3>8 lojas em Curitiba e Região Metropolitana</h3>
+        <p>Banho e tosa com hora marcada e retirada no mesmo dia.</p>
+      </div>
+      <span class="btn">Encontre uma loja</span>
+    </section>
+    <section class="prods">
+      <div class="prod">
+        <div class="img"></div>
+        Ração Premium Cães Adultos 15 kg
+        <div class="price">R$ 189,90</div>
+        <small>ou 3x sem juros</small>
+      </div>
+      <div class="prod">
+        <div class="img"></div>
+        Areia Higiênica Gatos 4 kg
+        <div class="price">R$ 24,90</div>
+        <small>ou 3x sem juros</small>
+      </div>
+      <div class="prod">
+        <div class="img"></div>
+        Coleira Ajustável Média
+        <div class="price">R$ 39,90</div>
+        <small>ou 3x sem juros</small>
+      </div>
+      <div class="prod">
+        <div class="img"></div>
+        Arranhador Torre 60 cm
+        <div class="price">R$ 129,90</div>
+        <small>ou 3x sem juros</small>
+      </div>
+    </section>
+    <footer>Bicho Feliz · bichofeliz.test · Atendimento de segunda a sábado</footer>
+  </body>
+</html>

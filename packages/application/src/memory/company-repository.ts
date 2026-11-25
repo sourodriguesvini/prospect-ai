@@ -204,6 +204,40 @@ export function createMemoryCompanyRepository(options: {
       return clone(stored);
     },
 
+    async addIdentifiers(companyId, keys, audit) {
+      if (!companies.has(companyId)) throw new AppError('not_found', 'not_found');
+      const fresh = keys.filter(
+        (key) =>
+          !identifiers.some(
+            (item) =>
+              item.companyId === companyId &&
+              item.kind === key.kind &&
+              item.valueNormalized === key.valueNormalized,
+          ),
+      );
+      if (
+        fresh.some((key) => key.strength === 'strong' && strongTaken(key.kind, key.valueNormalized))
+      ) {
+        throw new AppError('conflict', 'company_duplicate');
+      }
+      const at = now();
+      for (const key of fresh) {
+        const id = newId();
+        identifiers.push({
+          id,
+          companyId,
+          kind: key.kind,
+          valueNormalized: key.valueNormalized,
+          strength: key.strength,
+          verified: key.verified,
+          sourceId: null,
+          createdAt: at,
+        });
+        // Uma linha de auditoria por chave, como o trigger do banco.
+        await audited(audit, id);
+      }
+    },
+
     async setLifecycle(id, lifecycle, audit) {
       const company = companies.get(id);
       if (!company) return false;

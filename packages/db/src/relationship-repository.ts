@@ -4,6 +4,7 @@ import {
   type RelationshipRepository,
   type TaskPatch,
 } from '@prospector/application';
+import { AiReviewRecord } from '@prospector/contracts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toAppError } from './errors';
 import {
@@ -193,6 +194,29 @@ export function createSupabaseRelationshipRepository(
           .maybeSingle(),
       );
       return data ? mapMessage(data) : null;
+    },
+
+    async messageReviews(messageIds) {
+      const reviews = new Map<string, AiReviewRecord>();
+      const ids = [...new Set(messageIds)];
+      if (ids.length === 0) return reviews;
+      // Só a chave `aiReview` do registro de inclusão (tipos e contagens; nunca o texto).
+      const data = await rows(
+        client
+          .from('audit_log')
+          .select('entity_id, ai_review:diff->aiReview')
+          .eq('entity_type', 'outbound_message')
+          .in('entity_id', ids)
+          .not('diff->aiReview', 'is', null),
+      );
+      for (const raw of data) {
+        const row = raw as { entity_id?: unknown; ai_review?: unknown };
+        const review = AiReviewRecord.safeParse(row.ai_review);
+        if (typeof row.entity_id === 'string' && review.success) {
+          reviews.set(row.entity_id, review.data);
+        }
+      }
+      return reviews;
     },
 
     async listApprovals(filter) {

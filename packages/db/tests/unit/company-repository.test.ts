@@ -180,6 +180,78 @@ describe('createSupabaseCompanyRepository', () => {
     ).rejects.toMatchObject({ code: 'conflict', reason: 'company_duplicate' });
   });
 
+  it('addIdentifiers (KI-160): grava só as chaves novas, com auditoria em company_identifiers', async () => {
+    const { repo, calls } = stub((req) =>
+      req.method === 'GET'
+        ? json(200, [{ kind: 'cnpj_root', value_normalized: '11222333' }])
+        : new Response(null, { status: 201 }),
+    );
+    const linked: PendingAudit = {
+      ...audit,
+      action: 'prospect.company.identifiers_added',
+      entityType: 'company_identifier',
+      diff: { companyId: COMPANY_ID, origin: 'user' },
+    };
+    await repo.addIdentifiers(
+      COMPANY_ID,
+      [
+        { kind: 'cnpj', valueNormalized: '11222333000181', strength: 'strong', verified: true },
+        { kind: 'cnpj_root', valueNormalized: '11222333', strength: 'weak', verified: true },
+      ],
+      linked,
+    );
+    const [read, insert] = calls;
+    expect(read?.url.pathname).toBe('/rest/v1/company_identifiers');
+    expect(read?.url.searchParams.get('company_id')).toBe(`eq.${COMPANY_ID}`);
+    expect(insert?.method).toBe('POST');
+    expect(JSON.parse(insert?.body ?? '[]')).toEqual([
+      expect.objectContaining({
+        company_id: COMPANY_ID,
+        kind: 'cnpj',
+        value_normalized: '11222333000181',
+        strength: 'strong',
+        verified: true,
+      }),
+    ]);
+    expect(decodeAudit(insert)).toMatchObject({
+      table: 'company_identifiers',
+      action: 'prospect.company.identifiers_added',
+      entityType: 'company_identifier',
+    });
+
+    // Tudo já gravado: nenhuma escrita.
+    const again = stub(() =>
+      json(200, [
+        { kind: 'cnpj', value_normalized: '11222333000181' },
+        { kind: 'cnpj_root', value_normalized: '11222333' },
+      ]),
+    );
+    await again.repo.addIdentifiers(
+      COMPANY_ID,
+      [{ kind: 'cnpj', valueNormalized: '11222333000181', strength: 'strong', verified: true }],
+      linked,
+    );
+    expect(again.calls).toHaveLength(1);
+  });
+
+  it('addIdentifiers: chave forte de outra empresa (índice único) vira company_duplicate', async () => {
+    const { repo } = stub((req) =>
+      req.method === 'GET'
+        ? json(200, [])
+        : json(409, {
+            code: '23505',
+            message: 'duplicate key value violates unique constraint',
+          }),
+    );
+    await expect(
+      repo.addIdentifiers(
+        COMPANY_ID,
+        [{ kind: 'cnpj', valueNormalized: '11222333000181', strength: 'strong', verified: true }],
+        audit,
+      ),
+    ).rejects.toMatchObject({ code: 'conflict', reason: 'company_duplicate' });
+  });
+
   it('record: só os campos do patch vão para a RPC; corrida vira concurrent_change', async () => {
     const { repo, calls } = stub(() => json(409, { code: '40001', message: 'concurrent_change' }));
     await expect(

@@ -9,6 +9,8 @@ import { Alert, Badge, DemoBadge, Well } from '@prospector/ui';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import { formatDateTime } from '@/lib/format';
 import {
+  adjustedSourcesText,
+  AI_REVIEW_KIND_TEXT,
   approvalStateLabel,
   canPrepareReapproval,
   channelPhrase,
@@ -62,7 +64,14 @@ export function MessageThread({
   /** Prefixo do título (na fila de Aprovações, o nome da empresa). */
   title?: string;
 }) {
-  const { message, status, approval, problems, issues } = view;
+  const { message, status, approval, problems, issues, review } = view;
+  const reviewNotes =
+    status === 'draft' && review
+      ? [
+          ...review.kinds.map((kind) => AI_REVIEW_KIND_TEXT[kind]),
+          ...(review.adjusted > 0 ? [adjustedSourcesText(review.adjusted)] : []),
+        ]
+      : [];
   const channel = MESSAGE_CHANNEL_LABELS[message.channel];
   const blockers: string[] = [];
   if (!open) blockers.push('A oportunidade está encerrada.');
@@ -120,6 +129,20 @@ export function MessageThread({
         ) : null}
         <p className="whitespace-pre-wrap break-words">{message.body}</p>
       </Well>
+
+      {reviewNotes.length > 0 ? (
+        <Alert tone="warning" role="note" data-ai-review>
+          <p className="font-medium">A conferência automática deixou avisos neste rascunho:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {reviewNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+          <p className="mt-1">
+            Os avisos não impedem a aprovação: confira o texto acima, corrija se precisar e decida.
+          </p>
+        </Alert>
+      ) : null}
 
       {status === 'draft' && issues.length > 0 ? (
         <Alert tone="warning" role="note">

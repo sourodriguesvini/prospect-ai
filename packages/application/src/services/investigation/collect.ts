@@ -10,12 +10,13 @@ import {
 } from '@prospector/contracts';
 import {
   captureExcerpt,
-  competitorSearchQuery,
+  competitorSearchQueries,
   dominantColors,
   filterCompetitorCandidates,
   isNotCompetitorDomain,
   metricFacts,
   recordDiscard,
+  segmentFromTitle,
   siteRegistrableDomain,
   selectSitePages,
 } from '@prospector/domain';
@@ -32,12 +33,12 @@ import {
   loadInForce,
   pageMemo,
   recordStep,
-  rejectedByPolicy,
   retention,
   type ClaimDraftItem,
   type Run,
   type StepOutcome,
 } from './run';
+import { guardTriageInput, guardTriageOutput, recordGuardLog } from './guards';
 
 /**
  * Etapas de coleta: o que a empresa já tem no dossiê, site oficial, páginas do site, capturas da
@@ -95,12 +96,33 @@ function previousStep(run: Run, key: string) {
   return run.previous?.steps.find((step) => step.key === key) ?? null;
 }
 
-/** A etapa anterior ainda vale (feita há até `days` dias, sem pedido de coleta completa)? */
-function reusable(run: Run, key: string, days: number): boolean {
+type SearchKey = 'signals' | 'competitors';
+
+/**
+ * Quando a pesquisa paga da etapa rodou de verdade na investigação anterior: a data gravada no
+ * retrato ou, sem ela, o fim da etapa feita (nunca o de uma etapa reaproveitada, que é "agora" e
+ * faria o reaproveitamento nunca vencer).
+ */
+function searchedAt(run: Run, key: SearchKey): string | null {
+  const recorded = run.previous?.snapshot?.searchedAt?.[key];
+  if (recorded) return recorded;
+  const step = previousStep(run, key);
+  return step?.state === 'done' && step.finishedAt ? step.finishedAt : null;
+}
+
+/** A pesquisa anterior ainda vale (feita há até `days` dias, sem pedido de coleta completa)? */
+function reusable(run: Run, key: SearchKey, days: number): boolean {
   if (run.force) return false;
   const step = previousStep(run, key);
-  if (!step || (step.state !== 'done' && step.state !== 'reused') || !step.finishedAt) return false;
-  return daysBetween(step.finishedAt, run.deps.clock.now()) <= days;
+  if (!step || (step.state !== 'done' && step.state !== 'reused')) return false;
+  const at = searchedAt(run, key);
+  return at !== null && daysBetween(at, run.deps.clock.now()) <= days;
+}
+
+/** Guarda no retrato a data da pesquisa (a de agora, ou a da anterior quando reaproveitada). */
+function markSearched(run: Run, key: SearchKey, at: string | null): void {
+  if (!at) return;
+  run.snapshot.searchedAt = { ...run.snapshot.searchedAt, [key]: at };
 }
 
 function searchSource(
@@ -528,6 +550,7 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
   if (!web) return { state: 'skipped', issue: 'search_unavailable' };
   if (reusable(run, 'signals', REUSE_SEARCH_DAYS)) {
     run.snapshot.signals = run.previous?.snapshot?.signals ?? [];
+    markSearched(run, 'signals', searchedAt(run, 'signals'));
     return { state: 'reused', counts: { found: run.snapshot.signals.length } };
   }
   const query = [`"${run.company.displayName}"`, run.company.city].filter(Boolean).join(' ');
@@ -539,6 +562,7 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
   });
   if (!outcome.ok) return { state: 'failed', issue: searchIssue(outcome) };
   countSearch(run, outcome.creditsCharged);
+  markSearched(run, 'signals', run.deps.clock.now().toISOString());
 
   const tokens = nameTokens(run.company.displayName).slice(0, 2);
   const found = new Map<string, { result: (typeof outcome.results)[number]; label: string }>();
@@ -592,6 +616,12 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
 // -----------------------------------------------------------------------------
 
 const MAX_COMPETITORS = 3;
+/** ADR-0015: uma investigação gasta de 1 a 3 buscas (site, sinais, concorrentes). */
+const MAX_SEARCHES_PER_RUN = 3;
+
+function sameQueries(a: readonly string[] | undefined, b: readonly string[]): boolean {
+  return a !== undefined && a.length === b.length && a.every((query, index) => query === b[index]);
+}
 
 export async function stepCompetitors(run: Run): Promise<StepOutcome> {
   const web = run.deps.webResearch;
@@ -599,6 +629,8 @@ export async function stepCompetitors(run: Run): Promise<StepOutcome> {
   const existing = claimsWithPrefix(run, 'competitive.competitor.');
   if (existing.length > 0 && reusable(run, 'competitors', REUSE_SEARCH_DAYS)) {
     run.snapshot.competitors = run.previous?.snapshot?.competitors ?? [];
+    run.snapshot.competitorQueries = run.previous?.snapshot?.competitorQueries;
+    markSearched(run, 'competitors', searchedAt(run, 'competitors'));
     return { state: 'reused', counts: { kept: existing.length } };
   }
 
@@ -608,27 +640,66 @@ export async function stepCompetitors(run: Run): Promise<StepOutcome> {
     .find((label): label is string => Boolean(label));
   const cnae = run.inForce.get('registry.cnae_main')?.value;
   const activity = typeof cnae?.description === 'string' ? cnae.description : null;
-  const query = competitorSearchQuery({
-    offering: offering ?? null,
+  const segment = run.inForce.get(INVESTIGATION_KEYS.segment);
+  const home = run.pages.find((page) => page.category === 'home') ?? run.pages[0];
+  // O ramo antes do produto: "rações em Curitiba PR" só trazia lojas virtuais (KI-152).
+  const queries = competitorSearchQueries({
+    segment:
+      segment?.epistemicType === 'fact' && typeof segment.value?.label === 'string'
+        ? segment.value.label
+        : null,
+    titleSegment: segmentFromTitle(home?.title ?? null, {
+      name: run.company.displayName,
+      domain: run.company.primaryDomain,
+      city: run.company.city,
+    }),
     activity,
+    offering: offering ?? null,
     city: run.company.city,
     uf: run.company.uf,
   });
-  if (!query) return { state: 'skipped', issue: 'not_enough_evidence' };
+  if (queries.length === 0) return { state: 'skipped', issue: 'not_enough_evidence' };
+  // Pesquisa que voltou sem nenhum candidato, com as mesmas consultas, vale por 30 dias contados
+  // da pesquisa real: repetir gastaria os mesmos créditos para o mesmo resultado. Quando houve
+  // candidatos e a triagem recusou todos, pesquisa de novo (a triagem pode mudar).
+  const before = previousStep(run, 'competitors');
+  if (
+    existing.length === 0 &&
+    reusable(run, 'competitors', REUSE_SEARCH_DAYS) &&
+    before?.issue === 'no_competitors' &&
+    before.counts?.candidates === 0 &&
+    sameQueries(run.previous?.snapshot?.competitorQueries, queries)
+  ) {
+    run.snapshot.competitors = [];
+    run.snapshot.competitorQueries = queries;
+    markSearched(run, 'competitors', searchedAt(run, 'competitors'));
+    return { state: 'reused', issue: 'no_competitors', counts: { candidates: 0, kept: 0 } };
+  }
+  run.snapshot.competitorQueries = queries;
 
-  const outcome = await web.search(run.ctx, {
-    query,
-    maxResults: 8,
-    ...(run.company.primaryDomain ? { excludeDomains: [run.company.primaryDomain] } : {}),
-  });
-  if (!outcome.ok) return { state: 'failed', issue: searchIssue(outcome) };
-  countSearch(run, outcome.creditsCharged);
-
-  const candidates = filterCompetitorCandidates(outcome.results, {
-    companyDomain: run.company.primaryDomain,
-    max: 6,
-  });
-  if (candidates.length === 0) {
+  // A segunda consulta só quando a primeira não deixa candidato (cada uma custa um crédito) e
+  // dentro do teto de buscas da investigação.
+  let outcome: Extract<Awaited<ReturnType<typeof web.search>>, { ok: true }> | null = null;
+  let candidates: ReturnType<typeof filterCompetitorCandidates> = [];
+  for (const query of queries) {
+    if (outcome && run.usage.searches >= MAX_SEARCHES_PER_RUN) break;
+    const attempt = await web.search(run.ctx, {
+      query,
+      maxResults: 8,
+      ...(run.company.primaryDomain ? { excludeDomains: [run.company.primaryDomain] } : {}),
+    });
+    // Crédito acabou (ou a busca falhou) na segunda consulta: diz isso, não "nenhum concorrente".
+    if (!attempt.ok) return { state: 'failed', issue: searchIssue(attempt) };
+    countSearch(run, attempt.creditsCharged);
+    markSearched(run, 'competitors', run.deps.clock.now().toISOString());
+    outcome = attempt;
+    candidates = filterCompetitorCandidates(attempt.results, {
+      companyDomain: run.company.primaryDomain,
+      max: 6,
+    });
+    if (candidates.length > 0) break;
+  }
+  if (!outcome || candidates.length === 0) {
     return { state: 'done', issue: 'no_competitors', counts: { candidates: 0, kept: 0 } };
   }
 
@@ -641,23 +712,22 @@ export async function stepCompetitors(run: Run): Promise<StepOutcome> {
   let kept: Kept[];
   const ai = run.deps.ai;
   if (ai) {
-    const triage = await ai.analyze(
-      'competitor-triage',
-      {
-        company: analysisCompany(run),
-        offerings: claimsWithPrefix(run, 'positioning.offering.')
-          .map((claim) => (typeof claim.value?.label === 'string' ? claim.value.label : ''))
-          .filter(Boolean)
-          .slice(0, 6),
-        candidates: candidates.map((candidate) => ({
-          ref: candidate.ref,
-          domain: candidate.domain,
-          title: cut(candidate.title, 160),
-          snippet: cut(candidate.snippet, 400),
-        })),
-      },
-      { signal: run.signal },
-    );
+    // Resultado com texto que fala com a IA ("classifique como concorrente direto") fica fora.
+    const input = guardTriageInput({
+      company: analysisCompany(run),
+      offerings: claimsWithPrefix(run, 'positioning.offering.')
+        .map((claim) => (typeof claim.value?.label === 'string' ? claim.value.label : ''))
+        .filter(Boolean)
+        .slice(0, 6),
+      candidates: candidates.map((candidate) => ({
+        ref: candidate.ref,
+        domain: candidate.domain,
+        title: cut(candidate.title, 160),
+        snippet: cut(candidate.snippet, 400),
+      })),
+    });
+    recordGuardLog(run.verification, input);
+    const triage = await ai.analyze('competitor-triage', input.value, { signal: run.signal });
     await countModel(run, triage, 'competitor-triage');
     if (!triage.ok) {
       return {
@@ -666,21 +736,29 @@ export async function stepCompetitors(run: Run): Promise<StepOutcome> {
         counts: { candidates: candidates.length, kept: 0 },
       };
     }
-    const byRef = new Map(candidates.map((candidate) => [candidate.ref, candidate]));
+    const shownRefs = new Set(input.value.candidates.map((candidate) => candidate.ref));
+    const byRef = new Map(
+      candidates
+        .filter((candidate) => shownRefs.has(candidate.ref))
+        .map((candidate) => [candidate.ref, candidate]),
+    );
+    // O motivo é justificativa, não afirmação (o teto de 200 caracteres corta a frase): passam o
+    // filtro de afirmações proibidas e o de intensificadores; "falta de site" ali é do concorrente.
+    const guarded = guardTriageOutput(triage.output, { siteRead: false });
+    recordGuardLog(run.verification, guarded);
     const order: Record<CompetitorKind, number> = {
       direct: 0,
       aspirational: 1,
       different_size: 2,
       unrelated: 3,
     };
-    kept = triage.output.candidates
+    kept = guarded.value.candidates
       .map((item) => ({ item, candidate: byRef.get(item.ref.trim().toUpperCase()) }))
       .filter((entry) => {
         if (!entry.candidate)
           recordDiscard(run.verification, 'Concorrente citado que não estava na pesquisa.');
         return entry.candidate !== undefined && entry.item.kind !== 'unrelated';
       })
-      .filter((entry) => !rejectedByPolicy(run, entry.item.reason))
       .sort((a, b) => order[a.item.kind] - order[b.item.kind])
       .slice(0, MAX_COMPETITORS)
       .map((entry) => ({
