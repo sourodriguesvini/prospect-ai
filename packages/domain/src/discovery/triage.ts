@@ -374,8 +374,78 @@ function scoreCapacity(input: TriageInput): Scored {
 // Bloqueios, lacunas e confiança
 // -----------------------------------------------------------------------------
 
+const PUBLIC_DOMAIN_SUFFIXES = ['gov.br', 'leg.br', 'jus.br', 'mp.br', 'def.br'];
+const TEACHING_DOMAIN_SUFFIXES = ['edu.br'];
+/** Palavras do nome ou do segmento que indicam órgão público. */
+const PUBLIC_WORDS = [
+  'municipal',
+  'municipais',
+  'prefeitura',
+  'governo',
+  'servico publico',
+  'orgao publico',
+  'administracao publica',
+  'autarquia',
+];
+/** Só com contexto: "Secretária Virtual" e "Federal Pet" são empresas. */
+const PUBLIC_PATTERNS = [
+  /\bsecretaria (municipal|estadual|de|da|do)\b/,
+  /\b(hospital|universidade|instituto|escola|colegio|policia) (estadual|federal)\b/,
+];
+/** Instituição de ensino: universidade, faculdade ou clínica/hospital-escola. */
+const TEACHING_PATTERNS = [
+  /\buniversidade\b/,
+  /\bfaculdade\b/,
+  /\b(clinica|hospital)( \w+)? escola\b/,
+  /\b(uf[a-z]{2,3}|puc|puc[a-z]{2}|unesp|unicamp|usp)\b/,
+];
+
+function plain(text: string | null | undefined): string {
+  return ` ${stripAccents(text ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()} `;
+}
+
+/**
+ * Órgão público ou instituição de ensino (KI-148): a Descoberta procura empresas privadas, então
+ * "Hospital Veterinário Municipal", "Hospital Veterinário – UFPR" e prefeituras viram bloqueio
+ * com motivo, a não ser que o próprio pedido procure esse tipo de instituição.
+ */
+export function institutionKind(input: {
+  name: string;
+  domain: string | null;
+  segment: string | null;
+}): 'public' | 'teaching' | null {
+  const domain = (input.domain ?? '').toLowerCase();
+  const endsWith = (suffix: string) => domain === suffix || domain.endsWith(`.${suffix}`);
+  if (PUBLIC_DOMAIN_SUFFIXES.some(endsWith)) return 'public';
+  if (TEACHING_DOMAIN_SUFFIXES.some(endsWith)) return 'teaching';
+  // Lugares com nome de órgão, mas que não são órgão: "Pet Shop do Mercado Municipal".
+  const text = plain(`${input.name} ${input.segment ?? ''}`)
+    .replaceAll(' distrito federal ', ' ')
+    .replaceAll(' mercado municipal ', ' ');
+  if (PUBLIC_WORDS.some((word) => text.includes(` ${word} `))) return 'public';
+  if (PUBLIC_PATTERNS.some((pattern) => pattern.test(text))) return 'public';
+  if (TEACHING_PATTERNS.some((pattern) => pattern.test(text))) return 'teaching';
+  return null;
+}
+
+function wantsInstitutions(input: TriageInput): boolean {
+  const wanted = plain([input.wanted?.segment, ...(input.wanted?.segmentTerms ?? [])].join(' '));
+  return / (publico|publica|prefeituras?|governo|escolas?|universidades?|faculdades?|ensino|educacao) /.test(
+    wanted,
+  );
+}
+
 function gatesOf(input: TriageInput): string[] {
   const gates: string[] = [];
+  const kind = wantsInstitutions(input) ? null : institutionKind(input);
+  if (kind === 'public') {
+    gates.push('Parece órgão público; a Descoberta procura empresas privadas.');
+  } else if (kind === 'teaching') {
+    gates.push('Parece instituição de ensino (universidade ou clínica-escola), não empresa.');
+  }
   const exclusions = input.icp?.exclusions;
   if (exclusions && input.domain) {
     const domain = registrableDomain(input.domain);

@@ -18,6 +18,17 @@ export function calendarDate(at: Date, timeZone: string = AGENCY_TIME_ZONE): str
   }).format(at);
 }
 
+/**
+ * Dia AAAA-MM-DD de um valor gravado: data pura (`2026-11-24`) fica como está; instante ISO
+ * (`2026-11-25T01:19:00Z`) vira o dia no fuso da agência. Cortar o ISO em 10 caracteres dá o dia
+ * em UTC, um dia adiantado depois das 21h de Brasília (KI-149).
+ */
+export function localDay(value: string, timeZone: string = AGENCY_TIME_ZONE): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const at = new Date(value);
+  return Number.isNaN(at.getTime()) ? value.slice(0, 10) : calendarDate(at, timeZone);
+}
+
 /** Diferença (ms) entre o relógio do fuso e o UTC no instante dado (ex.: São Paulo = -3 h). */
 function zoneOffsetMs(at: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {

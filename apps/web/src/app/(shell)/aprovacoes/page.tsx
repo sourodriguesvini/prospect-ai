@@ -8,6 +8,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { FocusOnArrival } from '@/components/discovery/announcers';
 import { MessageThread } from '@/components/relationship/message-thread';
 import {
   ComplianceNotice,
@@ -21,7 +22,13 @@ import { companyRoutes } from '@/lib/company-routes';
 import { formatDateTime } from '@/lib/format';
 import { isoToLocalDateTime } from '@/lib/relationship-dates';
 import { approvalStateLabel, NOTICE_TEXT, problemLabels } from '@/lib/relationship-labels';
-import { APPROVAL_NOTICES, FROM_APPROVALS, relationshipRoutes } from '@/lib/relationship-routes';
+import {
+  APPROVAL_NOTICES,
+  FOCUS_MESSAGE_PARAM,
+  FROM_APPROVALS,
+  focusMessageId,
+  relationshipRoutes,
+} from '@/lib/relationship-routes';
 import { loadRelationship } from '@/server/relationship';
 
 export const metadata: Metadata = { title: 'Aprovações' };
@@ -50,7 +57,7 @@ async function Approvals() {
         <PanelHeader
           titleId="esperando"
           title="Esperando sua decisão"
-          description="Rascunhos ainda não aprovados, do mais antigo para o mais recente. Aprovar vale só para o texto e o canal mostrados, por 72 horas, e para um contato só."
+          description="Rascunhos ainda não aprovados, do mais recente para o mais antigo. Aprovar vale só para o texto e o canal mostrados, por 72 horas, e para um contato só."
         />
         {queue.pending.length === 0 ? (
           <EmptyState>
@@ -164,13 +171,17 @@ async function Approvals() {
 
 /** Confirmação que sobrevive ao redirecionamento depois de aprovar ou descartar (só valores conhecidos). */
 async function Notice({ searchParams }: { searchParams: Props['searchParams'] }) {
-  const { aviso } = await searchParams;
-  const notice = Object.values(APPROVAL_NOTICES).find((value) => value === aviso);
+  const query = await searchParams;
+  const notice = Object.values(APPROVAL_NOTICES).find((value) => value === query.aviso);
   if (!notice) return null;
+  const focusId = focusMessageId(query[FOCUS_MESSAGE_PARAM]);
   return (
-    <Alert tone="success" role="status" data-aviso={notice}>
-      {NOTICE_TEXT[notice]}
-    </Alert>
+    <>
+      <Alert tone="success" role="status" data-aviso={notice}>
+        {NOTICE_TEXT[notice]}
+      </Alert>
+      {focusId ? <FocusOnArrival key={focusId} targetId={`mensagem-${focusId}`} /> : null}
+    </>
   );
 }
 

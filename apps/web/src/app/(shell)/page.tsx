@@ -187,7 +187,10 @@ export default function Home() {
           mínima da tabela de atividade (40rem) e a página rola para o lado; com ele a tabela
           rola dentro do próprio painel. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Panel aria-labelledby="estado" className="flex flex-col gap-5 lg:col-span-4">
+        <Panel
+          aria-labelledby="estado"
+          className="flex flex-col gap-5 lg:col-span-6 2xl:col-span-4"
+        >
           <div className="space-y-4">
             <PanelHeader titleId="estado" title="Banco de dados" className="mb-0" />
             <Suspense
@@ -211,10 +214,10 @@ export default function Home() {
               <Link href="/configuracoes">Configuração</Link>
             </Button>
           </div>
-          <Well className="mt-auto p-3">
+          <Well className="@container mt-auto p-3">
             <p className="px-2.5 pb-2 text-xs text-muted-foreground">Proteções desta instalação</p>
             {/* Subgrade: rótulo, valor e nota ficam na mesma linha em todos os cartões. */}
-            <ul className="grid grid-cols-1 gap-y-2 sm:grid-cols-3 sm:gap-x-2 sm:gap-y-0">
+            <ul className="grid grid-cols-1 gap-y-2 @md:grid-cols-3 @md:gap-x-2 @md:gap-y-0">
               {SAFEGUARDS.map((item) => (
                 <li
                   key={item.label}
@@ -229,7 +232,7 @@ export default function Home() {
           </Well>
         </Panel>
 
-        <Panel aria-labelledby="indicadores" className="lg:col-span-4">
+        <Panel aria-labelledby="indicadores" className="lg:col-span-6 2xl:col-span-4">
           <h2 id="indicadores" className="sr-only">
             Indicadores
           </h2>
@@ -238,7 +241,13 @@ export default function Home() {
               tone="accent"
               label="Aprovações pendentes"
               value={
-                <Suspense fallback={<span role="status">Contando…</span>}>
+                <Suspense
+                  fallback={
+                    <span role="status" className="text-base">
+                      Contando…
+                    </span>
+                  }
+                >
                   <PendingApprovalsValue />
                 </Suspense>
               }
@@ -252,7 +261,13 @@ export default function Home() {
             <StatTile
               label="Empresas consultadas"
               value={
-                <Suspense fallback={<span role="status">Contando…</span>}>
+                <Suspense
+                  fallback={
+                    <span role="status" className="text-base">
+                      Contando…
+                    </span>
+                  }
+                >
                   <InvestigatedValue />
                 </Suspense>
               }
@@ -266,7 +281,13 @@ export default function Home() {
             <StatTile
               label="Oportunidades abertas"
               value={
-                <Suspense fallback={<span role="status">Contando…</span>}>
+                <Suspense
+                  fallback={
+                    <span role="status" className="text-base">
+                      Contando…
+                    </span>
+                  }
+                >
                   <OpenOpportunitiesValue />
                 </Suspense>
               }
@@ -287,13 +308,13 @@ export default function Home() {
           </div>
         </Panel>
 
-        <Panel aria-labelledby="funil" className="flex flex-col lg:col-span-4">
+        <Panel aria-labelledby="funil" className="flex flex-col lg:col-span-12 2xl:col-span-4">
           <PanelHeader
             titleId="funil"
             title="Funil de prospecção"
-            description="Descobertas, investigadas, abordadas e respondidas por mês."
+            description="Em breve: descobertas, investigadas, abordadas e respondidas por mês."
           />
-          <div className="relative flex min-h-52 flex-1 flex-col justify-between rounded-[var(--radius-tile)] bg-muted p-4">
+          <div className="relative flex min-h-40 flex-1 flex-col justify-between rounded-[var(--radius-tile)] bg-muted p-4 2xl:min-h-52">
             {[0, 1, 2, 3].map((line) => (
               <div
                 key={line}
@@ -304,7 +325,19 @@ export default function Home() {
             <p className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-muted-foreground">
               {/* Fundo do poço por trás do texto: as linhas tracejadas não cruzam as letras. */}
               <span className="max-w-xs text-balance rounded-lg bg-muted px-3 py-1.5">
-                Sem dados ainda. O funil aparece quando a Descoberta (F4) estiver ativa.
+                O gráfico ainda não existe. Por enquanto, os números de cada etapa estão em{' '}
+                <Link href="/descoberta" className="underline underline-offset-4">
+                  Descoberta
+                </Link>
+                ,{' '}
+                <Link href="/empresas" className="underline underline-offset-4">
+                  Empresas
+                </Link>{' '}
+                e{' '}
+                <Link href={relationshipRoutes.hub} className="underline underline-offset-4">
+                  Relacionamento
+                </Link>
+                .
               </span>
             </p>
           </div>

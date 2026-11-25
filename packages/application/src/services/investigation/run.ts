@@ -25,7 +25,7 @@ import {
   registryRetentionUntil,
   type VerificationLog,
 } from '@prospector/domain';
-import type { Clock } from '../../clock';
+import { localDay, type Clock } from '../../clock';
 import type { RequestContext } from '../../context';
 import type { CompanyRepository, EvidenceRepository } from '../../ports/company-repository';
 import type {
@@ -164,8 +164,9 @@ export function hostOf(url: string): string {
   }
 }
 
+/** Dia em pt-BR (DD/MM/AAAA) de uma data ou instante, no fuso da agência (KI-149). */
 export function brazilianDay(iso: string): string {
-  const [year, month, day] = iso.slice(0, 10).split('-');
+  const [year, month, day] = localDay(iso).split('-');
   return `${day}/${month}/${year}`;
 }
 

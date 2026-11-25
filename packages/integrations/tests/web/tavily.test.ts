@@ -218,4 +218,22 @@ describe('parseTavilyResponse', () => {
     expect(parsed?.credits).toBeNull();
     expect(parseTavilyResponse(null, 5)).toBeNull();
   });
+
+  it('tira HTML escapado do título e do trecho (KI-152)', () => {
+    const parsed = parseTavilyResponse(
+      {
+        results: [
+          {
+            url: 'https://a.example.com/',
+            title: 'Loja &amp; Cia',
+            content:
+              'Nova loja no Port&atilde;o &lt;iframe src="https://www.google.com/maps"&gt;&lt;/iframe&gt; aberta &lt;div class="x',
+          },
+        ],
+      },
+      5,
+    );
+    expect(parsed?.results[0]?.title).toBe('Loja & Cia');
+    expect(parsed?.results[0]?.snippet).toBe('Nova loja no Portão aberta');
+  });
 });

@@ -118,6 +118,10 @@ export const NOTICE_TEXT: Record<OpportunityNotice, string> = {
     'Aprovação revogada. A mensagem não pode ser usada; para usar o texto de novo, prepare uma versão nova e aprove.',
   [OPPORTUNITY_NOTICES.reapproval]:
     'Versão nova criada como rascunho, com o mesmo texto. Revise e aprove de novo antes de usar.',
+  [OPPORTUNITY_NOTICES.messageEdited]:
+    'Nova versão salva como rascunho. Revise e aprove antes de usar; uma aprovação anterior deixa de valer.',
+  [OPPORTUNITY_NOTICES.messageRewritten]:
+    'A IA escreveu uma nova versão, em rascunho. Revise e aprove antes de usar.',
   [OPPORTUNITY_NOTICES.messageDiscarded]:
     'Mensagem descartada. As versões continuam no histórico da auditoria.',
   [OPPORTUNITY_NOTICES.planDiscarded]: 'Estratégia descartada. As mensagens já escritas continuam.',

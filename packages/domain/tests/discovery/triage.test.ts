@@ -3,6 +3,7 @@ import {
   DRAFT_SCORING_MODEL,
   assessProspect,
   formatPartialDate,
+  institutionKind,
   segmentMatches,
   signalConfidence,
   signalFingerprintText,
@@ -210,6 +211,90 @@ describe('triagem discovery-triage/v1', () => {
     const customer = assessProspect(input({ companyLifecycle: 'customer' }));
     expect(customer.priority).toBe('low');
     expect(customer.assessment.gates).toContain('Já é cliente (módulo Empresas).');
+  });
+
+  it('bloqueia órgão público e instituição de ensino, com o motivo (KI-148)', () => {
+    const pet = {
+      segment: 'pet shops e clínicas veterinárias',
+      segmentTerms: ['pet shop', 'veterinária'],
+      cities: ['Curitiba'],
+      ufs: ['PR' as const],
+      signals: [],
+    };
+    const municipal = assessProspect(
+      input({
+        name: 'Hospital Veterinário Municipal',
+        domain: 'curitiba.pr.gov.br',
+        segment: 'serviço público',
+        city: 'Curitiba',
+        uf: 'PR',
+        wanted: pet,
+      }),
+    );
+    expect(municipal.priority).toBe('low');
+    expect(municipal.assessment.gates).toContain(
+      'Parece órgão público; a Descoberta procura empresas privadas.',
+    );
+    const school = assessProspect(
+      input({
+        name: 'Clínica Veterinária Escola - PUCPR',
+        domain: null,
+        city: 'Curitiba',
+        uf: 'PR',
+        wanted: pet,
+      }),
+    );
+    expect(school.priority).toBe('low');
+    expect(school.assessment.gates[0]).toMatch(/instituição de ensino/);
+
+    expect(
+      institutionKind({ name: 'Hospital Veterinário – UFPR', domain: null, segment: null }),
+    ).toBe('teaching');
+    expect(
+      institutionKind({ name: 'Prefeitura de Belford Roxo', domain: null, segment: null }),
+    ).toBe('public');
+    expect(institutionKind({ name: 'Qualquer', domain: 'ufpr.edu.br', segment: null })).toBe(
+      'teaching',
+    );
+  });
+
+  it('não bloqueia empresa privada nem quando o pedido procura instituições (KI-148)', () => {
+    expect(institutionKind({ name: 'Cobasi', domain: 'cobasi.com.br', segment: 'pet shop' })).toBe(
+      null,
+    );
+    expect(
+      institutionKind({ name: 'Pet Shop do Mercado Municipal', domain: null, segment: null }),
+    ).toBe(null);
+    expect(
+      institutionKind({ name: 'Clínica Vet Distrito Federal', domain: null, segment: null }),
+    ).toBe(null);
+    expect(institutionKind({ name: 'Secretária Virtual Pet', domain: null, segment: null })).toBe(
+      null,
+    );
+    expect(institutionKind({ name: 'Federal Pet Shop', domain: null, segment: null })).toBe(null);
+    expect(
+      institutionKind({ name: 'Secretaria Municipal de Saúde', domain: null, segment: null }),
+    ).toBe('public');
+    expect(institutionKind({ name: 'Hospital Estadual Pet', domain: null, segment: null })).toBe(
+      'public',
+    );
+    expect(
+      institutionKind({ name: 'Escola de Adestramento Cão Feliz', domain: null, segment: null }),
+    ).toBe(null);
+    const wanted = assessProspect(
+      input({
+        name: 'Faculdade Alfa',
+        domain: 'faculdadealfa.edu.br',
+        wanted: {
+          segment: 'faculdades',
+          segmentTerms: ['faculdade', 'ensino superior'],
+          cities: ['Ribeirão Preto'],
+          ufs: ['SP'],
+          signals: [],
+        },
+      }),
+    );
+    expect(wanted.assessment.gates).toEqual([]);
   });
 
   it('usa a região do ICP quando o pedido não tem região', () => {

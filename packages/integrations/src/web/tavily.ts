@@ -10,6 +10,7 @@ import {
 } from '@prospector/contracts';
 import { z } from 'zod';
 import { USER_AGENT, type Fetch } from '../http';
+import { decodeEntities } from './html';
 
 /**
  * Tavily Search API (D-AI-4, ADR-0012). Conferido em docs.tavily.com em 2026-11-10:
@@ -69,8 +70,18 @@ function retryAfter(value: string | null): number | null {
   return Math.min(Math.max(0, Math.round((date - Date.now()) / 1000)), 3600);
 }
 
+/**
+ * O conteúdo da Tavily às vezes traz HTML escapado ("&lt;iframe src=…"): decodifica as entidades e
+ * tira as marcas, inclusive uma cortada no fim (KI-152). O texto continua sendo dado, não HTML.
+ */
+function plainText(text: string): string {
+  return decodeEntities(text)
+    .replace(/<[^<>]*>/g, ' ')
+    .replace(/<[a-z!/][^<>]*$/i, ' ');
+}
+
 function oneLine(text: string, max: number): string {
-  const clean = text.replace(/\s+/g, ' ').trim();
+  const clean = plainText(text).replace(/\s+/g, ' ').trim();
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
 }
 

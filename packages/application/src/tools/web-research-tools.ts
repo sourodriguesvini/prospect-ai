@@ -5,6 +5,7 @@ import {
   WebSearchQuery,
 } from '@prospector/contracts';
 import { z } from 'zod';
+import { localDay } from '../clock';
 import type { WebResearchService } from '../services/web-research-service';
 import { defineTool, type ToolDefinition } from './registry';
 
@@ -175,7 +176,7 @@ export function webResearchTools(deps: { research: WebResearchService }): ToolDe
             aviso: EXTERNAL_NOTICE,
             buscador: provider,
             consulta: outcome.query,
-            pesquisado_em: outcome.fetchedAt.slice(0, 10),
+            pesquisado_em: localDay(outcome.fetchedAt),
             resultados: outcome.results.map((result) => ({
               posicao: result.rank,
               titulo: cut(result.title, 160),
@@ -249,7 +250,7 @@ export function webResearchTools(deps: { research: WebResearchService }): ToolDe
             titulo: page.title,
             descricao: page.description,
             idioma: page.lang,
-            lido_em: page.fetchedAt.slice(0, 10),
+            lido_em: localDay(page.fetchedAt),
             texto: text,
             ...(shortened ? { observacao: 'Texto resumido: a página é maior.' } : {}),
           },

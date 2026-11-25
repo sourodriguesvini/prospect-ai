@@ -13,6 +13,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
+import { FocusOnArrival } from '@/components/discovery/announcers';
 import {
   NewMessageForm,
   NoteForm,
@@ -42,7 +43,12 @@ import { centsToBrl } from '@/lib/form-data';
 import { formatCents, formatDate, formatDateTime } from '@/lib/format';
 import { isoToLocalDate, isoToLocalDateTime, localDateInDays } from '@/lib/relationship-dates';
 import { channelPhrase, NOTICE_TEXT, preparedOfferId, stageLabel } from '@/lib/relationship-labels';
-import { OPPORTUNITY_NOTICES, relationshipRoutes } from '@/lib/relationship-routes';
+import {
+  FOCUS_MESSAGE_PARAM,
+  focusMessageId,
+  OPPORTUNITY_NOTICES,
+  relationshipRoutes,
+} from '@/lib/relationship-routes';
 import {
   activeOfferOptions,
   citedClaims,
@@ -120,8 +126,9 @@ function Section({
 }
 
 function Collapsible({ summary, children }: { summary: string; children: ReactNode }) {
+  // Largura inteira: o formulário de dentro mede o espaço pela própria largura (`@container`).
   return (
-    <details className="rounded-[var(--radius-tile)] bg-muted p-3">
+    <details className="w-full rounded-[var(--radius-tile)] bg-muted p-3">
       <summary className="cursor-pointer text-sm font-medium">{summary}</summary>
       <div className="mt-3">{children}</div>
     </details>
@@ -642,6 +649,7 @@ async function Opportunity({ params, searchParams }: Pick<Props, 'params' | 'sea
   const [offers, claims] = await Promise.all([activeOfferOptions(), citedClaims(company.id)]);
   const query = await searchParams;
   const notice = Object.values(OPPORTUNITY_NOTICES).find((value) => value === query.aviso);
+  const focusId = notice ? focusMessageId(query[FOCUS_MESSAGE_PARAM]) : null;
   const description = [
     opportunity.offerName,
     opportunity.closedAt ? `Encerrada em ${formatDate(opportunity.closedAt)}` : null,
@@ -670,6 +678,7 @@ async function Opportunity({ params, searchParams }: Pick<Props, 'params' | 'sea
           {NOTICE_TEXT[notice]}
         </Alert>
       ) : null}
+      {focusId ? <FocusOnArrival key={focusId} targetId={`mensagem-${focusId}`} /> : null}
       <StorageNotice storage={result.storage} />
       <SuppressionAlert detail={detail} />
       <ComplianceNotice compliance={detail.compliance} />

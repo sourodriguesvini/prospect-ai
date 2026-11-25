@@ -89,6 +89,7 @@ import {
   createSupabaseCompanyRepository,
   createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
+  type DatabaseHealthMemory,
   createSupabaseDiscoveryRepository,
   createSupabaseJobQueue,
   createSupabaseRelationshipRepository,
@@ -638,6 +639,17 @@ function approachInsights(
   });
 }
 
+/**
+ * Memória da checagem do banco que dura o processo (os serviços são recriados a cada requisição):
+ * com ela, tabelas que já responderam e somem viram "banco reiniciando", não "migrações
+ * pendentes" (KI-155).
+ */
+function databaseHealthMemory(): DatabaseHealthMemory {
+  const holder = globalThis as { __prospectorDatabaseHealth?: DatabaseHealthMemory };
+  holder.__prospectorDatabaseHealth ??= { seenTables: false };
+  return holder.__prospectorDatabaseHealth;
+}
+
 /** Credenciais do banco ignoradas pelo modo memória: avisa uma vez por processo, alto. */
 function warnIgnoredDatabase(): void {
   const holder = globalThis as { __prospectorMemoryWarned?: boolean };
@@ -760,7 +772,9 @@ export const getServices = cache((): Services => {
   });
   return {
     storage: 'supabase',
-    system: createSystemService(createSupabaseDatabaseHealth(client)),
+    system: createSystemService(
+      createSupabaseDatabaseHealth(client, undefined, undefined, databaseHealthMemory()),
+    ),
     audit,
     strategy,
     copilot: createCopilotService({ repo: copilotRepo, telemetry: copilotRepo }),

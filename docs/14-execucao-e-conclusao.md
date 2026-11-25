@@ -228,6 +228,21 @@ Pedido do usuário: "depois que todas essas tarefas que estão em execução ter
 | CI do PR #1 (2026-11-24) | A primeira execução com a integração falhou em dois pontos que não aparecem aqui. **Banco (job `supabase`):** `relationship.test.ts` e `companies.test.ts` usavam o mesmo CNPJ; no Postgres real o banco é um só para todos os arquivos, e o segundo cadastro dava `company_duplicate` (no PGlite cada arquivo tem o seu). O Relacionamento passou a usar outra raiz de CNPJ. **e2e (job `checks`):** `companies.spec` rodava em paralelo com `strategy.spec` no mesmo servidor de memória, e a investigação sem oferta ativa dependia de quem chegava primeiro; Empresas virou o projeto `empresas-memoria`, que roda antes da Estratégia. A análise de acessibilidade agora repete por até 10 s, porque o título some por um instante depois do `router.refresh()` do Copiloto. Conferido com `CI=1` e 2 workers: 90 passaram, 3 pulados, nenhum instável |
 | Prompts | Nenhum promovido na integração. Padrão do Copiloto continua `copilot-tools/v3`. Descoberta (`discovery-interpreter/v1`, `discovery-extractor/v2`), Relacionamento (três v1) e análises de Empresas (v1) rodam como padrão dos módulos, sem promoção formal do usuário (KI-115, KI-124, KI-131) |
 
+## Teste real no app instalado (2026-11-24)
+
+Pedido do usuário: "Ainda faltam muitos testes para fazer, todos eles devem ser feitos por você. Acessar o aplicativo na minha máquina e fazer os testes reais". Feito pelo agente no navegador embutido, contra `D:\Prospector` (porta 3210) com o banco real (`prospector-dev`), Ollama 0.40.18 (`qwen3.5:4b`) e Tavily no plano gratuito. Gasto: 7 créditos da Tavily (21 → 28 de 900) e alguns minutos de GPU. Nada foi enviado a ninguém.
+
+| Fluxo | Resultado | Problemas |
+|---|---|---|
+| Telas | Início, Descoberta, Empresas, Relacionamento, Aprovações, Copiloto e Configuração abrem sem erro no console; estratégia "Pode abordar?" liberada; aprovação antiga da Popular Pet aparece como "Vencida" | KI-154 |
+| Copiloto | Ferramentas de empresas, ofertas e dossiê, e pesquisa na internet (1 crédito; Instagram recusado pelos termos, só o trecho da busca); 118,5 s na primeira pergunta (modelo frio depois da atualização do Ollama), 2,6 s e 10,5 s nas seguintes | KI-151, KI-153 |
+| Descoberta | "Pet shops e clínicas veterinárias em Curitiba e região metropolitana com sinais de expansão…": concluída em cerca de 1 min, 15 empresas (14 novas, Cobasi reconhecida), 3 sinais, 4 créditos; o plano completou as buscas até a quantidade (correção do KI-117) | KI-147, KI-148, KI-149 |
+| Investigação | HiperZoo, aberta pela Descoberta: concluída em 1 min 39 s (2 créditos, 4 páginas, 2 capturas sem guardar a imagem, 3 análises); claims com fonte, data e confiança; 5 conclusões descartadas na verificação; desqualificadores da IA só como aviso. Fecha o KI-135 | KI-152, KI-149 |
+| Relacionamento | Abordagem com diagnóstico (Identidade visual, e-mail, tom consultivo, pedido "cite a nova loja no Portão"); texto corrigido à mão (v2); aprovação recusada sem a caixa e aceita com ela (72 horas, só e-mail, hash no banco); revogação com motivo; "Reescrever com a IA" gerou a v3, que ficou em Aprovações como rascunho | KI-150 |
+| Banco | O projeto reiniciou às 22:07 (Supabase); depois, 11 migrações, 39 tabelas e os dados conferidos | KI-155 |
+
+Não testado de propósito, porque gravaria fatos que não aconteceram no banco do usuário: registrar contato feito, resposta recebida ou nota, "Não contatar" (supressão), mudar a etapa no pipeline, follow-ups e monitoramento recorrente (gasta créditos todo dia).
+
 ## Decisões desta execução
 
 | Decisão | Registro |
@@ -253,7 +268,7 @@ Pedido do usuário: "depois que todas essas tarefas que estão em execução ter
 
 ## Próxima atividade exata
 
-1. Teste do usuário no app instalado (`D:\Prospector`), com o banco real: uma pesquisa da Descoberta (confere o KI-117), uma investigação de empresa (KI-135) e uma abordagem até a aprovação, sem envio.
-2. Push de `conclusao-produto` e PR, com autorização do usuário.
+1. Conferir no app instalado as correções de código do teste real de 2026-11-24 (feitas no mesmo dia, com testes): datas no fuso de Brasília (KI-149), deduplicação do ramo pet (KI-147), órgãos públicos e escolas como bloqueio na triagem (KI-148, item 1), interface (KI-154), "migrações pendentes" com o banco subindo (KI-155) e trechos sem HTML (KI-152, item 6). Os erros de conteúdo da IA (KI-148 itens 2 a 5, KI-150, KI-151, KI-152 itens 1 a 5) entram nos conjuntos de avaliação dos itens 3 e 4.
+2. Acompanhar o CI do PR de `conclusao-produto` (aberto; nada de merge sem o usuário).
 3. `copilot-tools/v4` unificado (Descoberta, Empresas e Relacionamento; KI-110, KI-121, KI-130), com `pnpm evals` e aprovação do usuário.
 4. Decisões dos prompts dos módulos (KI-115, KI-124, KI-131) e o KI-118.

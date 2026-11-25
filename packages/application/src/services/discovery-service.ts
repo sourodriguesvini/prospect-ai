@@ -23,7 +23,7 @@ import {
   type Claim,
 } from '@prospector/contracts';
 import { quoteFoundIn, registryRetentionUntil } from '@prospector/domain';
-import { calendarDate, systemClock, type Clock } from '../clock';
+import { calendarDate, localDay, systemClock, type Clock } from '../clock';
 import type { RequestContext } from '../context';
 import { AppError, parseInput } from '../errors';
 import type { CompanyRepository, EvidenceRepository } from '../ports/company-repository';
@@ -411,7 +411,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
       const confirmed = signal.verification === 'confirmed' && quoted;
       const label = SIGNAL_TYPE_LABELS[signal.type];
       const host = source.host.slice(0, 80);
-      const when = brDate(source.publishedAt ?? source.capturedAt.slice(0, 10));
+      const when = brDate(localDay(source.publishedAt ?? source.capturedAt));
       const aiSummary = `Resumo da IA local (não é citação): ${signal.summary}`;
       draft.claims.push({
         id: newId(),

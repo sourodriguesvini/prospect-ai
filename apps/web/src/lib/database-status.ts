@@ -22,7 +22,7 @@ export const DATABASE_STATUS_VIEW: Record<DatabaseStatus, DatabaseStatusView> = 
   schema_missing: {
     label: 'Migrações pendentes',
     tone: 'warning',
-    help: 'O banco responde, mas as tabelas do Prospector não existem. Aplique as migrações de supabase/migrations (docs/runbooks/ambiente-local.md).',
+    help: 'O banco responde, mas as tabelas do Prospector não apareceram. Se o Supabase acabou de reiniciar, espere um minuto e recarregue; se continuar, aplique as migrações de supabase/migrations (docs/runbooks/ambiente-local.md).',
   },
   memory: {
     label: 'Modo memória',
@@ -32,6 +32,6 @@ export const DATABASE_STATUS_VIEW: Record<DatabaseStatus, DatabaseStatusView> = 
   unreachable: {
     label: 'Inacessível',
     tone: 'danger',
-    help: 'Não foi possível falar com o banco em até 3 segundos, ou a chave foi recusada. Confira a conexão e as variáveis em apps/web/.env.local.',
+    help: 'Não foi possível falar com o banco em até 3 segundos, a chave foi recusada ou o Supabase está reiniciando. Espere um minuto e recarregue; se continuar, confira a conexão e as variáveis em apps/web/.env.local.',
   },
 };

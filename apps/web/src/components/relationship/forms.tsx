@@ -50,10 +50,10 @@ export function PrepareApproachForm({
   });
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-4">
+    <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
       <SelectField name="offerId" label="Oferta" options={offers} required {...field} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <SelectField
           name="kind"
           label="Primeira mensagem"
@@ -144,9 +144,9 @@ export function OpportunityDetailsForm({
   const { state, values, formAction } = useActionForm(action, initial);
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-4">
+    <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <SelectField
           name="offerId"
           label="Oferta"
@@ -155,7 +155,7 @@ export function OpportunityDetailsForm({
         />
         <SelectField name="priority" label="Prioridade" options={PRIORITY_OPTIONS} {...field} />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <TextField
           name="valueEstimateCents"
           label="Valor estimado (R$)"
@@ -171,7 +171,7 @@ export function OpportunityDetailsForm({
           {...field}
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <TextField name="nextAction" label="Próximo passo" maxLength={300} {...field} />
         <TextField name="nextActionDueAt" label="Até quando" type="date" {...field} />
       </div>
@@ -277,9 +277,9 @@ export function NewMessageForm({
   });
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-4">
+    <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 @xl:grid-cols-3">
         <SelectField name="kind" label="Tipo" options={MESSAGE_KIND_OPTIONS} {...field} />
         <SelectField name="tone" label="Tom" options={TONE_OPTIONS} {...field} />
         <SelectField name="channel" label="Canal" options={channelOptions(contact)} {...field} />
@@ -315,9 +315,9 @@ export function WriteMessageForm({
   });
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-4">
+    <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <SelectField name="kind" label="Tipo" options={MESSAGE_KIND_OPTIONS} {...field} />
         <SelectField name="channel" label="Canal" options={channelOptions(contact)} {...field} />
       </div>
@@ -408,9 +408,9 @@ export function RecordOutboundForm({
   });
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-3">
+    <form action={formAction} noValidate className="@container space-y-3">
       <FormMessage state={state} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <TextField
           name="occurredAt"
           label="Quando você enviou"
@@ -454,9 +454,9 @@ export function RecordInboundForm({
   });
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-4">
+    <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <SelectField name="channel" label="Canal" options={ANY_CHANNEL_OPTIONS} {...field} />
         <TextField
           name="occurredAt"
@@ -503,9 +503,9 @@ export function NoteForm({ action, now }: { action: FormAction; now: string }) {
   });
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-4">
+    <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @md:grid-cols-2">
         <SelectField name="channel" label="Canal" options={ANY_CHANNEL_OPTIONS} {...field} />
         <TextField name="occurredAt" label="Quando" type="datetime-local" required {...field} />
       </div>
@@ -543,27 +543,27 @@ export function TaskForm({
   });
   const field = { state, values, idScope: useId() };
   return (
-    <form action={formAction} noValidate className="space-y-4">
+    <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
       {suggested ? <input type="hidden" name="origin" value="suggested" /> : null}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 @lg:grid-cols-3">
         <SelectField name="kind" label="Tipo" options={TASK_KIND_OPTIONS} {...field} />
         <TextField
           name="title"
           label="O que fazer"
           required
           maxLength={200}
-          className="sm:col-span-2"
+          className="@lg:col-span-2"
           {...field}
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 @lg:grid-cols-3">
         <TextField name="dueAt" label="Data" type="date" required {...field} />
         <TextField
           name="notes"
           label="Notas (opcional)"
           maxLength={1000}
-          className="sm:col-span-2"
+          className="@lg:col-span-2"
           {...field}
         />
       </div>

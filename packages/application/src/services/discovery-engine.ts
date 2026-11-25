@@ -990,18 +990,22 @@ export function createDiscoveryEngine(deps: DiscoveryEngineDeps): DiscoveryEngin
       cnpj: candidate.cnpj,
     };
     const dedupeKey = prospectDedupeKey(dedupe);
-    // Chave de busca pelo nome: o núcleo (sem cidade no fim nem segmento no começo), para achar o
-    // mesmo nome escrito de outro jeito; as gravadas antes (nome normalizado inteiro) também valem.
+    // Chave de busca pelo nome: o núcleo (sem cidade no fim nem segmento no começo ou, da lista
+    // curta, no fim), para achar o mesmo nome escrito de outro jeito. As gravadas antes também
+    // valem: a do KI-147 (`legacy`) e a mais antiga (nome normalizado inteiro).
     const nameKey =
       companyNameCore(candidate.name, [candidate.city, candidate.uf]).slice(0, 160) ||
       dedupeKey.slice(0, 160);
     const fullNameKey = normalizeCompanyName(candidate.name).slice(0, 160);
+    const legacyNameKey = companyNameCore(candidate.name, [candidate.city, candidate.uf], {
+      legacy: true,
+    }).slice(0, 160);
     const domain = candidate.siteKey;
     const known = await repo.findProspects({
       dedupeKeys: [dedupeKey],
       domains: domain ? [domain] : [],
       cnpjRoots: candidate.cnpj ? [candidate.cnpj.slice(0, 8)] : [],
-      nameKeys: unique([nameKey, fullNameKey].filter(Boolean)),
+      nameKeys: unique([nameKey, legacyNameKey, fullNameKey].filter(Boolean)),
     });
     const match = findSameCompany(
       dedupe,

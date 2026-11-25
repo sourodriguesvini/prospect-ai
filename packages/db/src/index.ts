@@ -3,7 +3,7 @@ export { AUDIT_SELECT, mapAuditRow } from './audit-rows';
 export { createServerSupabaseClient, type ServerClientOptions } from './client';
 export { createSupabaseCompanyRepository, searchTerm } from './company-repository';
 export { createSupabaseCopilotRepository } from './copilot-repository';
-export { createSupabaseDatabaseHealth } from './database-health';
+export { createSupabaseDatabaseHealth, type DatabaseHealthMemory } from './database-health';
 export { createSupabaseRelationshipRepository } from './relationship-repository';
 export { toAppError } from './errors';
 export {

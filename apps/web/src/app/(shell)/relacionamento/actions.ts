@@ -109,6 +109,7 @@ export async function discardPlanAction(opportunityId: string, planId: string) {
 // --- Mensagens --------------------------------------------------------------------------------
 
 export async function regenerateMessageAction(
+  from: string,
   messageId: string,
   _prev: FormState,
   formData: FormData,
@@ -121,7 +122,7 @@ export async function regenerateMessageAction(
       instruction: optionalText(values, 'instruction'),
     });
     if (result.status === 'ai_failed') return { error: result.failure.message };
-    return { message: `Nova versão (v${result.message.version}) criada como rascunho.` };
+    return backWith(from, OPPORTUNITY_NOTICES.messageRewritten, result.message.id);
   });
 }
 
@@ -164,7 +165,12 @@ export async function writeMessageAction(
   });
 }
 
-export async function editMessageAction(messageId: string, _prev: FormState, formData: FormData) {
+export async function editMessageAction(
+  from: string,
+  messageId: string,
+  _prev: FormState,
+  formData: FormData,
+) {
   const values = formValues(formData);
   return runRelationshipAction(values, async (relationship, ctx) => {
     const message = await relationship.editMessage(ctx, {
@@ -174,7 +180,7 @@ export async function editMessageAction(messageId: string, _prev: FormState, for
     });
     return message.id === messageId
       ? { message: 'Nenhuma alteração: o texto é o mesmo.' }
-      : { message: `Versão ${message.version} salva como rascunho. Aprove de novo antes de usar.` };
+      : backWith(from, OPPORTUNITY_NOTICES.messageEdited, message.id);
   });
 }
 

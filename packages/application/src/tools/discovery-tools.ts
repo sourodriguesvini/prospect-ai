@@ -19,6 +19,7 @@ import {
   type ProspectStatus,
 } from '@prospector/contracts';
 import { z } from 'zod';
+import { localDay } from '../clock';
 import type { DiscoveryService, ProspectView } from '../services/discovery-service';
 import { defineTool, type ToolDefinition } from './registry';
 
@@ -82,7 +83,7 @@ function runView(run: DiscoveryRun) {
     id: run.id,
     pedido: run.request,
     situacao: DISCOVERY_RUN_STATUS_LABELS[run.status],
-    criada_em: run.createdAt.slice(0, 10),
+    criada_em: localDay(run.createdAt),
     ...(run.status === 'completed' || run.status === 'running'
       ? { resultado: runCounts(run) }
       : {}),
@@ -99,7 +100,7 @@ function signalView(signal: ProspectSignal, url: string | null) {
     resumo: signal.summary,
     trecho: signal.quote,
     verificacao: SIGNAL_VERIFICATION_LABELS[signal.verification],
-    data: signal.eventDate ?? signal.publishedAt ?? signal.discoveredAt.slice(0, 10),
+    data: signal.eventDate ?? signal.publishedAt ?? localDay(signal.discoveredAt),
     fonte: url,
   };
 }

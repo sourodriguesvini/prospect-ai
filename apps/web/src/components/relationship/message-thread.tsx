@@ -184,12 +184,14 @@ export function MessageThread({
       ) : null}
 
       {editable ? (
-        <div className="flex flex-wrap gap-2">
+        // Chave pela versão e pela aprovação: depois de editar, reescrever ou aprovar, os
+        // formulários começam do texto atual, sem aviso velho (KI-154).
+        <div key={`${message.id}:${status}:${approval?.id ?? ''}`} className="flex flex-wrap gap-2">
           <details className="w-full rounded-[var(--radius-tile)] bg-muted p-3">
             <summary className="cursor-pointer text-sm font-medium">Editar o texto</summary>
             <div className="mt-3">
               <EditMessageForm
-                action={editMessageAction.bind(null, message.id)}
+                action={editMessageAction.bind(null, from, message.id)}
                 hasSubject={message.channel === 'email'}
                 subject={message.subject ?? ''}
                 body={message.body}
@@ -200,7 +202,7 @@ export function MessageThread({
             <summary className="cursor-pointer text-sm font-medium">Reescrever com a IA</summary>
             <div className="mt-3">
               <RegenerateForm
-                action={regenerateMessageAction.bind(null, message.id)}
+                action={regenerateMessageAction.bind(null, from, message.id)}
                 tone={message.tone ?? 'consultative'}
               />
             </div>

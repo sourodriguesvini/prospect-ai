@@ -119,11 +119,42 @@ describe('createSupabaseDatabaseHealth', () => {
     expect(await createSupabaseDatabaseHealth(client).check()).toBe('ok');
   });
 
-  it('schema_missing quando a tabela não existe', async () => {
+  it('schema_missing quando a tabela não existe, depois de ler de novo', async () => {
+    let calls = 0;
+    const { client } = stub(() => {
+      calls += 1;
+      return json(404, {
+        code: 'PGRST205',
+        message: "Could not find the table 'public.audit_log'",
+      });
+    });
+    expect(await createSupabaseDatabaseHealth(client, 3000, 0).check()).toBe('schema_missing');
+    expect(calls).toBe(2);
+  });
+
+  it('banco subindo (KI-155): a segunda leitura acha as tabelas', async () => {
+    let calls = 0;
+    const { client } = stub(() => {
+      calls += 1;
+      return calls === 1
+        ? json(404, { code: 'PGRST205', message: "Could not find the table 'public.audit_log'" })
+        : json(200, []);
+    });
+    expect(await createSupabaseDatabaseHealth(client, 3000, 0).check()).toBe('ok');
+  });
+
+  it('banco reiniciando (KI-155): tabelas já vistas e sumidas é inacessível, não migração', async () => {
+    let missing = false;
     const { client } = stub(() =>
-      json(404, { code: 'PGRST205', message: "Could not find the table 'public.audit_log'" }),
+      missing
+        ? json(404, { code: 'PGRST205', message: "Could not find the table 'public.audit_log'" })
+        : json(200, []),
     );
-    expect(await createSupabaseDatabaseHealth(client).check()).toBe('schema_missing');
+    // Como no app: um objeto de checagem por requisição, a memória dura o processo.
+    const memory = { seenTables: false };
+    expect(await createSupabaseDatabaseHealth(client, 3000, 0, memory).check()).toBe('ok');
+    missing = true;
+    expect(await createSupabaseDatabaseHealth(client, 3000, 0, memory).check()).toBe('unreachable');
   });
 
   it('unreachable quando a chave é recusada', async () => {

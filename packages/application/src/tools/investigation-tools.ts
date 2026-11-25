@@ -9,6 +9,7 @@ import {
   type Investigation,
 } from '@prospector/contracts';
 import { z } from 'zod';
+import { localDay } from '../clock';
 import { AppError } from '../errors';
 import type { ClaimView, CompanyDossier, CompanyService } from '../services/company-service';
 import type { InvestigationService } from '../services/investigation-service';
@@ -123,7 +124,7 @@ function diagnosisView(investigation: Investigation, views: readonly ClaimView[]
   const diagnosis = investigation.diagnosis;
   if (!diagnosis) return null;
   return {
-    da_investigacao_de: investigation.createdAt.slice(0, 10),
+    da_investigacao_de: localDay(investigation.createdAt),
     recomendacao: RECOMMENDATION_LABELS[diagnosis.recommendation],
     proximo_passo: NEXT_STEP_LABELS[diagnosis.nextStep],
     confianca_geral: diagnosis.confidence,
@@ -284,7 +285,7 @@ export function investigationTools(deps: {
                 : null,
               prioridade: summary.priority,
               oferta: summary.recommendedOfferName,
-              investigada_em: (summary.finishedAt ?? summary.updatedAt).slice(0, 10),
+              investigada_em: localDay(summary.finishedAt ?? summary.updatedAt),
             },
           ];
         });

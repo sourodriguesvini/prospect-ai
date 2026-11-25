@@ -124,6 +124,45 @@ describe('nomes', () => {
     expect(sameCompanyNameAt('Vida', 'Clínica Vida Ribeirão Preto', places)).toBe(false);
   });
 
+  it('junta nomes do ramo pet com o segmento a mais no começo ou no fim (KI-147)', () => {
+    const places = ['Curitiba', 'PR'];
+    expect(sameCompanyNameAt('Pet Shop Casa do Produtor', 'Casa do Produtor', places)).toBe(true);
+    expect(sameCompanyNameAt('Bem Locão Pet Shop', 'Bem Locão', places)).toBe(true);
+    expect(sameCompanyNameAt('Clínica Veterinária Amigo Fiel', 'Amigo Fiel', places)).toBe(true);
+    expect(
+      sameCompanyNameAt(
+        'Hospital Veterinário Municipal',
+        'Hospital Veterinário Municipal - Serviços',
+        places,
+      ),
+    ).toBe(true);
+    expect(companyNameCore('Pet Shop Casa do Produtor', places)).toBe('casa do produtor');
+    expect(companyNameCore('Bem Locão Pet Shop', places)).toBe('bem locao');
+    // Chave antiga, igual à gravada antes da correção, para achar as empresas já salvas.
+    expect(companyNameCore('Bem Locão Pet Shop', places, { legacy: true })).toBe(
+      'bem locao pet shop',
+    );
+    expect(
+      companyNameCore('Clínica Veterinária Amigo Fiel Curitiba', places, { legacy: true }),
+    ).toBe('veterinaria amigo fiel');
+    expect(companyNameCore('Vet Center Batel', places, { legacy: true })).toBe('vet center batel');
+  });
+
+  it('não junta nomes do ramo pet só parecidos nem tira do fim o segmento que é parte do nome', () => {
+    const places = ['Curitiba', 'PR'];
+    expect(sameCompanyNameAt('Pet Maxi', 'Pet Max', places)).toBe(false);
+    expect(sameCompanyNameAt('Pet Shop', 'Pet Shop Curitiba', places)).toBe(false);
+    expect(sameCompanyNameAt('Clínica Vida', 'Clínica Vida Saúde', places)).toBe(false);
+    expect(companyNameCore('Quali Saúde', places)).toBe('quali saude');
+  });
+
+  it('palavras do ramo pet não fazem um nome aparecer em outro nem um site virar oficial', () => {
+    expect(nameFoundIn('Pet Shop Amigo', 'Clínica Amigo Fiel abre unidade')).toBe(false);
+    expect(nameMatchesHost('Pet Shop Casa do Produtor', 'paranashop.com.br')).toBe(false);
+    expect(nameMatchesHost('Pet Shop Casa do Produtor', 'casadoprodutor.com.br')).toBe(true);
+    expect(nameMatchesHost('Pet Love', 'petlove.com.br')).toBe(true);
+  });
+
   it('confere o nome com o endereço do site', () => {
     expect(nameMatchesHost('Clínica Vida Plena', 'vidaplena.com.br')).toBe(true);
     expect(nameMatchesHost('Hospital São Lucas Ribeirão', 'hslr.com.br')).toBe(true);

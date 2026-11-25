@@ -7,6 +7,7 @@ import {
   type EntityRef,
 } from '@prospector/contracts';
 import { z } from 'zod';
+import { localDay } from '../clock';
 import type { RequestContext } from '../context';
 import { AppError } from '../errors';
 import type { ClaimView, CompanyService } from '../services/company-service';
@@ -107,7 +108,7 @@ export function claimRecord(view: ClaimView) {
     confianca: CONFIDENCE_BAND_LABELS[view.band],
     estado: STATUS_LABEL[view.status] ?? view.status,
     fonte: source ? (source.title ?? source.provider ?? source.kind) : null,
-    coletado_em: source ? source.capturedAt.slice(0, 10) : null,
+    coletado_em: source ? localDay(source.capturedAt) : null,
     ...(isExternal(view) ? { fonte_externa: true } : {}),
     ...(view.claim.isDemo ? { demo: true } : {}),
   };
@@ -195,7 +196,9 @@ export function companyTools(deps: { companies: CompanyService }): ToolDefinitio
               ...companyView(company),
               razao_social: company.legalName,
               dominio: company.primaryDomain,
-              ultima_investigacao: company.lastInvestigatedAt?.slice(0, 10) ?? null,
+              ultima_investigacao: company.lastInvestigatedAt
+                ? localDay(company.lastInvestigatedAt)
+                : null,
             },
             registros: claims,
             ...(claims.some((claim) => claim.fonte_externa)
