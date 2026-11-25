@@ -4,6 +4,7 @@ export { createServerSupabaseClient, type ServerClientOptions } from './client';
 export { createSupabaseCompanyRepository, searchTerm } from './company-repository';
 export { createSupabaseCopilotRepository } from './copilot-repository';
 export { createSupabaseDatabaseHealth, type DatabaseHealthMemory } from './database-health';
+export { createSupabaseEmailRepository } from './email-repository';
 export { createSupabaseRelationshipRepository } from './relationship-repository';
 export { toAppError } from './errors';
 export {

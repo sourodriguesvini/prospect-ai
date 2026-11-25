@@ -148,6 +148,19 @@ A Descoberta usa a pesquisa na internet (Tavily, mesma chave e mesmo teto mensal
 - **Testes de ponta a ponta com o banco real** (`E2E_SUPABASE=1`): o servidor principal do e2e sobe com `PROSPECTOR_JOB_WORKER=off`, para não pegar as pesquisas e os monitoramentos do usuário.
 - Para ver as telas sem internet nem GPU: `PROSPECTOR_STORAGE=memory PROSPECTOR_DISCOVERY=fixture pnpm dev` (dados de demonstração).
 
+## 5b. E-mail (caixa da Hostinger, ADR-0016)
+
+A tela Configuração › E-mail guarda quem assina, a caixa de envio e a senha (no Vault do Supabase), confere o login SMTP/IMAP e o DNS (SPF, DKIM e DMARC) e manda um e-mail de teste só para a própria caixa. Precisa do banco com a migração `20261125120000_email_mailbox.sql` (aplicada no `prospector-dev` em 2026-11-25); num banco sem ela, a tela explica o que falta. A senha é digitada pelo usuário na tela e nunca volta para o formulário.
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `PROSPECTOR_EMAIL` | `on` | `fixture` usa caixa, servidores e DNS SIMULADOS (só com `PROSPECTOR_STORAGE=memory`, com selo DEMO); nada conecta nem envia |
+
+- Para ver a tela sem caixa real: `PROSPECTOR_STORAGE=memory PROSPECTOR_EMAIL=fixture pnpm dev` (configuração `dev-email-demo` do `.claude/launch.json`).
+- O e2e da tela (`e2e/email.spec.ts`) roda no servidor da Descoberta, que sobe com `PROSPECTOR_EMAIL=fixture`.
+- Mudar o servidor de envio ou de entrada ou o usuário pede a senha de novo; o teste vai para o usuário da caixa (o endereço que o login prova), no máximo um por minuto.
+- A prévia abre em `/configuracoes/email/previa`, com política de segurança só dela (aceita as imagens https cadastradas, sem script). O navegador embutido do Claude bloqueia esse quadro (`ERR_BLOCKED_BY_CLIENT`); no Chrome/Edge e no e2e ele aparece.
+
 ## 6. Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |

@@ -54,7 +54,15 @@ const nextConfig: NextConfig = {
     '@prospector/ui',
   ],
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // A prévia do e-mail abre num quadro da própria tela de e-mail (src/lib/email-preview.ts);
+      // a regra posterior vale sobre a anterior.
+      {
+        source: '/configuracoes/email/previa',
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+      },
+    ];
   },
   // Abordagens, Conversas e Pipeline viraram abas de /relacionamento (ADR-0014). Temporário (307):
   // os endereços antigos podem voltar a ser usados por outra tela.

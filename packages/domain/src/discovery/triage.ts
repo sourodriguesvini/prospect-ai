@@ -175,7 +175,12 @@ export function triageWeights(weights: ScoreWeights | null): Record<TriageDimens
 interface Scored {
   points: number | null;
   reasons: TriageReason[];
+  /** Aderência: as fontes descrevem um segmento que não é o pedido. */
+  segmentMismatch?: boolean;
 }
+
+/** Segmento não informado nas fontes: nem confirma nem afasta o setor pedido. */
+export const TRIAGE_UNKNOWN_SEGMENT_POINTS = 50;
 
 function evidenceIds(input: TriageInput): string[] {
   const ids = input.officialSiteSourceId ? [input.officialSiteSourceId] : [];
@@ -186,6 +191,7 @@ function evidenceIds(input: TriageInput): string[] {
 function scoreFit(input: TriageInput): Scored {
   const reasons: TriageReason[] = [];
   const parts: number[] = [];
+  let segmentMismatch = false;
   const sourceIds = evidenceIds(input);
 
   // Segmento: o pedido (termos) contra o que as fontes dizem da empresa.
@@ -205,12 +211,21 @@ function scoreFit(input: TriageInput): Scored {
       });
     } else if (described) {
       parts.push(30);
+      segmentMismatch = true;
       reasons.push({
         text: trimText(
           `O segmento descrito nas fontes (${input.segment ?? 'outro'}) não bate com o pedido.`,
           300,
         ),
         sourceIds,
+      });
+    } else {
+      // Sem segmento nas fontes, a região sozinha dava aderência máxima: a "Neodent" (fábrica de
+      // implantes) entrava como média numa busca de clínicas (teste real de 2026-11-25).
+      parts.push(TRIAGE_UNKNOWN_SEGMENT_POINTS);
+      reasons.push({
+        text: 'As fontes não dizem o segmento da empresa: falta confirmar se é do setor pedido.',
+        sourceIds: [],
       });
     }
   }
@@ -244,8 +259,12 @@ function scoreFit(input: TriageInput): Scored {
     }
   }
 
-  if (parts.length === 0) return { points: null, reasons };
-  return { points: clampScore(parts.reduce((a, b) => a + b, 0) / parts.length), reasons };
+  if (parts.length === 0) return { points: null, reasons, segmentMismatch };
+  return {
+    points: clampScore(parts.reduce((a, b) => a + b, 0) / parts.length),
+    reasons,
+    segmentMismatch,
+  };
 }
 
 const RELEVANCE_POINTS: Record<SignalRelevance, number> = { high: 90, medium: 70, low: 45 };
@@ -375,7 +394,17 @@ function scoreCapacity(input: TriageInput): Scored {
 // -----------------------------------------------------------------------------
 
 const PUBLIC_DOMAIN_SUFFIXES = ['gov.br', 'leg.br', 'jus.br', 'mp.br', 'def.br'];
-const TEACHING_DOMAIN_SUFFIXES = ['edu.br'];
+const TEACHING_DOMAIN_SUFFIXES = ['edu.br', 'edu'];
+/**
+ * Domínio de país que não é o Brasil (KI-148): "ucsf.edu" e afins já caem em ensino. Ficam de fora
+ * os de país usados no mundo todo como genéricos (.io, .ai, .co, .me, .tv…), comuns em startups
+ * brasileiras.
+ */
+const FOREIGN_COUNTRY_TLDS = new Set(
+  'pt es uk de fr it ar mx cl pe uy py bo ec ve us ca au nz jp cn kr in ru za ie nl be ch at se no dk fi pl cz gr tr il ae sa'.split(
+    ' ',
+  ),
+);
 /** Palavras do nome ou do segmento que indicam órgão público. */
 const PUBLIC_WORDS = [
   'municipal',
@@ -386,11 +415,19 @@ const PUBLIC_WORDS = [
   'orgao publico',
   'administracao publica',
   'autarquia',
+  // Unidades do SUS (teste real de 2026-11-25: "Clínica Odontológica da Unidade de Saúde Mãe
+  // Curitibana", com fonte só na prefeitura, saiu como média).
+  'unidade de saude',
+  'unidade basica',
+  'posto de saude',
+  'centro de saude',
 ];
 /** Só com contexto: "Secretária Virtual" e "Federal Pet" são empresas. */
 const PUBLIC_PATTERNS = [
   /\bsecretaria (municipal|estadual|de|da|do)\b/,
   /\b(hospital|universidade|instituto|escola|colegio|policia) (estadual|federal)\b/,
+  // UBS e UPA do SUS, sem pegar o banco "UBS BB".
+  /\b(ubs|upa) (24h|\d+|vila|jardim|parque|bairro|central|municipal|de|do|da|dos|das)\b/,
 ];
 /** Instituição de ensino: universidade, faculdade ou clínica/hospital-escola. */
 const TEACHING_PATTERNS = [
@@ -431,6 +468,12 @@ export function institutionKind(input: {
   return null;
 }
 
+/** Site oficial com domínio de outro país ("clinica.pt"): a Descoberta procura empresas no Brasil. */
+export function foreignSiteTld(domain: string | null): string | null {
+  const tld = (domain ?? '').toLowerCase().split('.').pop() ?? '';
+  return FOREIGN_COUNTRY_TLDS.has(tld) ? tld : null;
+}
+
 function wantsInstitutions(input: TriageInput): boolean {
   const wanted = plain([input.wanted?.segment, ...(input.wanted?.segmentTerms ?? [])].join(' '));
   return / (publico|publica|prefeituras?|governo|escolas?|universidades?|faculdades?|ensino|educacao) /.test(
@@ -446,6 +489,8 @@ function gatesOf(input: TriageInput): string[] {
   } else if (kind === 'teaching') {
     gates.push('Parece instituição de ensino (universidade ou clínica-escola), não empresa.');
   }
+  const foreign = foreignSiteTld(input.domain);
+  if (foreign) gates.push(`O site oficial é de fora do Brasil (domínio .${foreign}).`);
   const exclusions = input.icp?.exclusions;
   if (exclusions && input.domain) {
     const domain = registrableDomain(input.domain);
@@ -529,6 +574,9 @@ export function assessProspect(input: TriageInput): TriageResult {
   let priority: PriorityBand;
   if (gates.length > 0) priority = 'low';
   else if (insufficient) priority = 'insufficient';
+  // Segmento diferente do pedido não sobe por sinal forte: "Caixa" (banco) e "Neodent" (fábrica)
+  // saíam como média em buscas de outro setor (testes reais de 2026-11-24 e 2026-11-25).
+  else if (scored.fit.segmentMismatch) priority = 'low';
   else if (score >= TRIAGE_HIGH_FROM) priority = 'high';
   else if (score >= TRIAGE_MEDIUM_FROM) priority = 'medium';
   else priority = 'low';

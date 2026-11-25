@@ -1127,6 +1127,40 @@ describe('plano de buscas e trechos', () => {
 
   // Pesquisa real de 2026-11-24 (KI-148): "região metropolitana" sumia, buscas de diretório e em
   // inglês ("pet clinic Curitiba") e só 1 de 4 buscas procurava o sinal pedido.
+  it('setor genérico ("empresas") não vira setor nem a busca "empresas" (2026-11-25)', () => {
+    const request =
+      'Empresas no Brasil que abriram recentemente ou estão lançando uma nova marca, produto ou linha';
+    const run = {
+      request,
+      options: { quantity: null, depth: null, uf: null, city: null, icpId: null, signals: [] },
+      limits: { maxSearches: 3, maxPages: 6, maxProspects: 15 },
+    };
+    const output = InterpreterOutput.parse({
+      summary: 'Empresas brasileiras com lançamento recente.',
+      segment: 'empresas',
+      segmentTerms: ['empresas', 'negócios'],
+      cities: [],
+      ufs: [],
+      regionScope: 'country',
+      signals: ['launch'],
+      queries: [
+        { text: 'empresas', purpose: 'companies' },
+        {
+          text: 'empresa lança nova marca Brasil',
+          purpose: 'signals',
+          signal: 'launch',
+          recent: true,
+        },
+      ],
+    });
+    const intent = buildIntent(run, output);
+    expect(intent.segment).toBeNull();
+    expect(intent.segmentTerms).toEqual([]);
+    const texts = buildPlan(request, output, intent, 3).queries.map((query) => query.text);
+    expect(texts).not.toContain('empresas');
+    expect(texts).toContain('empresa lança nova marca Brasil');
+  });
+
   it('pedido com região metropolitana e sinal: região mantida e buscas de sinal por negócio', () => {
     const request =
       'Pet shops e clínicas veterinárias em Curitiba e região metropolitana com sinais de expansão, como loja nova ou nova unidade.';

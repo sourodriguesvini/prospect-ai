@@ -40,6 +40,9 @@
 | [0011](adr/0011-fila-duravel-no-postgres.md) | Fila durável no Postgres com trabalhador local (emenda o 0004 para o uso local) | Aceito |
 | [0012](adr/0012-busca-web-tavily-playwright.md) | Pesquisa na internet: Tavily para busca e Playwright para ler páginas | Aceito |
 | [0013](adr/0013-descoberta-inteligente.md) | Descoberta inteligente: pedido em linguagem natural, sinais com trecho conferido e triagem por regras | Aceito |
+| [0014](adr/0014-relacionamento-abordagens-conversas-pipeline.md) | Relacionamento: abordagens, conversas, pipeline e aprovações | Proposto |
+| [0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md) | Investigação de empresas e Brand Intelligence | Proposto |
+| [0016](adr/0016-email-pela-caixa-fila-em-lote-e-mcp.md) | E-mail pela caixa da Found Studio, fila de aprovação em lote e Prospector via MCP | Proposto |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 

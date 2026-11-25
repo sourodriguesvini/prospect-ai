@@ -58,6 +58,19 @@ export function relationshipAiMode(): RelationshipAiMode {
   throw new Error('PROSPECTOR_RELATIONSHIP_AI inválida: use "ollama", "fixture" ou deixe vazia.');
 }
 
+export type EmailMode = 'on' | 'fixture';
+
+/**
+ * E-mail (ADR-0016): conecta de verdade na caixa cadastrada por padrão. `PROSPECTOR_EMAIL=fixture`
+ * usa uma caixa SIMULADA (sem conexão, sem envio), só no modo memória (testes de ponta a ponta).
+ */
+export function emailMode(): EmailMode {
+  const value = readVar('PROSPECTOR_EMAIL');
+  if (value === undefined || value === 'on') return 'on';
+  if (value === 'fixture') return value;
+  throw new Error('PROSPECTOR_EMAIL inválida: use "on", "fixture" ou deixe vazia.');
+}
+
 export function cnpjLookupEnabled(): boolean {
   return cnpjLookupMode() !== 'off';
 }

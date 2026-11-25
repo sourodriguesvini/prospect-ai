@@ -101,10 +101,16 @@ export function forbiddenAssertion(
 }
 
 /** Palavras que não fecham frase: afirmação que termina nelas foi interrompida pelo modelo. */
+// Palavras que não fecham frase: artigos, preposições, conjunções e verbos de ligação ou auxiliares
+// ("não há sinal de que a marca seja", teste real de 2026-11-25). Comparadas sem acento.
 const DANGLING = new Set(
-  'a o as os de da do das dos e em no na nos nas um uma por para com que ao aos sua seu suas seus pela pelo mas ou se como'.split(
-    ' ',
-  ),
+  [
+    'a o as os de da do das dos e em no na nos nas um uma por para com que ao aos sua seu suas seus pela pelo mas ou se como',
+    'entre sobre sem sob ate desde contra embora porque pois onde quando cujo cuja cujos cujas qual quais',
+    'seja sejam sao esta estao era eram foi foram ser estar pode podem deve devem ha',
+  ]
+    .join(' ')
+    .split(' '),
 );
 
 /**

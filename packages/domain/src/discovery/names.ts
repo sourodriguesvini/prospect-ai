@@ -94,6 +94,114 @@ export function normalizeCompanyName(name: string): string {
   return words.join(' ');
 }
 
+/**
+ * Nome que é só forma jurídica ("MEI", "LTDA", "S/A"): veio de texto que explica tipos de empresa,
+ * não de uma empresa (monitoramento real de 2026-11-25).
+ */
+export function onlyLegalForm(name: string): boolean {
+  const words = stripAccents(name)
+    .toLowerCase()
+    .replace(/\bs\s*\/\s*a\b/g, ' sa ')
+    .replace(/\bs\.\s*a\.?/g, ' sa ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+  return words.length > 0 && words.every((word) => LEGAL_FORMS.has(word) || STOPWORDS.has(word));
+}
+
+/** Cargo no começo do nome: é o título de uma vaga, não a empresa que contrata. */
+const JOB_TITLE_WORDS = new Set([
+  'vaga',
+  'vagas',
+  'analista',
+  'coordenador',
+  'coordenadora',
+  'gerente',
+  'assistente',
+  'auxiliar',
+  'estagiario',
+  'estagiaria',
+  'estagio',
+  'supervisor',
+  'supervisora',
+  'desenvolvedor',
+  'desenvolvedora',
+  'programador',
+  'programadora',
+]);
+const DESIGNER_ROLE_NEXT = new Set(['de', 'ux', 'ui', 'grafico', 'grafica', 'visual', 'produto']);
+
+/**
+ * Título de vaga no lugar do nome ("Analista de Marketing Digital", vindo do Glassdoor): o modelo
+ * leu o anúncio, não a empresa (monitoramento real de 2026-11-25).
+ */
+export function looksLikeJobTitle(name: string): boolean {
+  const words = stripAccents(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+  const [first, second] = words;
+  if (!first) return false;
+  if (JOB_TITLE_WORDS.has(first)) return true;
+  // "Senior Sistemas" e "Sr. Frango" são empresas: senioridade sozinha não basta.
+  return first === 'designer' && second !== undefined && DESIGNER_ROLE_NEXT.has(second);
+}
+
+/** Palavras que não dizem setor nenhum: "empresas", "negócios", "pequenas e médias empresas". */
+const NO_SEGMENT_WORDS = new Set([
+  'empresa',
+  'empresas',
+  'negocio',
+  'negocios',
+  'companhia',
+  'companhias',
+  'organizacao',
+  'organizacoes',
+  'firma',
+  'firmas',
+  'marca',
+  'marcas',
+  'pequena',
+  'pequenas',
+  'media',
+  'medias',
+  'grande',
+  'grandes',
+  'nova',
+  'novas',
+  'brasileira',
+  'brasileiras',
+  'nacional',
+  'nacionais',
+  'local',
+  'locais',
+  'privada',
+  'privadas',
+  'brasil',
+  'no',
+  'na',
+  'nos',
+  'nas',
+]);
+
+/**
+ * Setor que não é setor ("empresas"): vira busca "empresas" e marca toda empresa como "segmento
+ * que não bate com o pedido" (monitoramento real de 2026-11-25). Quem chama trata como sem setor.
+ */
+export function genericSegment(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const words = stripAccents(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter((word) => word && !STOPWORDS.has(word));
+  return words.length > 0 && words.every((word) => NO_SEGMENT_WORDS.has(word));
+}
+
 /** Palavras que distinguem a empresa (sem artigos nem palavras genéricas de segmento). */
 export function distinctiveTokens(name: string): string[] {
   return tokensWithout(name, GENERIC_WORDS);

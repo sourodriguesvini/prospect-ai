@@ -35,6 +35,27 @@ function plural(count: number, one: string, many: string): string {
 }
 
 /**
+ * Texto alternativo das imagens sem número negativo solto: "41 imagens…, 0 sem texto alternativo"
+ * foi lido pela IA local como "0 imagens com texto alternativo" (teste real de 2026-11-25).
+ */
+function imagesAltLine(count: number, withoutAlt: number, where: string): string {
+  if (count === 0) return `Nenhuma imagem visível no ${where}.`;
+  const images = `${count} ${plural(count, 'imagem visível', 'imagens visíveis')} no ${where}`;
+  if (withoutAlt === 0) {
+    return count === 1
+      ? `${images}; ela tem texto alternativo.`
+      : `${images}; todas têm texto alternativo.`;
+  }
+  if (withoutAlt >= count) {
+    return count === 1
+      ? `${images}; ela não tem texto alternativo.`
+      : `${images}; nenhuma tem texto alternativo.`;
+  }
+  const withAlt = count - withoutAlt;
+  return `${images}; ${withAlt} com texto alternativo e ${withoutAlt} sem.`;
+}
+
+/**
  * `pageText: false` quando o site pede para não guardar cópia (`noarchive`): as medições ficam,
  * mas sem o texto do H1 e das chamadas para ação (só a contagem).
  */
@@ -96,10 +117,7 @@ export function metricLines(metrics: BrandMetrics, options: MetricTextOptions = 
       'h1',
       `${metrics.h1Count} títulos principais (H1) no ${where}; o primeiro: "${(metrics.h1Text ?? '').replace(/"/g, "'")}".`,
     );
-  add(
-    'images_alt',
-    `${metrics.imageCount} ${plural(metrics.imageCount, 'imagem visível', 'imagens visíveis')} no ${where}, ${metrics.imagesWithoutAlt} sem texto alternativo.`,
-  );
+  add('images_alt', imagesAltLine(metrics.imageCount, metrics.imagesWithoutAlt, where));
   add(
     'cta',
     metrics.ctaTexts.length === 0
@@ -142,7 +160,7 @@ export function metricLines(metrics: BrandMetrics, options: MetricTextOptions = 
   add(
     'logo',
     metrics.logo.found
-      ? `Logotipo no topo da página no ${where}: ${LOGO_FORMAT_LABELS[metrics.logo.format]}, ${metrics.logo.width}×${metrics.logo.height} px.`
+      ? `Logotipo no topo da página no ${where}: ${LOGO_FORMAT_LABELS[metrics.logo.format]}, exibido em ${metrics.logo.width}×${metrics.logo.height} px na tela.`
       : `Nenhum logotipo reconhecido no topo da página no ${where}.`,
   );
   add(

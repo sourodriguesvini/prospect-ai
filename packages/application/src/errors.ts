@@ -71,6 +71,18 @@ export const ERROR_MESSAGES = {
     'A fila de investigações está cheia. Espere algumas terminarem e tente de novo.',
   investigation_not_resumable:
     'Só investigações interrompidas ou com falha podem ser retomadas. Para atualizar, comece uma nova.',
+  // E-mail (ADR-0016)
+  sender_identity_missing: 'Salve primeiro quem assina os e-mails (nome, cargo e estúdio).',
+  mailbox_missing: 'Salve primeiro a caixa de envio (endereço e servidores).',
+  mailbox_password_missing: 'Grave a senha da caixa antes de testar ou enviar.',
+  mailbox_not_ready:
+    'Clique em Testar conexão antes: o login de envio (SMTP) precisa passar na última conferência.',
+  email_test_too_soon:
+    'Houve uma tentativa de envio há menos de um minuto. Espere um minuto para tentar de novo.',
+  email_send_failed:
+    'Não deu para enviar pelo servidor de e-mail (recusado ou sem resposta). Clique em Testar conexão para ver o motivo e tente de novo.',
+  email_check_busy:
+    'Uma conferência acabou de rodar ou ainda está rodando. Espere alguns segundos e teste de novo.',
 } as const;
 
 export type ErrorReason = keyof typeof ERROR_MESSAGES;

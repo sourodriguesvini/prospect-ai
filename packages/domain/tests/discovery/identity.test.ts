@@ -3,12 +3,15 @@ import {
   companyNameCore,
   distinctiveTokens,
   findSameCompany,
+  genericSegment,
   homepageOf,
   hostCategory,
   hostOf,
+  looksLikeJobTitle,
   nameFoundIn,
   nameMatchesHost,
   normalizeCompanyName,
+  onlyLegalForm,
   prospectDedupeKey,
   registrableDomain,
   nameWithoutPlace,
@@ -319,5 +322,50 @@ describe('data do acontecimento', () => {
     );
     expect(supportedEventDate('2026-09', 'Em set. de 2026 a loja abriu.')).toBe('2026-09');
     expect(supportedEventDate(null, 'qualquer texto 2026')).toBeNull();
+  });
+});
+
+describe('nomes que não são empresas (monitoramento real de 2026-11-25)', () => {
+  it('forma jurídica sozinha não é empresa', () => {
+    for (const name of ['MEI', 'LTDA', 'SLU', 'S/A', 'Eireli', 'ME e EPP']) {
+      expect(onlyLegalForm(name)).toBe(true);
+    }
+    for (const name of ['Padaria Bom Pão LTDA', 'Mei Sushi', 'Cia Hering']) {
+      expect(onlyLegalForm(name)).toBe(false);
+    }
+  });
+
+  it('título de vaga não é empresa', () => {
+    for (const name of [
+      'Analista de Marketing Digital',
+      'Coordenadora de Marketing',
+      'Vaga de Social Media',
+      'Designer de Produto',
+      'Designer UX',
+    ]) {
+      expect(looksLikeJobTitle(name)).toBe(true);
+    }
+    for (const name of [
+      'Senior Sistemas',
+      'Sr. Frango',
+      'Designer Móveis',
+      'Gerencial Contabilidade',
+    ]) {
+      expect(looksLikeJobTitle(name)).toBe(false);
+    }
+  });
+
+  it('setor que não é setor', () => {
+    for (const text of [
+      'empresas',
+      'Empresas no Brasil',
+      'pequenas e médias empresas',
+      'negócios',
+    ]) {
+      expect(genericSegment(text)).toBe(true);
+    }
+    for (const text of ['clínicas', 'empresas de tecnologia', 'startups', null, '']) {
+      expect(genericSegment(text)).toBe(false);
+    }
   });
 });

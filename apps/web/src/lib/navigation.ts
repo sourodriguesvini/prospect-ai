@@ -1,4 +1,4 @@
-import { FileCheck2, ScrollText, Settings, Target, type LucideIcon } from 'lucide-react';
+import { FileCheck2, Mail, ScrollText, Settings, Target, type LucideIcon } from 'lucide-react';
 import { MODULES, moduleHref, type ModuleDef } from './modules';
 import { strategyRoutes } from './strategy-routes';
 
@@ -40,6 +40,12 @@ export const SETTINGS_SECTIONS = [
     icon: FileCheck2,
     label: 'Conformidade',
     detail: 'LIA e texto de opt-out, condições para abordar pessoas.',
+  },
+  {
+    href: '/configuracoes/email',
+    icon: Mail,
+    label: 'E-mail',
+    detail: 'Quem assina, caixa de envio, senha no cofre e conferência de entrega.',
   },
   {
     href: '/configuracoes/auditoria',

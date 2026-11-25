@@ -173,6 +173,21 @@ describe('medições da captura', () => {
     );
   });
 
+  it('texto alternativo sem número negativo solto e logotipo com o tamanho na tela (2026-11-25)', () => {
+    const alt = (imageCount: number, imagesWithoutAlt: number) =>
+      metricLines(BrandMetrics.parse({ ...desktop, imageCount, imagesWithoutAlt })).find(
+        (line) => line.name === 'images_alt',
+      )?.text;
+    expect(alt(41, 0)).toBe('41 imagens visíveis no computador; todas têm texto alternativo.');
+    expect(alt(1, 0)).toBe('1 imagem visível no computador; ela tem texto alternativo.');
+    expect(alt(14, 9)).toBe('14 imagens visíveis no computador; 5 com texto alternativo e 9 sem.');
+    expect(alt(6, 6)).toBe('6 imagens visíveis no computador; nenhuma tem texto alternativo.');
+    expect(alt(0, 0)).toBe('Nenhuma imagem visível no computador.');
+    expect(metricLines(desktop).find((line) => line.name === 'logo')?.text).toBe(
+      'Logotipo no topo da página no computador: imagem (bitmap), exibido em 180×48 px na tela.',
+    );
+  });
+
   it('aspas do site não quebram o texto das medições', () => {
     const h1 = metricLines(desktop).find((line) => line.name === 'h1');
     expect(h1?.text).toBe(

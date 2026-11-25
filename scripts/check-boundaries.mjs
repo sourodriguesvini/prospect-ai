@@ -50,7 +50,8 @@ const ALLOWED_EXTERNAL = {
   '@prospector/agents': ['zod'],
   // Integrações por `fetch` nativo; SDK de terceiro novo passa por aqui (skill integracao-externa).
   // playwright-core: leitor de páginas da pesquisa na internet (ADR-0012), sem baixar navegador.
-  '@prospector/integrations': ['zod', 'playwright-core'],
+  // nodemailer (MIT-0) e imapflow (MIT): SMTP e IMAP da caixa do próprio usuário (ADR-0016).
+  '@prospector/integrations': ['zod', 'playwright-core', 'nodemailer', 'imapflow'],
 };
 
 const WEB_SRC = join('apps', 'web', 'src');

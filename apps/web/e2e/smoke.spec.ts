@@ -97,6 +97,17 @@ test.describe('telas (sem banco configurado)', () => {
     await expectNoA11yViolations(page);
   });
 
+  test('e-mail sem banco avisa e não mostra formulário', async ({ page }) => {
+    test.skip(withDatabase, DATABASE_ON);
+    await page.goto('/configuracoes/email');
+    await expect(page.getByRole('heading', { level: 1, name: 'E-mail' })).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Salvar identidade' })).toHaveCount(0);
+    await expectNoA11yViolations(page);
+  });
+
   for (const path of ['/entrar', '/cadastro', '/app', '/o/qualquer', '/convite/abc', '/nada']) {
     test(`rota inexistente ${path} responde 404`, async ({ page }) => {
       const response = await page.goto(path);

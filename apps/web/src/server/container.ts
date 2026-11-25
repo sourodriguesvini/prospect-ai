@@ -23,6 +23,8 @@ import {
   companyTools,
   discoveryTools,
   createAuditService,
+  createEmailSettingsService,
+  newEmailThrottle,
   createCompanyService,
   createCopilotService,
   createDiscoveryEngine,
@@ -56,6 +58,9 @@ import {
   type DiscoveryAi,
   type DiscoveryRepository,
   type DiscoveryService,
+  type EmailSettingsRepository,
+  type EmailSettingsService,
+  type EmailThrottle,
   type EvidenceRepository,
   type JobQueue,
   type JobWorker,
@@ -77,6 +82,7 @@ import {
   createMemoryCompanyRepository,
   createMemoryCopilotRepository,
   createMemoryDiscoveryStore,
+  createMemoryEmailRepository,
   createMemoryRelationshipRepository,
   createMemoryInvestigationRepository,
   createMemoryStrategyRepository,
@@ -90,6 +96,7 @@ import {
   createSupabaseCopilotRepository,
   createSupabaseDatabaseHealth,
   type DatabaseHealthMemory,
+  createSupabaseEmailRepository,
   createSupabaseDiscoveryRepository,
   createSupabaseJobQueue,
   createSupabaseRelationshipRepository,
@@ -100,9 +107,12 @@ import {
 import {
   createBrandCapturer,
   createCnpjLookup,
+  createDnsTxtLookup,
   createFileCaptureStore,
+  createImapReader,
   createPageReader,
   createPlaywrightRenderer,
+  createSmtpTransport,
   createTavilySearch,
   subresourceFetcher,
   systemResolver,
@@ -110,6 +120,7 @@ import {
 import { cache } from 'react';
 import { syntheticCnpjLookup } from './cnpj-fixture';
 import { syntheticDiscoveryAi, syntheticDiscoveryWeb } from './discovery-fixture';
+import { syntheticEmail } from './email-fixture';
 import { syntheticRelationshipAi } from './relationship-ai-fixture';
 import {
   cnpjLookupMode,
@@ -118,6 +129,7 @@ import {
   jobWorkerEnabled,
   discoveryMode,
   databaseEnvPresent,
+  emailMode,
   investigationEnv,
   LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
@@ -165,6 +177,10 @@ export interface Services {
   discovery: DiscoveryService | null;
   /** Relacionamento (ADR-0014): abordagens, conversas, pipeline e aprovações; null sem banco. */
   relationship: RelationshipService | null;
+  /** E-mail (ADR-0016): identidade, caixa, senha no cofre e conferência; null sem banco. */
+  email: EmailSettingsService | null;
+  /** true com `PROSPECTOR_EMAIL=fixture`: caixa simulada, a tela mostra o selo DEMO. */
+  emailSynthetic: boolean;
 }
 
 interface MemoryStores {
@@ -174,6 +190,7 @@ interface MemoryStores {
   companies: MemoryCompanyRepository;
   discovery: { repository: DiscoveryRepository; queue: JobQueue };
   relationship: RelationshipRepository;
+  email: EmailSettingsRepository;
 }
 
 /** Um único conjunto de repositórios em memória por processo do servidor (sobrevive a requisições). */
@@ -190,6 +207,7 @@ function memoryStores(): MemoryStores {
       companies,
       discovery: createMemoryDiscoveryStore({ audit }),
       relationship: createMemoryRelationshipRepository({ audit, companies }),
+      email: createMemoryEmailRepository({ audit }),
     };
   }
   return holder.__prospectorMemoryStores;
@@ -665,6 +683,43 @@ function warnIgnoredDatabase(): void {
   }
 }
 
+/**
+ * E-mail (ADR-0016): SMTP, IMAP e DNS de verdade, ou a caixa simulada (só no modo memória). O
+ * intervalo entre e-mails de teste vale para o processo inteiro (os serviços são recriados a cada
+ * pedido).
+ */
+function emailService(
+  storage: StorageMode,
+  repo: EmailSettingsRepository,
+  strategy: Pick<StrategyRepository, 'listContactPolicyVersions'>,
+  audit: Pick<AuditRepository, 'append'>,
+): EmailSettingsService {
+  const mode = emailMode();
+  if (mode === 'fixture' && storage !== 'memory') {
+    throw new Error(
+      'PROSPECTOR_EMAIL=fixture só funciona com PROSPECTOR_STORAGE=memory (a caixa simulada nunca usa o banco).',
+    );
+  }
+  const adapters =
+    mode === 'fixture'
+      ? syntheticEmail()
+      : {
+          transport: createSmtpTransport({ resolver: systemResolver }),
+          reader: createImapReader({ resolver: systemResolver }),
+          dns: createDnsTxtLookup(),
+        };
+  // Um teste por minuto e uma conferência por vez valem para o processo, não para o pedido.
+  const holder = globalThis as { __prospectorEmailThrottle?: EmailThrottle };
+  holder.__prospectorEmailThrottle ??= newEmailThrottle();
+  return createEmailSettingsService({
+    repo,
+    ...adapters,
+    strategy,
+    audit,
+    throttle: holder.__prospectorEmailThrottle,
+  });
+}
+
 export const getServices = cache((): Services => {
   if (storageMode() === 'memory') {
     warnIgnoredDatabase();
@@ -719,6 +774,8 @@ export const getServices = cache((): Services => {
       }),
       discovery,
       relationship,
+      email: emailService('memory', stores.email, stores.strategy, stores.audit),
+      emailSynthetic: emailMode() === 'fixture',
     };
   }
   const credentials = databaseEnv();
@@ -735,6 +792,8 @@ export const getServices = cache((): Services => {
       tools: null,
       discovery: null,
       relationship: null,
+      email: null,
+      emailSynthetic: false,
     };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
@@ -798,6 +857,13 @@ export const getServices = cache((): Services => {
     }),
     discovery,
     relationship,
+    email: emailService(
+      'supabase',
+      createSupabaseEmailRepository(client),
+      createSupabaseStrategyRepository(client),
+      createSupabaseAuditRepository(client),
+    ),
+    emailSynthetic: false,
   };
 });
 

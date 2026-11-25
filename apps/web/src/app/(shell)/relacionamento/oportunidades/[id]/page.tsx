@@ -245,7 +245,9 @@ function Strategy({
         <Badge variant="accent">{APPROACH_OBJECTIVE_LABELS[content.objective]}</Badge>
         <Badge variant="outline">{capitalize(channelPhrase(content.channel))}</Badge>
         {plan.basis === 'limited' ? (
-          <Badge variant="warning">Base limitada: só dados de cadastro</Badge>
+          // "Limitada" cobre diagnóstico parcial e só cadastro: o motivo está em "O que falta saber"
+          // (teste real de 2026-11-25: dizia "só dados de cadastro" com 34 fatos do site).
+          <Badge variant="warning">Base limitada: veja o que falta saber</Badge>
         ) : null}
         {plan.isDemo ? <DemoBadge /> : null}
       </div>

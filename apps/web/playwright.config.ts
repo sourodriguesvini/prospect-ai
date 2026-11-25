@@ -8,6 +8,11 @@ const memoryURL = `http://127.0.0.1:${MEMORY_PORT}`;
 const DISCOVERY_PORT = Number(process.env.E2E_DISCOVERY_PORT ?? MEMORY_PORT + 5);
 const discoveryURL = `http://127.0.0.1:${DISCOVERY_PORT}`;
 const DISCOVERY_SPEC = /discovery\.spec\.ts$/;
+/**
+ * E-mail (ADR-0016, E3): também no servidor da Descoberta, que tem a caixa simulada e nenhuma
+ * política de contato (a tela avisa que falta o opt-out sem depender da ordem dos outros specs).
+ */
+const EMAIL_SPEC = /email\.spec\.ts$/;
 const withDatabase = process.env.E2E_SUPABASE === '1';
 const withOllama = process.env.E2E_OLLAMA === '1';
 /** Specs que gravam dados: rodam no servidor em modo memória (sem banco real). */
@@ -66,7 +71,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: [STRATEGY_SPEC, COMPANIES_SPEC, DISCOVERY_SPEC, RELATIONSHIP_SPEC],
+      testIgnore: [STRATEGY_SPEC, COMPANIES_SPEC, DISCOVERY_SPEC, RELATIONSHIP_SPEC, EMAIL_SPEC],
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -83,6 +88,11 @@ export default defineConfig({
     {
       name: 'descoberta-memoria',
       testMatch: DISCOVERY_SPEC,
+      use: { ...devices['Desktop Chrome'], baseURL: discoveryURL },
+    },
+    {
+      name: 'email-memoria',
+      testMatch: EMAIL_SPEC,
       use: { ...devices['Desktop Chrome'], baseURL: discoveryURL },
     },
     {
@@ -135,6 +145,8 @@ export default defineConfig({
         NEXT_TELEMETRY_DISABLED: '1',
         PROSPECTOR_STORAGE: 'memory',
         PROSPECTOR_DISCOVERY: 'fixture',
+        // Caixa de e-mail SIMULADA (src/server/email-fixture.ts): não conecta em servidor nenhum.
+        PROSPECTOR_EMAIL: 'fixture',
         SUPABASE_URL: '',
         SUPABASE_SECRET_KEY: '',
         ...ollamaEnv,

@@ -53,10 +53,11 @@ describe('submenu da Configuração', () => {
     expect(showsChildren('/empresas', settings)).toBe(false);
   });
 
-  it('tem Estratégia, Conformidade e Auditoria', () => {
+  it('tem Estratégia, Conformidade, E-mail e Auditoria', () => {
     expect(settings.children.map((child) => child.label)).toEqual([
       'Estratégia',
       'Conformidade',
+      'E-mail',
       'Auditoria',
     ]);
   });

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { EMAIL_PREVIEW_CSP, isEmailPreviewPath } from '@/lib/email-preview';
 import { isLocalRequest, isSameOriginRequest } from '@/lib/host';
 
 /** Métodos que só leem: não precisam vir de uma página do app. */
@@ -42,7 +43,9 @@ export function proxy(request: NextRequest) {
   }
 
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const csp = buildCsp(nonce);
+  // A prévia do e-mail (ADR-0016) tem política própria: imagens https, nenhum script e enquadrável
+  // só pela tela de e-mail. O resto do app não carrega imagem de fora.
+  const csp = isEmailPreviewPath(request.nextUrl.pathname) ? EMAIL_PREVIEW_CSP : buildCsp(nonce);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);

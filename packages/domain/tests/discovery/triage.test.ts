@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DRAFT_SCORING_MODEL,
   assessProspect,
+  foreignSiteTld,
   formatPartialDate,
   institutionKind,
   segmentMatches,
@@ -339,5 +340,69 @@ describe('triagem discovery-triage/v1', () => {
     expect(assessProspect(input({ signals: [expansion] }))).toEqual(
       assessProspect(input({ signals: [expansion] })),
     );
+  });
+});
+
+describe('testes reais de 2026-11-25 (monitoramentos e Descoberta)', () => {
+  const strong = { signals: [expansion] };
+
+  it('segmento das fontes diferente do pedido não passa de prioridade baixa', () => {
+    const bank = assessProspect(
+      input({
+        name: 'Caixa',
+        domain: null,
+        hasOfficialSite: false,
+        siteVerified: false,
+        officialSiteSourceId: null,
+        segment: 'banco',
+        description: 'Banco público com nova identidade visual.',
+        sources: [{ id: NEWS_SOURCE, relation: 'news' }],
+        ...strong,
+      }),
+    );
+    expect(bank.priority).toBe('low');
+    expect(bank.assessment.reasons.map((reason) => reason.text)).toContain(
+      'O segmento descrito nas fontes (banco) não bate com o pedido.',
+    );
+    // O mesmo caso no setor pedido continua podendo subir.
+    expect(assessProspect(input(strong)).priority).not.toBe('low');
+  });
+
+  it('sem segmento nas fontes, a região sozinha não dá aderência máxima', () => {
+    const unknown = assessProspect(
+      input({ name: 'Neodent', segment: null, description: null, ...strong }),
+    );
+    const known = assessProspect(input(strong));
+    expect(unknown.assessment.dimensions.fit).toBe(75);
+    expect(known.assessment.dimensions.fit).toBe(100);
+    expect(unknown.assessment.reasons.map((reason) => reason.text)).toContain(
+      'As fontes não dizem o segmento da empresa: falta confirmar se é do setor pedido.',
+    );
+  });
+
+  it('unidade do SUS, universidade de fora e site de outro país viram bloqueio', () => {
+    expect(
+      institutionKind({
+        name: 'Clínica Odontológica da Unidade de Saúde Mãe Curitibana',
+        domain: null,
+        segment: null,
+      }),
+    ).toBe('public');
+    expect(institutionKind({ name: 'UBS Vila Nova', domain: null, segment: null })).toBe('public');
+    expect(institutionKind({ name: 'UPA 24h Boa Vista', domain: null, segment: null })).toBe(
+      'public',
+    );
+    expect(
+      institutionKind({ name: 'UBS BB Investment Bank', domain: null, segment: null }),
+    ).toBeNull();
+    expect(
+      institutionKind({ name: 'UCSF School of Dentistry', domain: 'ucsf.edu', segment: null }),
+    ).toBe('teaching');
+    expect(foreignSiteTld('clinicasorriso.pt')).toBe('pt');
+    expect(foreignSiteTld('startup.io')).toBeNull();
+    expect(foreignSiteTld('clinica.com.br')).toBeNull();
+    const abroad = assessProspect(input({ domain: 'clinicavida.pt', ...strong }));
+    expect(abroad.priority).toBe('low');
+    expect(abroad.assessment.gates).toContain('O site oficial é de fora do Brasil (domínio .pt).');
   });
 });

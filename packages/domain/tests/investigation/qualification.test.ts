@@ -306,6 +306,18 @@ describe('verificação das afirmações da IA', () => {
     expect(incompleteStatement('')).toBe(false);
   });
 
+  it('reconhece frase parada em verbo de ligação ou preposição (caso real, 2026-11-25)', () => {
+    expect(
+      incompleteStatement(
+        'O site tem logo em bitmap (K26). No entanto, não há sinal de que a marca seja',
+      ),
+    ).toBe(true);
+    expect(incompleteStatement('A clínica atende desde')).toBe(true);
+    expect(incompleteStatement('A oferta faz sentido porque')).toBe(true);
+    expect(incompleteStatement('O site não está atualizado')).toBe(false);
+    expect(incompleteStatement('A marca já é conhecida em Curitiba')).toBe(false);
+  });
+
   it('tira repetições quase iguais', () => {
     const { kept, dropped } = dedupeByStatement(
       [

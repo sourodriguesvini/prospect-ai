@@ -32,13 +32,16 @@ import {
   expansionEventIn,
   findCnpjsInText,
   findSameCompany,
+  genericSegment,
   companyNameCore,
   homepageOf,
   hostCategory,
   hostOf,
   looksLikeInstruction,
+  looksLikeJobTitle,
   nameFoundIn,
   nameMatchesHost,
+  onlyLegalForm,
   normalizeCity,
   normalizeCompanyName,
   normalizeForQuote,
@@ -1023,14 +1026,18 @@ export function buildIntent(
     .filter((word) => narrowingWords(word, run.request).length === 0)
     .join(' ')
     .trim();
-  const segment =
+  const chosen =
     narrowed && narrowed !== output.segment && stemsCover(run.request, narrowed)
       ? narrowed
       : output.segment;
+  // "Empresas" não é setor: virava a busca "empresas" e marcava toda empresa como fora do setor
+  // pedido (monitoramento real de 2026-11-25).
+  const segment = genericSegment(chosen) ? null : chosen;
   // Termos em inglês que não se usam no Brasil trazem resultados de fora (KI-148), e termo com
   // especialidade que o pedido não diz estreita a busca (KI-115).
   const terms = output.segmentTerms.filter(
     (term) =>
+      !genericSegment(term) &&
       foreignSearchWords(term, run.request).length === 0 &&
       narrowingWords(term, run.request).length === 0,
   );
@@ -1149,6 +1156,8 @@ export function buildPlan(
     // não pede, qualquer que seja o rótulo (segunda revisão do KI-148).
     if (foreignSearchWords(query.text, request).length > 0) continue;
     if (narrowingWords(query.text, request).length > 0) continue;
+    // "empresas" sozinha gasta um crédito com resultados de qualquer coisa (2026-11-25).
+    if (genericSegment(query.text)) continue;
     if (unrequestedSignalWords(query.text, request, intent.signals).length > 0) continue;
     if (aroundNotAsked(query.text, request, intent.region.cities)) continue;
     // Busca de sinal que o pedido não pede gasta crédito com o que a pessoa não quer: "Clínicas em
@@ -2118,7 +2127,11 @@ function absorb(
     if (!result) continue;
     // Sites de dados de CNPJ mostram o nome do MEI com o CPF: o CPF fica de fora (regra 7).
     const name = withoutCpf(company.name).slice(0, 160);
-    if (distinctiveTokens(name).length === 0) continue;
+    // "MEI", "LTDA", "SLU" de um texto sobre tipos de empresa e o título de uma vaga
+    // ("Analista de Marketing Digital") não são empresas (monitoramento real de 2026-11-25).
+    if (distinctiveTokens(name).length === 0 || onlyLegalForm(name) || looksLikeJobTitle(name)) {
+      continue;
+    }
     const text = `${result.title} ${result.snippet}`;
     const key = siteKey(result.url);
     // Site oficial só quando o endereço confere com o nome: a palavra do modelo (ou de uma
@@ -2192,7 +2205,14 @@ function absorb(
       ) ??
       null;
     if (!candidate) {
-      if (distinctiveTokens(companyName).length === 0 || !nameFoundIn(companyName, text)) continue;
+      if (
+        distinctiveTokens(companyName).length === 0 ||
+        onlyLegalForm(companyName) ||
+        looksLikeJobTitle(companyName) ||
+        !nameFoundIn(companyName, text)
+      ) {
+        continue;
+      }
       const place = regionPlaceOf(text, region);
       candidate = findCandidate(candidates, {
         name: companyName,

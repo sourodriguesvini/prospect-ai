@@ -13,6 +13,8 @@
   "dependencies": {
     "@prospector/application": "workspace:*",
     "@prospector/contracts": "workspace:*",
+    "imapflow": "2.11.0",
+    "nodemailer": "10.5.0",
     "playwright-core": "1.65.0",
     "zod": "4.6.7"
   },
