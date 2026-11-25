@@ -13,14 +13,21 @@ export async function gotoWithShortcuts(page: Page, path: string) {
   await expect(page.locator('html[data-shortcuts="ready"]')).toBeAttached();
 }
 
-/** Falha listando cada violação WCAG 2.2 AA encontrada pelo axe na página atual. */
+/**
+ * Falha listando cada violação WCAG 2.2 AA encontrada pelo axe na página atual.
+ *
+ * Depois de um router.refresh() o <title> pode sumir por um instante, inclusive entre a espera
+ * pelo título e a análise (falha intermitente "document-title" no CI, Copiloto no celular). Por
+ * isso a análise é repetida por alguns segundos: violação passageira some, violação real continua
+ * falhando com a lista de achados.
+ */
 export async function expectNoA11yViolations(page: Page) {
-  // Depois de um router.refresh() o <title> pode sumir por um instante (falha intermitente
-  // "document-title" no CI); espera o título voltar antes de analisar.
-  await expect(page).toHaveTitle(/\S/);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  const summary = results.violations.map(
-    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
-  );
-  expect(summary).toEqual([]);
+  await expect(async () => {
+    await expect(page).toHaveTitle(/\S/);
+    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+    const summary = results.violations.map(
+      (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
+    );
+    expect(summary).toEqual([]);
+  }).toPass({ timeout: 10_000 });
 }

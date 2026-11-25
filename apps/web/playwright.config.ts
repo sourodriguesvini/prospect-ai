@@ -11,7 +11,13 @@ const DISCOVERY_SPEC = /discovery\.spec\.ts$/;
 const withDatabase = process.env.E2E_SUPABASE === '1';
 const withOllama = process.env.E2E_OLLAMA === '1';
 /** Specs que gravam dados: rodam no servidor em modo memória (sem banco real). */
-const STRATEGY_SPEC = /(strategy|copilot-history|companies)\.spec\.ts$/;
+const STRATEGY_SPEC = /(strategy|copilot-history)\.spec\.ts$/;
+/**
+ * Empresas: mesmo servidor de memória, ANTES da Estratégia. Os testes conferem a lista vazia e a
+ * investigação sem oferta ativa; rodando junto com strategy.spec (que ativa e depois desativa a
+ * oferta), o resultado dependia de quem chegava primeiro e falhava no CI, com menos workers.
+ */
+const COMPANIES_SPEC = /companies\.spec\.ts$/;
 /**
  * Relacionamento: mesmo servidor de memória, mas DEPOIS dos specs acima (usa a oferta e a empresa
  * que eles criam, e não pode criar dados enquanto eles conferem os estados vazios).
@@ -60,12 +66,18 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: [STRATEGY_SPEC, DISCOVERY_SPEC, RELATIONSHIP_SPEC],
+      testIgnore: [STRATEGY_SPEC, COMPANIES_SPEC, DISCOVERY_SPEC, RELATIONSHIP_SPEC],
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'empresas-memoria',
+      testMatch: COMPANIES_SPEC,
+      use: { ...devices['Desktop Chrome'], baseURL: memoryURL },
     },
     {
       name: 'estrategia-memoria',
       testMatch: STRATEGY_SPEC,
+      dependencies: ['empresas-memoria'],
       use: { ...devices['Desktop Chrome'], baseURL: memoryURL },
     },
     {

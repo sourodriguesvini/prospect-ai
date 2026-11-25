@@ -547,8 +547,8 @@ describe('Relacionamento no banco', () => {
     });
 
     it('pedido para parar: suprime empresa, raiz do CNPJ e domínio e cancela follow-ups', async () => {
-      const companyId = await company({ cnpj: '44555666000181', domain: 'parar.test' });
-      const sibling = await company({ cnpj: '44555666000262' });
+      const companyId = await company({ cnpj: '61777888000168', domain: 'parar.test' });
+      const sibling = await company({ cnpj: '61777888000249' });
       const opp = await openOpportunity(companyId);
       const siblingOpp = await openOpportunity(sibling, 'identified');
       const task = await addTask(opp, companyId);
@@ -570,7 +570,7 @@ describe('Relacionamento no banco', () => {
         [companyId],
       );
       expect(entry).toEqual({
-        cnpj_root: '44555666',
+        cnpj_root: '61777888',
         domain: 'parar.test',
         interaction_id: row!.id,
       });
