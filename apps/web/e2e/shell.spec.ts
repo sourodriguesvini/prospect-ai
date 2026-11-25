@@ -31,14 +31,14 @@ test.describe('menu lateral no desktop', () => {
       'Empresas',
       'Relacionamento',
       'Aprovações',
+      'Monitoramento',
+      'Inteligência',
       'Copiloto',
       'Configuração',
     ]) {
       await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
     }
-    for (const name of ['Monitoramento', 'Inteligência']) {
-      await expect(nav.getByRole('link', { name: `${name} (em breve)` })).toBeVisible();
-    }
+    await expect(nav.getByRole('link', { name: /em breve/ })).toHaveCount(0);
     // Submenu da Configuração, com o item da tela atual destacado (um só).
     const sections = nav.getByRole('list', { name: 'Seções de Configuração' });
     await expect(sections.getByRole('link', { name: 'Auditoria' })).toHaveAttribute(

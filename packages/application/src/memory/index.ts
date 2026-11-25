@@ -10,6 +10,7 @@ export {
 } from './company-repository';
 export { createMemoryCopilotRepository } from './copilot-repository';
 export { createMemoryEmailRepository } from './email-repository';
+export { createMemoryIntelligenceRepository, createMemoryMonitoringRepository } from './monitoring';
 export { createMemoryRelationshipRepository } from './relationship-repository';
 export {
   createMemoryCaptureStore,

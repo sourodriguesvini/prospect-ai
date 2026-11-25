@@ -28,6 +28,8 @@ const COMPANIES_SPEC = /companies\.spec\.ts$/;
  * que eles criam, e não pode criar dados enquanto eles conferem os estados vazios).
  */
 const RELATIONSHIP_SPEC = /relationship\.spec\.ts$/;
+/** Monitoramento e Inteligência: só leem, DEPOIS de todos os specs que gravam no mesmo servidor. */
+const INSIGHTS_SPEC = /insights\.spec\.ts$/;
 
 /** Sem E2E_OLLAMA=1, o Copiloto aponta para uma porta sem servidor (estado "Ollama fora do ar"). */
 const ollamaEnv: Record<string, string> = withOllama
@@ -71,7 +73,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: [STRATEGY_SPEC, COMPANIES_SPEC, DISCOVERY_SPEC, RELATIONSHIP_SPEC, EMAIL_SPEC],
+      testIgnore: [
+        STRATEGY_SPEC,
+        COMPANIES_SPEC,
+        DISCOVERY_SPEC,
+        RELATIONSHIP_SPEC,
+        EMAIL_SPEC,
+        INSIGHTS_SPEC,
+      ],
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -99,6 +108,12 @@ export default defineConfig({
       name: 'relacionamento-memoria',
       testMatch: RELATIONSHIP_SPEC,
       dependencies: ['estrategia-memoria'],
+      use: { ...devices['Desktop Chrome'], baseURL: memoryURL },
+    },
+    {
+      name: 'insights-memoria',
+      testMatch: INSIGHTS_SPEC,
+      dependencies: ['relacionamento-memoria'],
       use: { ...devices['Desktop Chrome'], baseURL: memoryURL },
     },
   ],

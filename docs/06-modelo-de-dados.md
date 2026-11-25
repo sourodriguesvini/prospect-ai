@@ -139,6 +139,8 @@ Dados abertos da Receita Federal ingeridos mensalmente em **tabelas globais** (s
 | `watchlists` | `org_id, company_id, frequency (weekly, monthly), checks text[], next_run_at, paused` | F2 |
 | `monitor_runs` / `change_events` | `org_id, company_id, check, previous_source_id, current_source_id, diff_summary, significance, signal_id` | F2 |
 
+`watchlists`, `monitor_runs` e `change_events` ainda não existem: a primeira parte do Monitoramento lê as tabelas da investigação e da Descoberta ([ADR-0017](adr/0017-monitoramento-e-inteligencia.md), KI-180).
+
 ### 4.7 Decisores, contatos e conformidade [MVP]
 
 | Tabela | Colunas principais | Observações |

@@ -145,6 +145,7 @@ export function createMemoryCopilotRepository(options: {
           .sort((a, b) => b.generations - a.generations),
         toolCalls: used.length,
         toolErrors: used.filter((call) => call.status !== 'ok').length,
+        capped: false,
       };
     },
 

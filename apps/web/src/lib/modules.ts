@@ -78,26 +78,20 @@ export const MODULES: readonly ModuleDef[] = [
   {
     segment: 'monitoramento',
     label: 'Monitoramento',
-    description: 'Watchlists e mudanças relevantes.',
+    description: 'Mudanças nas empresas acompanhadas e novidades das buscas recorrentes.',
     group: 'support',
     icon: Radar,
-    plannedSlice: 'Fase 2',
+    plannedSlice: null,
   },
   {
     segment: 'inteligencia',
     label: 'Inteligência',
-    description: 'Funil, custos, aprendizados e calibração.',
+    description: 'Funil de prospecção e consumo do mês.',
     group: 'support',
     icon: ChartColumn,
-    plannedSlice: 'F13',
+    plannedSlice: null,
   },
 ];
-
-export const PLACEHOLDER_MODULES = MODULES.filter((item) => item.plannedSlice !== null);
-
-export function findPlaceholderModule(segment: string): ModuleDef | undefined {
-  return PLACEHOLDER_MODULES.find((item) => item.segment === segment);
-}
 
 export function moduleHref(item: ModuleDef): string {
   return `/${item.segment}`;

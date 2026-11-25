@@ -35,6 +35,8 @@ import {
   createRelationshipService,
   createInvestigationInsightsSource,
   createInvestigationService,
+  createIntelligenceService,
+  createMonitoringService,
   createStrategyService,
   createSystemService,
   createToolRegistry,
@@ -69,6 +71,8 @@ import {
   type RelationshipService,
   type InvestigationRepository,
   type InvestigationService,
+  type IntelligenceService,
+  type MonitoringService,
   type StrategyRepository,
   type StrategyService,
   type SystemService,
@@ -85,6 +89,8 @@ import {
   createMemoryEmailRepository,
   createMemoryRelationshipRepository,
   createMemoryInvestigationRepository,
+  createMemoryIntelligenceRepository,
+  createMemoryMonitoringRepository,
   createMemoryStrategyRepository,
   createMemoryWebResearchUsage,
   type MemoryCompanyRepository,
@@ -101,6 +107,8 @@ import {
   createSupabaseJobQueue,
   createSupabaseRelationshipRepository,
   createSupabaseInvestigationRepository,
+  createSupabaseIntelligenceRepository,
+  createSupabaseMonitoringRepository,
   createSupabaseStrategyRepository,
   createSupabaseWebResearchUsage,
 } from '@prospector/db';
@@ -181,6 +189,10 @@ export interface Services {
   email: EmailSettingsService | null;
   /** true com `PROSPECTOR_EMAIL=fixture`: caixa simulada, a tela mostra o selo DEMO. */
   emailSynthetic: boolean;
+  /** Monitoramento de empresas já conhecidas e novidades das buscas recorrentes (ADR-0017). */
+  monitoring: MonitoringService | null;
+  /** Inteligência: funil e consumo do mês (ADR-0017); null sem banco. */
+  intelligence: IntelligenceService | null;
 }
 
 interface MemoryStores {
@@ -751,6 +763,25 @@ export const getServices = cache((): Services => {
       telemetry: stores.copilot,
       syntheticAi: relationshipAiSetup.synthetic,
     });
+    const memoryParts = {
+      companies: stores.companies,
+      investigations: memoryInvestigations(stores),
+    };
+    const monitoring = createMonitoringService({
+      repo: createMemoryMonitoringRepository(memoryParts),
+      companies,
+      investigations,
+      discovery,
+    });
+    const intelligence = createIntelligenceService({
+      repo: createMemoryIntelligenceRepository({
+        ...memoryParts,
+        discovery: discovery ? stores.discovery.repository : null,
+        relationship: stores.relationship,
+      }),
+      telemetry: stores.copilot,
+      research: research.service,
+    });
     return {
       storage: 'memory',
       system: createSystemService({ check: async () => 'memory' }),
@@ -776,6 +807,8 @@ export const getServices = cache((): Services => {
       relationship,
       email: emailService('memory', stores.email, stores.strategy, stores.audit),
       emailSynthetic: emailMode() === 'fixture',
+      monitoring,
+      intelligence,
     };
   }
   const credentials = databaseEnv();
@@ -794,6 +827,8 @@ export const getServices = cache((): Services => {
       relationship: null,
       email: null,
       emailSynthetic: false,
+      monitoring: null,
+      intelligence: null,
     };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
@@ -832,6 +867,17 @@ export const getServices = cache((): Services => {
     telemetry: copilotRepo,
     syntheticAi: relationshipAiSetup.synthetic,
   });
+  const monitoring = createMonitoringService({
+    repo: createSupabaseMonitoringRepository(client),
+    companies,
+    investigations,
+    discovery,
+  });
+  const intelligence = createIntelligenceService({
+    repo: createSupabaseIntelligenceRepository(client),
+    telemetry: copilotRepo,
+    research: research.service,
+  });
   return {
     storage: 'supabase',
     system: createSystemService(
@@ -864,6 +910,8 @@ export const getServices = cache((): Services => {
       createSupabaseAuditRepository(client),
     ),
     emailSynthetic: false,
+    monitoring,
+    intelligence,
   };
 });
 

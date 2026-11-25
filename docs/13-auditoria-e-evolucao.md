@@ -128,11 +128,11 @@ Estados: **Funcional** (implementado e funcional) · **Parcial** (implementado p
 | Aprovações | Não implementado | Média | F10 |
 | Conversas | Não implementado | Baixa | F11 |
 | Pipeline | Não implementado | Baixa | F12 |
-| Monitoramento | Não implementado | Baixa | Fase 2 |
-| Inteligência (métricas, aprendizado) | Não implementado | Baixa | F13 |
+| Monitoramento | Parcial (2026-11-25, ADR-0017): feed único (mudanças entre investigações e empresas novas dos monitoramentos da Descoberta) e lista de acompanhamento pela recomendação do diagnóstico; reinvestigação só com o clique. Falta lista própria, verificações de notícias, vagas e cadastro e alertas (KI-180) | Média | Fase 2 |
+| Inteligência (métricas, aprendizado) | Parcial (2026-11-25, ADR-0017): funil por período com tamanho de amostra e consumo do mês (IA local, créditos da Tavily, gasto em dinheiro), também na Início. Falta aprendizado e calibração do modelo de score (KI-181) | Média | F13 |
 | Integrações externas | Parcial: consulta de CNPJ gratuita (OpenCNPJ, reserva Minha Receita) em `packages/integrations` | Média | F3–F6 |
 
-Nenhum módulo está "Só interface": os futuros mostram uma página de aviso com a fatia que os entrega, sem dados simulados (`apps/web/src/lib/modules.ts`, `apps/web/src/app/(shell)/[modulo]/page.tsx`).
+Nenhum módulo está "Só interface". Desde 2026-11-25 (ADR-0017) nenhum item do menu mostra a página de aviso "Em breve"; a rota genérica `[modulo]` foi removida (o menu ainda aceita `plannedSlice` em `apps/web/src/lib/modules.ts`).
 
 ### Detalhe por módulo
 
@@ -200,7 +200,15 @@ Nenhum módulo está "Só interface": os futuros mostram uma página de aviso co
 5. Próximas melhorias: conjunto de avaliação com pedidos reais (F8 exige 30).
 6. Prioridade: média.
 
-**Descoberta, Empresas, Abordagens, Aprovações, Conversas, Pipeline, Monitoramento, Inteligência — Não implementado**
+**Monitoramento e Inteligência — Parcial (2026-11-25, ADR-0017)**
+1. Funcionalidades: `/monitoramento` com feed único de novidades (o que cada investigação encontrou de diferente da anterior e empresas novas achadas pelas buscas recorrentes da Descoberta, com filtro `?origem=`) e lista de acompanhamento pela recomendação (7 ou 30 dias; "Descartar por enquanto" fora), com "Investigar de novo" nas vencidas; `/inteligencia` com funil de sete etapas por período (mês civil ou desde o início; empresas distintas, razão só quando faz sentido, aviso de amostra pequena abaixo de 20) e consumo do mês; Início com o funil do mês e o gasto do mês. Sem migração.
+2. Evidências: `packages/domain/tests/monitoring`, `packages/domain/tests/intelligence`, `packages/application/tests/monitoring-intelligence.test.ts`, `packages/db/tests/unit/monitoring-repository.test.ts`, `apps/web/src/lib/insights.test.ts`, `apps/web/e2e/insights.spec.ts` (modo memória) e `e2e/smoke.spec.ts` (sem banco).
+3. Limitações: KI-180 a KI-186 (lista implícita, sem aprendizado nem calibração, funil por período e não coorte, leituras com teto, IA da Descoberta fora de `llm_calls`, reinvestigação leva ao dossiê, modo memória sem gasto). Telas não conferidas com o banco real (`prospector-dev`).
+4. Dependências: investigação (ADR-0015), Descoberta (ADR-0013), Relacionamento (ADR-0014), telemetria (KI-116).
+5. Próximas melhorias: lista própria com frequência e pausa por empresa e verificações (Fase 2); aprendizados e calibração (F13); telemetria da Descoberta.
+6. Prioridade: média.
+
+**Descoberta, Empresas, Abordagens, Aprovações, Conversas, Pipeline — Não implementado**
 1. Funcionalidades: página de aviso com a fatia.
 2. Evidências: `apps/web/src/lib/modules.ts` (`plannedSlice`), `e2e/smoke.spec.ts`.
 3. Limitações: sem backend, tabelas, contratos ou regras. Exceção: o Evidence Ledger de Empresas já tem contratos (`packages/contracts/src/evidence.ts`) e regras puras (`packages/domain/src/evidence`) da F3a ([09](09-mvp-e-roadmap.md), F3).
