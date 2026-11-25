@@ -86,6 +86,8 @@ export interface AiUsageSummary {
   byModel: Array<{ model: string; generations: number; outputTokens: number }>;
   toolCalls: number;
   toolErrors: number;
+  /** A leitura chegou ao teto de linhas: os números reais podem ser maiores. */
+  capped: boolean;
 }
 
 /** Telemetria da IA local: só inclusão (migração 20261110150000). */

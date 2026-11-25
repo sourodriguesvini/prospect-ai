@@ -267,6 +267,21 @@ Adiados com registro: regras de conferência para o domínio (KI-161), uma linha
 
 O que ficou aberto: instrução escondida sem destinatário (KI-157), contradição que o dossiê não guarda (KI-158), a coluna `companies.cnpj` do CNPJ vinculado (KI-160: as chaves já são gravadas; a coluna é decisão do usuário, com migração), homônimo no Copiloto v3 (KI-151) e os limites do Relacionamento listados no KI-150. Nada disso foi conferido no app instalado ainda: o app em `D:\Prospector` só recebe as mudanças com `pnpm app:install`.
 
+## Monitoramento e Inteligência (ADR-0017, 2026-11-25)
+
+Pedido: tirar o "Em breve" das duas telas com dados reais. Feito na worktree `claude/monitoramento-inteligencia-305023`, sem migração e sem commit. Decisões do usuário: lista de acompanhamento pela recomendação, reinvestigação só com o clique, feed único e cartões da Início preenchidos (ADR-0017).
+
+| Parte | O que existe | Onde |
+|---|---|---|
+| Monitoramento | Feed único (o que cada investigação encontrou de diferente da anterior; empresas novas das buscas recorrentes da Descoberta), filtro `?origem=empresas` ou `?origem=buscas`; lista "Para olhar de novo" (7 ou 30 dias pela recomendação; "Descartar por enquanto" fora), com "Investigar de novo" nas vencidas | `/monitoramento`; `MonitoringService`; `packages/domain/src/monitoring` |
+| Inteligência | Funil de sete etapas por período (mês civil de Brasília ou `?periodo=total`), empresas distintas, razão só quando faz sentido, amostra pequena abaixo de 20, DEMO e "+" no teto; consumo do mês (IA local por modelo, créditos da Tavily, gasto em dinheiro) | `/inteligencia`; `IntelligenceService`; `packages/domain/src/intelligence` |
+| Início | "Gasto no mês" (antes "Custo de IA no mês") e "Funil de prospecção" com a mesma leitura e link para a Inteligência | `apps/web/src/app/(shell)/page.tsx` |
+| Banco | Leitura PostgREST das tabelas existentes, com teto de linhas | `packages/db/src/monitoring-repository.ts` |
+
+Verificação (2026-11-25, na worktree): `pnpm typecheck`, `pnpm lint` e `pnpm format:check` sem erro; `pnpm test` com 1.786 testes passando em 7 pacotes; `pnpm test:e2e` (`E2E_PORT=3120 E2E_MEMORY_PORT=3130`) com 95 passando e 3 pulados (os que pedem Ollama real ou banco real), incluindo `insights.spec.ts` (modo memória) e as duas telas sem banco em `smoke.spec.ts`. Revisores `revisor-arquitetura` e `revisor-ux` sem bloqueio, com os achados aplicados. Conferido no navegador em modo memória, a 1440 px e a 375 px, sem erro no console.
+
+Não verificado: as telas com o banco real (`prospector-dev`) e no app instalado (`D:\Prospector`, só com `pnpm app:install`, que é da outra sessão); "Investigar de novo" numa empresa vencida (o botão reusa a ação do dossiê, já coberta; vencer exige 7 ou 30 dias). Pendências: KI-180 a KI-186.
+
 ## Decisões desta execução
 
 | Decisão | Registro |

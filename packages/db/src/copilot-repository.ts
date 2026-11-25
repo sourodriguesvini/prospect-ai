@@ -17,6 +17,12 @@ import { z } from 'zod';
 import { toAppError } from './errors';
 import { AUDIT_HEADER, encodeAuditHeader } from './strategy-repository';
 
+/**
+ * Teto da leitura de uso da IA: o PostgREST do Supabase devolve no máximo 1.000 linhas (`max_rows`);
+ * chegar nele marca o resumo como `capped` (KI-183).
+ */
+const USAGE_ROW_LIMIT = 1000;
+
 const THREAD_SELECT =
   'id, title, created_at, updated_at, archived_at, last_activity_at, message_count';
 const MESSAGE_SELECT =
@@ -247,9 +253,11 @@ export function createSupabaseCopilotRepository(
             .from('llm_calls')
             .select('model, status, output_tokens, total_ms')
             .gte('created_at', from)
-            .limit(5000),
+            .limit(USAGE_ROW_LIMIT),
         ),
-        run(client.from('tool_calls').select('status').gte('created_at', from).limit(5000)),
+        run(
+          client.from('tool_calls').select('status').gte('created_at', from).limit(USAGE_ROW_LIMIT),
+        ),
       ]);
       const calls = z
         .array(
@@ -281,6 +289,7 @@ export function createSupabaseCopilotRepository(
           .sort((a, b) => b.generations - a.generations),
         toolCalls: used.length,
         toolErrors: used.filter((call) => call.status !== 'ok').length,
+        capped: calls.length >= USAGE_ROW_LIMIT || used.length >= USAGE_ROW_LIMIT,
       };
     },
   };

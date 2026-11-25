@@ -13,3 +13,5 @@ export * from './jobs';
 export * from './brand-analysis';
 export * from './brand-capture';
 export * from './investigation';
+export * from './monitoring';
+export * from './intelligence';

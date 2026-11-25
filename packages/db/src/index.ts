@@ -12,6 +12,10 @@ export {
   mapInvestigationSummary,
 } from './investigation-repository';
 export { INTERNAL_DB_ERROR_KEYS, isMissingRelation } from './sql-errors';
+export {
+  createSupabaseIntelligenceRepository,
+  createSupabaseMonitoringRepository,
+} from './monitoring-repository';
 export { createSupabaseStrategyRepository } from './strategy-repository';
 export { createSupabaseWebResearchUsage } from './web-research-usage-repository';
 export { createSupabaseDiscoveryRepository, createSupabaseJobQueue } from './discovery-repository';

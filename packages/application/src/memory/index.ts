@@ -9,6 +9,7 @@ export {
   type MemoryCompanyRepository,
 } from './company-repository';
 export { createMemoryCopilotRepository } from './copilot-repository';
+export { createMemoryIntelligenceRepository, createMemoryMonitoringRepository } from './monitoring';
 export { createMemoryRelationshipRepository } from './relationship-repository';
 export {
   createMemoryCaptureStore,

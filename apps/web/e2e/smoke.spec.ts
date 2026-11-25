@@ -49,17 +49,28 @@ test.describe('telas (sem banco configurado)', () => {
     await expect(page.getByRole('button', { name: /^(entrar|sair)$/i })).toHaveCount(0);
   });
 
-  test('módulo planejado mostra "Em breve" sem dados simulados', async ({ page }) => {
-    await page.goto('/');
-    await page
-      .getByRole('navigation', { name: 'Principal' })
-      .getByRole('link', { name: /Inteligência/ })
-      .click();
-    await expect(page).toHaveURL(/\/inteligencia$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Inteligência' })).toBeVisible();
-    await expect(page.getByText('Em breve.')).toBeVisible();
-    await expectNoA11yViolations(page);
-  });
+  for (const { name, path } of [
+    { name: 'Monitoramento', path: '/monitoramento' },
+    { name: 'Inteligência', path: '/inteligencia' },
+  ]) {
+    test(`${name} sem banco explica o estado em vez de mostrar números`, async ({ page }) => {
+      test.skip(withDatabase, DATABASE_ON);
+      await page.goto('/');
+      await page
+        .getByRole('navigation', { name: 'Principal' })
+        .getByRole('link', { name, exact: true })
+        .click();
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+      await expect(
+        page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
+      ).toBeVisible();
+      await expect(page.getByText('Em breve')).toHaveCount(0);
+      // Na navegação pelo cliente, o Next troca o <title> depois do conteúdo: espera antes do axe.
+      await expect(page).toHaveTitle(new RegExp(name));
+      await expectNoA11yViolations(page);
+    });
+  }
 
   test('Descoberta sem banco explica o estado em vez de pesquisar', async ({ page }) => {
     test.skip(withDatabase, DATABASE_ON);

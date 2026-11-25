@@ -48,10 +48,11 @@ describe('filterCommands', () => {
 });
 
 describe('comandos', () => {
-  it('telas do menu mostram o atalho e as em breve dizem a fatia', () => {
+  it('telas do menu mostram o atalho, e nenhuma está mais "em breve"', () => {
     const screens = screenCommands();
     expect(screens.find((c) => c.label === 'Empresas')?.keys).toEqual(['G', 'E']);
-    expect(screens.find((c) => c.label === 'Inteligência')?.hint).toBe('Em breve (F13)');
+    expect(screens.find((c) => c.label === 'Monitoramento')?.hint).toBeNull();
+    expect(screens.find((c) => c.label === 'Inteligência')?.hint).toBeNull();
   });
 
   it('o rótulo de recolher o menu acompanha o estado', () => {

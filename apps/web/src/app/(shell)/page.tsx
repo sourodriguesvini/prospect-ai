@@ -11,15 +11,20 @@ import {
 import { CheckCheck, Coins, MessagesSquare, ScrollText, Search } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { unstable_rethrow } from 'next/navigation';
 import { connection } from 'next/server';
 import { cache, Suspense, type ReactNode } from 'react';
 import { AuditTable } from '@/components/audit-table';
+import { FunnelBars } from '@/components/intelligence/funnel';
+import { UsdValue } from '@/components/intelligence/usd-value';
 import { DATABASE_STATUS_VIEW } from '@/lib/database-status';
 import { greetingFor } from '@/lib/greeting';
+import { INTELLIGENCE_PATH } from '@/lib/insights';
 import { relationshipRoutes } from '@/lib/relationship-routes';
 import { loadRecentAudit } from '@/server/audit-entries';
 import { getServices } from '@/server/container';
 import { userContext } from '@/server/context';
+import { loadIntelligence } from '@/server/monitoring';
 
 export const metadata: Metadata = { title: 'Início' };
 
@@ -97,6 +102,72 @@ async function OpenOpportunitiesValue() {
   await connection();
   const overview = await readRelationshipOverview();
   return <>{overview ? overview.openCount : '—'}</>;
+}
+
+/**
+ * Leitura da Inteligência para os dois cartões. Uma falha inesperada não pode derrubar a Início
+ * inteira (o error.tsx tomaria a tela): vira null e cada cartão diz que não leu.
+ */
+async function readMonthIntelligence() {
+  try {
+    return await loadIntelligence('month');
+  } catch (error) {
+    unstable_rethrow(error);
+    return null;
+  }
+}
+
+/**
+ * Gasto em dinheiro do mês civil (ADR-0017): a IA local e o plano gratuito da busca custam zero;
+ * leitura que falhou vira traço, nunca zero inventado.
+ */
+async function MonthCostValue() {
+  await connection();
+  const result = await readMonthIntelligence();
+  if (!result || result.kind === 'unavailable' || !result.data.money) return <>—</>;
+  const { usdMicros, capped } = result.data.money;
+  return <UsdValue micros={usdMicros} capped={capped} />;
+}
+
+/** Funil do mês em versão curta; os detalhes ficam na Inteligência. */
+async function MonthFunnel() {
+  await connection();
+  const result = await readMonthIntelligence();
+  if (!result) {
+    return (
+      <Alert tone="warning" role="status">
+        Não foi possível ler o funil agora. Veja em{' '}
+        <Link href={INTELLIGENCE_PATH} className="underline underline-offset-4">
+          Inteligência
+        </Link>
+        .
+      </Alert>
+    );
+  }
+  if (result.kind === 'unavailable') {
+    return (
+      <Alert tone="warning" role="status">
+        {result.message}
+      </Alert>
+    );
+  }
+  const { funnel, minSample } = result.data;
+  if (funnel.every((stage) => stage.count === 0)) {
+    return (
+      <Well className="py-10 text-center text-sm text-muted-foreground" data-funnel-empty="">
+        Nenhuma empresa contada neste mês ainda. O funil começa quando a{' '}
+        <Link href="/descoberta" className="underline underline-offset-4">
+          Descoberta
+        </Link>{' '}
+        encontra empresas ou quando você cadastra uma em{' '}
+        <Link href="/empresas" className="underline underline-offset-4">
+          Empresas
+        </Link>
+        .
+      </Well>
+    );
+  }
+  return <FunnelBars funnel={funnel} minSample={minSample} compact />;
 }
 
 /** Fatos desta instalação (ADR-0007, CLAUDE.md), não números de exemplo. */
@@ -299,10 +370,28 @@ export default function Home() {
               icon={<MessagesSquare className="size-4" />}
             />
             <StatTile
-              // Espaços inseparáveis: quebra como "Custo de IA / no mês", nunca "Custo de / IA".
-              label={'Custo de\u00a0IA no\u00a0mês'}
-              value="—"
-              note="Chega na F13"
+              // Soma o que foi cobrado em dinheiro (IA e provedores), por isso "Gasto", não
+              // "Custo de IA". Espaço inseparável: nunca quebra entre "no" e "mês".
+              label={'Gasto no\u00a0mês'}
+              value={
+                <Suspense
+                  fallback={
+                    <span role="status" className="text-base">
+                      Contando…
+                    </span>
+                  }
+                >
+                  <MonthCostValue />
+                </Suspense>
+              }
+              note={
+                <>
+                  A IA local não cobra ·{' '}
+                  <Link href={INTELLIGENCE_PATH} className="underline underline-offset-4">
+                    Ver inteligência
+                  </Link>
+                </>
+              }
               icon={<Coins className="size-4" />}
             />
           </div>
@@ -312,35 +401,22 @@ export default function Home() {
           <PanelHeader
             titleId="funil"
             title="Funil de prospecção"
-            description="Em breve: descobertas, investigadas, abordadas e respondidas por mês."
+            description="Empresas que chegaram a cada etapa neste mês."
+            actions={
+              <Button asChild variant="secondary" size="sm">
+                <Link href={INTELLIGENCE_PATH}>Ver inteligência</Link>
+              </Button>
+            }
           />
-          <div className="relative flex min-h-40 flex-1 flex-col justify-between rounded-[var(--radius-tile)] bg-muted p-4 2xl:min-h-52">
-            {[0, 1, 2, 3].map((line) => (
-              <div
-                key={line}
-                aria-hidden="true"
-                className="border-t border-dashed border-input/60"
-              />
-            ))}
-            <p className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-muted-foreground">
-              {/* Fundo do poço por trás do texto: as linhas tracejadas não cruzam as letras. */}
-              <span className="max-w-xs text-balance rounded-lg bg-muted px-3 py-1.5">
-                O gráfico ainda não existe. Por enquanto, os números de cada etapa estão em{' '}
-                <Link href="/descoberta" className="underline underline-offset-4">
-                  Descoberta
-                </Link>
-                ,{' '}
-                <Link href="/empresas" className="underline underline-offset-4">
-                  Empresas
-                </Link>{' '}
-                e{' '}
-                <Link href={relationshipRoutes.hub} className="underline underline-offset-4">
-                  Relacionamento
-                </Link>
-                .
-              </span>
-            </p>
-          </div>
+          <Suspense
+            fallback={
+              <Well role="status" className="py-10 text-center text-sm text-muted-foreground">
+                Contando…
+              </Well>
+            }
+          >
+            <MonthFunnel />
+          </Suspense>
         </Panel>
 
         <Panel aria-labelledby="atividade" className="lg:col-span-12">

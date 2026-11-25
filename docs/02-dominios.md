@@ -276,6 +276,8 @@ Catálogo inicial para branding: abertura de nova unidade/expansão, novo site o
 
 **Responsabilidade.** Vigiar empresas relevantes e detectar mudanças significativas sem reprocessar tudo.
 
+> Estado em 2026-11-25 ([ADR-0017](adr/0017-monitoramento-e-inteligencia.md)): a primeira parte funciona sem `watchlists`, `monitor_runs` nem `change_events`. A lista de acompanhamento sai da recomendação do diagnóstico, as mudanças vêm de `company_investigations.changes` e a reinvestigação só começa com o clique. O que está abaixo continua sendo o alvo da Fase 2 (KI-180).
+
 | Item | Conteúdo |
 |---|---|
 | Entradas | `watchlists` (empresa, frequência, verificações habilitadas). |
@@ -289,6 +291,8 @@ Catálogo inicial para branding: abertura de nova unidade/expansão, novo site o
 ## D16 — Analytics, avaliação e aprendizado comercial
 
 **Responsabilidade.** Medir funil e qualidade, atribuir resultados e propor melhorias — sem autoajuste silencioso.
+
+> Estado em 2026-11-25 ([ADR-0017](adr/0017-monitoramento-e-inteligencia.md)): existem o funil por período (não por coorte, KI-182) e o consumo do mês. Aprendizados e calibração do modelo de score ainda não existem (KI-181).
 
 | Item | Conteúdo |
 |---|---|
