@@ -13,7 +13,7 @@ import { createCompanyAction, importCompanyAction } from '../actions';
 export const metadata: Metadata = { title: 'Adicionar empresa' };
 
 const TRAIL = [
-  { href: '/', label: 'Início' },
+  { href: '/', label: 'Hoje' },
   { href: companyRoutes.list, label: 'Empresas' },
 ];
 

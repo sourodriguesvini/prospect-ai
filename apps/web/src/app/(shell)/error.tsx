@@ -41,7 +41,7 @@ export default function ShellError({
           {pending ? 'Tentando…' : 'Tentar de novo'}
         </Button>
         <Link href="/" className="text-sm underline underline-offset-4">
-          Voltar ao início
+          Voltar para Hoje
         </Link>
       </div>
     </div>

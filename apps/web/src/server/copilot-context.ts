@@ -3,10 +3,14 @@ import { MODULES } from '@/lib/modules';
 import type { ToolSpec } from '@prospector/contracts';
 import { buildCopilotSystemFacts, getServices } from './container';
 
-/** Configuração e Auditoria existem como telas de apoio, fora da navegação principal. */
+/** Configurações e o Histórico de ações existem como telas de apoio, fora da jornada principal. */
 const SETTINGS_MODULES = [
-  { label: 'Configuração', plannedSlice: null, description: 'Proteções e estado da instalação.' },
-  { label: 'Auditoria', plannedSlice: null, description: 'Registro append-only das ações.' },
+  { label: 'Configurações', plannedSlice: null, description: 'Proteções e estado da instalação.' },
+  {
+    label: 'Histórico de ações',
+    plannedSlice: null,
+    description: 'Registro que só recebe inclusões: o que você, a IA e o sistema fizeram.',
+  },
 ];
 
 /**

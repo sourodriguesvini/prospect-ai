@@ -1,9 +1,11 @@
 'use server';
 
-import { companyRoutes } from '@/lib/company-routes';
+import { analyzeProspect } from '@prospector/application';
+import { analyzeNotice, companyRoutes } from '@/lib/company-routes';
 import { DISCOVERY_NOTICES, discoveryRoutes } from '@/lib/discovery-routes';
 import { all, formValues, text, type FormValues } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
+import { getServices } from '@/server/container';
 import { runDiscoveryAction } from '@/server/discovery';
 
 /**
@@ -28,7 +30,8 @@ function optionalText(values: FormValues, name: string): string | null {
 export async function createRunAction(_prev: FormState, formData: FormData) {
   const values = formValues(formData);
   return runDiscoveryAction(values, async (discovery, ctx) => {
-    const run = await discovery.createRun(ctx, {
+    // Mesma pesquisa já na fila ou rodando: abre ela em vez de criar outra (sem gastar de novo).
+    const { run, reused } = await discovery.startRun(ctx, {
       request: text(values, 'request'),
       city: optionalText(values, 'city'),
       uf: optionalText(values, 'uf')?.toUpperCase() ?? null,
@@ -36,7 +39,10 @@ export async function createRunAction(_prev: FormState, formData: FormData) {
       depth: optionalText(values, 'depth'),
       signals: all(values, 'signals'),
     });
-    return discoveryRoutes.run(run.id, DISCOVERY_NOTICES.created);
+    return discoveryRoutes.run(
+      run.id,
+      reused ? DISCOVERY_NOTICES.alreadyRunning : DISCOVERY_NOTICES.created,
+    );
   });
 }
 
@@ -87,9 +93,11 @@ export async function decideProspectAction(
   });
 }
 
+/** Aviso da página da empresa para cada resultado de "Analisar empresa" (sem afirmar o que não houve). */
 /**
- * Investigar: cria (ou liga) a empresa em Empresas com origem Descoberta e grava as fontes e os
- * sinais como evidências; a investigação continua no dossiê.
+ * Analisar empresa: cria (ou liga) a empresa em Empresas com origem Descoberta, grava as fontes e
+ * os sinais como evidências e começa a análise no mesmo clique. Sem análise repetida: a regra
+ * está em `analyzeProspect` (camada de aplicação), e a página da empresa diz o que aconteceu.
  */
 export async function investigateProspectAction(
   prospectId: string,
@@ -97,8 +105,12 @@ export async function investigateProspectAction(
   formData: FormData,
 ) {
   return runDiscoveryAction(formValues(formData), async (discovery, ctx) => {
-    const result = await discovery.investigate(ctx, prospectId);
-    return companyRoutes.company(result.companyId);
+    const result = await analyzeProspect(
+      { discovery, investigations: getServices().investigations },
+      ctx,
+      prospectId,
+    );
+    return companyRoutes.company(result.companyId, analyzeNotice(result));
   });
 }
 

@@ -68,16 +68,17 @@ async function StrategyOverview() {
         <PanelHeader
           titleId="prontidao"
           title="Prontidão"
-          description="O que falta para descobrir empresas e para abordar pessoas. Dados de demonstração e itens arquivados não contam."
+          description="O que falta para a pesquisa comparar empresas com o seu cliente ideal e para preparar abordagens. Dados de demonstração e itens arquivados não contam."
         />
         <div className="grid gap-8 lg:grid-cols-2">
           <ReadinessChecklist
             gate={readiness.discover}
             title="Para descobrir empresas"
             titleId="prontidao-descobrir"
-            readyText="Oferta ativa e completa, com rubrica, modelo de score e ICP ativo."
-            blockedText="A descoberta de empresas só roda com uma oferta ativa e completa e um ICP ativo."
+            readyText="Oferta ativa e completa, com rubrica, modelo de score e ICP ativo: a pesquisa compara cada empresa com o seu cliente ideal."
+            blockedText="Não impede a pesquisa. Sem oferta e ICP ativos, a Descoberta roda, mas não compara as empresas com o seu cliente ideal."
             offerName={evaluatedName}
+            advisory
           />
           <ReadinessChecklist
             gate={readiness.approach}
@@ -159,7 +160,7 @@ export default function StrategyPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        trail={[{ href: '/configuracoes', label: 'Configuração' }]}
+        trail={[{ href: '/configuracoes', label: 'Configurações' }]}
         title="Estratégia"
         description="Ofertas, rubricas, modelo de score, ICP, voz da agência e cases. Tudo é versionado: editar cria uma nova versão, e a anterior continua valendo para as avaliações que a usaram."
       />

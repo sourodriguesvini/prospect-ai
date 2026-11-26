@@ -19,7 +19,7 @@ import { strategyRoutes } from '@/lib/strategy-routes';
 import { loadRelationship } from '@/server/relationship';
 import { loadStrategy } from '@/server/strategy';
 
-export const metadata: Metadata = { title: 'Relacionamento · Abordagens' };
+export const metadata: Metadata = { title: 'Conversas · Para enviar' };
 
 /**
  * Aba Abordagens: a barreira da estratégia (desde a F2), os rascunhos que esperam revisão e as
@@ -36,7 +36,7 @@ async function Gate() {
     <Panel aria-label="Condições para abordar" className="space-y-4">
       <ReadinessChecklist
         gate={gate}
-        title="Pode abordar?"
+        title="Pronto para aprovar mensagens?"
         titleId="condicoes-abordagem"
         headingLevel="h2"
         offerName={offer?.current?.content.name ?? null}
@@ -83,7 +83,7 @@ async function Approaches() {
             <Link href={companyRoutes.list} className="underline underline-offset-4">
               Empresas
             </Link>{' '}
-            e use “Preparar abordagem”.
+            e use “Preparar mensagem”.
           </EmptyState>
         ) : (
           <ul className="divide-y divide-border">

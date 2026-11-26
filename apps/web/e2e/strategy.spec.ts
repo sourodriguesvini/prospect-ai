@@ -20,7 +20,7 @@ function readinessItem(page: Page, code: string) {
   return page.locator(`[data-readiness="${code}"]`).first();
 }
 
-/** Códigos dos itens obrigatórios pendentes do checklist da aba Abordagens (/relacionamento) (case citável é só recomendado). */
+/** Códigos dos itens obrigatórios pendentes do checklist da aba Para enviar (/relacionamento) (case citável é só recomendado). */
 async function missingApproachItems(page: Page): Promise<string[]> {
   const missing = page.locator(
     '[data-gate-ready] [data-readiness][data-ok="false"][data-blocking="true"]',
@@ -31,11 +31,11 @@ async function missingApproachItems(page: Page): Promise<string[]> {
 }
 
 test('abordagens começam bloqueadas, com a explicação do que falta', async ({ page }) => {
-  // O endereço antigo leva à aba Abordagens do Relacionamento (ADR-0014).
+  // O endereço antigo leva à aba Para enviar das Conversas (ADR-0014; nomes da proposta de 26/11).
   await page.goto('/abordagens');
   await expect(page).toHaveURL(/\/relacionamento$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Relacionamento' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Abordagens', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('heading', { level: 1, name: 'Conversas' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Para enviar', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
@@ -57,13 +57,13 @@ test('abordagens começam bloqueadas, com a explicação do que falta', async ({
 
 test('configura oferta, rubrica, score e ICP; pesos inválidos são recusados', async ({ page }) => {
   await page.goto('/configuracoes');
-  // O cartão da tela (o menu lateral também tem Estratégia, no submenu da Configuração).
+  // O cartão da tela (o menu lateral também tem Estratégia, no submenu das Configurações).
   await page
     .getByRole('main')
     .getByRole('link', { name: /Estratégia/ })
     .click();
   await expect(page.getByRole('heading', { level: 1, name: 'Estratégia' })).toBeVisible();
-  await expect(page.getByRole('note').filter({ hasText: 'Modo memória' })).toBeVisible();
+  await expect(page.getByRole('note').filter({ hasText: 'Modo de teste' })).toBeVisible();
   await expect(page.getByText('Nenhuma oferta ainda.')).toBeVisible();
   await expectNoA11yViolations(page);
 

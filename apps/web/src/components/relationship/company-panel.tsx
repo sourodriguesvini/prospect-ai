@@ -125,10 +125,10 @@ export function CompanyRelationshipPanel({
     <Panel aria-labelledby="relacionamento">
       <PanelHeader
         titleId="relacionamento"
-        title="Relacionamento"
-        description="Abordagem, mensagens e conversa com esta empresa. Nada é enviado pelo app."
+        title="Conversas"
+        description="Mensagens e conversa com esta empresa. O app não envia: você envia por conta própria e registra aqui."
       />
-      <Suspense fallback={<Loading label="Carregando o relacionamento…" />}>
+      <Suspense fallback={<Loading label="Carregando as conversas…" />}>
         <Relationship companyId={companyId} archived={archived} />
       </Suspense>
     </Panel>

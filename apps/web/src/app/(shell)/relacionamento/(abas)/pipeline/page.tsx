@@ -12,7 +12,7 @@ import { OPEN_STAGES, stageLabel } from '@/lib/relationship-labels';
 import { relationshipRoutes } from '@/lib/relationship-routes';
 import { loadRelationship } from '@/server/relationship';
 
-export const metadata: Metadata = { title: 'Relacionamento · Pipeline' };
+export const metadata: Metadata = { title: 'Conversas · Funil' };
 
 type Props = PageProps<'/relacionamento/pipeline'>;
 
@@ -52,7 +52,7 @@ async function Pipeline({ searchParams }: Pick<Props, 'searchParams'>) {
       <Panel aria-labelledby="pipeline">
         <PanelHeader
           titleId="pipeline"
-          title="Pipeline"
+          title="Funil"
           description={
             overview.valuedCount > 0
               ? `${overview.openCount} oportunidades abertas. Valor informado (só com base real): ${formatCents(overview.valueWithBasisCents)} em ${overview.valuedCount}.`
@@ -75,8 +75,8 @@ async function Pipeline({ searchParams }: Pick<Props, 'searchParams'>) {
         />
         {opportunities.length === 0 ? (
           <EmptyState>
-            Nenhuma oportunidade ainda. Elas nascem no dossiê de uma empresa (“Preparar abordagem”
-            ou “Abrir oportunidade sem IA”).
+            Nenhuma conversa ainda. Elas começam na página de uma empresa (“Preparar mensagem” ou
+            “Escrever sem a IA”).
           </EmptyState>
         ) : list ? (
           // `relative`: o texto só para leitor de tela (posição absoluta) dos selos fica preso aqui;

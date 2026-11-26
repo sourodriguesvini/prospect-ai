@@ -16,8 +16,12 @@ const OFFLINE_LABEL: Partial<Record<AiErrorCode, string>> = {
   invalid_config: 'Configuração inválida',
 };
 
-/** Tarefa que a tela já usa; as outras ainda não têm quem as chame (IA-2 em diante). */
-const IN_USE: ReadonlySet<AiTask> = new Set(['copilot']);
+/**
+ * Tarefas que o app usa: conversa (Copiloto e mensagens de Conversas), análise (empresas e
+ * pesquisas) e imagens (leitura das capturas da marca). A busca semântica ainda não tem quem a
+ * chame e não aparece na lista.
+ */
+const IN_USE: ReadonlySet<AiTask> = new Set(['copilot', 'reasoning', 'vision']);
 
 /** Painel com o estado real da IA local: Ollama, GPU, modelos e limites. Nada é estimado. */
 export function LocalAiStatus({
@@ -83,25 +87,20 @@ export function LocalAiStatus({
               Modelo por tarefa
             </h3>
             <dl className="divide-y text-sm">
-              {status.routing.map((route) => (
-                <div key={route.task} className="flex items-baseline justify-between gap-3 py-2">
-                  <dt className="text-muted-foreground">{TASK_LABEL[route.task]}</dt>
-                  <dd className="min-w-0 truncate text-right">
-                    {route.resolved ? (
-                      <span title={route.resolved}>{route.resolved}</span>
-                    ) : IN_USE.has(route.task) ? (
-                      <Badge variant="warning">Falta instalar {route.preferred[0]}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Não instalado ({route.preferred[0]})
-                      </span>
-                    )}
-                    {IN_USE.has(route.task) ? null : (
-                      <span className="block text-xs text-muted-foreground">ainda não usado</span>
-                    )}
-                  </dd>
-                </div>
-              ))}
+              {status.routing
+                .filter((route) => IN_USE.has(route.task))
+                .map((route) => (
+                  <div key={route.task} className="flex items-baseline justify-between gap-3 py-2">
+                    <dt className="text-muted-foreground">{TASK_LABEL[route.task]}</dt>
+                    <dd className="min-w-0 truncate text-right">
+                      {route.resolved ? (
+                        <span title={route.resolved}>{route.resolved}</span>
+                      ) : (
+                        <Badge variant="warning">Falta instalar {route.preferred[0]}</Badge>
+                      )}
+                    </dd>
+                  </div>
+                ))}
             </dl>
           </section>
 

@@ -1,35 +1,24 @@
-import { Panel, PanelHeader } from '@prospector/ui';
+import { Panel, PanelHeader, Well } from '@prospector/ui';
 import { ArrowUpRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
+import {
+  DatabaseStatusValue,
+  DemoDataValue,
+  safeguards,
+} from '@/components/system/database-status';
 import { SETTINGS_SECTIONS } from '@/lib/navigation';
 
-export const metadata: Metadata = { title: 'Configuração' };
-
-// Só o que ainda não existe. A pesquisa na internet (Tavily) e a supressão já funcionam: a chave
-// e o limite da Tavily ficam em apps/web/.env.local, e o opt-out se registra em Relacionamento.
-const PLANNED: { label: string; detail?: string; slice?: string }[] = [
-  {
-    label: 'Tela de integrações',
-    detail:
-      'A pesquisa na internet já funciona. A chave é configurada fora do app (guia do ambiente local); no app instalado, vale depois de reinstalar.',
-  },
-  { label: 'Agentes (modelos, versões de prompt, avaliações)', slice: 'F5' },
-  {
-    label: 'Pedidos de titulares (LGPD)',
-    detail: 'A supressão já funciona: "Não contatar", em cada oportunidade do Relacionamento.',
-    slice: 'F9',
-  },
-  { label: 'Uso e orçamento', slice: 'F13' },
-];
+export const metadata: Metadata = { title: 'Configurações' };
 
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-4xl tracking-[-0.03em]">Configuração</h1>
+      <h1 className="text-4xl tracking-[-0.03em]">Configurações</h1>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel aria-labelledby="disponivel">
-          <PanelHeader titleId="disponivel" title="Disponível" />
+          <PanelHeader titleId="disponivel" title="Ajustes" />
           <ul className="space-y-3">
             {SETTINGS_SECTIONS.map((item) => {
               const Icon = item.icon;
@@ -56,25 +45,40 @@ export default function SettingsPage() {
             })}
           </ul>
         </Panel>
-        <Panel aria-labelledby="em-breve">
-          <PanelHeader titleId="em-breve" title="Em breve" />
-          <ul className="divide-y">
-            {PLANNED.map((item) => (
-              <li key={item.label} className="flex items-center justify-between gap-4 py-3 text-sm">
-                <span>
-                  <span className="block">{item.label}</span>
-                  {item.detail ? (
-                    <span className="block text-xs text-muted-foreground">{item.detail}</span>
-                  ) : null}
-                </span>
-                {item.slice ? (
-                  <span className="min-w-10 shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-center text-xs text-muted-foreground">
-                    {item.slice}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+        <Panel aria-labelledby="sistema">
+          <PanelHeader
+            titleId="sistema"
+            title="Sistema"
+            description="Banco de dados e proteções desta instalação."
+          />
+          <Suspense
+            fallback={
+              <p role="status" className="text-2xl tracking-[-0.03em] text-muted-foreground">
+                Verificando…
+              </p>
+            }
+          >
+            <DatabaseStatusValue />
+          </Suspense>
+          <Well className="@container mt-5 p-3">
+            {/* Subgrade: rótulo, valor e nota ficam na mesma linha em todos os cartões. */}
+            <ul className="grid grid-cols-1 gap-y-2 @md:grid-cols-3 @md:gap-x-2 @md:gap-y-0">
+              {safeguards(
+                <Suspense fallback={<span role="status">Contando…</span>}>
+                  <DemoDataValue />
+                </Suspense>,
+              ).map((item) => (
+                <li
+                  key={item.label}
+                  className="row-span-3 grid grid-rows-subgrid gap-y-1 rounded-xl bg-surface p-2.5"
+                >
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p className="text-sm font-medium">{item.value}</p>
+                  <p className="text-xs text-muted-foreground">{item.note}</p>
+                </li>
+              ))}
+            </ul>
+          </Well>
         </Panel>
       </div>
     </div>

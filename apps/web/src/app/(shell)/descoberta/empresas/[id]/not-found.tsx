@@ -8,8 +8,8 @@ export default function ProspectNotFound() {
     <div className="space-y-6">
       <PageHeader
         trail={[
-          { href: '/', label: 'Início' },
-          { href: discoveryRoutes.home, label: 'Descoberta' },
+          { href: '/', label: 'Hoje' },
+          { href: discoveryRoutes.home, label: 'Descobrir' },
           { href: discoveryRoutes.prospects, label: 'Empresas encontradas' },
         ]}
         title="Empresa não encontrada"

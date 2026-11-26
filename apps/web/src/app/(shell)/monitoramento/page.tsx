@@ -25,7 +25,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   };
 }
 
-const TRAIL = [{ href: '/', label: 'Início' }];
+const TRAIL = [{ href: '/empresas', label: 'Empresas' }];
 
 function FeedNotes({ overview }: { overview: MonitoringOverview }) {
   return (

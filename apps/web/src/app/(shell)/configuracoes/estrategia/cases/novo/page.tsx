@@ -12,7 +12,7 @@ import { createProofAssetAction } from '../../actions';
 export const metadata: Metadata = { title: 'Novo case' };
 
 const TRAIL = [
-  { href: '/configuracoes', label: 'Configuração' },
+  { href: '/configuracoes', label: 'Configurações' },
   { href: strategyRoutes.overview, label: 'Estratégia' },
   { href: strategyRoutes.cases, label: 'Cases' },
 ];

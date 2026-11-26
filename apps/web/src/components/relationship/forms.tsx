@@ -69,7 +69,7 @@ export function PrepareApproachForm({
         rows={2}
         {...field}
       />
-      <SubmitButton pendingLabel={AI_PENDING}>Preparar abordagem</SubmitButton>
+      <SubmitButton pendingLabel={AI_PENDING}>Preparar mensagem</SubmitButton>
       <PendingAnnouncement text={AI_PENDING} />
       <p className="text-xs text-muted-foreground">
         A IA usa só o dossiê da empresa, a oferta, a voz da agência e os cases autorizados. O
@@ -102,7 +102,7 @@ export function OpenOpportunityForm({
         {...field}
       />
       <SubmitButton variant="secondary" pendingLabel="Abrindo…">
-        Abrir oportunidade sem IA
+        Escrever sem a IA
       </SubmitButton>
     </form>
   );

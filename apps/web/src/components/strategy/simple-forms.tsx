@@ -71,7 +71,7 @@ export function VoiceForm({ action, initial, submitLabel, cancelHref }: FormProp
         <TextAreaField
           name="badExamples"
           label="Exemplos ruins"
-          hint='Separe exemplos com uma linha contendo só "---".'
+          hint='Separe exemplos com uma linha contendo só "---". Por enquanto ficam só registrados: a IA recebe os exemplos bons, não estes.'
           rows={6}
           {...field}
         />
@@ -171,7 +171,7 @@ export function LiaForm({ action, initial, submitLabel, cancelHref }: FormProps)
         <CheckboxGroup
           name="dataCategories"
           label="Dados pessoais tratados"
-          hint="Lista fechada: sem CPF, sem dados sensíveis, sem contato pessoal."
+          hint="Lista fechada: sem CPF, sem dados sensíveis, sem contato pessoal. É o registro da avaliação; o app não usa esta lista para filtrar dados."
           options={CATEGORY_OPTIONS}
           required
           {...field}
@@ -179,6 +179,7 @@ export function LiaForm({ action, initial, submitLabel, cancelHref }: FormProps)
         <CheckboxGroup
           name="dataSources"
           label="Origem dos dados"
+          hint="Registro da avaliação; o app não usa esta lista para filtrar fontes."
           options={SOURCE_OPTIONS}
           required
           {...field}
@@ -243,7 +244,7 @@ export function ContactPolicyForm({ action, initial, submitLabel, cancelHref }: 
       <TextAreaField
         name="optOutText"
         label="Texto de opt-out"
-        hint="Vai em toda mensagem. Precisa dizer como deixar de receber, de forma simples."
+        hint="Vai no fim de toda mensagem até a empresa responder. Precisa dizer como deixar de receber, de forma simples."
         required
         {...field}
       />

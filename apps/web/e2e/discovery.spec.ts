@@ -4,7 +4,7 @@ import { expectNoA11yViolations } from './support';
 /**
  * F4 — Descoberta de ponta a ponta, num servidor próprio em modo memória com buscador e IA
  * SINTÉTICOS (PROSPECTOR_DISCOVERY=fixture, src/server/discovery-fixture.ts): fila, trabalhador,
- * conferência dos trechos, deduplicação, triagem, decisões, Investigar e monitoramentos, sem
+ * conferência dos trechos, deduplicação, triagem, decisões, Analisar empresa e monitoramentos, sem
  * internet, sem créditos e sem GPU. Tudo sai marcado DEMO. Os testes formam uma história e rodam
  * em série sobre o mesmo servidor. A busca e a IA reais são cobertas pelos testes dos adaptadores,
  * pelas avaliações (packages/agents/evals/discovery) e pela validação manual do doc 14.
@@ -62,7 +62,7 @@ function announcement(page: Page, text: string) {
 
 test('início começa vazio, com exemplos e sem dados simulados', async ({ page }) => {
   await page.goto('/descoberta');
-  await expect(page.getByRole('heading', { level: 1, name: 'Descoberta' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Descobrir' })).toBeVisible();
   await expect(page.getByText('Nenhuma pesquisa ainda.')).toBeVisible();
   await expect(page.getByText('Nenhuma oportunidade ainda.')).toBeVisible();
   await expectNoA11yViolations(page);
@@ -111,7 +111,7 @@ test('pesquisa roda em segundo plano e mostra empresas com fonte e trecho', asyn
   });
   await expect(quote.getByText('Fonte:')).toBeVisible();
   await expect(quote.getByRole('link', { name: /noticias\.exemplo\.test/ })).toBeVisible();
-  await expect(card(page, 'Clínica Aurora').getByText(/Confiança da análise: /)).toBeVisible();
+  await expect(card(page, 'Clínica Aurora').getByText(/Confiança da triagem: /)).toBeVisible();
   await expect(page.getByText('(site conferido)')).toBeVisible();
   await expect(
     page.getByTitle('Dados de demonstração: não representam empresas ou pessoas reais').first(),
@@ -121,9 +121,9 @@ test('pesquisa roda em segundo plano e mostra empresas com fonte e trecho', asyn
 
 test('salvar e ignorar ficam registrados, são anunciados e não perdem o foco', async ({ page }) => {
   await page.goto(runPath);
-  // Salvar vira "Salva" no mesmo lugar: o foco continua no botão e a lista anuncia.
+  // "Salvar para depois" vira "Salva" no mesmo lugar: o foco continua no botão e a lista anuncia.
   const boreal = card(page, 'Studio Boreal');
-  await boreal.getByRole('button', { name: /^Salvar ?: Studio Boreal$/ }).click();
+  await boreal.getByRole('button', { name: /^Salvar para depois ?: Studio Boreal$/ }).click();
   const saved = boreal.getByRole('button', { name: /^Salva ?: Studio Boreal$/ });
   await expect(saved).toHaveAttribute('aria-disabled', 'true');
   await expect(saved).toBeFocused();
@@ -168,7 +168,7 @@ test('salvar e ignorar ficam registrados, são anunciados e não perdem o foco',
   await expect(page.locator('#lista-encontradas')).toBeFocused();
 });
 
-test('detalhe da empresa encontrada explica a triagem e Investigar leva a Empresas', async ({
+test('detalhe da empresa encontrada explica a triagem e Analisar empresa leva à análise', async ({
   page,
 }) => {
   await page.goto('/descoberta/empresas');
@@ -184,9 +184,11 @@ test('detalhe da empresa encontrada explica a triagem e Investigar leva a Empres
   await expect(page.getByText('Relevância: ')).toHaveCount(0);
   await expectNoA11yViolations(page);
 
-  await page.getByRole('button', { name: 'Investigar' }).click();
-  await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]{36}$/);
+  // Um clique só: a empresa vai para Empresas com as fontes e a análise já começa (proposta 26/11).
+  await page.getByRole('button', { name: 'Analisar empresa' }).click();
+  await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]{36}\?aviso=analise-iniciada$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Clínica Aurora' })).toBeVisible();
+  await expect(page.locator('[data-aviso="analise-iniciada"]')).toContainText('a análise começou');
   await expect(page.getByRole('definition').filter({ hasText: /^Descoberta$/ })).toBeVisible();
   await expect(page.getByText('Trecho conferido na fonte').first()).toBeVisible();
 });

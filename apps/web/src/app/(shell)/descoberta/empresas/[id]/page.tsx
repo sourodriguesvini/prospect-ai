@@ -43,8 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const TRAIL = [
-  { href: '/', label: 'Início' },
-  { href: discoveryRoutes.home, label: 'Descoberta' },
+  { href: '/', label: 'Hoje' },
+  { href: discoveryRoutes.home, label: 'Descobrir' },
   { href: discoveryRoutes.prospects, label: 'Empresas encontradas' },
 ];
 
@@ -91,7 +91,7 @@ async function ProspectDetailView({ id }: { id: string }) {
         <PanelHeader
           title="Próximo passo"
           titleId="proximo-passo"
-          description="Investigar cria (ou liga) a empresa em Empresas com origem Descoberta e guarda as fontes e os sinais como evidências. Nada é enviado a ninguém."
+          description="Analisar empresa leva a empresa para Empresas com as fontes e os sinais como evidências e começa a análise (site, marca, concorrentes). Nada é enviado a ninguém."
         />
         {company ? (
           <p className="text-sm">
@@ -120,11 +120,11 @@ async function ProspectDetailView({ id }: { id: string }) {
                 <ActionButton
                   action={investigateProspectAction.bind(null, prospect.id)}
                   variant="primary"
-                  pendingLabel="Levando para Empresas…"
+                  pendingLabel="Começando a análise…"
                 >
                   {prospect.status === 'investigating'
                     ? 'Atualizar as evidências em Empresas'
-                    : 'Investigar'}
+                    : 'Analisar empresa'}
                 </ActionButton>
                 {prospect.status !== 'investigating' ? (
                   <ActionButton
@@ -133,7 +133,7 @@ async function ProspectDetailView({ id }: { id: string }) {
                     done={prospect.status === 'saved' ? 'Salva' : undefined}
                     success={{ message: `${name} salva.`, focus: 'self' }}
                   >
-                    Salvar
+                    Salvar para depois
                   </ActionButton>
                 ) : null}
                 <DismissForm

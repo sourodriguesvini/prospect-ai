@@ -6,20 +6,22 @@ import { usePathname } from 'next/navigation';
 import { relationshipRoutes } from '@/lib/relationship-routes';
 
 const TABS = [
-  { href: relationshipRoutes.approaches, label: 'Abordagens' },
-  { href: relationshipRoutes.conversations, label: 'Conversas' },
-  { href: relationshipRoutes.pipeline, label: 'Pipeline' },
+  { href: relationshipRoutes.approaches, label: 'Para enviar' },
+  { href: relationshipRoutes.conversations, label: 'Em andamento' },
+  { href: relationshipRoutes.pipeline, label: 'Funil' },
+  { href: relationshipRoutes.approvals, label: 'Aprovações' },
 ] as const;
 
 /**
- * Abas do Relacionamento. São links (cada aba é uma página, com endereço próprio), então usam
- * `aria-current` em vez do padrão de abas com teclado: Tab e Enter bastam.
+ * Abas de Conversas (o antigo Relacionamento). São links (cada aba é uma página, com endereço
+ * próprio), então usam `aria-current` em vez do padrão de abas com teclado: Tab e Enter bastam.
+ * Aprovações saiu do menu lateral e virou a última aba, no mesmo endereço de antes.
  */
 export function RelationshipTabs() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Partes do Relacionamento">
-      <ul className="flex flex-wrap gap-1 rounded-full bg-muted p-1 sm:inline-flex">
+    <nav aria-label="Partes de Conversas">
+      <ul className="flex flex-wrap gap-1 rounded-2xl bg-muted p-1 sm:inline-flex sm:rounded-full">
         {TABS.map((tab) => {
           const active = pathname === tab.href;
           return (

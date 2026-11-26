@@ -13,6 +13,8 @@
 
 ## 2. Arquitetura de informação
 
+> **Atualizado em 26/11/2026.** O menu em uso segue a proposta aprovada nessa data e substitui a árvore abaixo, que fica como registro do desenho original: jornada **Hoje, Descobrir, Empresas e Conversas**; apoio **Copiloto e Resultados**; sistema **Configurações** (Estratégia, Conformidade, E-mail, Histórico de ações). Aprovações e Monitoramento saíram do menu e continuam pela paleta (Ctrl+K), pela aba Aprovações de Conversas e pelos links de Hoje. Os endereços não mudaram. Detalhes em `docs/decisoes-entrega-1-2026-11-26.md` §2.
+
 ```
 Início (Hoje)
 Copiloto (tela cheia + painel contextual em todas as telas)

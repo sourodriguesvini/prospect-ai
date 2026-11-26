@@ -16,7 +16,7 @@ import { formatDateTime } from '@/lib/format';
 import { relationshipRoutes } from '@/lib/relationship-routes';
 import { loadRelationship } from '@/server/relationship';
 
-export const metadata: Metadata = { title: 'Relacionamento · Conversas' };
+export const metadata: Metadata = { title: 'Conversas · Em andamento' };
 
 /** Etapas em que há conversa a acompanhar (depois do primeiro contato, antes de fechar). */
 const IN_CONTACT = ['contacted', 'in_conversation', 'meeting', 'proposal', 'negotiation'] as const;

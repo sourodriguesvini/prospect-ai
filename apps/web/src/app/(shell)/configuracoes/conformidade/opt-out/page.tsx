@@ -15,7 +15,7 @@ import { saveContactPolicyAction } from '../actions';
 export const metadata: Metadata = { title: 'Identificação e opt-out' };
 
 const TRAIL = [
-  { href: '/configuracoes', label: 'Configuração' },
+  { href: '/configuracoes', label: 'Configurações' },
   { href: strategyRoutes.compliance, label: 'Conformidade' },
 ];
 

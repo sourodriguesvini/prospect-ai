@@ -7,10 +7,12 @@ import {
   type CompanyOrigin,
 } from '@prospector/contracts';
 import { Alert, Badge, DemoBadge, Panel, PanelHeader, Well } from '@prospector/ui';
+import { ChevronDown } from 'lucide-react';
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
 import { CnpjLinkForm, LifecycleForm } from '@/components/companies/company-forms';
+import { DecisionSummary } from '@/components/companies/decision-summary';
 import { EvidenceGroups } from '@/components/companies/evidence-groups';
 import { CompanyRelationshipPanel } from '@/components/relationship/company-panel';
 import {
@@ -25,11 +27,18 @@ import { StatusButton } from '@/components/strategy/decision-forms';
 import { Loading } from '@/components/strategy/loading';
 import { PageHeader, StorageNotice, Unavailable } from '@/components/strategy/page-parts';
 import { COMPANY_ORIGIN_LABELS, COMPANY_SIZE_LABELS } from '@/lib/company-labels';
-import { COMPANY_NOTICES, companyRoutes, type CompanyNotice } from '@/lib/company-routes';
+import {
+  COMPANY_NOTICES,
+  WARNING_NOTICES,
+  companyRoutes,
+  visibleNotice,
+  type CompanyNotice,
+} from '@/lib/company-routes';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { companyDossier, companyTitle, loadCompanies } from '@/server/companies';
 import { cnpjLookupEnabled } from '@/server/env';
 import { loadInvestigationPanel } from '@/server/investigations';
+import { loadRelationship } from '@/server/relationship';
 import { changeLifecycleAction, linkCnpjAction, refreshRegistryAction } from '../actions';
 
 type Props = PageProps<'/empresas/[id]'>;
@@ -40,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const TRAIL = [
-  { href: '/', label: 'Início' },
+  { href: '/', label: 'Hoje' },
   { href: companyRoutes.list, label: 'Empresas' },
 ];
 
@@ -66,7 +75,7 @@ function noticeText(notice: CompanyNotice, changed: number | null): string {
     case COMPANY_NOTICES.created:
       return 'Empresa cadastrada.';
     case COMPANY_NOTICES.duplicate:
-      return 'Essa empresa já estava cadastrada (mesmo CNPJ ou site). Nada foi alterado: este é o dossiê dela.';
+      return 'Essa empresa já estava cadastrada (mesmo CNPJ ou site). Nada foi alterado: esta é a página dela.';
     case COMPANY_NOTICES.unchanged:
       return 'Consulta à Receita feita: nada mudou desde a última consulta, então nada foi gravado.';
     case COMPANY_NOTICES.refreshed:
@@ -78,15 +87,27 @@ function noticeText(notice: CompanyNotice, changed: number | null): string {
       }
       return `Consulta à Receita feita: ${changed === 1 ? '1 dado mudou' : `${changed} dados mudaram`}. A versão anterior de cada um fica no histórico.`;
     case COMPANY_NOTICES.investigationStarted:
-      return 'Investigação na fila. Ela roda no computador, uma por vez; o andamento aparece em Investigação.';
+      return 'Análise começou. Ela roda no computador, uma por vez, e leva alguns minutos; o resultado aparece no topo desta página.';
     case COMPANY_NOTICES.investigationResumed:
-      return 'Investigação retomada: as etapas já concluídas não são repetidas.';
+      return 'Análise retomada: as etapas já concluídas não são repetidas.';
     case COMPANY_NOTICES.investigationCancelled:
       return 'Cancelamento pedido. A etapa atual para no meio; o que já foi coletado fica guardado.';
     case COMPANY_NOTICES.siteConfirmed:
-      return 'Site oficial confirmado. Investigue de novo para ler as páginas e capturar a marca.';
+      return 'Site oficial confirmado. Atualize a análise para ler as páginas e olhar a marca.';
     case COMPANY_NOTICES.cnpjLinked:
-      return 'CNPJ vinculado: os dados da Receita estão em Evidências. Investigue de novo para a adequação ao ICP usar porte, atividade e situação.';
+      return 'CNPJ vinculado: os dados da Receita estão em Cadastro e evidências. Atualize a análise para ela usar porte, atividade e situação.';
+    case COMPANY_NOTICES.analysisStarted:
+      return 'Empresa salva com as fontes da pesquisa, e a análise começou. Leva alguns minutos; o resultado aparece no topo desta página.';
+    case COMPANY_NOTICES.analysisRunning:
+      return 'Esta empresa já está sendo analisada. Nenhuma análise nova foi criada.';
+    case COMPANY_NOTICES.alreadyAnalyzed:
+      return 'Esta empresa já tinha sido analisada, então nada foi refeito (nenhuma busca gasta). Para atualizar, use Atualizar a análise, no painel Análise.';
+    case COMPANY_NOTICES.analysisQueueFull:
+      return 'Empresa salva com as fontes da pesquisa, mas a análise não começou: a fila de análises está cheia. Espere algumas terminarem e use Analisar empresa, abaixo.';
+    case COMPANY_NOTICES.analysisArchived:
+      return 'A empresa já estava cadastrada e está arquivada, então a análise não começou. Mude a etapa para analisar.';
+    case COMPANY_NOTICES.analysisUnavailable:
+      return 'Empresa salva com as fontes da pesquisa, mas a análise não está disponível nesta instalação agora.';
   }
 }
 
@@ -230,7 +251,7 @@ function Claims({ dossier }: { dossier: CompanyDossier }) {
         <Well className="py-8 text-center text-sm text-muted-foreground">
           {companyCnpj(dossier)
             ? 'Nenhum fato registrado. Consulte a Receita para trazer os dados do registro com a fonte.'
-            : 'Nenhum fato registrado. Informe o CNPJ em Receita Federal ou investigue a empresa para coletar o que o site e a internet mostram, com a fonte.'}
+            : 'Nenhum fato registrado. Informe o CNPJ em Receita Federal ou analise a empresa para coletar o que o site e a internet mostram, com a fonte.'}
         </Well>
       ) : (
         <EvidenceGroups views={claims} />
@@ -284,8 +305,8 @@ function RegistryLookup({ dossier }: { dossier: CompanyDossier }) {
     body = (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Sem CNPJ cadastrado. A investigação procura o CNPJ no site da empresa; se não achar,
-          informe aqui. Nada é gravado se a Receita não confirmar.
+          Sem CNPJ cadastrado. A análise procura o CNPJ no site da empresa; se não achar, informe
+          aqui. Nada é gravado se a Receita não confirmar.
         </p>
         <CnpjLinkForm action={linkCnpjAction.bind(null, company.id)} />
       </div>
@@ -321,6 +342,29 @@ function RegistryLookup({ dossier }: { dossier: CompanyDossier }) {
   );
 }
 
+/** Resumo do que está guardado em "Cadastro e evidências", para quem decide abrir. */
+function evidenceCountText(dossier: CompanyDossier): string {
+  const total = dossier.summary.total;
+  if (total === 0) return 'Nada coletado ainda.';
+  return `${total} ${total === 1 ? 'informação' : 'informações'}, cada uma com a sua fonte.`;
+}
+
+/**
+ * Contatos ainda não existem no Prospector (dependem de aprovação das fontes, da base legal e de
+ * migração; proposta de 26/11, C.7). O painel diz isso e não oferece botão que não funciona.
+ */
+function ContactsPanel() {
+  return (
+    <Panel aria-labelledby="contatos">
+      <PanelHeader
+        titleId="contatos"
+        title="Com quem falar"
+        description="O Prospector ainda não guarda contatos de pessoas. Por enquanto, a mensagem é escrita para a empresa e você escolhe o destinatário fora do app: prefira o canal que a própria empresa publica (site, e-mail de contato) e anote de onde veio o endereço ao registrar o envio."
+      />
+    </Panel>
+  );
+}
+
 async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchParams'>) {
   await connection();
   const { id } = await params;
@@ -340,7 +384,22 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
   // O diagnóstico mostrado é o da última investigação que chegou a montá-lo.
   const diagnosed = investigation?.history.find((item) => item.diagnosis !== null) ?? null;
   const query = await searchParams;
-  const notice = Object.values(COMPANY_NOTICES).find((value) => value === query.aviso);
+  const notice = visibleNotice(
+    Object.values(COMPANY_NOTICES).find((value) => value === query.aviso),
+    investigation?.active ?? false,
+  );
+  // Pedidos de não contato e conversa aberta, para o topo nunca sugerir abordar quem pediu para
+  // parar (regra 7). Sem conseguir ler, o topo não oferece "Preparar mensagem".
+  const relation = await loadRelationship((relationship, ctx) =>
+    relationship.forCompany(ctx, company.id),
+  );
+  const contact =
+    relation.kind === 'ok'
+      ? {
+          suppressions: relation.data.activeSuppressions,
+          openOpportunityId: relation.data.open?.id ?? null,
+        }
+      : null;
   const archived = company.lifecycle === 'archived';
   const cnpj = companyCnpj(dossier);
 
@@ -366,20 +425,62 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
         }
       />
       {notice ? (
-        <Alert tone="success" role="status" data-aviso={notice}>
+        <Alert
+          tone={WARNING_NOTICES.includes(notice) ? 'warning' : 'success'}
+          role="status"
+          data-aviso={notice}
+        >
           {noticeText(notice, readChanged(query.mudancas))}
         </Alert>
       ) : null}
       <StorageNotice storage={result.storage} />
+      <DecisionSummary
+        company={company}
+        diagnosed={diagnosed}
+        latest={latest}
+        active={investigation?.active ?? false}
+        views={dossier.claims}
+        available={investigation !== null}
+        contact={contact}
+      />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
           <DiagnosisPanel investigation={diagnosed} latest={latest} views={dossier.claims} />
           <BrandPanel company={company} views={dossier.claims} />
           <MarketPanel views={dossier.claims} />
-          <Registry dossier={dossier} />
-          <Claims dossier={dossier} />
+          <ContactsPanel />
+          {/* Recolhido quando há análise (o relatório vem primeiro); sem análise, o cadastro e as
+              evidências são o que há para ler, então já abrem. */}
+          <details className="group" data-details="cadastro" open={diagnosed === null}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--radius-panel)] bg-surface px-5 py-4 text-sm font-medium shadow-[var(--shadow-panel)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-6 [&::-webkit-details-marker]:hidden">
+              <span>
+                Cadastro e evidências
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {evidenceCountText(dossier)}
+                </span>
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 shrink-0 transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="mt-6 space-y-6">
+              <Registry dossier={dossier} />
+              <Claims dossier={dossier} />
+            </div>
+          </details>
         </div>
-        <div className="order-first min-w-0 space-y-6 lg:order-none">
+        <div className="min-w-0 space-y-6">
+          <CompanyRelationshipPanel companyId={company.id} archived={archived} />
+          <InvestigationPanel
+            company={company}
+            data={investigation}
+            siteCandidates={
+              latest
+                ? claimsWithPrefix(dossier.claims, 'digital_presence.official_site_candidate.')
+                : []
+            }
+          />
           <Panel aria-labelledby="etapa">
             <PanelHeader
               titleId="etapa"
@@ -391,17 +492,7 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
               current={company.lifecycle}
             />
           </Panel>
-          <InvestigationPanel
-            company={company}
-            data={investigation}
-            siteCandidates={
-              latest
-                ? claimsWithPrefix(dossier.claims, 'digital_presence.official_site_candidate.')
-                : []
-            }
-          />
           <InvestigationHistoryPanel data={investigation} />
-          <CompanyRelationshipPanel companyId={company.id} archived={archived} />
           <RegistryLookup dossier={dossier} />
         </div>
       </div>
@@ -412,7 +503,7 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
 export default function CompanyPage({ params, searchParams }: Props) {
   return (
     <div className="space-y-6">
-      <Suspense fallback={<Loading label="Carregando o dossiê…" />}>
+      <Suspense fallback={<Loading label="Carregando a empresa…" />}>
         <Dossier params={params} searchParams={searchParams} />
       </Suspense>
     </div>

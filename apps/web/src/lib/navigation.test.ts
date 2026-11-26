@@ -10,7 +10,7 @@ import {
 } from './navigation';
 
 describe('isActivePath', () => {
-  it('Início só conta na rota exata', () => {
+  it('Hoje só conta na rota exata', () => {
     expect(isActivePath('/', '/')).toBe(true);
     expect(isActivePath('/empresas', '/')).toBe(false);
   });
@@ -33,6 +33,9 @@ describe('activeHref (um só item destacado)', () => {
     ['/configuracoes/estrategia/ofertas/nova', '/configuracoes/estrategia'],
     ['/configuracoes/conformidade/lia', '/configuracoes/conformidade'],
     ['/configuracoes/auditoria', '/configuracoes/auditoria'],
+    // Fora do menu: destaca o item de onde a tela faz parte.
+    ['/aprovacoes', '/relacionamento'],
+    ['/monitoramento', '/empresas'],
   ])('%s → %s', (pathname, expected) => {
     expect(activeHref(pathname)).toBe(expected);
   });
@@ -53,12 +56,12 @@ describe('submenu da Configuração', () => {
     expect(showsChildren('/empresas', settings)).toBe(false);
   });
 
-  it('tem Estratégia, Conformidade, E-mail e Auditoria', () => {
+  it('tem Estratégia, Conformidade, E-mail e Histórico de ações', () => {
     expect(settings.children.map((child) => child.label)).toEqual([
       'Estratégia',
       'Conformidade',
       'E-mail',
-      'Auditoria',
+      'Histórico de ações',
     ]);
   });
 });
@@ -71,9 +74,25 @@ describe('itens e atalhos', () => {
 
   it('atalhos "g + tecla" não se repetem e levam a telas do menu', () => {
     const targets = shortcutTargets();
-    expect([...targets.keys()].sort()).toEqual(['c', 'd', 'e', 'i', 'r', 's']);
+    expect([...targets.keys()].sort()).toEqual(['c', 'd', 'e', 'h', 'i', 'r', 's']);
+    expect(targets.get('h')?.href).toBe('/');
+    expect(targets.get('c')?.href).toBe('/relacionamento');
+    expect(targets.get('i')?.href).toBe('/copiloto');
     expect(targets.get('e')?.href).toBe('/empresas');
     expect(targets.get('s')?.href).toBe('/configuracoes');
+  });
+
+  it('jornada com quatro passos e apoio com Copiloto e Resultados', () => {
+    const labels = (id: string) =>
+      NAV_GROUPS.find((group) => group.id === id)?.items.map((item) => item.label);
+    expect(labels('fluxo')).toEqual(['Hoje', 'Descobrir', 'Empresas', 'Conversas']);
+    expect(labels('apoio')).toEqual(['Copiloto', 'Resultados']);
+  });
+
+  it('Aprovações e Monitoramento saem do menu, mas continuam na paleta', () => {
+    const hrefs = flattenNav().map((item) => item.href);
+    expect(hrefs).not.toContain('/aprovacoes');
+    expect(hrefs).not.toContain('/monitoramento');
   });
 
   it('tela ainda não entregue diz que vem em breve no nome acessível', () => {

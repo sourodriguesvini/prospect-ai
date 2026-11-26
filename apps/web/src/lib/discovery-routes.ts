@@ -4,6 +4,7 @@ const BASE = '/descoberta';
 /** Valores conhecidos de `?aviso=` (só esses viram mensagem; KI-050). */
 export const DISCOVERY_NOTICES = {
   created: 'pesquisa-criada',
+  alreadyRunning: 'pesquisa-ja-em-andamento',
   confirmed: 'pesquisa-confirmada',
   cancelled: 'pesquisa-cancelada',
   discarded: 'rascunho-descartado',
@@ -16,6 +17,8 @@ export type DiscoveryNotice = (typeof DISCOVERY_NOTICES)[keyof typeof DISCOVERY_
 export const DISCOVERY_NOTICE_MESSAGES: Record<DiscoveryNotice, string> = {
   'pesquisa-criada':
     'Pesquisa na fila. Ela roda em segundo plano: você pode sair desta tela e voltar depois.',
+  'pesquisa-ja-em-andamento':
+    'Essa mesma pesquisa já estava na fila ou rodando: abrimos ela em vez de começar outra igual. Nenhum crédito foi gasto de novo.',
   'pesquisa-confirmada': 'Pesquisa confirmada e na fila. Ela roda em segundo plano.',
   'pesquisa-cancelada': 'Pesquisa cancelada. O que já tinha sido encontrado continua salvo.',
   'rascunho-descartado':

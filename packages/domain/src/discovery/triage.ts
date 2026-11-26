@@ -530,7 +530,7 @@ function missingOf(input: TriageInput): string[] {
     missing.push('Confirmar os sinais marcados como hipótese.');
   }
   if (!input.cnpj) missing.push('Confirmar o CNPJ e os dados cadastrais.');
-  missing.push('Avaliar a necessidade (marca, site, comunicação) ao investigar em Empresas.');
+  missing.push('Avaliar a necessidade (marca, site, comunicação) na análise da empresa.');
   return missing.slice(0, 6);
 }
 

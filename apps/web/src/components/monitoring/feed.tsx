@@ -67,7 +67,7 @@ function CompanyChange({ item }: { item: CompanyChangeItem }) {
           href={`${companyRoutes.company(item.companyId)}#historico-investigacoes`}
           className="underline underline-offset-4"
         >
-          Ver comparação no dossiê<span className="sr-only">: {item.companyName}</span>
+          Ver comparação na página da empresa<span className="sr-only">: {item.companyName}</span>
         </Link>
       </p>
     </article>
@@ -139,7 +139,7 @@ export function MonitoringFeed({
             Empresas novas aparecem quando uma busca recorrente roda e acha alguém que nenhuma
             pesquisa tinha visto. Crie ou rode uma em{' '}
             <Link href={discoveryRoutes.monitors} className="underline underline-offset-4">
-              Descoberta › Monitoramentos
+              Descobrir › Monitoramentos
             </Link>
             .
           </p>

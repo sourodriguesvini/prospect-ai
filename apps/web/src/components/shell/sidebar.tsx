@@ -193,7 +193,7 @@ export function Sidebar({
           <Link
             href="/"
             onClick={onNavigate}
-            data-tip="Prospector · Início"
+            data-tip="Prospector · Hoje"
             className={cn(
               'flex min-w-0 items-center gap-2.5 overflow-hidden rounded-full pr-2 text-base font-semibold tracking-tight whitespace-nowrap text-foreground',
               focusRing,

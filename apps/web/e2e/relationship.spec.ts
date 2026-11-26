@@ -57,14 +57,14 @@ test('telas começam vazias, sem dados simulados; endereços antigos redireciona
 }) => {
   await page.goto('/conversas');
   await expect(page).toHaveURL(/\/relacionamento\/conversas$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Relacionamento' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Conversas' })).toBeVisible();
   await expect(page.getByText('Nenhuma conversa registrada ainda.')).toBeVisible();
   await expect(page.getByText('DEMO')).toHaveCount(0);
   await expectNoA11yViolations(page);
 
   await page.goto('/pipeline');
   await expect(page).toHaveURL(/\/relacionamento\/pipeline$/);
-  await expect(page.getByText('Nenhuma oportunidade ainda.')).toBeVisible();
+  await expect(page.getByText('Nenhuma conversa ainda.')).toBeVisible();
   await expect(page.getByText('DEMO')).toHaveCount(0);
   await expectNoA11yViolations(page);
 
@@ -74,10 +74,10 @@ test('telas começam vazias, sem dados simulados; endereços antigos redireciona
   await expect(page.getByText('Nenhuma aprovação registrada ainda.')).toBeVisible();
   await expectNoA11yViolations(page);
 
-  // O menu tem um item só para o módulo, e as Aprovações à parte.
+  // O menu tem um item só para o módulo (Conversas); as abas e as Aprovações ficam dentro dele.
   const nav = page.getByRole('navigation', { name: 'Principal' });
-  await expect(nav.getByRole('link', { name: /Relacionamento/ })).toBeVisible();
-  await expect(nav.getByRole('link', { name: /^Abordagens$/ })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Conversas', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: /^(Para enviar|Aprovações)$/ })).toHaveCount(0);
 });
 
 test('prepara a abordagem no dossiê, com a estratégia apoiada em evidências (cenário A)', async ({
@@ -96,16 +96,16 @@ test('prepara a abordagem no dossiê, com a estratégia apoiada em evidências (
   await page.goto(`/empresas?busca=${encodeURIComponent('Atelie')}`);
   await page.getByRole('link', { name: COMPANY }).click();
   await expect(page.getByRole('heading', { level: 1, name: COMPANY })).toBeVisible();
-  const panel = page.getByRole('region', { name: 'Relacionamento' });
-  await expect(panel.getByRole('button', { name: 'Preparar abordagem' })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Abrir oportunidade sem IA' })).toBeVisible();
+  const panel = page.getByRole('region', { name: 'Conversas' });
+  await expect(panel.getByRole('button', { name: 'Preparar mensagem' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Escrever sem a IA' })).toBeVisible();
   // Sem investigação concluída, o painel avisa que a abordagem sai com base limitada (KI-129).
   await expect(panel.locator('[data-diagnosis="none"]')).toContainText('Sem diagnóstico');
   await expectNoA11yViolations(page);
   await panel
     .getByRole('combobox', { name: 'Oferta (obrigatório)' })
     .selectOption({ label: 'Oferta E2E de rebranding' });
-  await panel.getByRole('button', { name: 'Preparar abordagem' }).click();
+  await panel.getByRole('button', { name: 'Preparar mensagem' }).click();
 
   await expect(page).toHaveURL(
     /\/relacionamento\/oportunidades\/[0-9a-f-]{36}\?aviso=abordagem-preparada$/,

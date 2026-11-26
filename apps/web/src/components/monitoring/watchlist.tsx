@@ -1,5 +1,4 @@
 import {
-  RECOMMENDATION_LABELS,
   WATCH_CADENCE_LABELS,
   type MonitoringOverview,
   type WatchItem,
@@ -9,6 +8,7 @@ import { Badge, DemoBadge, StatusDot, Well, type StatusTone } from '@prospector/
 import Link from 'next/link';
 import { startInvestigationAction } from '@/app/(shell)/empresas/actions';
 import { companyRoutes } from '@/lib/company-routes';
+import { RECOMMENDATION_SHORT } from '@/lib/decision';
 import { formatDate } from '@/lib/format';
 import { watchDueText } from '@/lib/insights';
 import { ReinvestigateButton } from './reinvestigate-button';
@@ -47,8 +47,8 @@ function WatchRow({ item }: { item: WatchItem }) {
           {item.isDemo ? <DemoBadge /> : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          {RECOMMENDATION_LABELS[item.recommendation]} ·{' '}
-          {WATCH_CADENCE_LABELS[item.cadence].toLowerCase()} · última investigação em{' '}
+          {RECOMMENDATION_SHORT[item.recommendation]} ·{' '}
+          {WATCH_CADENCE_LABELS[item.cadence].toLowerCase()} · última análise em{' '}
           <time dateTime={item.lastInvestigatedAt}>{formatDate(item.lastInvestigatedAt)}</time>
         </p>
         <Badge variant={STATE_BADGE[item.state]}>
@@ -103,7 +103,7 @@ export function Watchlist({ overview }: { overview: MonitoringOverview }) {
             <li>
               {plural(excludedDiscarded, 'empresa fica', 'empresas ficam')} de fora por estar
               {excludedDiscarded === 1 ? '' : 'em'} com a recomendação “
-              {RECOMMENDATION_LABELS.discard}”.
+              {RECOMMENDATION_SHORT.discard}”.
             </li>
           ) : null}
           {notInvestigated > 0 ? (

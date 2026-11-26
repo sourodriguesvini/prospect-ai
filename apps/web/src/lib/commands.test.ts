@@ -25,8 +25,16 @@ describe('filterCommands', () => {
   });
 
   it('acha sem acento e põe primeiro quem começa com o termo', () => {
-    expect(labels('config')[0]).toBe('Configuração');
+    expect(labels('config')[0]).toBe('Configurações');
     expect(labels('estrateg')[0]).toBe('Estratégia');
+  });
+
+  it('acha as telas pelos nomes de antes de 26/11', () => {
+    expect(labels('relacionamento')).toContain('Conversas');
+    expect(labels('inicio')).toContain('Hoje');
+    expect(labels('inteligencia')).toContain('Resultados');
+    expect(labels('auditoria')).toContain('Histórico de ações');
+    expect(labels('descoberta')).toContain('Descobrir');
   });
 
   it('exige todas as palavras, em qualquer ordem', () => {
@@ -51,8 +59,14 @@ describe('comandos', () => {
   it('telas do menu mostram o atalho, e nenhuma está mais "em breve"', () => {
     const screens = screenCommands();
     expect(screens.find((c) => c.label === 'Empresas')?.keys).toEqual(['G', 'E']);
-    expect(screens.find((c) => c.label === 'Monitoramento')?.hint).toBeNull();
-    expect(screens.find((c) => c.label === 'Inteligência')?.hint).toBeNull();
+    expect(screens.find((c) => c.label === 'Resultados')?.hint).toBeNull();
+    expect(screens.find((c) => c.label === 'Conversas')?.keys).toEqual(['G', 'C']);
+  });
+
+  it('telas fora do menu continuam na paleta, com o lugar de onde fazem parte', () => {
+    const screens = screenCommands();
+    expect(screens.find((c) => c.label === 'Aprovações')?.hint).toBe('Conversas');
+    expect(screens.find((c) => c.label === 'Monitoramento')?.hint).toBe('Empresas');
   });
 
   it('o rótulo de recolher o menu acompanha o estado', () => {

@@ -110,7 +110,7 @@ async function IcpDetail({ params }: { params: Props['params'] }) {
   const { icpId } = await params;
   const result = await loadStrategy((strategy) => strategyDetail.icp(strategy, icpId));
   const baseTrail = [
-    { href: '/configuracoes', label: 'Configuração' },
+    { href: '/configuracoes', label: 'Configurações' },
     { href: strategyRoutes.overview, label: 'Estratégia' },
   ];
   if (result.kind === 'unavailable') {

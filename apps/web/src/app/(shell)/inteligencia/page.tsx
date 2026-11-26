@@ -25,12 +25,11 @@ type Props = PageProps<'/inteligencia'>;
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const period = periodFrom((await searchParams).periodo);
   return {
-    title:
-      period === 'month' ? 'Inteligência' : `${INTELLIGENCE_PERIOD_LABELS[period]} · Inteligência`,
+    title: period === 'month' ? 'Resultados' : `${INTELLIGENCE_PERIOD_LABELS[period]} · Resultados`,
   };
 }
 
-const TRAIL = [{ href: '/', label: 'Início' }];
+const TRAIL = [{ href: '/', label: 'Hoje' }];
 
 function periodPhrase(overview: IntelligenceOverview): string {
   return overview.period === 'month'
@@ -109,8 +108,7 @@ async function Intelligence({ searchParams }: { searchParams: Props['searchParam
         <MonthUsage overview={overview} storage={result.storage} />
       </Panel>
       <p className="text-xs text-muted-foreground">
-        Lido em {formatDateTime(overview.generatedAt)}. Aprendizados e calibração do modelo de score
-        ainda não existem nesta tela.
+        Lido em {formatDateTime(overview.generatedAt)}.
       </p>
     </>
   );
@@ -121,7 +119,7 @@ export default function IntelligencePage({ searchParams }: Props) {
     <div className="space-y-6">
       <PageHeader
         trail={TRAIL}
-        title="Inteligência"
+        title="Resultados"
         description="Números do seu próprio uso: quantas empresas passaram por cada etapa e quanto a IA local e a busca na internet trabalharam no mês."
       />
       <Suspense fallback={<Loading label="Carregando a inteligência…" />}>

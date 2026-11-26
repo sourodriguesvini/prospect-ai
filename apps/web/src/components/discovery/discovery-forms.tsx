@@ -3,7 +3,6 @@
 import {
   DISCOVERY_DEPTH_LABELS,
   DISCOVERY_DEPTH_LIMITS,
-  DISCOVERY_MAX_QUANTITY,
   DISCOVERY_REQUEST_MAX,
   DiscoveryDepth,
   MONITOR_FREQUENCY_LABELS,
@@ -120,7 +119,7 @@ export function DiscoverySearchForm({
             <TextField
               name="quantity"
               label="Quantas empresas"
-              hint={`Até ${DISCOVERY_MAX_QUANTITY}.`}
+              hint={`Até ${DISCOVERY_DEPTH_LIMITS.quick.maxProspects} na rápida, ${DISCOVERY_DEPTH_LIMITS.standard.maxProspects} na padrão e ${DISCOVERY_DEPTH_LIMITS.deep.maxProspects} na aprofundada.`}
               inputMode="numeric"
               maxLength={2}
               {...field}
@@ -333,7 +332,7 @@ export function MonitorForm({ action, initial }: { action: FormAction; initial: 
       <TextAreaField
         name="request"
         label="Pedido"
-        hint="O mesmo texto de uma pesquisa. Cada execução mostra só o que é novo."
+        hint="O mesmo texto de uma pesquisa. Cada execução marca as empresas que ainda não tinham aparecido."
         required
         rows={3}
         {...field}

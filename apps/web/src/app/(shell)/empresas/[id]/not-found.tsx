@@ -8,7 +8,7 @@ export default function CompanyNotFound() {
     <div className="space-y-6">
       <PageHeader
         trail={[
-          { href: '/', label: 'Início' },
+          { href: '/', label: 'Hoje' },
           { href: companyRoutes.list, label: 'Empresas' },
         ]}
         title="Empresa não encontrada"

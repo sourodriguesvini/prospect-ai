@@ -12,7 +12,7 @@ import { loadStrategy } from '@/server/strategy';
 export const metadata: Metadata = { title: 'Cases' };
 
 const TRAIL = [
-  { href: '/configuracoes', label: 'Configuração' },
+  { href: '/configuracoes', label: 'Configurações' },
   { href: strategyRoutes.overview, label: 'Estratégia' },
 ];
 

@@ -1,11 +1,13 @@
 import {
   Building2,
+  CheckCheck,
   FileCheck2,
   Keyboard,
   Monitor,
   Moon,
   PanelLeft,
   Plus,
+  Radar,
   Sun,
   Target,
   type LucideIcon,
@@ -108,6 +110,16 @@ export function normalize(text: string): string {
 
 const navigate = (href: string): CommandAction => ({ kind: 'navigate', href });
 
+/** Nomes antigos das telas (até 26/11): quem digita o nome de antes ainda acha a tela. */
+const FORMER_NAMES: Readonly<Record<string, readonly string[]>> = {
+  '/': ['inicio'],
+  '/descoberta': ['descoberta'],
+  '/relacionamento': ['relacionamento'],
+  '/inteligencia': ['inteligencia'],
+  '/configuracoes': ['configuracao'],
+  '/configuracoes/auditoria': ['auditoria'],
+};
+
 /** Telas do menu lateral e as subtelas mais usadas da Configuração. */
 export function screenCommands(groups: readonly NavGroup[] = NAV_GROUPS): Command[] {
   const fromNav: Command[] = flattenNav(groups).map((item) => ({
@@ -115,13 +127,20 @@ export function screenCommands(groups: readonly NavGroup[] = NAV_GROUPS): Comman
     label: item.label,
     group: 'Telas',
     hint: item.plannedSlice ? `Em breve (${item.plannedSlice})` : null,
-    keywords: [normalize(navLabel(item))],
+    keywords: [normalize(navLabel(item)), ...(FORMER_NAMES[item.href] ?? [])],
     keys: item.shortcut ? ['G', item.shortcut.toUpperCase()] : [],
     icon: item.icon,
     action: navigate(item.href),
   }));
   const extra = (
     [
+      ['Aprovações', '/aprovacoes', 'Conversas', ['aprovar', 'enviar', 'validade']],
+      [
+        'Monitoramento',
+        '/monitoramento',
+        'Empresas',
+        ['rever', 'novidades', 'mudancas', 'acompanhamento'],
+      ],
       ['Voz da agência', strategyRoutes.voice, 'Estratégia', ['tom', 'escrita']],
       ['Cases', strategyRoutes.cases, 'Estratégia', ['provas', 'portfolio']],
       ['LIA (legítimo interesse)', strategyRoutes.lia, 'Conformidade', ['lgpd', 'base legal']],
@@ -131,10 +150,17 @@ export function screenCommands(groups: readonly NavGroup[] = NAV_GROUPS): Comman
     id: `tela:${href}`,
     label,
     group: 'Telas',
-    hint: `Configuração › ${parent}`,
+    hint: parent === 'Conversas' || parent === 'Empresas' ? parent : `Configurações › ${parent}`,
     keywords: keywords.map(normalize),
     keys: [],
-    icon: parent === 'Estratégia' ? Target : FileCheck2,
+    icon:
+      parent === 'Estratégia'
+        ? Target
+        : parent === 'Conversas'
+          ? CheckCheck
+          : parent === 'Empresas'
+            ? Radar
+            : FileCheck2,
     action: navigate(href),
   }));
   return [...fromNav, ...extra];
@@ -145,7 +171,7 @@ export const CREATE_COMMANDS: readonly Command[] = [
     id: 'criar:empresa',
     label: 'Adicionar empresa',
     group: 'Criar',
-    hint: 'Consulta o CNPJ e abre o dossiê',
+    hint: 'Consulta o CNPJ e abre a página da empresa',
     keywords: ['nova empresa', 'cnpj', 'cadastrar'],
     keys: [],
     icon: Plus,
@@ -165,7 +191,7 @@ export const CREATE_COMMANDS: readonly Command[] = [
     id: 'criar:oferta',
     label: 'Nova oferta',
     group: 'Criar',
-    hint: 'Configuração › Estratégia',
+    hint: 'Configurações › Estratégia',
     keywords: ['servico', 'produto'],
     keys: [],
     icon: Plus,

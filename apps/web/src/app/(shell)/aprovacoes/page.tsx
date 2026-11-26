@@ -10,6 +10,7 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { FocusOnArrival } from '@/components/discovery/announcers';
 import { MessageThread } from '@/components/relationship/message-thread';
+import { RelationshipTabs } from '@/components/relationship/tabs';
 import {
   ComplianceNotice,
   EmptyState,
@@ -40,7 +41,7 @@ export const metadata: Metadata = { title: 'Aprovações' };
 
 type Props = PageProps<'/aprovacoes'>;
 
-const TRAIL = [{ href: '/', label: 'Início' }];
+const TRAIL = [{ href: relationshipRoutes.hub, label: 'Conversas' }];
 
 const BEFORE_CONTACT: readonly OpportunityStage[] = ['identified', 'qualified', 'approach_ready'];
 
@@ -66,11 +67,11 @@ async function Approvals() {
         />
         {queue.pending.length === 0 ? (
           <EmptyState>
-            Nada esperando aprovação. Rascunhos nascem no detalhe de uma oportunidade (
+            Nada esperando aprovação. Rascunhos nascem numa conversa (
             <Link href={relationshipRoutes.hub} className="underline underline-offset-4">
-              Relacionamento
+              Conversas
             </Link>
-            ) ou no dossiê de uma empresa (
+            ) ou na página de uma empresa (
             <Link href={companyRoutes.list} className="underline underline-offset-4">
               Empresas
             </Link>
@@ -198,6 +199,7 @@ export default function ApprovalsPage({ searchParams }: Props) {
         title="Aprovações"
         description="Nada sai sem a sua aprovação. O Prospector não envia mensagens: você aprova o texto exato, envia por conta própria e registra o contato feito."
       />
+      <RelationshipTabs />
       <Suspense fallback={null}>
         <Notice searchParams={searchParams} />
       </Suspense>

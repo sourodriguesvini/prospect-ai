@@ -8,8 +8,8 @@ export default function RunNotFound() {
     <div className="space-y-6">
       <PageHeader
         trail={[
-          { href: '/', label: 'Início' },
-          { href: discoveryRoutes.home, label: 'Descoberta' },
+          { href: '/', label: 'Hoje' },
+          { href: discoveryRoutes.home, label: 'Descobrir' },
         ]}
         title="Pesquisa não encontrada"
         description="Este endereço não corresponde a nenhuma pesquisa. No modo memória, as pesquisas somem quando o servidor reinicia."

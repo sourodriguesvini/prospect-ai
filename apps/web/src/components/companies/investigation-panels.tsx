@@ -5,8 +5,6 @@ import {
   INVESTIGATION_KEYS,
   INVESTIGATION_STATUS_LABELS,
   INVESTIGATION_STEP_LABELS,
-  NEXT_STEP_LABELS,
-  RECOMMENDATION_LABELS,
   type Company,
   type FitCheck,
   type Investigation,
@@ -39,6 +37,7 @@ import {
 } from '@/components/companies/investigation-controls';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import { companyRoutes } from '@/lib/company-routes';
+import { RECOMMENDATION_SHORT } from '@/lib/decision';
 import { formatDate, formatDateTime } from '@/lib/format';
 import type { InvestigationPanelData } from '@/server/investigations';
 
@@ -161,17 +160,17 @@ function verificationSummary(verification: {
 function usageText(investigation: Investigation): string {
   const { usage } = investigation;
   const parts = [
-    `${usage.searches} ${usage.searches === 1 ? 'busca' : 'buscas'} na internet (${usage.searchCredits} ${usage.searchCredits === 1 ? 'crédito' : 'créditos'} da Tavily)`,
+    `${usage.searches} ${usage.searches === 1 ? 'busca' : 'buscas'} na internet (${usage.searchCredits} ${usage.searchCredits === 1 ? 'crédito' : 'créditos'})`,
     `${usage.pagesRead} ${usage.pagesRead === 1 ? 'página lida' : 'páginas lidas'}`,
     `${usage.captures} ${usage.captures === 1 ? 'captura' : 'capturas'}`,
-    `${usage.modelCalls} ${usage.modelCalls === 1 ? 'análise' : 'análises'} da IA local (${Math.round(usage.modelMs / 1000)} s de GPU)`,
+    `${usage.modelCalls} ${usage.modelCalls === 1 ? 'leitura' : 'leituras'} da IA (${Math.round(usage.modelMs / 1000)} s)`,
   ];
   return `${parts.join(' · ')}.`;
 }
 
 function StepList({ investigation }: { investigation: Investigation }) {
   return (
-    <ol className="space-y-2 text-sm" aria-label="Etapas da investigação">
+    <ol className="space-y-2 text-sm" aria-label="Etapas da análise">
       {investigation.steps.map((step) => {
         const state = STEP_STATE[step.state];
         return (
@@ -199,16 +198,16 @@ function StartButtons({ company, again }: { company: Company; again: boolean }) 
     <div className="flex flex-wrap gap-2">
       <StatusButton
         action={startInvestigationAction.bind(null, company.id, false)}
-        label={again ? 'Investigar de novo' : 'Investigar empresa'}
+        label={again ? 'Atualizar a análise' : 'Analisar empresa'}
         variant="primary"
-        pendingLabel="Pondo na fila…"
+        pendingLabel="Começando…"
       />
       {again ? (
         <StatusButton
           action={startInvestigationAction.bind(null, company.id, true)}
-          label="Coletar tudo de novo"
-          confirm="Coletar tudo de novo refaz todas as buscas (gasta créditos da Tavily) e todas as análises da IA local, mesmo o que ainda vale. Continuar?"
-          pendingLabel="Pondo na fila…"
+          label="Refazer do zero"
+          confirm="Refazer do zero repete todas as buscas na internet (gasta créditos) e todas as análises da IA, mesmo o que ainda vale. Continuar?"
+          pendingLabel="Começando…"
         />
       ) : null}
     </div>
@@ -231,8 +230,8 @@ export function InvestigationPanel({
       <Panel aria-labelledby="investigacao">
         <PanelHeader
           titleId="investigacao"
-          title="Investigação"
-          description="A investigação não está disponível agora (banco não configurado ou fora do ar)."
+          title="Análise"
+          description="A análise não está disponível agora. Veja o estado do sistema em Configurações › Sistema."
         />
       </Panel>
     );
@@ -253,7 +252,7 @@ export function InvestigationPanel({
   if (archived) {
     actions = (
       <p className="text-sm text-muted-foreground">
-        Empresa arquivada não é investigada. Mude a etapa para investigar.
+        Empresa arquivada não é analisada. Mude a etapa para analisar.
       </p>
     );
   } else if (active && latest) {
@@ -261,15 +260,15 @@ export function InvestigationPanel({
       <div className="space-y-3">
         <InvestigationAutoRefresh />
         <p className="text-sm text-muted-foreground">
-          Esta página se atualiza sozinha enquanto a investigação anda. Pode sair dela: a
-          investigação continua no computador.
+          Esta página se atualiza sozinha enquanto a análise anda. Pode sair dela: a análise
+          continua no computador.
         </p>
         <StatusButton
           action={cancelInvestigationAction.bind(null, company.id, latest.id)}
-          label="Cancelar investigação"
+          label="Cancelar análise"
           confirm="Cancelar agora? O que já foi coletado fica guardado; a etapa atual para no meio."
           pendingLabel="Cancelando…"
-          dismissLabel="Continuar investigando"
+          dismissLabel="Continuar analisando"
         />
       </div>
     );
@@ -278,9 +277,9 @@ export function InvestigationPanel({
       <div className="flex flex-wrap gap-2">
         <StatusButton
           action={resumeInvestigationAction.bind(null, company.id, latest.id)}
-          label="Retomar de onde parou"
+          label="Continuar a análise"
           variant="primary"
-          pendingLabel="Retomando…"
+          pendingLabel="Continuando…"
         />
         <StartButtons company={company} again />
       </div>
@@ -293,11 +292,11 @@ export function InvestigationPanel({
     <Panel aria-labelledby="investigacao">
       <PanelHeader
         titleId="investigacao"
-        title="Investigação"
+        title="Análise"
         description={
           latest
             ? `Última: ${formatDateTime(latest.createdAt)}${latest.finishedAt ? `, terminou em ${formatDateTime(latest.finishedAt)}` : ''}.`
-            : 'Lê o site, captura a marca no computador e no celular, procura sinais recentes e concorrentes e monta o diagnóstico com as ofertas. Usa poucas buscas na internet e a IA local; leva alguns minutos.'
+            : 'Lê o site, olha a marca no computador e no celular, procura movimentos recentes e concorrentes e compara com os serviços da agência. Usa até 3 buscas na internet (gastam créditos do buscador), consulta o CNPJ na Receita quando há CNPJ e usa a IA deste computador; leva alguns minutos.'
         }
       />
       <div className="space-y-5">
@@ -314,24 +313,37 @@ export function InvestigationPanel({
                 </span>
               ) : null}
             </p>
-            <StepList investigation={latest} />
-            <p className="text-xs text-muted-foreground">Custo: {usageText(latest)}</p>
+            {active ? (
+              <StepList investigation={latest} />
+            ) : (
+              <details className="text-sm">
+                <summary className="cursor-pointer underline underline-offset-4">
+                  Etapas e uso
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <StepList investigation={latest} />
+                  <p className="text-xs text-muted-foreground">Uso: {usageText(latest)}</p>
+                </div>
+              </details>
+            )}
           </>
         ) : null}
         {actions}
         {!company.primaryDomain && !archived ? (
-          <Section title="Site oficial">
-            <p className="text-sm text-muted-foreground">
-              Sem site confirmado, a investigação não lê páginas nem captura a marca.
-              {candidates.length > 0
-                ? ' Confira os candidatos que a pesquisa encontrou antes de confirmar.'
-                : ''}
-            </p>
-            <SiteConfirmForm
-              action={confirmSiteAction.bind(null, company.id)}
-              candidates={candidates}
-            />
-          </Section>
+          <div id="site-oficial" className="scroll-mt-6">
+            <Section title="Site oficial">
+              <p className="text-sm text-muted-foreground">
+                Sem site confirmado, a análise não lê páginas nem olha a marca.
+                {candidates.length > 0
+                  ? ' Confira os candidatos que a pesquisa encontrou antes de confirmar.'
+                  : ''}
+              </p>
+              <SiteConfirmForm
+                action={confirmSiteAction.bind(null, company.id)}
+                candidates={candidates}
+              />
+            </Section>
+          </div>
         ) : null}
       </div>
     </Panel>
@@ -415,19 +427,19 @@ function OfferCard({ offer, views }: { offer: OfferAssessment; views: readonly C
       <p className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{offer.offerName}</span>
         <Badge variant={RECOMMENDATION_VARIANT[offer.recommendation]}>
-          {RECOMMENDATION_LABELS[offer.recommendation]}
+          {RECOMMENDATION_SHORT[offer.recommendation]}
         </Badge>
         <span className="text-sm text-muted-foreground">Prioridade {offer.priority} de 100</span>
       </p>
       <dl className="grid gap-2 sm:grid-cols-3">
-        <Score label="Adequação ao ICP (Fit)" value={fit.value} note={fit.note} />
+        <Score label="Combina com o cliente ideal" value={fit.value} note={fit.note} />
         <Score
-          label="Necessidade observada"
+          label="Sinais de necessidade"
           value={offer.opportunity.score}
           note={`${offer.opportunity.claimIds.length} ${offer.opportunity.claimIds.length === 1 ? 'registro ligado' : 'registros ligados'}.`}
         />
         <Score
-          label="Força das evidências"
+          label="Quanto já sabemos"
           value={offer.confidence.score}
           note={`${offer.confidence.coveredDimensions} de 5 dimensões cobertas.`}
         />
@@ -435,7 +447,7 @@ function OfferCard({ offer, views }: { offer: OfferAssessment; views: readonly C
       {offer.fit.checks.length > 0 ? (
         <details className="text-sm">
           <summary className="cursor-pointer underline underline-offset-4">
-            Critérios da adequação
+            Critérios do cliente ideal
           </summary>
           <ul className="mt-2 space-y-1">
             {offer.fit.checks.map((check) => (
@@ -450,7 +462,7 @@ function OfferCard({ offer, views }: { offer: OfferAssessment; views: readonly C
         </details>
       ) : null}
       {offer.gates.length > 0 ? (
-        <Section title="Desqualificadores acionados">
+        <Section title="Motivos para não oferecer">
           <ul className="list-disc space-y-1 pl-5 text-sm">
             {offer.gates.map((gate) => (
               <li key={gate}>{gate}</li>
@@ -459,13 +471,13 @@ function OfferCard({ offer, views }: { offer: OfferAssessment; views: readonly C
         </Section>
       ) : null}
       {reading ? (
-        <Section title="Leitura da IA para esta oferta">
+        <Section title="Leitura da IA para este serviço">
           <ClaimList views={[reading]} support={views} />
         </Section>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Sem leitura da IA aceita para esta oferta: a necessidade conta só com a auditoria e os
-          sinais.
+          Sem leitura da IA aceita para este serviço: a necessidade conta só com a marca e os
+          movimentos recentes.
         </p>
       )}
       {hasSuggestions ? (
@@ -501,7 +513,7 @@ function OfferCard({ offer, views }: { offer: OfferAssessment; views: readonly C
       {opportunity.length > 0 ? (
         <details className="text-sm">
           <summary className="cursor-pointer underline underline-offset-4">
-            Outros registros usados na necessidade
+            Outras informações usadas
           </summary>
           <ClaimList views={opportunity} support={views} />
         </details>
@@ -533,52 +545,33 @@ export function DiagnosisPanel({
     <Panel aria-labelledby="diagnostico">
       <PanelHeader
         titleId="diagnostico"
-        title="Diagnóstico"
-        description={`Da investigação de ${formatDate(investigation.finishedAt ?? investigation.createdAt)}. Pontuações de 0 a 100 com critério explícito: não são probabilidade de fechar negócio.`}
+        title="Oportunidade"
+        description={`Quais serviços fazem sentido e por quê, pela análise de ${formatDate(investigation.finishedAt ?? investigation.createdAt)}. As notas vão de 0 a 100 com critério explícito; não são chance de fechar negócio.`}
       />
       <div className="space-y-6">
         {investigation.isDemo ? <DemoBadge /> : null}
         {newer ? (
           <Well className="py-3 text-sm">
             {ACTIVE_INVESTIGATION_STATUSES.includes(newer.status)
-              ? `Há uma investigação mais nova em andamento (${formatDateTime(newer.createdAt)}). Este diagnóstico é o anterior e é trocado quando ela terminar.`
-              : `A investigação de ${formatDateTime(newer.createdAt)} terminou sem diagnóstico (${INVESTIGATION_STATUS_LABELS[newer.status].toLowerCase()}). Este é o último diagnóstico montado.`}
+              ? `Há uma análise mais nova em andamento (${formatDateTime(newer.createdAt)}). Esta é a anterior e é trocada quando ela terminar.`
+              : `A análise de ${formatDateTime(newer.createdAt)} terminou sem conclusão (${INVESTIGATION_STATUS_LABELS[newer.status].toLowerCase()}). Esta é a última análise completa.`}
           </Well>
         ) : null}
-        <dl className="grid gap-2 sm:grid-cols-3">
-          <div className="min-w-0 space-y-1">
-            <dt className="text-xs text-muted-foreground">Recomendação</dt>
-            <dd>
-              <Badge variant={RECOMMENDATION_VARIANT[diagnosis.recommendation]}>
-                {RECOMMENDATION_LABELS[diagnosis.recommendation]}
-              </Badge>
-            </dd>
-          </div>
-          <div className="min-w-0 space-y-1">
-            <dt className="text-xs text-muted-foreground">Próximo passo</dt>
-            <dd className="text-sm">{NEXT_STEP_LABELS[diagnosis.nextStep]}</dd>
-          </div>
-          <div className="min-w-0 space-y-1">
-            <dt className="text-xs text-muted-foreground">Confiança geral</dt>
-            <dd className="text-sm tabular-nums">{diagnosis.confidence} de 100</dd>
-          </div>
-        </dl>
         {summary.length > 0 ? (
-          <Section title="Leitura central da investigação">
+          <details className="text-sm">
+            <summary className="cursor-pointer underline underline-offset-4">
+              De onde vem a leitura do topo
+            </summary>
             <ClaimList views={summary} support={views} />
-          </Section>
+          </details>
         ) : summaryReplaced ? (
           <Well className="py-4 text-sm text-muted-foreground">
-            A leitura central desta investigação foi substituída por uma coleta mais nova. Ela volta
-            a aparecer quando a nova investigação montar o diagnóstico.
+            A leitura central desta análise foi substituída por uma coleta mais nova. Ela volta a
+            aparecer quando a nova análise terminar.
           </Well>
-        ) : (
-          <Well className="py-4 text-sm text-muted-foreground">
-            Sem base suficiente para uma leitura central da empresa nesta investigação.
-          </Well>
-        )}
+        ) : null}
         {diagnosis.offers.length > 0 ? (
-          <Section title="Ofertas">
+          <Section title="Serviços">
             <ul className="divide-y">
               {diagnosis.offers.map((offer) => (
                 <OfferCard key={offer.offerId} offer={offer} views={views} />
@@ -587,15 +580,15 @@ export function DiagnosisPanel({
           </Section>
         ) : (
           <Well className="py-4 text-sm text-muted-foreground">
-            Nenhuma oferta ativa para comparar: cadastre ou ative uma em{' '}
+            Nenhum serviço ativo para comparar: cadastre ou ative um em{' '}
             <Link href="/configuracoes/estrategia" className="underline underline-offset-4">
               Estratégia
             </Link>{' '}
-            (preço, rubrica e modelo de score preenchidos) e investigue de novo.
+            e atualize a análise.
           </Well>
         )}
         {hypotheses.length > 0 ? (
-          <Section title="Hipóteses a verificar">
+          <Section title="A confirmar">
             <ClaimList views={hypotheses} support={views} />
           </Section>
         ) : null}
@@ -608,24 +601,30 @@ export function DiagnosisPanel({
             </ul>
           </Section>
         ) : null}
-        {verificationSummary(diagnosis.verification) ? (
-          <details className="text-sm">
-            <summary className="cursor-pointer underline underline-offset-4">
-              {verificationSummary(diagnosis.verification)}
-            </summary>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-              {diagnosis.verification.reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-          </details>
-        ) : null}
-        {models.length > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            Análises feitas pela IA local:{' '}
-            {models.map((use) => `${use.promptVersion} (${use.model})`).join(', ')}.
-          </p>
-        ) : null}
+        <details className="text-sm">
+          <summary className="cursor-pointer underline underline-offset-4">
+            Detalhes técnicos da análise
+          </summary>
+          <div className="mt-2 space-y-2 text-muted-foreground">
+            <p>Confiança geral: {diagnosis.confidence} de 100.</p>
+            {verificationSummary(diagnosis.verification) ? (
+              <>
+                <p>{verificationSummary(diagnosis.verification)}.</p>
+                <ul className="list-disc space-y-1 pl-5">
+                  {diagnosis.verification.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {models.length > 0 ? (
+              <p className="text-xs">
+                Leituras da IA deste computador:{' '}
+                {models.map((use) => `${use.promptVersion} (${use.model})`).join(', ')}.
+              </p>
+            ) : null}
+          </div>
+        </details>
       </div>
     </Panel>
   );
@@ -675,7 +674,7 @@ function CaptureFigure({
       ) : (
         <Well className="py-6 text-center text-sm text-muted-foreground">
           {value.noArchive === true
-            ? 'Imagem não guardada: o site pede para não guardar cópia. Ela foi usada só durante a investigação.'
+            ? 'Imagem não guardada: o site pede para não guardar cópia. Ela foi usada só durante a análise.'
             : 'Imagem não guardada (pasta das capturas não configurada).'}
         </Well>
       )}
@@ -744,8 +743,8 @@ export function BrandPanel({ company, views }: { company: Company; views: readon
     <Panel aria-labelledby="marca">
       <PanelHeader
         titleId="marca"
-        title="Marca e site"
-        description="Capturas da página inicial, o que foi medido nela e a leitura da IA local sobre a marca. Medição é fato; a auditoria é inferência, com o fato que a sustenta."
+        title="Marca e posicionamento"
+        description="Como a marca aparece no site, no computador e no celular. O que foi medido é fato; a leitura da marca é interpretação, com o fato que a sustenta."
       />
       <div className="space-y-6">
         {desktop || mobile ? (
@@ -761,7 +760,7 @@ export function BrandPanel({ company, views }: { company: Company; views: readon
           </Section>
         ) : null}
         {audit.length > 0 || positioning.length > 0 ? (
-          <Section title="Auditoria da marca">
+          <Section title="Leitura da marca">
             <ClaimList views={[...positioning, ...audit]} support={views} />
           </Section>
         ) : null}
@@ -795,8 +794,8 @@ export function MarketPanel({ views }: { views: readonly ClaimView[] }) {
     <Panel aria-labelledby="mercado">
       <PanelHeader
         titleId="mercado"
-        title="Negócio e concorrência"
-        description="O que o site diz sobre a empresa, sinais recentes encontrados na internet e como ela se compara com concorrentes. Sinal da internet é hipótese até ser conferido."
+        title="Mercado e concorrência"
+        description="O que o site diz sobre a empresa, movimentos recentes e concorrentes. O que veio da internet é hipótese até ser conferido."
       />
       <div className="space-y-6">
         {business.length > 0 ? (
@@ -805,7 +804,7 @@ export function MarketPanel({ views }: { views: readonly ClaimView[] }) {
           </Section>
         ) : null}
         {signals.length > 0 ? (
-          <Section title="Sinais">
+          <Section title="Movimentos recentes">
             <ClaimList views={signals} support={views} />
           </Section>
         ) : null}
@@ -837,17 +836,17 @@ export function InvestigationHistoryPanel({ data }: { data: InvestigationPanelDa
     <Panel aria-labelledby="historico-investigacoes">
       <PanelHeader
         titleId="historico-investigacoes"
-        title="Histórico"
+        title="Análises anteriores"
         description={
           latest?.previousId
-            ? 'Comparação da última investigação com a anterior. Página fora do ar numa coleta não conta como mudança definitiva.'
-            : 'Investigações desta empresa.'
+            ? 'O que mudou da análise anterior para a última. Página fora do ar numa coleta não conta como mudança definitiva.'
+            : 'Análises desta empresa.'
         }
       />
       <div className="space-y-5">
         {running ? (
           <p className="text-sm text-muted-foreground">
-            A comparação da investigação em andamento aparece quando ela terminar.
+            A comparação da análise em andamento aparece quando ela terminar.
           </p>
         ) : null}
         {latest?.previousId ? (
@@ -861,7 +860,7 @@ export function InvestigationHistoryPanel({ data }: { data: InvestigationPanelDa
             </Section>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Nenhuma mudança encontrada desde a investigação anterior.
+              Nenhuma mudança encontrada desde a análise anterior.
             </p>
           )
         ) : null}
@@ -875,7 +874,7 @@ export function InvestigationHistoryPanel({ data }: { data: InvestigationPanelDa
               {item.isDemo ? <DemoBadge /> : null}
               {item.diagnosis ? (
                 <span className="text-muted-foreground">
-                  {RECOMMENDATION_LABELS[item.diagnosis.recommendation]}
+                  {RECOMMENDATION_SHORT[item.diagnosis.recommendation]}
                 </span>
               ) : null}
             </li>

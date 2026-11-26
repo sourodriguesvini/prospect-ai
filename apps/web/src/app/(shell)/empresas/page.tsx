@@ -5,7 +5,6 @@ import {
   formatCnpj,
   INVESTIGATION_STATUS_LABELS,
   Recommendation,
-  RECOMMENDATION_LABELS,
   type Company,
   type CompanyInvestigationSummary,
 } from '@prospector/contracts';
@@ -18,6 +17,7 @@ import { Suspense } from 'react';
 import { Loading } from '@/components/strategy/loading';
 import { PageHeader, StorageNotice, Unavailable } from '@/components/strategy/page-parts';
 import { companyRoutes } from '@/lib/company-routes';
+import { RECOMMENDATION_SHORT, RECOMMENDATION_VIEW } from '@/lib/decision';
 import { formatDate } from '@/lib/format';
 import { loadCompanies } from '@/server/companies';
 import { loadInvestigationSummaries } from '@/server/investigations';
@@ -37,9 +37,9 @@ type InvestigationFilter = (typeof INVESTIGATION_FILTERS)[number];
 
 const INVESTIGATION_FILTER_OPTIONS = [
   { value: '', label: 'Todas' },
-  { value: 'sem', label: 'Sem investigação' },
-  { value: 'andamento', label: 'Investigação em andamento' },
-  ...Recommendation.options.map((value) => ({ value, label: RECOMMENDATION_LABELS[value] })),
+  { value: 'sem', label: 'Sem análise' },
+  { value: 'andamento', label: 'Análise em andamento' },
+  ...Recommendation.options.map((value) => ({ value, label: RECOMMENDATION_SHORT[value] })),
 ];
 
 type Props = PageProps<'/empresas'>;
@@ -73,14 +73,18 @@ function matches(summary: CompanyInvestigationSummary | undefined, filter: Inves
 
 /** Última investigação: recomendação e prioridade do diagnóstico ou o estado da execução. */
 function InvestigationSummary({ summary }: { summary: CompanyInvestigationSummary | undefined }) {
-  if (!summary) return <span>Não investigada</span>;
+  if (!summary) return <span>Não analisada</span>;
   if (!summary.recommendation) {
     return <Badge variant="outline">{INVESTIGATION_STATUS_LABELS[summary.status]}</Badge>;
   }
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <Badge variant={summary.recommendation === 'pursue' ? 'success' : 'neutral'}>
-        {RECOMMENDATION_LABELS[summary.recommendation]}
+      <Badge
+        variant={
+          RECOMMENDATION_VIEW[summary.recommendation].tone === 'positive' ? 'success' : 'neutral'
+        }
+      >
+        {RECOMMENDATION_SHORT[summary.recommendation]}
       </Badge>
       {summary.priority !== null ? <span>Prioridade {summary.priority}</span> : null}
       {summary.recommendedOfferName ? <span>· {summary.recommendedOfferName}</span> : null}
@@ -194,7 +198,7 @@ async function CompanyList({ searchParams }: { searchParams: Props['searchParams
             </NativeSelect>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="investigacao-empresas">Investigação</Label>
+            <Label htmlFor="investigacao-empresas">Análise</Label>
             <NativeSelect
               id="investigacao-empresas"
               name="investigacao"
@@ -281,7 +285,7 @@ export default function CompaniesPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <PageHeader
-        trail={[{ href: '/', label: 'Início' }]}
+        trail={[{ href: '/', label: 'Hoje' }]}
         title="Empresas"
         description="Empresas que você acompanha. Cada dado do dossiê aparece com a fonte, a data da coleta e a confiança."
         actions={

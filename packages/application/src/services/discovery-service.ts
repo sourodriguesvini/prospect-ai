@@ -99,6 +99,11 @@ export interface DiscoveryService {
     raw: unknown,
     options?: { trigger?: 'user' | 'copilot' },
   ): Promise<DiscoveryRun>;
+  /**
+   * Pesquisa pedida pela pessoa na tela: se a mesma pesquisa (pedido e filtros) já está na fila ou
+   * rodando, devolve ela (`reused`) em vez de criar outra e gastar créditos de novo.
+   */
+  startRun(ctx: RequestContext, raw: unknown): Promise<{ run: DiscoveryRun; reused: boolean }>;
   confirmRun(ctx: RequestContext, runId: string): Promise<DiscoveryRun>;
   cancelRun(ctx: RequestContext, runId: string): Promise<DiscoveryRun>;
   /** Nova pesquisa com o mesmo pedido (buscas iguais em 24 h vêm do cache, sem crédito). */
@@ -159,6 +164,42 @@ export interface DiscoveryServiceDeps {
 }
 
 const ACTIVE_STATUSES = ['queued', 'running'] as const;
+
+/** Texto do pedido comparável: sem acento, minúsculas e espaços simples. */
+function requestKey(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Mesma pesquisa: mesmo pedido e mesma cidade (ignorando acento, maiúsculas e espaços) e mesmos
+ * filtros. Usado para não criar uma segunda pesquisa igual enquanto a primeira ainda roda.
+ */
+export function sameDiscoveryRequest(
+  run: Pick<DiscoveryRun, 'request' | 'options'>,
+  input: DiscoveryRequestInput,
+): boolean {
+  const { request, ...options } = input;
+  const a = run.options;
+  // Profundidade e quantidade valem pelo efeito: sem profundidade é a padrão, e pedir o teto é o
+  // mesmo que não pedir quantidade.
+  const reach = (depth: typeof a.depth, quantity: number | null | undefined): string => {
+    const level = depth ?? 'standard';
+    return `${level}:${limitsFor(level, quantity ?? null).maxProspects}`;
+  };
+  return (
+    requestKey(run.request) === requestKey(request) &&
+    requestKey(a.city ?? '') === requestKey(options.city ?? '') &&
+    (a.uf ?? null) === (options.uf ?? null) &&
+    reach(a.depth, a.quantity) === reach(options.depth, options.quantity) &&
+    (a.icpId ?? null) === (options.icpId ?? null) &&
+    [...(a.signals ?? [])].sort().join(',') === [...options.signals].sort().join(',')
+  );
+}
 const FINAL_STATUSES = ['completed', 'failed', 'cancelled'] as const;
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2, insufficient: 3 } as const;
 
@@ -267,6 +308,24 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         isNew: isNew ? (isNew.get(record.id) ?? null) : null,
       };
     });
+  }
+
+  let startQueue: Promise<unknown> = Promise.resolve();
+
+  /** Reaproveita a pesquisa igual que ainda está na fila ou rodando (e sem cancelamento pedido). */
+  async function startRunNow(
+    ctx: RequestContext,
+    raw: unknown,
+  ): Promise<{ run: DiscoveryRun; reused: boolean }> {
+    const input = parseInput(DiscoveryRequestInput, raw);
+    const active = await repo.listRuns({ limit: 50, statuses: ACTIVE_STATUSES });
+    const same = active.find(
+      (run) => run.monitorId === null && !run.cancelRequestedAt && sameDiscoveryRequest(run, input),
+    );
+    if (same) return { run: same, reused: true };
+    await assertSearchEnabled(ctx);
+    await assertQueueRoom();
+    return { run: await insertRun(ctx, input, 'user'), reused: false };
   }
 
   async function insertRun(
@@ -479,6 +538,14 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
           throw new AppError('conflict', 'discovery_drafts_full');
       }
       return insertRun(ctx, input, trigger, { draft: trigger === 'copilot' });
+    },
+
+    startRun(ctx, raw) {
+      // Um pedido por vez: dois pedidos iguais ao mesmo tempo (duas abas, envio repetido) viram um
+      // só. Basta a fila em memória porque o app roda num processo só (ADR-0007).
+      const next = startQueue.then(() => startRunNow(ctx, raw));
+      startQueue = next.catch(() => undefined);
+      return next;
     },
 
     async confirmRun(ctx, runId) {

@@ -10,10 +10,10 @@ export default function RelationshipTabsLayout({ children }: { children: ReactNo
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h1 className="text-4xl tracking-[-0.03em]">Relacionamento</h1>
+        <h1 className="text-4xl tracking-[-0.03em]">Conversas</h1>
         <p className="max-w-3xl text-pretty text-sm text-muted-foreground">
-          Abordagens preparadas com evidência, conversas registradas e o pipeline. Nada sai do app:
-          você envia por conta própria e registra aqui; toda mensagem passa por aprovação.
+          Nada sai do app sem você: toda mensagem passa por aprovação, você envia por conta própria
+          e registra aqui.
         </p>
         <RelationshipTabs />
       </div>

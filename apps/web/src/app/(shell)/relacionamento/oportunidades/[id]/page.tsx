@@ -84,13 +84,13 @@ type Props = PageProps<'/relacionamento/oportunidades/[id]'>;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  return { title: `${await opportunityTitle(id, 'Oportunidade')} · Relacionamento` };
+  return { title: `${await opportunityTitle(id, 'Oportunidade')} · Conversas` };
 }
 
 const TRAIL = [
-  { href: '/', label: 'Início' },
-  { href: relationshipRoutes.hub, label: 'Relacionamento' },
-  { href: relationshipRoutes.pipeline, label: 'Pipeline' },
+  { href: '/', label: 'Hoje' },
+  { href: relationshipRoutes.hub, label: 'Conversas' },
+  { href: relationshipRoutes.pipeline, label: 'Funil' },
 ];
 
 /** Antes do primeiro contato: registrar o envio pode mover para "Contatada". */

@@ -25,7 +25,7 @@ async function Rubric({ params }: { params: Props['params'] }) {
   const { offerId } = await params;
   const result = await loadStrategy((strategy, ctx) => strategy.offerDetail(ctx, offerId));
   const trail = [
-    { href: '/configuracoes', label: 'Configuração' },
+    { href: '/configuracoes', label: 'Configurações' },
     { href: strategyRoutes.overview, label: 'Estratégia' },
     { href: strategyRoutes.offer(offerId), label: 'Oferta' },
   ];

@@ -1,4 +1,6 @@
 import {
+  DISCOVERY_DEPTH_LIMITS,
+  DiscoveryRequestInput,
   ExtractorOutput,
   InterpreterOutput,
   type StrategySnapshot,
@@ -30,6 +32,7 @@ import {
   createDiscoveryEngine,
   createDiscoveryScheduler,
   createDiscoveryService,
+  sameDiscoveryRequest,
   createEvidenceService,
   createJobWorker,
   createToolRegistry,
@@ -536,6 +539,108 @@ describe('Descoberta (F4)', () => {
     expect(detail.prospects.map((view) => view.isNew)).toEqual([false, false]);
     expect(detail.run.progress).toMatchObject({ newProspects: 0, signals: 0 });
     expect(await service.listProspects(ctx)).toHaveLength(2);
+  });
+
+  it('a mesma pesquisa pedida de novo enquanto roda abre a que já existe (sem crédito a mais)', async () => {
+    const first = await service.startRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+      uf: 'SP',
+    });
+    expect(first.reused).toBe(false);
+    // Acento, maiúsculas e espaços não fazem outra pesquisa.
+    const again = await service.startRun(ctx, {
+      request: '  encontre CLINICAS em Ribeirão  Preto em expansão ',
+      uf: 'SP',
+    });
+    expect(again).toEqual({ run: first.run, reused: true });
+    // Filtro diferente é outra pesquisa.
+    const other = await service.startRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+      uf: 'SP',
+      depth: 'quick',
+    });
+    expect(other.reused).toBe(false);
+    expect(other.run.id).not.toBe(first.run.id);
+    // Depois que termina, pedir de novo começa uma nova (as buscas de 24 h vêm do cache).
+    await work();
+    await work();
+    const later = await service.startRun(ctx, {
+      request: 'Encontre clínicas em Ribeirão Preto em expansão',
+      uf: 'SP',
+    });
+    expect(later.reused).toBe(false);
+    expect(later.run.id).not.toBe(first.run.id);
+  });
+
+  it('pesquisa igual com cidade sem acento, profundidade padrão ou quantidade no teto é a mesma', async () => {
+    const first = await service.startRun(ctx, {
+      request: 'Encontre clínicas em expansão',
+      city: 'São Paulo',
+      uf: 'SP',
+    });
+    const again = await service.startRun(ctx, {
+      request: 'Encontre clínicas em expansão',
+      city: 'sao  paulo',
+      uf: 'SP',
+      depth: 'standard',
+      quantity: DISCOVERY_DEPTH_LIMITS.standard.maxProspects,
+    });
+    expect(again).toEqual({ run: first.run, reused: true });
+  });
+
+  it('oportunidades (Hoje): só prioridade alta ou média ainda não analisada nem ignorada', async () => {
+    await service.createRun(ctx, { request: 'Encontre clínicas em Ribeirão Preto em expansão' });
+    await work();
+    const all = await service.listProspects(ctx);
+    const first = await service.opportunities(ctx);
+    const eligible = all.filter(
+      (view) =>
+        ['high', 'medium'].includes(view.prospect.priority) &&
+        ['new', 'saved'].includes(view.prospect.status),
+    );
+    expect(first.map((view) => view.prospect.id).sort()).toEqual(
+      eligible.map((view) => view.prospect.id).sort(),
+    );
+    expect(first.length).toBeGreaterThan(0);
+    // Ignorada ou levada para Empresas: sai da lista.
+    const [a, b] = first;
+    await service.decide(ctx, { prospectId: a!.prospect.id, status: 'dismissed' });
+    if (b) await service.investigate(ctx, b.prospect.id);
+    const after = (await service.opportunities(ctx)).map((view) => view.prospect.id);
+    expect(after).not.toContain(a!.prospect.id);
+    if (b) expect(after).not.toContain(b.prospect.id);
+  });
+
+  it('pesquisa igual: a ordem dos sinais não importa; pesquisa de monitoramento não é reaproveitada', () => {
+    const base = { request: 'Clínicas em expansão', city: null, uf: 'SP' };
+    const run = {
+      request: base.request,
+      options: { uf: 'SP', signals: ['hiring', 'expansion'] },
+    } as unknown as Parameters<typeof sameDiscoveryRequest>[0];
+    const input = (extra: object) =>
+      DiscoveryRequestInput.parse({ ...base, signals: ['expansion', 'hiring'], ...extra });
+    expect(sameDiscoveryRequest(run, input({}))).toBe(true);
+    expect(sameDiscoveryRequest(run, input({ uf: 'RJ' }))).toBe(false);
+    expect(sameDiscoveryRequest(run, input({ quantity: 3 }))).toBe(false);
+    expect(sameDiscoveryRequest(run, input({ signals: ['hiring'] }))).toBe(false);
+  });
+
+  it('pesquisa com cancelamento pedido não é reaproveitada: pedir de novo abre outra', async () => {
+    const input = { request: 'Encontre clínicas em Ribeirão Preto em expansão', uf: 'SP' };
+    const first = await service.startRun(ctx, input);
+    await store.repository.updateRun(first.run.id, { status: 'running' });
+    await service.cancelRun(ctx, first.run.id);
+    const again = await service.startRun(ctx, input);
+    expect(again.reused).toBe(false);
+    expect(again.run.id).not.toBe(first.run.id);
+  });
+
+  it('dois pedidos iguais ao mesmo tempo criam uma pesquisa só', async () => {
+    const input = { request: 'Encontre clínicas em Ribeirão Preto em expansão', uf: 'SP' };
+    const [a, b] = await Promise.all([service.startRun(ctx, input), service.startRun(ctx, input)]);
+    expect(b.run.id).toBe(a.run.id);
+    expect([a.reused, b.reused]).toEqual([false, true]);
+    expect(await store.repository.listRuns({ limit: 10 })).toHaveLength(1);
   });
 
   // Pesquisa real de 2026-11-11 (KI-117): perfil com a cidade no nome não era juntado.

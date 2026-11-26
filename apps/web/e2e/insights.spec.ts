@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectNoA11yViolations } from './support';
 
 /**
- * Monitoramento e Inteligência (ADR-0017) no servidor em modo memória, DEPOIS dos specs que gravam
+ * Monitoramento e Resultados (a antiga Inteligência; ADR-0017) no servidor em modo memória, DEPOIS dos specs que gravam
  * (empresas, estratégia, relacionamento): as telas leem o que eles deixaram. Os números dependem
  * desses specs, então aqui se confere a estrutura, os filtros e os estados, não contagens exatas;
  * as contagens são cobertas pelos testes do domínio, do serviço e do repositório.
@@ -18,7 +18,7 @@ async function expectNoHorizontalScroll(page: Page) {
 test('Monitoramento mostra o feed com filtro e a lista de acompanhamento', async ({ page }) => {
   await page.goto('/monitoramento');
   await expect(page.getByRole('heading', { level: 1, name: 'Monitoramento' })).toBeVisible();
-  await expect(page.getByRole('note').filter({ hasText: 'Modo memória' })).toBeVisible();
+  await expect(page.getByRole('note').filter({ hasText: 'Modo de teste' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Novidades' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Para olhar de novo' })).toBeVisible();
 
@@ -52,12 +52,12 @@ test('Monitoramento mostra o feed com filtro e a lista de acompanhamento', async
   await expectNoHorizontalScroll(page);
 });
 
-test('Inteligência mostra o funil das sete etapas, o período e o consumo do mês', async ({
+test('Resultados mostra o funil das sete etapas, o período e o consumo do mês', async ({
   page,
 }) => {
   await page.goto('/inteligencia');
-  await expect(page.getByRole('heading', { level: 1, name: 'Inteligência' })).toBeVisible();
-  await expect(page.getByRole('note').filter({ hasText: 'Modo memória' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Resultados' })).toBeVisible();
+  await expect(page.getByRole('note').filter({ hasText: 'Modo de teste' })).toBeVisible();
 
   // Os specs anteriores cadastraram empresas neste mês: o funil não está vazio.
   const funnel = page.locator('main [data-funnel]');
@@ -78,7 +78,7 @@ test('Inteligência mostra o funil das sete etapas, o período e o consumo do m�
 
   await period.getByRole('link', { name: 'Desde o início' }).click();
   await expect(page).toHaveURL(/\/inteligencia\?periodo=total$/);
-  await expect(page).toHaveTitle(/Desde o início · Inteligência/);
+  await expect(page).toHaveTitle(/Desde o início · Resultados/);
   await expect(period.getByRole('link', { name: 'Desde o início' })).toHaveAttribute(
     'aria-current',
     'page',
@@ -89,16 +89,19 @@ test('Inteligência mostra o funil das sete etapas, o período e o consumo do m�
   await expectNoHorizontalScroll(page);
 });
 
-test('Início mostra o funil do mês e o gasto do mês com link para a Inteligência', async ({
+test('Hoje mostra o que pede atenção e o resumo comercial, com link para Resultados', async ({
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByText('Gasto no\u00a0mês')).toBeVisible();
-  await expect(page.getByText('Custo de\u00a0IA')).toHaveCount(0);
-  const funnelPanel = page.getByRole('region', { name: 'Funil de prospecção' });
-  await expect(funnelPanel.locator('[data-stage]')).toHaveCount(7);
+  // Os specs anteriores deixaram oportunidades e mensagens: Hoje lista algo ou diz que está em dia.
+  await expect(page.locator('[data-today], [data-today-empty]').first()).toBeVisible();
+  const summary = page.getByRole('region', { name: 'Resumo comercial' });
+  await expect(summary).toContainText('Conversas abertas');
+  await expect(summary).toContainText('Em negociação');
+  await expect(summary).toContainText('Prontas para abordar');
   await expect(page.getByText('O gráfico ainda não existe')).toHaveCount(0);
   await expect(page.getByText('Chega na F13')).toHaveCount(0);
-  await funnelPanel.getByRole('link', { name: 'Ver inteligência' }).click();
+  await expectNoA11yViolations(page);
+  await summary.getByRole('link', { name: 'Resultados' }).click();
   await expect(page).toHaveURL(/\/inteligencia$/);
 });

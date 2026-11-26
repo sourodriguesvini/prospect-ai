@@ -19,7 +19,7 @@ import { formatDate } from '@/lib/format';
 import { loadDiscovery } from '@/server/discovery';
 import { createRunAction } from './actions';
 
-export const metadata: Metadata = { title: 'Descoberta' };
+export const metadata: Metadata = { title: 'Descobrir' };
 
 /** Sinais do radar: os dos últimos 30 dias. */
 const RADAR_DAYS = 30;
@@ -207,8 +207,8 @@ export default function DiscoveryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        trail={[{ href: '/', label: 'Início' }]}
-        title="Descoberta"
+        trail={[{ href: '/', label: 'Hoje' }]}
+        title="Descobrir"
         description="Encontre empresas com sinais comerciais na internet. Cada empresa e cada sinal aparecem com a fonte e o trecho; o que não está na fonte é descartado, e nada é enviado a ninguém."
         actions={
           <>

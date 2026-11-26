@@ -297,6 +297,15 @@ export interface RelationshipService {
   listOpportunities(ctx: RequestContext, filter?: unknown): Promise<OpportunitySummary[]>;
   opportunity(ctx: RequestContext, id: string): Promise<OpportunityDetail>;
   forCompany(ctx: RequestContext, companyId: string): Promise<CompanyRelationship>;
+  /**
+   * Supressões em vigor (opt-out, pedido legal, "não contatar") das empresas dadas, pela própria
+   * empresa, pela raiz do CNPJ ou pelo domínio. Só leitura; só entram as empresas com supressão.
+   * Serve para nenhuma tela recomendar abordar quem pediu para não ser contatado (regra 7).
+   */
+  suppressionsOf(
+    ctx: RequestContext,
+    companies: readonly Pick<Company, 'id' | 'cnpjRoot' | 'primaryDomain'>[],
+  ): Promise<Map<string, SuppressionEntry[]>>;
   approvalQueue(ctx: RequestContext): Promise<ApprovalQueue>;
 
   /** Idempotente: se a empresa já tem oportunidade aberta, devolve essa (created: false). */
@@ -1126,6 +1135,13 @@ export function createRelationshipService(deps: {
         activeSuppressions,
         insights,
       };
+    },
+
+    async suppressionsOf(_ctx, list) {
+      const found = await Promise.all(
+        list.map(async (company) => [company.id, await repo.activeSuppressions(company)] as const),
+      );
+      return new Map(found.filter(([, entries]) => entries.length > 0));
     },
 
     async approvalQueue(ctx) {

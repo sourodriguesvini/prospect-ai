@@ -212,11 +212,11 @@ export default function ProspectsPage({ searchParams }: Props) {
     <div className="space-y-6">
       <PageHeader
         trail={[
-          { href: '/', label: 'Início' },
-          { href: discoveryRoutes.home, label: 'Descoberta' },
+          { href: '/', label: 'Hoje' },
+          { href: discoveryRoutes.home, label: 'Descobrir' },
         ]}
         title="Empresas encontradas"
-        description="Todas as empresas que as pesquisas acharam, sem repetição. Investigar leva a empresa para Empresas com as fontes como evidências."
+        description="Todas as empresas que as pesquisas acharam, sem repetição. Analisar empresa leva a empresa para Empresas, com as fontes como evidências, e começa a análise."
       />
       <Suspense fallback={<Loading label="Carregando as empresas encontradas…" />}>
         <ProspectList searchParams={searchParams} />

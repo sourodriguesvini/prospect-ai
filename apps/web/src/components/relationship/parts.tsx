@@ -158,8 +158,8 @@ export function DiagnosisNote({
   if (!diagnosis) {
     return (
       <p className="text-sm text-muted-foreground" data-diagnosis="none">
-        Sem diagnóstico da investigação: a abordagem usa só o dossiê e sai com base limitada.
-        Investigue a empresa antes, se puder.
+        Sem diagnóstico da análise: a mensagem usa só o que está na página da empresa e sai com base
+        limitada. Analise a empresa antes, se puder.
       </p>
     );
   }
@@ -169,7 +169,7 @@ export function DiagnosisNote({
   return (
     <Well className="space-y-2 text-sm" data-diagnosis={diagnosis.status}>
       <p className="font-medium">
-        Diagnóstico da investigação de {formatDate(diagnosis.producedAt)}
+        Diagnóstico da análise de {formatDate(diagnosis.producedAt)}
         {diagnosis.status === 'partial' ? ' (com lacunas)' : ''}
       </p>
       <p>{diagnosis.summary}</p>

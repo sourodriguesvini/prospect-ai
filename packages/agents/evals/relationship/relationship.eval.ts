@@ -19,6 +19,7 @@ import {
   MESSAGE_CASES,
   type Check,
 } from './cases';
+import { loadExperimentalVoiceGuide, toVoiceGuideContent, withAgency } from './voice-guide';
 
 /**
  * Avaliação local do Relacionamento (ADR-0014, KI-150): estratégia de abordagem e mensagem contra
@@ -30,6 +31,7 @@ import {
  * política `copilot`, a tarefa do Relacionamento), EVAL_APPROACH / EVAL_MESSAGE (versões dos
  * prompts, padrão = em uso), EVAL_REPEAT (padrão 3), EVAL_CASES (ids separados por vírgula) e
  * EVAL_HOLDOUT=1 (inclui os casos de fora da amostra, guardados para a rodada final).
+ * EVAL_VOICE=experimental dá a todos os casos o guia de voz experimental (`voice-guide.ts`).
  * EVAL_REGRADE=<arquivo em results/> recalcula as notas de um resultado salvo com os corretores
  * atuais, sem chamar o modelo (grava `<arquivo>.regraded.json`).
  *
@@ -51,6 +53,15 @@ const repeat = Math.max(1, Number(process.env.EVAL_REPEAT ?? 3));
 const caseFilter = process.env.EVAL_CASES?.split(',').map((id) => id.trim());
 const regradeSource = process.env.EVAL_REGRADE;
 const holdout = process.env.EVAL_HOLDOUT === '1';
+// EVAL_VOICE=experimental: todos os casos recebem o guia de voz EXPERIMENTAL (exemplos fictícios,
+// docs/comunicacao-frente-2-experimental.md), com o nome da agência de cada caso. Sem a variável,
+// cada caso usa o guia que já tem (em geral nenhum).
+const experimentalVoice =
+  process.env.EVAL_VOICE === 'experimental'
+    ? toVoiceGuideContent(loadExperimentalVoiceGuide())
+    : null;
+const withVoice = <T extends { voice: unknown; agencyName: string | null }>(input: T): T =>
+  experimentalVoice ? { ...input, voice: withAgency(experimentalVoice, input.agencyName) } : input;
 const ALL_APPROACH = [...APPROACH_CASES, ...HOLDOUT_APPROACH_CASES];
 const ALL_MESSAGE = [...MESSAGE_CASES, ...HOLDOUT_MESSAGE_CASES];
 const HOLDOUT_IDS = new Set(
@@ -205,6 +216,12 @@ async function environment(runtimeModels: readonly string[]) {
       ),
       'evals/relationship/cases.ts': sha256(join(here, 'cases.ts')),
       'evals/relationship/relationship.eval.ts': sha256(fileURLToPath(import.meta.url)),
+      // Com EVAL_VOICE=experimental, a rodada depende do guia: duas rodadas só se comparam com o
+      // mesmo guia.
+      'evals/relationship/voice-guide.experimental.json': sha256(
+        join(here, 'voice-guide.experimental.json'),
+      ),
+      'evals/relationship/voice-guide.ts': sha256(join(here, 'voice-guide.ts')),
     },
   };
 }
@@ -299,7 +316,7 @@ it.skipIf(!enabled || regradeSource)(
           for (const entry of approachCases) {
             const started = performance.now();
             const before = chatCalls;
-            const outcome = await ai.approach(entry.input);
+            const outcome = await ai.approach(withVoice(entry.input));
             const parsed = outcome.ok ? ApproachAiOutput.safeParse(outcome.data) : null;
             runs.push({
               agent: 'approach',
@@ -317,7 +334,7 @@ it.skipIf(!enabled || regradeSource)(
           for (const entry of messageCases) {
             const started = performance.now();
             const before = chatCalls;
-            const outcome = await ai.message(entry.input);
+            const outcome = await ai.message(withVoice(entry.input));
             const parsed = outcome.ok ? MessageDraftText.safeParse(outcome.data) : null;
             runs.push({
               agent: 'message',
@@ -341,10 +358,12 @@ it.skipIf(!enabled || regradeSource)(
     const summary = summarize(runs, [prompts.approach.id, prompts.message.id]);
     const policy = runtime.policy.copilot;
     const stamp = new Date().toISOString().slice(0, 16).replace('T', '-').replace(':', '-');
-    const file = save(`${stamp}-a${approachVersion}-m${messageVersion}.json`, {
+    const voiceSuffix = experimentalVoice ? '-voz' : '';
+    const file = save(`${stamp}-a${approachVersion}-m${messageVersion}${voiceSuffix}.json`, {
       synthetic: true,
       repeat,
       holdout,
+      voice: experimentalVoice ? 'experimental' : 'casos',
       params: { temperature: policy.temperature, numCtx: policy.numCtx, task: 'copilot' },
       environment: await environment(models),
       prompts: {

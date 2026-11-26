@@ -145,7 +145,7 @@ export function webSearchIndicator(
 }
 
 export function databaseIndicator(status: DatabaseStatus | null): StatusIndicator {
-  const base = { id: 'banco' as const, label: 'Banco', href: '/' };
+  const base = { id: 'banco' as const, label: 'Banco', href: '/configuracoes#sistema' };
   if (!status) {
     return {
       ...base,
@@ -160,7 +160,7 @@ export function databaseIndicator(status: DatabaseStatus | null): StatusIndicato
       ? 'O banco responde e as migrações estão aplicadas.'
       : status === 'memory'
         ? 'Dados só na memória do servidor: somem ao reiniciar.'
-        : 'Veja o cartão Banco de dados no Início.';
+        : 'Veja Configurações › Sistema.';
   return { ...base, value: view.label, detail, tone: view.tone };
 }
 

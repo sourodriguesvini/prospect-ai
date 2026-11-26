@@ -25,23 +25,26 @@ test.describe('menu lateral no desktop', () => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await page.goto('/configuracoes/auditoria');
     const nav = mainNav(page);
+    // Jornada (Hoje, Descobrir, Empresas, Conversas), apoio e Configurações (proposta de 26/11).
     for (const name of [
-      'Início',
-      'Descoberta',
+      'Hoje',
+      'Descobrir',
       'Empresas',
-      'Relacionamento',
-      'Aprovações',
-      'Monitoramento',
-      'Inteligência',
+      'Conversas',
       'Copiloto',
-      'Configuração',
+      'Resultados',
+      'Configurações',
     ]) {
       await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
     }
+    // Aprovações e Monitoramento saem do menu (continuam pela paleta e pelos links de Hoje).
+    for (const name of ['Aprovações', 'Monitoramento']) {
+      await expect(nav.getByRole('link', { name, exact: true })).toHaveCount(0);
+    }
     await expect(nav.getByRole('link', { name: /em breve/ })).toHaveCount(0);
-    // Submenu da Configuração, com o item da tela atual destacado (um só).
-    const sections = nav.getByRole('list', { name: 'Seções de Configuração' });
-    await expect(sections.getByRole('link', { name: 'Auditoria' })).toHaveAttribute(
+    // Submenu das Configurações, com o item da tela atual destacado (um só).
+    const sections = nav.getByRole('list', { name: 'Seções de Configurações' });
+    await expect(sections.getByRole('link', { name: 'Histórico de ações' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -61,13 +64,13 @@ test.describe('menu lateral no desktop', () => {
     expect((await sidebar(page).boundingBox())!.y).toBe(before!.y);
   });
 
-  test('fora da Configuração o submenu fica fechado', async ({ page }) => {
+  test('fora das Configurações o submenu fica fechado', async ({ page }) => {
     await page.goto('/empresas');
     await expect(mainNav(page).getByRole('link', { name: 'Empresas' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    await expect(page.getByRole('list', { name: 'Seções de Configuração' })).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'Seções de Configurações' })).toHaveCount(0);
   });
 
   test('recolhe para só ícones, com dica, e a escolha volta do servidor', async ({
@@ -112,15 +115,13 @@ test.describe('menu lateral no desktop', () => {
   test('dica aparece pelo teclado no menu recolhido', async ({ page, context, baseURL }) => {
     await context.addCookies([{ name: 'sidebar', value: 'collapsed', url: baseURL! }]);
     await page.goto('/');
-    await mainNav(page).getByRole('link', { name: 'Início' }).focus();
+    await mainNav(page).getByRole('link', { name: 'Hoje' }).focus();
     await page.keyboard.press('Tab');
-    await expect(
-      mainNav(page).getByRole('link', { name: 'Descoberta', exact: true }),
-    ).toBeFocused();
-    await expect(page.getByText('Descoberta · G D')).toBeVisible();
+    await expect(mainNav(page).getByRole('link', { name: 'Descobrir', exact: true })).toBeFocused();
+    await expect(page.getByText('Descobrir · G D')).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(page.getByText('Empresas · G E')).toBeVisible();
-    await expect(page.getByText('Descoberta · G D')).toHaveCount(0);
+    await expect(page.getByText('Descobrir · G D')).toHaveCount(0);
   });
 
   test('Ctrl+B recolhe e expande', async ({ page }) => {
@@ -230,10 +231,10 @@ test.describe('gaveta no celular', () => {
     await expect(open).toBeFocused();
 
     await open.click();
-    await drawer.getByRole('link', { name: 'Configuração' }).click();
+    await drawer.getByRole('link', { name: 'Configurações' }).click();
     await expect(page).toHaveURL(/\/configuracoes$/);
     await expect(drawer).toBeHidden();
-    await expect(page.getByRole('heading', { level: 1, name: 'Configuração' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Configurações' })).toBeVisible();
     // Escolher uma tela leva o foco ao conteúdo (o link escolhido sumiu com a gaveta).
     await expect(page.getByRole('main')).toBeFocused();
   });
@@ -364,6 +365,13 @@ test.describe('atalhos de teclado', () => {
     await page.keyboard.press('g');
     await page.keyboard.press('e');
     await expect(page).toHaveURL(/\/empresas$/);
+    // Conversas em "c" e Resultados em "r" (as iniciais da tela).
+    await page.keyboard.press('g');
+    await page.keyboard.press('c');
+    await expect(page).toHaveURL(/\/relacionamento$/);
+    await page.keyboard.press('g');
+    await page.keyboard.press('r');
+    await expect(page).toHaveURL(/\/inteligencia$/);
     await page.keyboard.press('g');
     await page.keyboard.press('s');
     await expect(page).toHaveURL(/\/configuracoes$/);

@@ -1,0 +1,79 @@
+{
+  "experimental": true,
+  "synthetic": true,
+  "status": "não ativado",
+  "notice": "Exemplos FICTÍCIOS (empresas e agência inventadas), só para teste da avaliação; não vão para o modelo. O guia real é reconstruído com mensagens e notas de quem dirige a agência, fora do git.",
+  "summary": "Uma pessoa de um estúdio de branding escrevendo para outra pessoa: direta, curiosa sobre o momento da empresa, sem vender e sem apontar defeito.",
+  "principles": [
+    "Começar pelo momento da empresa (loja nova, lançamento, mercado novo, um pedido dela), não pela marca dela.",
+    "Dizer quem escreve em uma frase simples, com o nome da agência.",
+    "Um detalhe concreto da empresa, sem adjetivo de venda; dizer onde viu só quando a fonte mostra.",
+    "Frases curtas, do jeito que se fala.",
+    "Terminar com uma pergunta só, fácil de responder."
+  ],
+  "avoid": [
+    "Abrir apontando erro, falha ou inconsistência da marca.",
+    "Termos técnicos que a empresa não usa (contraste, paleta, grid, acessibilidade).",
+    "Jargão de agência (soluções, alavancar, potencializar, jornada, pontos de contato).",
+    "Fórmulas de carta (\"Venho por meio desta\", \"Espero que esteja bem\").",
+    "Propor reunião com duração marcada já no primeiro contato."
+  ],
+  "examples": [
+    {
+      "id": "ficticio-oportunidade-loja-nova",
+      "origin": "ficticio",
+      "strategy": "oportunidade",
+      "text": "Oi!\n\nAqui é do Ateliê Cobalto. Vi que a Doceria Lua Cheia vai abrir a segunda loja, no Batel.\n\nLoja nova costuma ser uma boa hora para olhar a marca com calma: fachada, embalagem e cardápio juntos. Se fizer sentido, posso mostrar como a gente pensaria isso para vocês.\n\nVocês já estão trabalhando com alguém nessa parte?\n\nAbraço,\nAteliê Cobalto",
+      "rating": 5,
+      "note": "Motivo real (loja nova), sem apontar defeito, linguagem do dia a dia e pergunta fácil no fim."
+    },
+    {
+      "id": "ficticio-consultiva-gondola",
+      "origin": "ficticio",
+      "strategy": "consultiva",
+      "text": "Oi!\n\nEscrevo do Ateliê Cobalto. Vi que o Café Serra Alta começou a aparecer em supermercados da região.\n\nSair da cafeteria para a gôndola muda bastante coisa na embalagem e em como a marca é lida de longe. Como vocês estão pensando essa parte?\n\nAbraço,\nAteliê Cobalto",
+      "rating": 5,
+      "note": "Pergunta sobre o momento da empresa em vez de dizer o que ela precisa."
+    },
+    {
+      "id": "ficticio-direcionamento-servico-novo",
+      "origin": "ficticio",
+      "strategy": "pedido de direcionamento",
+      "text": "Olá!\n\nAqui é do Ateliê Cobalto. Vi que a Escola Ipê Amarelo começou a oferecer período integral.\n\nQueria falar com quem cuida da marca e da comunicação da escola. Consegue me dizer quem é a melhor pessoa?\n\nObrigado,\nAteliê Cobalto",
+      "rating": 4,
+      "note": "Bom quando não se sabe com quem falar: curto, educado e com um motivo concreto."
+    },
+    {
+      "id": "ficticio-demanda-explicita-anuncio",
+      "origin": "ficticio",
+      "strategy": "demanda explicita",
+      "text": "Olá!\n\nSou da equipe do Ateliê Cobalto e vi o anúncio da Academia Ritmo procurando quem faça a nova identidade visual da rede.\n\nIdentidade visual é o que a gente faz no ateliê. Preferem receber uma proposta de como começaríamos ou conversar antes?\n\nAbraço,\nAteliê Cobalto",
+      "rating": 4,
+      "note": "Responde direto ao pedido da empresa, sem rodeio e sem prometer resultado."
+    },
+    {
+      "id": "ficticio-follow-up-sem-cobrar",
+      "origin": "ficticio",
+      "strategy": "follow-up",
+      "text": "Oi de novo!\n\nSobre a loja nova: se ajudar, dá para começar pequeno, só pela fachada e pela embalagem, e ver se faz sentido seguir.\n\nAinda é um bom momento para conversar sobre isso?\n\nAbraço,\nAteliê Cobalto",
+      "rating": 4,
+      "note": "Traz algo útil e não cobra resposta."
+    },
+    {
+      "id": "ficticio-ruim-formulario-defeito",
+      "origin": "ficticio",
+      "strategy": "apresentacao",
+      "text": "Olá,\n\nEspero que esta mensagem o encontre bem. Venho por meio desta apresentar o Ateliê Cobalto, especialista em soluções de branding que levam marcas a outro patamar.\n\nNotamos que o site de vocês apresenta desafios de acessibilidade no contraste do texto e inconsistências na paleta entre os canais. Não apenas isso prejudica a percepção, mas também afasta clientes.\n\nFico à disposição para agendarmos uma reunião de 20 minutos.\n\nAguardo seu retorno.\nAtenciosamente,\nAteliê Cobalto",
+      "rating": 1,
+      "note": "Abertura de formulário, jargão, afirma especialidade que não está nos dados, abre com defeito técnico, 'não apenas... mas também' e fechamento em série."
+    },
+    {
+      "id": "ficticio-ruim-relatorio",
+      "origin": "ficticio",
+      "strategy": "oportunidade",
+      "text": "Olá,\n\nEstou escrevendo porque vi que o Mercado Bom Grão abriu uma unidade nova e o site atual apresenta variações na cor do logotipo entre os canais.\n\nPara garantir que a nova loja fale com a mesma clareza e credibilidade das outras unidades, organizamos um sistema de identidade visual único, com biblioteca de cores padronizada.\n\nPodemos agendar uma conversa de 20 minutos para discutir como alinhar a marca em todos os pontos de contato?\n\nAtenciosamente,\nAteliê Cobalto",
+      "rating": 2,
+      "note": "O motivo é real (unidade nova), mas o texto aponta defeito, soa relatório e fecha com reunião de duração marcada."
+    }
+  ]
+}

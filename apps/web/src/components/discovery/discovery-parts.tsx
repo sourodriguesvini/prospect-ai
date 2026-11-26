@@ -179,14 +179,14 @@ const CONFIDENCE_LEVEL: Record<AnalysisConfidence, string> = {
   low: 'baixa',
 };
 
-/** Confiança da triagem (quanto as fontes cobrem), não do negócio: "Confiança da análise: alta". */
+/** Confiança da triagem (quanto as fontes cobrem), não do negócio: "Confiança da triagem: alta". */
 export function analysisConfidenceText(confidence: AnalysisConfidence): string {
-  return `Confiança da análise: ${CONFIDENCE_LEVEL[confidence]}`;
+  return `Confiança da triagem: ${CONFIDENCE_LEVEL[confidence]}`;
 }
 
 /**
  * Fontes de um motivo da triagem ("Fonte: host ↗"), até `max`, avisando quando há mais. Motivo
- * sem fonte vem de uma regra do sistema (ex.: falta de site conferido).
+ * sem fonte vem de um critério do Prospector (ex.: falta de site conferido).
  */
 export function ReasonSources({
   sourceIds,
@@ -201,7 +201,7 @@ export function ReasonSources({
   moreHint: string;
 }) {
   if (sourceIds.length === 0) {
-    return <span className="text-muted-foreground"> (regra do sistema)</span>;
+    return <span className="text-muted-foreground"> (critério do Prospector)</span>;
   }
   const found = sourceIds
     .map((id) => sources[id])
@@ -352,14 +352,14 @@ export function ProspectCardActions({
   if (prospect.status === 'investigating' && prospect.companyId) {
     return (
       <Button asChild size="sm" variant="secondary">
-        <Link href={companyRoutes.company(prospect.companyId)}>Abrir em Empresas{context}</Link>
+        <Link href={companyRoutes.company(prospect.companyId)}>Ver análise{context}</Link>
       </Button>
     );
   }
   return (
     <>
-      <ActionButton action={investigate} variant="primary" pendingLabel="Levando para Empresas…">
-        Investigar{context}
+      <ActionButton action={investigate} variant="primary" pendingLabel="Começando a análise…">
+        Analisar empresa{context}
       </ActionButton>
       <ActionButton
         action={save}
@@ -367,7 +367,7 @@ export function ProspectCardActions({
         done={prospect.status === 'saved' ? <>Salva{context}</> : undefined}
         success={{ message: `${name} salva.`, focus: 'self' }}
       >
-        Salvar{context}
+        Salvar para depois{context}
       </ActionButton>
       <DismissForm action={dismiss} prospectId={prospect.id} name={name} />
     </>

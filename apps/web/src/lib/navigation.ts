@@ -13,7 +13,7 @@ export interface NavItem {
   icon: LucideIcon;
   /** Fatia do roadmap que entrega a tela; null = disponível. */
   plannedSlice: string | null;
-  /** Só a rota exata conta como ativa (Início). */
+  /** Só a rota exata conta como ativa (Hoje). */
   exact: boolean;
   /** Tecla do atalho em sequência: "g" e depois esta tecla. */
   shortcut: string | null;
@@ -50,20 +50,24 @@ export const SETTINGS_SECTIONS = [
   {
     href: '/configuracoes/auditoria',
     icon: ScrollText,
-    label: 'Auditoria',
-    detail: 'Registro imutável do que você, os agentes e o sistema fizeram.',
+    label: 'Histórico de ações',
+    detail: 'Registro imutável do que você, a IA e o sistema fizeram.',
   },
 ] as const;
 
 export const SETTINGS_HREF = '/configuracoes';
 
-/** Atalhos "g + tecla" das telas mais usadas (Configuração: "s", de sistema). */
+/**
+ * Atalhos "g + tecla" das telas mais usadas: as iniciais da jornada (Hoje, Descobrir, Empresas,
+ * Conversas), Copiloto em "i" (de IA), Resultados em "r" e Configurações em "s" (de sistema).
+ */
 const MODULE_SHORTCUTS: Readonly<Record<string, string>> = {
-  '': 'i',
+  '': 'h',
   descoberta: 'd',
   empresas: 'e',
-  copiloto: 'c',
-  relacionamento: 'r',
+  relacionamento: 'c',
+  copiloto: 'i',
+  inteligencia: 'r',
 };
 
 function moduleItem(item: ModuleDef): NavItem {
@@ -81,7 +85,7 @@ function moduleItem(item: ModuleDef): NavItem {
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
     id: 'fluxo',
-    label: 'Fluxo',
+    label: 'Prospecção',
     items: MODULES.filter((item) => item.group === 'flow').map(moduleItem),
   },
   {
@@ -95,7 +99,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       {
         href: SETTINGS_HREF,
-        label: 'Configuração',
+        label: 'Configurações',
         icon: Settings,
         plannedSlice: null,
         exact: false,
@@ -129,7 +133,19 @@ export function showsChildren(pathname: string, item: NavItem): boolean {
  * Endereço do item destacado (pílula de tinta e `aria-current`): o mais específico visível
  * que contém a rota atual. Só um item por vez recebe o destaque.
  */
+/**
+ * Telas fora do menu e o item que fica destacado nelas: Aprovações é uma aba de Conversas, e o
+ * Monitoramento acompanha empresas. Assim ninguém perde a referência de onde está.
+ */
+const OFF_MENU_PARENTS: Readonly<Record<string, string>> = {
+  '/aprovacoes': '/relacionamento',
+  '/monitoramento': '/empresas',
+};
+
 export function activeHref(pathname: string, groups: readonly NavGroup[] = NAV_GROUPS) {
+  for (const [path, parent] of Object.entries(OFF_MENU_PARENTS)) {
+    if (pathname === path || pathname.startsWith(`${path}/`)) return parent;
+  }
   for (const group of groups) {
     for (const item of group.items) {
       if (!isActivePath(pathname, item.href, item.exact)) continue;

@@ -236,8 +236,8 @@ test('empresa arquivada sai da lista e não recebe consultas', async ({ page }) 
   await page.reload();
   await expect(page.getByText('Empresa arquivada não recebe novas consultas.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Consultar a Receita/ })).toHaveCount(0);
-  await expect(page.getByText('Empresa arquivada não é investigada.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Investigar empresa' })).toHaveCount(0);
+  await expect(page.getByText('Empresa arquivada não é analisada.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Analisar empresa' })).toHaveCount(0);
 
   await page.goto('/empresas');
   await expect(page.getByRole('link', { name: NAME })).toHaveCount(0);
@@ -312,7 +312,7 @@ test('id inexistente mostra "Empresa não encontrada"', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Empresa não encontrada' })).toBeVisible();
 });
 
-test('investigação sem site e sem IA termina com lacunas e explica cada etapa (M4)', async ({
+test('análise sem site e sem IA termina com lacunas e explica cada etapa (M4)', async ({
   page,
 }) => {
   // Sem internet e sem Ollama (porta 9): nenhuma página lida, nenhuma análise, nenhum crédito.
@@ -325,14 +325,17 @@ test('investigação sem site e sem IA termina com lacunas e explica cada etapa 
   await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]{36}\?aviso=cadastrada$/);
   const path = new URL(page.url()).pathname;
 
-  const panel = page.getByRole('region', { name: 'Investigação', exact: true });
+  const panel = page.getByRole('region', { name: 'Análise', exact: true });
   const finished = panel.getByRole('status').filter({ hasText: 'Concluída com lacunas' });
-  await expect(panel).toContainText('Sem site confirmado, a investigação não lê páginas');
-  await panel.getByRole('button', { name: 'Investigar empresa' }).click();
+  await expect(panel).toContainText('Sem site confirmado, a análise não lê páginas');
+  // O mesmo pedido existe no topo da página ("Vale abordar?"); aqui é o botão do painel.
+  await panel.getByRole('button', { name: 'Analisar empresa' }).click();
 
   // A página se atualiza sozinha enquanto a fila anda; o resultado chega sem recarregar à mão.
   await expect(finished).toBeVisible({ timeout: 60_000 });
-  const steps = panel.getByRole('list', { name: 'Etapas da investigação' });
+  // Terminada a análise, etapas e uso ficam recolhidos (detalhe técnico).
+  await panel.getByText('Etapas e uso').click();
+  const steps = panel.getByRole('list', { name: 'Etapas da análise' });
   // Sem busca no modo memória, o site não é procurado; cada etapa diz por que ficou sem resultado.
   await expect(steps).toContainText('Identificar o site oficial: sem resultado');
   await expect(steps).toContainText('A pesquisa na internet não está disponível agora.');
@@ -341,9 +344,9 @@ test('investigação sem site e sem IA termina com lacunas e explica cada etapa 
   await expect(steps).toContainText('Montar o diagnóstico: pulada');
   await expect(steps).toContainText('Avaliar ofertas e prioridade: feita');
   await expect(steps).toContainText('Nenhuma oferta ativa cadastrada em Estratégia para comparar.');
-  await expect(panel).toContainText('0 buscas na internet (0 créditos da Tavily)');
+  await expect(panel).toContainText('0 buscas na internet (0 créditos)');
   await expect(panel).toContainText('0 páginas lidas');
-  await expect(panel.getByRole('button', { name: 'Investigar de novo' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Atualizar a análise' })).toBeVisible();
   await expectNoA11yViolations(page);
 
   // Fechar e abrir de novo: o resultado continua lá (servidor em memória, mesmo processo).

@@ -58,8 +58,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const TRAIL = [
-  { href: '/', label: 'Início' },
-  { href: discoveryRoutes.home, label: 'Descoberta' },
+  { href: '/', label: 'Hoje' },
+  { href: discoveryRoutes.home, label: 'Descobrir' },
 ];
 
 /** Título da tela (o pedido): recebe o foco quando a pessoa chega depois de uma ação. */

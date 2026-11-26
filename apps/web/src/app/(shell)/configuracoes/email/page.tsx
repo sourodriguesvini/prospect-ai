@@ -28,7 +28,7 @@ import {
 
 export const metadata: Metadata = { title: 'E-mail' };
 
-const TRAIL = [{ href: '/configuracoes', label: 'Configuração' }];
+const TRAIL = [{ href: '/configuracoes', label: 'Configurações' }];
 
 const ITEMS: readonly MailboxCheckItem[] = ['smtp', 'imap', 'spf', 'dkim', 'dmarc'];
 
@@ -76,7 +76,7 @@ async function EmailSettings() {
       ) : null}
       <Alert tone="info" role="note">
         Nada desta tela escreve para empresas. O único envio é o e-mail de teste, sempre para a
-        própria caixa. Os envios de prospecção chegam depois, com aprovação em lote.
+        própria caixa.
       </Alert>
 
       <Panel aria-labelledby="identidade">
@@ -171,7 +171,7 @@ async function EmailSettings() {
                     </div>
                     {itemIssues.map((issue) => (
                       <p key={issue.message} className="text-pretty text-muted-foreground">
-                        {issue.severity === 'blocking' ? 'Bloqueia a prospecção: ' : 'Aviso: '}
+                        {issue.severity === 'blocking' ? 'Precisa de ajuste: ' : 'Aviso: '}
                         {issue.message}
                       </p>
                     ))}
@@ -209,7 +209,7 @@ async function EmailSettings() {
               <Alert tone="warning" role="note" data-testid="opt-out-missing">
                 O rodapé ainda sai sem a frase de opt-out. Cadastre-a em{' '}
                 <Link href="/configuracoes/conformidade/opt-out" className="font-medium underline">
-                  Configuração › Conformidade
+                  Configurações › Conformidade
                 </Link>{' '}
                 (Identificação e opt-out); a prévia e os envios passam a usá-la.
               </Alert>

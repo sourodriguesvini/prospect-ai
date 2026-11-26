@@ -38,7 +38,7 @@ export async function loadMonitoring(): Promise<OverviewLoad<MonitoringOverview>
   return load(monitoring, storage, (service) => service.overview(userContext()));
 }
 
-/** Memorizada por pedido: a Início usa o mesmo resumo em dois cartões. */
+/** Memorizada por pedido: a mesma tela pode ler o resumo mais de uma vez. */
 export const loadIntelligence = cache(
   async (period: IntelligencePeriod): Promise<OverviewLoad<IntelligenceOverview>> => {
     const { intelligence, storage } = getServices();

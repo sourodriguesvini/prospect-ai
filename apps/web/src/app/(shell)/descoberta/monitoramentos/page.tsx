@@ -171,7 +171,7 @@ async function Monitors({ searchParams }: { searchParams: Props['searchParams'] 
         <PanelHeader
           title="Novo monitoramento"
           titleId="novo-monitoramento-titulo"
-          description="O pedido roda sozinho na frequência escolhida e mostra só o que é novo (empresas e sinais que ainda não apareceram)."
+          description="O pedido roda sozinho na frequência escolhida. Cada execução mostra o que achou e marca as empresas que ainda não tinham aparecido."
         />
         <MonitorForm
           action={createMonitorAction}
@@ -191,8 +191,8 @@ export default function MonitorsPage({ searchParams }: Props) {
     <div className="space-y-6">
       <PageHeader
         trail={[
-          { href: '/', label: 'Início' },
-          { href: discoveryRoutes.home, label: 'Descoberta' },
+          { href: '/', label: 'Hoje' },
+          { href: discoveryRoutes.home, label: 'Descobrir' },
         ]}
         title="Monitoramentos"
         description="Pesquisas que se repetem sozinhas para trazer empresas e sinais novos, com teto de créditos."

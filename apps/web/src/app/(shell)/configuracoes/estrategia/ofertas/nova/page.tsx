@@ -35,7 +35,7 @@ export default function NewOfferPage() {
     <div className="space-y-6">
       <PageHeader
         trail={[
-          { href: '/configuracoes', label: 'Configuração' },
+          { href: '/configuracoes', label: 'Configurações' },
           { href: strategyRoutes.overview, label: 'Estratégia' },
         ]}
         title="Nova oferta"
