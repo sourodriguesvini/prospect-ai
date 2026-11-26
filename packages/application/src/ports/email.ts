@@ -10,7 +10,7 @@ import type {
   SenderIdentityVersion,
   SpfStatus,
 } from '@prospector/contracts';
-import type { DnsTxtResult } from '@prospector/domain';
+import type { DnsTxtResult, FetchedEmailImage } from '@prospector/domain';
 import type { PendingAudit } from './audit-repository';
 
 /**
@@ -48,6 +48,14 @@ export interface MailTransport {
 /** Caixa de entrada (IMAP). Nesta fatia só confere o login; a leitura das respostas é a E5. */
 export interface MailboxReader {
   verify(config: MailServerConfig): Promise<LoginOutcome>;
+}
+
+/**
+ * Baixa o endereço de uma imagem da assinatura (faixa, ícones) para conferir que ela aparece no
+ * e-mail. GET com proteção SSRF e teto de bytes; nunca lança (falha vira `failed`).
+ */
+export interface EmailImageFetcher {
+  fetch(url: string): Promise<FetchedEmailImage>;
 }
 
 /** Consulta TXT no DNS público (SPF, DMARC, DKIM). */

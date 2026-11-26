@@ -1,11 +1,12 @@
 import type { ContactPolicyVersion } from '@prospector/contracts';
-import type { DnsTxtResult } from '@prospector/domain';
+import type { DnsTxtResult, FetchedEmailImage } from '@prospector/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   AppError,
   createEmailSettingsService,
   newEmailThrottle,
   type DnsTxtLookup,
+  type EmailImageFetcher,
   type EmailSettingsService,
   type LoginOutcome,
   type MailServerConfig,
@@ -126,7 +127,40 @@ function fakeServers() {
   return { state, transport, reader };
 }
 
+/** Cabeçalho PNG (assinatura + IHDR) com o tamanho pedido: é só o que a conferência lê. */
+function pngBytes(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(33);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return bytes;
+}
+
+const image = (width: number, height: number): FetchedEmailImage => ({
+  kind: 'ok',
+  status: 200,
+  contentType: 'image/png',
+  bytes: pngBytes(width, height),
+  truncated: false,
+});
+
+/** Endereços de imagem falsos: o que não está na tabela é um ícone PNG 40×40. */
+function fakeImages(table: Record<string, FetchedEmailImage | 'throw'> = {}) {
+  const asked: string[] = [];
+  const images: EmailImageFetcher = {
+    async fetch(url) {
+      asked.push(url);
+      const result = table[url];
+      if (result === 'throw') throw new Error('falha simulada');
+      return result ?? image(40, 40);
+    },
+  };
+  return { images, asked, table };
+}
+
 let now: Date;
+let images: ReturnType<typeof fakeImages>;
 let audit: ReturnType<typeof createMemoryAuditRepository>;
 let servers: ReturnType<typeof fakeServers>;
 let dns: ReturnType<typeof fakeDns>;
@@ -142,6 +176,7 @@ function build() {
     transport: servers.transport,
     reader: servers.reader,
     dns: dns.dns,
+    images: images.images,
     strategy: { listContactPolicyVersions: async () => policies },
     audit,
     clock,
@@ -160,6 +195,7 @@ beforeEach(() => {
   audit = createMemoryAuditRepository({ clock: { now: () => now } });
   servers = fakeServers();
   dns = fakeDns(GOOD_DNS);
+  images = fakeImages();
   policies = [POLICY];
   repo = createMemoryEmailRepository({ audit, clock });
   build();
@@ -185,6 +221,79 @@ describe('identidade de quem assina', () => {
       'email.identity.versioned',
     ]);
     expect(audit.entries()[1]?.diff).toMatchObject({ version: 2 });
+  });
+
+  it('confere a faixa e os ícones antes de salvar e recusa página no lugar da imagem', async () => {
+    const BANNER = 'https://estudio.exemplo.com.br/assets/email/faixa.png';
+    const PAGE = 'https://commons.exemplo.org/wiki/Arquivo:LinkedIn.svg';
+    images.table[BANNER] = image(900, 300);
+    images.table[PAGE] = {
+      kind: 'ok',
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      bytes: new TextEncoder().encode('<!DOCTYPE html><html><body>Arquivo</body></html>'),
+      truncated: false,
+    };
+    const withImages = {
+      ...IDENTITY,
+      bannerUrl: BANNER,
+      bannerAlt: 'Pessoa Exemplo — estúdio de exemplo.',
+      socials: [
+        ...IDENTITY.socials,
+        { network: 'linkedin', url: 'https://linkedin.com/in/exemplo', iconUrl: PAGE },
+      ],
+    };
+
+    const refused = await service.saveIdentity(ctx, withImages).catch((error: unknown) => error);
+    expect(refused).toBeInstanceOf(AppError);
+    const fieldErrors = (refused as AppError).fieldErrors ?? {};
+    expect(Object.keys(fieldErrors)).toEqual(['socials.1.iconUrl']);
+    expect(fieldErrors['socials.1.iconUrl']?.[0]).toMatch(/abre uma página, não a imagem/);
+    expect(await repo.listIdentityVersions()).toEqual([]);
+
+    // Com o ícone certo, salva; o mesmo endereço em dois campos é baixado uma vez só.
+    const ICON = IDENTITY.socials[0]!.iconUrl;
+    const fixed = {
+      ...withImages,
+      socials: [withImages.socials[0]!, { ...withImages.socials[1]!, iconUrl: ICON }],
+    };
+    images.asked.length = 0;
+    const saved = await service.saveIdentity(ctx, fixed);
+    expect(saved).toMatchObject({ changed: true, value: { version: 1 } });
+    expect(images.asked.sort()).toEqual([BANNER, ICON].sort());
+
+    // Sem mudança, nada é baixado de novo.
+    images.asked.length = 0;
+    expect((await service.saveIdentity(ctx, fixed)).changed).toBe(false);
+    expect(images.asked).toEqual([]);
+
+    // Endereços já conferidos na versão salva não são baixados de novo: com o site fora do ar,
+    // ainda dá para corrigir o cargo.
+    images.table[BANNER] = 'throw';
+    images.table[ICON] = 'throw';
+    const retitled = await service.saveIdentity(ctx, { ...fixed, role: 'Direção de arte' });
+    expect(retitled).toMatchObject({ changed: true, value: { version: 2 } });
+    expect(images.asked).toEqual([]);
+
+    // O mesmo endereço noutro papel (ícone usado como faixa) é conferido de novo.
+    images.table[ICON] = image(40, 40);
+    await expect(
+      service.saveIdentity(ctx, { ...fixed, bannerUrl: ICON, role: 'Direção de arte' }),
+    ).rejects.toMatchObject({ fieldErrors: { bannerUrl: [expect.stringMatching(/40 px/)] } });
+    expect(images.asked).toEqual([ICON]);
+  });
+
+  it('endereço fora do ar ou faixa estreita também impedem salvar, com o motivo no campo', async () => {
+    const BANNER = 'https://estudio.exemplo.com.br/faixa-pequena.png';
+    images.table[BANNER] = image(300, 100);
+    images.table[IDENTITY.socials[0]!.iconUrl] = 'throw';
+    const refused = await service
+      .saveIdentity(ctx, { ...IDENTITY, bannerUrl: BANNER, bannerAlt: 'Faixa de exemplo.' })
+      .catch((error: unknown) => error);
+    expect(refused).toMatchObject({ code: 'validation', reason: 'invalid_input' });
+    const fieldErrors = (refused as AppError).fieldErrors ?? {};
+    expect(fieldErrors.bannerUrl?.[0]).toMatch(/300 px de largura/);
+    expect(fieldErrors['socials.0.iconUrl']?.[0]).toMatch(/sem resposta/);
   });
 
   it('a prévia usa a identidade e o rodapé de opt-out da política de contato', async () => {

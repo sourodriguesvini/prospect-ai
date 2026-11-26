@@ -52,7 +52,13 @@ export {
   type BrandCapturerOptions,
 } from './web/brand-capturer';
 export { createFileCaptureStore, isCaptureStoragePath } from './capture-store';
-// E-mail (ADR-0016): envio pela caixa do usuário (SMTP), login IMAP e consulta TXT do DNS.
+// E-mail (ADR-0016): envio pela caixa do usuário (SMTP), login IMAP, consulta TXT do DNS e
+// conferência das imagens da assinatura.
 export { createSmtpTransport, type SmtpTransportOptions } from './email/smtp';
 export { createImapReader, type ImapReaderOptions } from './email/imap';
 export { createDnsTxtLookup, type DnsTxtLookupOptions } from './email/dns';
+export {
+  EMAIL_IMAGE_DOWNLOAD_BYTES,
+  createEmailImageFetcher,
+  type EmailImageFetcherOptions,
+} from './email/image';

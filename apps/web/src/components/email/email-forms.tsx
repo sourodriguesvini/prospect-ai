@@ -87,7 +87,7 @@ export function IdentityForm({ action, initial }: FormProps) {
         <TextField
           name="bannerUrl"
           label="Imagem da assinatura (faixa)"
-          hint="Opcional. Endereço https:// de uma imagem já publicada no seu site. Alguns leitores de e-mail só a mostram depois que a pessoa permite."
+          hint="Opcional. Endereço https:// do arquivo PNG ou JPG publicado no seu site (não da página onde ele aparece), com pelo menos 536 px de largura e até 1 MB. O app confere ao salvar. Alguns leitores de e-mail só mostram imagens depois que a pessoa permite."
           inputMode="url"
           maxLength={300}
           {...field}
@@ -104,8 +104,9 @@ export function IdentityForm({ action, initial }: FormProps) {
       <fieldset className="space-y-3">
         <legend className="text-sm font-semibold">Redes sociais (até {SOCIAL_ROWS})</legend>
         <p className="text-sm text-muted-foreground">
-          Cada rede precisa do link do perfil e do endereço https:// do ícone (imagem pequena já
-          publicada). Deixe a linha em branco para não usar.
+          Cada rede precisa do link do perfil e do endereço https:// do ícone: um PNG quadrado (o
+          ideal é 40×40 px) publicado no seu site, não a página onde ele aparece. SVG não aparece no
+          Gmail. O app confere ao salvar. Deixe a linha em branco para não usar.
         </p>
         {Array.from({ length: SOCIAL_ROWS }, (_, index) => (
           // Cada linha é um grupo: o leitor de tela anuncia "Rede 2" antes de "Link do perfil".

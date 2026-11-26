@@ -116,6 +116,7 @@ import {
   createBrandCapturer,
   createCnpjLookup,
   createDnsTxtLookup,
+  createEmailImageFetcher,
   createFileCaptureStore,
   createImapReader,
   createPageReader,
@@ -719,6 +720,7 @@ function emailService(
           transport: createSmtpTransport({ resolver: systemResolver }),
           reader: createImapReader({ resolver: systemResolver }),
           dns: createDnsTxtLookup(),
+          images: createEmailImageFetcher({ resolver: systemResolver }),
         };
   // Um teste por minuto e uma conferência por vez valem para o processo, não para o pedido.
   const holder = globalThis as { __prospectorEmailThrottle?: EmailThrottle };

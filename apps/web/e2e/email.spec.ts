@@ -37,6 +37,8 @@ test('sem nada cadastrado: aviso de demonstração, envio bloqueado e acessível
 });
 
 test('identidade, caixa, senha, conferência e e-mail de teste', async ({ page }) => {
+  // A prévia carrega as imagens da assinatura: nos testes, nenhuma sai para a internet.
+  await page.route(/^https:\/\/estudio\.exemplo\.com\.br\//, (route) => route.abort());
   await page.goto(PATH);
 
   // Quem assina: validação no servidor e depois a versão salva.
@@ -50,6 +52,21 @@ test('identidade, caixa, senha, conferência e e-mail de teste', async ({ page }
   await page.getByRole('button', { name: 'Salvar identidade' }).click();
   await expect(page.getByRole('textbox', { name: 'Site' })).toHaveAttribute('aria-invalid', 'true');
   await page.getByRole('textbox', { name: 'Site' }).fill('https://estudio.exemplo.com.br');
+
+  // Ícone que é uma página (o caso do teste real sem imagens): o app baixa e recusa.
+  const network = page.getByRole('group', { name: 'Rede 1' });
+  await network.getByRole('combobox', { name: 'Rede 1' }).selectOption({ label: 'Instagram' });
+  await network
+    .getByRole('textbox', { name: 'Link do perfil' })
+    .fill('https://instagram.com/estudio.exemplo');
+  const icon = network.getByRole('textbox', { name: 'Endereço do ícone (https://)' });
+  await icon.fill('https://estudio.exemplo.com.br/arquivo/icone-instagram');
+  await page.getByRole('button', { name: 'Salvar identidade' }).click();
+  await expect(icon).toHaveAttribute('aria-invalid', 'true');
+  await expect(icon).toHaveAccessibleDescription(/abre uma página, não a imagem/);
+  // Depois do erro, a escolha da rede continua (o <select> não volta para "Nenhuma").
+  await expect(network.getByRole('combobox', { name: 'Rede 1' })).toHaveValue('instagram');
+  await icon.fill('https://estudio.exemplo.com.br/assets/email/icone-instagram.png');
   await page.getByRole('button', { name: 'Salvar identidade' }).click();
   await expect(status(page, 'Identidade salva')).toBeVisible();
 

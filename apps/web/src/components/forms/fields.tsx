@@ -171,12 +171,17 @@ export function SelectField({
 }: FieldBase & { options: readonly { value: string; label: string }[] }) {
   const id = fieldId(name, idScope);
   const errors = errorsFor(state, name);
+  const selected = text(values, name);
   return (
     <FieldShell {...{ id, label, hint, required, errors, className }}>
       <NativeSelect
+        // O React não reaplica `defaultValue` num <select> já montado, e ao fim da ação o
+        // formulário volta à opção da primeira renderização: depois de um erro, a escolha da
+        // pessoa sumiria. A chave remonta o campo com o valor devolvido pela ação.
+        key={selected}
         id={id}
         name={name}
-        defaultValue={text(values, name)}
+        defaultValue={selected}
         aria-invalid={errors ? true : undefined}
         aria-describedby={describedBy(id, Boolean(hint), Boolean(errors))}
       >

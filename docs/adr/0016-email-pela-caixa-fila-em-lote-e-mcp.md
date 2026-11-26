@@ -117,6 +117,18 @@ modelo com a identidade salva.
   rota própria (`/configuracoes/email/previa`) com política só dela: imagens `https:` (a faixa e
   os ícones cadastrados), nenhum script nem formulário, enquadrável só pelo app
   (`frame-ancestors 'self'`), num `iframe` em `sandbox`. As outras telas seguem sem imagem de fora.
+- As imagens da assinatura são conferidas ao salvar quem assina (2026-11-26): o servidor baixa uma
+  vez cada endereço novo (faixa e ícones; os que já estavam na versão salva, no mesmo papel, não
+  são baixados de novo), dois por vez, pelo cliente seguro do leitor de páginas (SSRF por salto,
+  endereço fixado, só https e sem porta em todos os saltos, sites restritos recusados, até 2 MB,
+  8 s) e só aceita PNG, JPG ou GIF pelos
+  bytes, entregue como imagem, com resposta 200, faixa até 1 MB e com pelo menos 536 px de
+  largura, ícone quadrado de pelo menos 20 px e até 200 KB. Página da web, SVG (o Gmail não mostra)
+  e WebP (o Outlook não mostra) são recusados com o motivo no campo. Motivo: o primeiro teste real
+  saiu sem faixa nem ícones, porque a faixa estava vazia e os ícones apontavam para páginas
+  (Wikimedia e um banco de vetores). As regras ficam em `domain/relationship/email-image.ts`; o
+  download em `integrations/email/image.ts`. Não consulta o robots.txt: é um único arquivo
+  cadastrado pelo usuário, não rastreamento.
 - Modo de demonstração `PROSPECTOR_EMAIL=fixture` (só com `PROSPECTOR_STORAGE=memory`): caixa,
   servidores e DNS simulados, marcados DEMO. Testes: unitários e de contrato nos quatro pacotes,
   RLS e Vault em PGlite (`pnpm test:db`) e e2e da tela (`e2e/email.spec.ts`).

@@ -17,21 +17,25 @@ import {
   dkimSelectorsFor,
   emailDomain,
   emailIdentityFrom,
+  emailImageProblem,
   mailboxCheckIssues,
   mailboxCheckPasses,
   providerForHost,
   renderEmail,
   withContactFooter,
   type DnsTxtResult,
+  type EmailImageRole,
+  type FetchedEmailImage,
   type MailboxIssue,
   type RenderedEmail,
 } from '@prospector/domain';
 import { systemClock, type Clock } from '../clock';
 import type { RequestContext } from '../context';
-import { AppError, isAppError, parseInput } from '../errors';
+import { AppError, assertNoIssues, isAppError, parseInput, type FieldIssue } from '../errors';
 import type { AuditRepository } from '../ports/audit-repository';
 import type {
   DnsTxtLookup,
+  EmailImageFetcher,
   EmailSettingsRepository,
   MailboxReader,
   MailServerConfig,
@@ -97,6 +101,8 @@ export interface EmailSettingsDeps {
   transport: MailTransport;
   reader: MailboxReader;
   dns: DnsTxtLookup;
+  /** Confere, ao salvar quem assina, que a faixa e os ícones são imagens que aparecem no e-mail. */
+  images: EmailImageFetcher;
   /** Para o rodapé de opt-out da política de contato no e-mail de teste e na prévia. */
   strategy: Pick<StrategyRepository, 'listContactPolicyVersions'>;
   /** Registro do e-mail de teste (o único envio desta fatia), sem conteúdo. */
@@ -119,6 +125,59 @@ function testBody(firstName: string): string {
     'Se algo estiver fora do lugar (imagem, link ou rede social), ajuste a identidade e envie outro teste.',
     `Abraço,\n${firstName}`,
   ].join('\n\n');
+}
+
+/**
+ * Downloads de imagem ao mesmo tempo: o DNS do sistema roda no pool de threads do Node (4 por
+ * padrão), que o resto do servidor também usa.
+ */
+const IMAGE_DOWNLOAD_CONCURRENCY = 2;
+
+/**
+ * Problemas das imagens da assinatura, por campo do formulário. Uma faixa ou um ícone que é página
+ * da web, SVG ou WebP faz o e-mail sair sem a imagem, e por isso a identidade não é salva assim.
+ * Cada endereço novo é baixado uma vez; os que já estavam na versão salva, no mesmo papel, foram
+ * conferidos quando ela foi salva e não são baixados de novo (um site fora do ar não impede
+ * corrigir o cargo).
+ */
+async function imageIssues(
+  images: EmailImageFetcher,
+  content: SenderIdentityContent,
+  saved: SenderIdentityContent | null,
+): Promise<FieldIssue[]> {
+  const key = (role: EmailImageRole, url: string) => `${role} ${url}`;
+  const checked = new Set<string>();
+  if (saved?.bannerUrl) checked.add(key('banner', saved.bannerUrl));
+  for (const social of saved?.socials ?? []) checked.add(key('icon', social.iconUrl));
+
+  const targets: { field: string; role: EmailImageRole; url: string }[] = [];
+  if (content.bannerUrl) {
+    targets.push({ field: 'bannerUrl', role: 'banner', url: content.bannerUrl });
+  }
+  content.socials.forEach((social, index) => {
+    targets.push({ field: `socials.${index}.iconUrl`, role: 'icon', url: social.iconUrl });
+  });
+  const pending = targets.filter((target) => !checked.has(key(target.role, target.url)));
+
+  const urls = [...new Set(pending.map((target) => target.url))];
+  const fetched = new Map<string, FetchedEmailImage>();
+  let next = 0;
+  const worker = async () => {
+    while (next < urls.length) {
+      const url = urls[next++]!;
+      const result = await images
+        .fetch(url)
+        .catch((): FetchedEmailImage => ({ kind: 'failed', reason: 'unavailable' }));
+      fetched.set(url, result);
+    }
+  };
+  const workers = Math.min(IMAGE_DOWNLOAD_CONCURRENCY, urls.length);
+  await Promise.all(Array.from({ length: workers }, worker));
+
+  return pending.flatMap((target) => {
+    const message = emailImageProblem(target.role, fetched.get(target.url)!);
+    return message ? [{ field: target.field, message }] : [];
+  });
 }
 
 function sameJson(a: unknown, b: unknown): boolean {
@@ -283,6 +342,7 @@ export function createEmailSettingsService(deps: EmailSettingsDeps): EmailSettin
       const content = parseInput(SenderIdentityContent, raw);
       const [current] = await repo.listIdentityVersions();
       if (current && sameJson(current.content, content)) return { value: current, changed: false };
+      assertNoIssues(await imageIssues(deps.images, content, current?.content ?? null));
       const version = await repo.addIdentityVersion(
         content,
         pendingAudit(ctx, {

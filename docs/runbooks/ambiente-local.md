@@ -160,6 +160,7 @@ A tela Configuração › E-mail guarda quem assina, a caixa de envio e a senha 
 - O e2e da tela (`e2e/email.spec.ts`) roda no servidor da Descoberta, que sobe com `PROSPECTOR_EMAIL=fixture`.
 - Mudar o servidor de envio ou de entrada ou o usuário pede a senha de novo; o teste vai para o usuário da caixa (o endereço que o login prova), no máximo um por minuto.
 - A prévia abre em `/configuracoes/email/previa`, com política de segurança só dela (aceita as imagens https cadastradas, sem script). O navegador embutido do Claude bloqueia esse quadro (`ERR_BLOCKED_BY_CLIENT`); no Chrome/Edge e no e2e ele aparece.
+- Imagens da assinatura (faixa e ícones) ficam publicadas no site do usuário, que é o repositório privado `sourodriguesvini/portf-lio` publicado na Hostinger: um arquivo em `assets/email/<nome>.png` vira `https://foundstudio.com.br/assets/email/<nome>.png` depois do commit e da publicação. Hoje lá estão `assinatura-banner.jpg` (900×300) e `icone-{instagram,linkedin,github}.png` (40×40). Use PNG ou JPG (nunca SVG nem WebP), faixa com pelo menos 536 px de largura (o ideal é 1072) e ícone quadrado de 40×40. Ao salvar quem assina, o app baixa cada endereço e recusa o que não for imagem, com o motivo no campo; em `PROSPECTOR_EMAIL=fixture` nada é baixado (endereço terminado em `.png`, `.jpg`, `.jpeg` ou `.gif` conta como imagem, os outros como página).
 
 ## 6. Problemas comuns
 
