@@ -1,4 +1,5 @@
-# Prospector: remove o aplicativo instalado e os atalhos (atalho "Desinstalar Prospector").
+# Prospector: remove o aplicativo instalado, os atalhos e o registro em "Aplicativos instalados"
+# (atalho "Desinstalar Prospector" e Configurações > Aplicativos).
 # Não toca nos dados (ficam no Supabase) nem no código-fonte (C:\dev\prospector).
 Add-Type -AssemblyName PresentationFramework
 
@@ -18,8 +19,16 @@ if ($resposta -ne 'Yes') { exit 0 }
 
 $areaDeTrabalho = [Environment]::GetFolderPath('Desktop')
 $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Prospector'
-Remove-Item (Join-Path $areaDeTrabalho 'Prospector.lnk') -ErrorAction SilentlyContinue
-if (Test-Path $menu) { Remove-Item $menu -Recurse -Force -ErrorAction SilentlyContinue }
+Remove-Item -LiteralPath (Join-Path $areaDeTrabalho 'Prospector.lnk') -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $menu) { Remove-Item -LiteralPath $menu -Recurse -Force -ErrorAction SilentlyContinue }
 
-# A pasta é apagada depois que este script termina (ele está dentro dela).
-Start-Process -FilePath cmd.exe -WindowStyle Hidden -ArgumentList "/c timeout /t 2 /nobreak >nul & rmdir /s /q `"$raiz`""
+# Só apaga o registro em "Aplicativos instalados" se ele apontar para esta pasta.
+$chave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Prospector'
+$registro = Get-ItemProperty -Path $chave -ErrorAction SilentlyContinue
+if ($registro -and $registro.InstallLocation -ieq $raiz) {
+  Remove-Item -Path $chave -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# A pasta é apagada depois que este script termina (ele está dentro dela). O cmd roda fora dela:
+# com a pasta de trabalho dentro de $raiz, o rmdir não conseguiria apagar a própria raiz.
+Start-Process -FilePath cmd.exe -WindowStyle Hidden -WorkingDirectory $env:TEMP -ArgumentList "/c timeout /t 2 /nobreak >nul & rmdir /s /q `"$raiz`""

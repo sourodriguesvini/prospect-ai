@@ -184,38 +184,47 @@ A tela Configuração › E-mail guarda quem assina, a caixa de envio e a senha 
 | Investigação: "Interrompida" | O app foi fechado ou reiniciado no meio | **Retomar de onde parou**: as etapas concluídas não se repetem |
 | Página não reage aos cliques em `127.0.0.1` | Servidor iniciado sem `--hostname 127.0.0.1` (o Next bloqueia recursos de desenvolvimento de outra origem) | Pare o servidor e use `pnpm dev` |
 
-## 7. App instalado neste computador (`D:\Prospector`)
+## 7. Programa instalado neste computador (`D:\Prospector`)
 
-Para usar o Prospector no dia a dia, sem terminal: um servidor de produção (Next em modo autônomo) instalado no disco D, com atalhos. O código continua em `C:\dev\prospector`; a instalação é uma cópia.
+Para usar o Prospector no dia a dia, sem terminal: um programa do Windows com janela própria (Electron, [ADR-0018](../adr/0018-programa-de-desktop-com-electron.md)) e um servidor de produção (Next em modo autônomo) instalados no disco D, com atalhos. O código continua em `C:\dev\prospector`; a instalação é uma cópia.
 
 ```bash
 pnpm app:install
 ```
 
 O instalador (`scripts/app/instalar.mjs`):
-1. para o app instalado, se estiver aberto (só o `node` do `server.js` dele);
+1. fecha a pasta `D:\Prospector` para outras contas: tira a herança de permissões e deixa acesso só para a sua conta, o SYSTEM e os Administradores, e confere antes de seguir (ela guarda a chave do banco e programas que rodam com a sua conta); grava `parar.ps1`, `desinstalar.ps1`, `criar-atalhos.ps1` e `criar-icone.ps1`;
 2. roda `next build` em `apps/web` com `PROSPECTOR_STANDALONE=1` (ver `apps/web/next.config.ts`; sem a variável, `pnpm dev`, `next start` e os e2e não mudam);
-3. copia para `D:\Prospector\app`:
+3. monta a janela nova em `D:\Prospector\programa.novo` (`apps/desktop/scripts/empacotar.mjs --sem-trocar`): compila `apps/desktop`, desenha o ícone, baixa o Electron fixado em `apps/desktop/package.json` para `D:\Prospector\cache` (uns 150 MB, só na primeira vez de cada versão; cancela se a rede parar por 60 s), confere o SHA-256 com o `checksums.json` do pacote `electron` e grava `Prospector.exe` com o ícone e o nome do Prospector;
+4. copia para `D:\Prospector\app.novo`:
    - o servidor (mantendo os links simbólicos relativos do pnpm) e `.next/static`;
    - `packages/agents/prompts` e `pnpm-workspace.yaml`, que o Copiloto lê do disco (KI-035);
    - `apps/web/.env.local`, copiado sem ser lido;
-4. grava `iniciar.ps1`, `parar.ps1`, `desinstalar.ps1`, `LEIA-ME.txt` e `versao.txt` (commit de origem) e cria os atalhos.
+5. só agora fecha o Prospector instalado, se estiver aberto (a janela `programa\Prospector.exe` e o `node` do `server.js` dele; nada de outro programa), e troca `programa` e `app` pelas pastas novas por renomeação. Até aqui o Prospector continuou aberto; se a troca falhar (arquivo em uso), o que foi trocado volta e a versão anterior continua inteira;
+6. grava `LEIA-ME.txt` e `versao.txt` (commit de origem), cria os atalhos e registra o Prospector em Configurações > Aplicativos > Aplicativos instalados (chave do usuário, `HKCU`, sem administrador).
 
 Outra pasta: variável `PROSPECTOR_INSTALL_DIR`. O instalador recusa uma pasta existente que não tenha o arquivo `.prospector-instalacao`. Não rode junto com outro `next build` ou com os e2e no mesmo checkout: eles usam a mesma pasta `apps/web/.next`.
 
 | Atalho | O que faz |
 |---|---|
-| **Prospector** (Área de Trabalho e Menu Iniciar) | Sobe o servidor sem janela em `http://127.0.0.1:3210` (só este computador), se ainda não estiver no ar; abre o Ollama se ele estiver fechado; abre o app numa janela própria do Chrome (ou do Edge) |
-| **Parar Prospector** (Menu Iniciar) | Encerra só o servidor do app. Fechar a janela não desliga o servidor |
-| **Desinstalar Prospector** (Menu Iniciar) | Pede confirmação, para o servidor e remove a pasta e os atalhos. Não toca no banco nem no código |
+| **Prospector** (Área de Trabalho e Menu Iniciar; dá para fixar na barra de tarefas) | Abre a janela do Prospector. Mostra "Abrindo o Prospector", abre o Ollama se ele estiver fechado, sobe o servidor em `http://127.0.0.1:3210` (só este computador) se ainda não estiver no ar e mostra o app. Abrir de novo com a janela aberta só a traz para a frente |
+| **Parar Prospector** (Menu Iniciar) | Fecha a janela e o servidor; se a janela travar, encerra o `Prospector.exe` depois de 15 s. Serve para emergência: fechar a janela já desliga o servidor |
+| **Desinstalar Prospector** (Menu Iniciar ou Aplicativos instalados) | Pede confirmação, fecha o Prospector e remove a pasta, os atalhos e o registro do programa. Não toca no banco nem no código |
 
-- **Atualizar:** depois de mudar código, prompts (por exemplo, uma versão nova do Copiloto) ou o `.env.local`, rode `pnpm app:install` de novo. O app instalado não vê nada disso até lá.
-- **Registros:** `D:\Prospector\logs\servidor.log` e `servidor-erros.log`. O PID do servidor fica em `servidor.pid`.
+- **Fechar a janela desliga o servidor** (o que ela subiu ou reaproveitou, à força: KI-203) e, com ele, a fila de trabalhos, os monitoramentos e o envio agendado de e-mails. Na próxima abertura, a tarefa interrompida volta à fila (ADR-0011).
+- **Janela:** links de sites abrem no navegador do sistema, nunca dentro da janela. A tecla Alt mostra o menu (Recarregar com Ctrl+R ou F5, zoom, tela cheia, Ajuda > Abrir a pasta de registros, Sobre). `D:\Prospector\dados-da-janela` é o perfil do Chromium da janela (cookies, armazenamento das páginas, cache), com o tamanho, a posição e o zoom (nada no C:).
+- **Atualizar:** depois de mudar código, prompts (por exemplo, uma versão nova do Copiloto) ou o `.env.local`, rode `pnpm app:install` de novo. O app instalado não vê nada disso até lá. Para atualizar o Electron, troque a versão em `apps/desktop/package.json` (`pnpm --filter @prospector/desktop add -D --save-exact electron@x.y.z`, com `ELECTRON_SKIP_BINARY_DOWNLOAD=1` para nada ir para o C:) e reinstale.
+- **Registros:** `D:\Prospector\logs\janela.log` (a janela), `servidor.log` e `servidor-erros.log` (o servidor). O PID do servidor fica em `servidor.pid`.
 - **Banco:** o mesmo do `.env.local` (o `prospector-dev`). O app instalado e o `pnpm dev` gravam nos mesmos dados.
-- **Requisitos:** Node 24 no `PATH` e links simbólicos permitidos no Windows (o build do Next já os cria; se o instalador acusar `EPERM`, ative o Modo de Desenvolvedor).
+- **Requisitos:** Node 24 no `PATH` (o servidor roda nele) e links simbólicos permitidos no Windows (o build do Next já os cria; se o instalador acusar `EPERM`, ative o Modo de Desenvolvedor). O `Prospector.exe` não tem assinatura digital (é montado neste computador): com o Smart App Control do Windows ligado, ele seria bloqueado.
 
 | Sintoma | O que fazer |
 |---|---|
-| Aviso "A porta 3210 está ocupada por outro programa" | Feche o programa indicado e abra o Prospector de novo. O atalho não encerra outros programas |
-| Aviso "O servidor do Prospector parou ao iniciar" | Veja `logs\servidor-erros.log`; se faltar arquivo, rode `pnpm app:install` |
+| Janela "A porta 3210 está ocupada" | A janela diz qual programa usa a porta. Feche-o e clique em "Tentar de novo". O Prospector não encerra outros programas |
+| Janela "O servidor do Prospector parou ao iniciar" ou "parou" | Veja `logs\servidor-erros.log` (Ajuda > Abrir a pasta de registros); se faltar arquivo, rode `pnpm app:install` |
+| Janela "Node.js não encontrado" ou "desatualizado" | Instale o Node 24 e clique em "Tentar de novo" |
+| Instalador: "Não foi possível trocar ...\programa" (ou `...\app`) | Algum arquivo da instalação continuou em uso depois do fechamento (a janela, o servidor ou uma janela do Explorer aberta na pasta). Feche-o (ou "Parar Prospector") e rode de novo; a versão anterior continua no lugar |
+| Instalador: "A pasta ... não ficou restrita à sua conta" | O Windows não aceitou a permissão nova (pasta de outra conta, disco sem NTFS). Nada foi copiado; confira as permissões da pasta em Propriedades > Segurança |
+| Instalador: "O download do Electron ficou 60 segundos sem receber nada" | Rede parada ou lenta demais; rode de novo |
+| Instalador: "SHA-256 do Electron não confere" | O download veio corrompido ou alterado; nada foi instalado. Rode de novo; se repetir, confira a rede |
 | Copiloto do app instalado: "Pasta packages/agents/prompts não encontrada" | Instalação feita antes da correção de 2026-11-10: rode `pnpm app:install` |

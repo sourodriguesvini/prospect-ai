@@ -48,6 +48,8 @@ export default defineConfig(
       '**/node_modules/**',
       '**/.next/**',
       '**/.turbo/**',
+      // Saída do tsc (apps/desktop, ignorada pelo git como os demais dist/).
+      '**/dist/**',
       '**/playwright-report/**',
       '**/test-results/**',
       '**/next-env.d.ts',
@@ -172,6 +174,18 @@ export default defineConfig(
           ...INFRA,
         ],
         'integrations implementa portas de application com provedores externos; não conhece banco, regras de domínio, IA nem UI (ADR-0001).',
+      ),
+    },
+  },
+  {
+    // Janela de desktop (ADR-0018): sem pacotes do Prospector nem de infraestrutura; o app é
+    // alcançado por HTTP local. A lista fechada (só `electron`, `node:*` e arquivos dela) fica em
+    // scripts/check-boundaries.mjs.
+    files: ['apps/desktop/src/**'],
+    rules: {
+      'no-restricted-imports': restrict(
+        ['@prospector/*', ...INFRA],
+        'desktop é só a janela: fala com o app por http://127.0.0.1:3210, sem importar pacotes do Prospector (ADR-0018).',
       ),
     },
   },

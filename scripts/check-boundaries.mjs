@@ -11,6 +11,11 @@
  *  6. credenciais do banco (`process.env.SUPABASE_*`) só são lidas em src/server/env.ts, e a web não usa
  *     variáveis `NEXT_PUBLIC_*` (nada do servidor vai para o navegador).
  *  7. chamadas a modelos locais (API do Ollama, porta 11434) só em packages/agents (ADR-0008).
+ *     A janela de desktop (apps/desktop) só testa se a porta aceita conexão para abrir o programa
+ *     do Ollama e não escreve o endereço da API (ADR-0018).
+ *  8. o código da janela de desktop (apps/desktop/src) só importa `electron`, módulos `node:*` e
+ *     arquivos dele mesmo: ela roda com a conta do usuário, então biblioteca nova passa por aqui
+ *     (e pelo ADR-0018) antes de entrar.
  * Sai com código 1 e lista as violações.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -30,6 +35,8 @@ const ALLOWED_INTERNAL = {
   '@prospector/integrations': ['@prospector/application', '@prospector/contracts'],
   '@prospector/ui': [],
   '@prospector/config': [],
+  // Janela de desktop (Electron, ADR-0018): fala com o app só por HTTP em 127.0.0.1:3210.
+  '@prospector/desktop': [],
   '@prospector/web': [
     '@prospector/application',
     '@prospector/contracts',
@@ -52,12 +59,18 @@ const ALLOWED_EXTERNAL = {
   // playwright-core: leitor de páginas da pesquisa na internet (ADR-0012), sem baixar navegador.
   // nodemailer (MIT-0) e imapflow (MIT): SMTP e IMAP da caixa do próprio usuário (ADR-0016).
   '@prospector/integrations': ['zod', 'playwright-core', 'nodemailer', 'imapflow'],
+  // O Electron é o próprio runtime (baixado pelo instalador) e entra só como devDependency
+  // (tipos e SHA-256), junto com resedit e @electron/fuses, usados ao montar o executável.
+  '@prospector/desktop': [],
 };
 
 const WEB_SRC = join('apps', 'web', 'src');
 const COMPOSITION_ROOT = join(WEB_SRC, 'server', 'container.ts');
 const SECRET_READER = join(WEB_SRC, 'server', 'env.ts');
 const AGENTS_DIR = join('packages', 'agents');
+const DESKTOP_SRC = join('apps', 'desktop', 'src');
+/** O que o código da janela de desktop pode importar, além dos próprios arquivos. */
+const DESKTOP_IMPORT_OK = /^(electron|node:[a-z_/]+)$/;
 const IMPORT_RE =
   /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g;
 
@@ -175,6 +188,15 @@ for (const dir of workspaceDirs()) {
       }
       if (name === '@prospector/web' && spec.startsWith('@supabase/')) {
         violations.push(`${fileRel}: Supabase não entra na web; use os serviços de application.`);
+      }
+      if (
+        fileRel.startsWith(DESKTOP_SRC + sep) &&
+        !spec.startsWith('.') &&
+        !DESKTOP_IMPORT_OK.test(spec)
+      ) {
+        violations.push(
+          `${fileRel}: a janela de desktop só importa electron e node:* (ADR-0018); "${spec}" não.`,
+        );
       }
     }
   }

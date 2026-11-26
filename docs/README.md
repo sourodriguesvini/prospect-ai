@@ -44,6 +44,7 @@
 | [0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md) | Investigação de empresas e Brand Intelligence | Proposto |
 | [0016](adr/0016-email-pela-caixa-fila-em-lote-e-mcp.md) | E-mail pela caixa da Found Studio, fila de aprovação em lote e Prospector via MCP | Proposto |
 | [0017](adr/0017-monitoramento-e-inteligencia.md) | Monitoramento e Inteligência sobre os dados que já existem | Proposto |
+| [0018](adr/0018-programa-de-desktop-com-electron.md) | Programa de desktop do Prospector com Electron | Proposto |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 
