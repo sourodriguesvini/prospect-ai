@@ -25,8 +25,8 @@ const example = (id: string) => {
 };
 
 describe('prompts v4 (experimentais)', () => {
-  it('não estão em uso: o app continua no v3 da estratégia e da mensagem', () => {
-    expect(RELATIONSHIP_PROMPT_VERSIONS).toEqual({ approach: 3, message: 3, reply: 1 });
+  it('não estão em uso: o app está no v5 da estratégia e da mensagem', () => {
+    expect(RELATIONSHIP_PROMPT_VERSIONS).toEqual({ approach: 5, message: 5, reply: 1 });
   });
 
   it.each(['relationship-approach', 'relationship-message'])(

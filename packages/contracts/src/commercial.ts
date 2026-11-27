@@ -314,3 +314,38 @@ export const CommercialThesis = z.object({
   toConfirm: z.array(Text(240)).max(10),
 });
 export type CommercialThesis = z.infer<typeof CommercialThesis>;
+
+// -----------------------------------------------------------------------------
+// Linguagem pública da empresa (Parte 5.2)
+// -----------------------------------------------------------------------------
+
+/**
+ * Medida, por regra, de como a empresa escreve nos textos dela que o ledger guardou (trechos
+ * literais do site e dos perfis próprios). Serve para adaptar o registro da mensagem, nunca para
+ * imitar a voz da empresa.
+ */
+export const LanguageFormality = z.enum(['formal', 'neutral', 'informal']);
+export type LanguageFormality = z.infer<typeof LanguageFormality>;
+export const LANGUAGE_FORMALITY_LABELS: Record<LanguageFormality, string> = {
+  formal: 'formal',
+  neutral: 'neutra',
+  informal: 'informal',
+};
+
+export const LanguageAddress = z.enum(['second_person', 'third_person', 'unknown']);
+export type LanguageAddress = z.infer<typeof LanguageAddress>;
+export const LANGUAGE_ADDRESS_LABELS: Record<LanguageAddress, string> = {
+  second_person: 'fala direto com o público ("você")',
+  third_person: 'fala do público em terceira pessoa ("nossos clientes")',
+  unknown: 'não deu para medir',
+};
+
+export const CompanyLanguage = z.object({
+  formality: LanguageFormality,
+  address: LanguageAddress,
+  /** Palavras que se repetem em mais de um texto da empresa (como ela escreve). */
+  terms: z.array(z.string().trim().min(2).max(40)).max(8),
+  /** Quantos trechos foram medidos. */
+  samples: z.number().int().min(0),
+});
+export type CompanyLanguage = z.infer<typeof CompanyLanguage>;

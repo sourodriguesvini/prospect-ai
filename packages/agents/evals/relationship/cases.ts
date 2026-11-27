@@ -8,6 +8,8 @@ import {
   EMPTY_APPROACH_INSIGHTS,
   type ApproachAiOutput,
   type MessageDraftText,
+  type SelectedThesis,
+  type ThesisAngle,
 } from '@prospector/contracts';
 
 /**
@@ -1095,6 +1097,365 @@ export const HOLDOUT_MESSAGE_CASES: MessageCase[] = [
       },
       ...firstContactChecks(H_AGENCY),
       ...baseDraftChecks(120),
+    ],
+  },
+];
+
+// --- Casos da tese (diretriz 2026-11-26, Parte 5 e casos da Parte 8) --------------------------------
+//
+// A mensagem parte da tese aprovada, não da auditoria do site. Caso 1 (como a Flash real): um
+// investimento com fonte de notícia e uma medição de contraste do site; a mensagem fala do
+// movimento, nunca trata o investimento como verba e não abre pelo contraste. Caso 5: a empresa
+// disse que procura o serviço (demanda explícita). Caso 4: só há medições do site e a tese manda
+// não priorizar; a mensagem pergunta, sem termo técnico e sem propor reunião.
+
+const VELOZ = 'velozpag.test';
+const NEWS_SOURCE = {
+  kind: 'web_page',
+  tier: 'recognized_press',
+  host: 'noticias-economia.test',
+} as const;
+
+const V_FUNDING = claim(
+  701,
+  'A Veloz Pagamentos Sintética anunciou uma rodada Série D de R$ 100 milhões, liderada pelo Fundo Horizonte Sintético, para expandir a conta digital para pequenas empresas (março de 2026).',
+  'fact',
+  [NEWS_SOURCE],
+  'signal',
+);
+const V_PRODUCT = claim(
+  702,
+  'O site apresenta a conta digital, a maquininha e o pagamento por link para pequenos negócios.',
+  'fact',
+  [{ kind: 'web_page', tier: 'company_owned', host: VELOZ }],
+  'positioning',
+);
+const V_CONTRAST = claim(
+  703,
+  'Medição automática do contraste: 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).',
+  'fact',
+  [{ kind: 'screenshot', tier: 'company_owned', host: VELOZ }],
+  'visual',
+);
+const V_ACTIVE = claim(
+  704,
+  'Empresa ativa desde 2016, com sede em São Paulo (SP).',
+  'fact',
+  [REGISTRY_SOURCE],
+  'firmographic',
+);
+
+const V_ANGLE: ThesisAngle = {
+  problemId: 'digital-product-structure',
+  solutionId: 'brand-architecture',
+  title: 'Organização da marca do produto digital',
+  context:
+    'Investimento ou rodada: Série D de R$ 100 milhões, com Fundo Horizonte Sintético (noticias-economia.test em março de 2026)',
+  problem:
+    'Hipótese a confirmar: com a expansão depois do investimento, os produtos e a marca podem precisar se apresentar de um jeito só.',
+  offer: ['Arquitetura de marca', 'Sistema de identidade visual'],
+  why: 'Empresas que recebem investimento para expandir costumam reorganizar produto e comunicação. Sustentado por: investimento ou rodada.',
+  whyNow: 'O acontecimento é de março de 2026: confirmar se o momento ainda vale.',
+  approachRole: 'Diretoria de marketing ou de produto',
+  openingTopic:
+    'Investimento ou rodada anunciado em março de 2026 e o que ele muda em produto e marca na Veloz Pagamentos Sintética.',
+  signals: ['funding'],
+  claimIds: [ID(701)],
+};
+
+const V_THESIS: SelectedThesis = {
+  investigationId: ID(710),
+  choice: 'principal',
+  recommendation: 'approach',
+  recommendationReason: 'Há um acontecimento com fonte e a solução cabe no perfil da agência.',
+  angle: V_ANGLE,
+  doNotOffer: [
+    {
+      item: 'Correção de contraste do site',
+      reason: 'Medição técnica não é motivo de contato nem projeto estratégico.',
+    },
+  ],
+  toConfirm: [
+    'Quem cuida da marca depois do investimento.',
+    'Se já há agência contratada para a expansão.',
+  ],
+};
+
+const VELOZ_CONTEXT: Pick<
+  AiContext,
+  'company' | 'claims' | 'insights' | 'thesis' | 'language' | 'offer'
+> = {
+  company: {
+    displayName: 'Veloz Pagamentos Sintética',
+    city: 'São Paulo',
+    uf: 'SP',
+    cnaeMain: '6619-3/99',
+    sizeBand: 'DEMAIS',
+    primaryDomain: VELOZ,
+    individual: false,
+  },
+  claims: [V_FUNDING, V_PRODUCT, V_CONTRAST, V_ACTIVE],
+  insights: EMPTY_APPROACH_INSIGHTS,
+  thesis: V_THESIS,
+  language: {
+    formality: 'informal',
+    address: 'second_person',
+    terms: ['conta', 'maquininha', 'negócio'],
+    samples: 4,
+  },
+  offer: {
+    name: 'Arquitetura de marca',
+    description: 'Organização da marca, dos produtos e de como eles se apresentam juntos.',
+    problems: ['Produtos que se apresentam cada um de um jeito.'],
+    needSignals: ['Crescimento com produtos novos.'],
+    deliverables: ['Arquitetura de marca', 'Guia de nomes e de aplicação'],
+    valueProps: ['O cliente entende o que a empresa oferece e como os produtos se ligam.'],
+  },
+};
+
+const FUNDING_TERMS = ['investimento', 'rodada', 'serie d', 'aporte', 'captacao', '100 milhoes'];
+/** Investimento tratado como dinheiro para a agência (o erro que a tese evita). */
+const BUDGET =
+  /\b(verbas?|orcamentos?|recursos? (para|financeiros|novos)|tem dinheiro|dinheiro novo|caixa (para|reforcado)|podem investir|pode investir|hora de investir|momento de investir|investir (na|em) (marca|identidade|branding)|capital (para|novo))\b/;
+const noBudgetTalk: Check<MessageDraftText> = {
+  name: 'não trata o investimento como verba para a agência',
+  zeroTolerance: true,
+  pass: (draft) => !BUDGET.test(plain(draftText(draft))),
+};
+const SITE_MEASURE = /\b(contraste|wcag|acessibilidade|legibilidade|amostras?|desempenho|6 de 41)\b/;
+const noSiteMeasure: Check<MessageDraftText> = {
+  name: 'não fala de medição do site (contraste, acessibilidade, desempenho)',
+  pass: (draft) => !SITE_MEASURE.test(plain(draftText(draft))),
+};
+const SITE_ONLY = sourcePattern(String.raw`(?:site|pagina)`);
+const fundingNotFromSite = noSourceFor(FUNDING_TERMS, SITE_ONLY, 'o site (veio de uma notícia)');
+const fundingMentioned = mentions(FUNDING_TERMS, 'cita o investimento (o motivo da tese)');
+
+const TESE_INVESTIMENTO = approach(VELOZ_CONTEXT);
+
+// Caso 5: a própria empresa disse que procura o serviço.
+const AURORA = 'casaaurora.test';
+const AURORA_SITE = { kind: 'web_page', tier: 'company_owned', host: AURORA } as const;
+const DEMANDA = approach({
+  company: {
+    displayName: 'Casa Aurora Móveis Sintética',
+    city: 'Joinville',
+    uf: 'SC',
+    cnaeMain: '3101-2/00',
+    sizeBand: 'EPP',
+    primaryDomain: AURORA,
+    individual: false,
+  },
+  claims: [
+    claim(
+      721,
+      'O site da empresa publicou que ela procura um estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.',
+      'fact',
+      [AURORA_SITE],
+      'signal',
+    ),
+    claim(
+      722,
+      'O site apresenta móveis de madeira sob medida, com showroom em Joinville.',
+      'fact',
+      [AURORA_SITE],
+      'positioning',
+    ),
+    claim(
+      723,
+      'Empresa ativa desde 2011, com sede em Joinville (SC).',
+      'fact',
+      [REGISTRY_SOURCE],
+      'firmographic',
+    ),
+  ],
+});
+
+// Caso 4: só medições do site; a tese manda não priorizar.
+const S_ANGLE: ThesisAngle = {
+  problemId: 'site-readability',
+  solutionId: null,
+  title: 'Leitura de parte dos textos do site',
+  context: 'Medição automática do contraste: 6 de 41 amostras de texto abaixo do mínimo recomendado.',
+  problem: 'Hipótese a confirmar: parte dos textos do site pode ser difícil de ler.',
+  offer: ['Revisão do site'],
+  why: 'A medição mostra uma parte dos textos com pouco contraste. Sustentado por: medições do site.',
+  whyNow: 'Medições do site não indicam momento: não há urgência a partir delas.',
+  approachRole: 'Responsável pelo site ou marketing',
+  openingTopic: 'Uma observação concreta do site, como pergunta, sem tratar como projeto grande.',
+  signals: ['site_accessibility'],
+  claimIds: [ID(2)],
+};
+const SO_SITE = approach({
+  thesis: {
+    investigationId: ID(730),
+    choice: 'principal',
+    recommendation: 'deprioritize',
+    recommendationReason:
+      'Só há detalhes técnicos do site: nenhum acontecimento dá motivo para o contato agora.',
+    angle: S_ANGLE,
+    doNotOffer: [
+      {
+        item: 'Projeto de reposicionamento',
+        reason: 'Nada nas evidências indica momento de mudança de posicionamento.',
+      },
+    ],
+    toConfirm: ['Quem cuida do site hoje.'],
+  },
+});
+
+const MEETING =
+  /\b(reuniao|call|chamada de video|videochamada|\d+ minutos|agendar|marcar um horario)\b/;
+
+export const THESIS_APPROACH_CASES: ApproachCase[] = [
+  {
+    id: 'tese-investimento',
+    synthetic: true,
+    // Como a Flash real: notícia de investimento e contraste medido no site.
+    input: TESE_INVESTIMENTO,
+    checks: [
+      approachDraft(noBudgetTalk),
+      approachDraft(noSiteMeasure),
+      approachDraft(fundingMentioned),
+      approachDraft(fundingNotFromSite),
+      {
+        name: 'estratégia não trata o investimento como verba',
+        pass: (output) => !BUDGET.test(plain(strategyText(output))),
+      },
+      {
+        name: 'estratégia não abre pelo site (contraste, acessibilidade)',
+        pass: (output) =>
+          !SITE_MEASURE.test(plain(`${output.strategy.opportunity}\n${output.strategy.argument}`)),
+      },
+      {
+        name: 'quem receber: marketing ou produto (o perfil da tese)',
+        pass: (output) => /\b(marketing|produto)\b/.test(plain(output.strategy.counterpartRole)),
+      },
+      {
+        name: 'o ponto sobre o investimento cita a evidência da notícia',
+        pass: (output) =>
+          output.strategy.evidence.some(
+            (point) =>
+              FUNDING_TERMS.some((term) => plain(point.statement).includes(term)) &&
+              point.claimIds.includes(ID(701)),
+          ),
+      },
+      {
+        name: 'estratégia de movimentação empresarial ou oportunidade',
+        informative: true,
+        pass: (output) =>
+          /^estrategia (de )?(movimentacao empresarial|oportunidade)/.test(
+            plain(output.strategy.argument),
+          ),
+      },
+      ...approachCommon(TESE_INVESTIMENTO),
+    ],
+  },
+  {
+    id: 'demanda-explicita',
+    synthetic: true,
+    // Caso 5: a empresa publicou que procura um estúdio; a resposta é direta.
+    input: DEMANDA,
+    checks: [
+      {
+        name: 'estratégia de demanda explícita',
+        pass: (output) => plain(output.strategy.argument).includes('demanda explicita'),
+      },
+      approachDraft(
+        mentions(
+          [
+            'procura',
+            'procurando',
+            'buscando',
+            'busca de',
+            'refazer a identidade',
+            'nova identidade',
+          ],
+          'responde ao que a empresa disse que procura',
+        ),
+      ),
+      approachDraft({
+        name: 'não trata a demanda como hipótese ("talvez vocês precisem")',
+        pass: (draft) =>
+          !/\btalvez (voces )?(precis|estej|queir)|\bse (voces )?(estiverem|estao) pensando\b/.test(
+            plain(draft.body),
+          ),
+      }),
+      approachDraft(
+        mentions(['lancamento', 'nova linha'], 'liga ao lançamento da nova linha', true),
+      ),
+      ...approachCommon(DEMANDA),
+    ],
+  },
+  {
+    id: 'tese-so-do-site',
+    synthetic: true,
+    // Caso 4: tese de "não priorizar", só com medições do site.
+    input: SO_SITE,
+    checks: [
+      {
+        name: 'não propõe reunião (a tese manda não priorizar)',
+        pass: (output) =>
+          output.strategy.objective !== 'meeting' && !MEETING.test(plain(output.message.body)),
+      },
+      approachDraft({
+        name: 'mensagem pergunta',
+        pass: (draft) => draft.body.includes('?'),
+      }),
+      approachDraft({
+        name: 'sem termo técnico (WCAG, amostras, pixels, "6 de 41")',
+        pass: (draft) => !/\b(wcag|amostras?|pixels?|6 de 41)\b/.test(plain(draftText(draft))),
+      }),
+      approachDraft({
+        name: 'não oferece reposicionamento (está em "não oferecer")',
+        zeroTolerance: true,
+        pass: (draft) => !/\breposicion/.test(plain(draftText(draft))),
+      }),
+      approachDraft(mentions(['contraste'], 'cita o contraste', true)),
+      ...approachCommon(SO_SITE),
+    ],
+  },
+];
+
+const V_STRATEGY: MessageAiRequest['strategy'] = {
+  opportunity:
+    'A Veloz anunciou uma rodada Série D para expandir a conta digital para pequenas empresas.',
+  objective: 'conversation',
+  counterpartRole: 'Diretoria de marketing ou de produto',
+  channel: 'email',
+  channelReason: 'O tipo pedido é um e-mail de apresentação.',
+  argument:
+    'Estratégia movimentação empresarial: a expansão depois da rodada costuma levar a organizar como os produtos se apresentam juntos.',
+  evidence: [
+    { statement: 'Rodada Série D de R$ 100 milhões em março de 2026.', claimIds: [ID(701)] },
+  ],
+  nextStep: 'Perguntar quem cuida da marca na expansão.',
+  gaps: ['Quem cuida da marca depois do investimento.'],
+  risks: [],
+  caseIds: [],
+  thesisBasis: {
+    investigationId: ID(710),
+    choice: 'principal',
+    title: V_ANGLE.title,
+    approvedAt: '2026-11-27T10:00:00Z',
+  },
+};
+
+const TESE_MENSAGEM = message({ ...VELOZ_CONTEXT, strategy: V_STRATEGY });
+
+export const THESIS_MESSAGE_CASES: MessageCase[] = [
+  {
+    id: 'tese-investimento-mensagem',
+    synthetic: true,
+    input: TESE_MENSAGEM,
+    checks: [
+      noBudgetTalk,
+      noSiteMeasure,
+      fundingMentioned,
+      fundingNotFromSite,
+      noInventedPlace(dataText(TESE_MENSAGEM)),
+      ...firstContactChecks(AGENCY),
+      ...baseDraftChecks(130),
     ],
   },
 ];

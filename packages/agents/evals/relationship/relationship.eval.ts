@@ -17,6 +17,8 @@ import {
   HOLDOUT_APPROACH_CASES,
   HOLDOUT_MESSAGE_CASES,
   MESSAGE_CASES,
+  THESIS_APPROACH_CASES,
+  THESIS_MESSAGE_CASES,
   type Check,
 } from './cases';
 import { loadExperimentalVoiceGuide, toVoiceGuideContent, withAgency } from './voice-guide';
@@ -62,8 +64,12 @@ const experimentalVoice =
     : null;
 const withVoice = <T extends { voice: unknown; agencyName: string | null }>(input: T): T =>
   experimentalVoice ? { ...input, voice: withAgency(experimentalVoice, input.agencyName) } : input;
-const ALL_APPROACH = [...APPROACH_CASES, ...HOLDOUT_APPROACH_CASES];
-const ALL_MESSAGE = [...MESSAGE_CASES, ...HOLDOUT_MESSAGE_CASES];
+// Os casos da tese (Parte 5) entram na amostra: com prompt anterior à v5, a tese não chega ao
+// modelo, e a comparação mostra o que ela muda.
+const MAIN_APPROACH = [...APPROACH_CASES, ...THESIS_APPROACH_CASES];
+const MAIN_MESSAGE = [...MESSAGE_CASES, ...THESIS_MESSAGE_CASES];
+const ALL_APPROACH = [...MAIN_APPROACH, ...HOLDOUT_APPROACH_CASES];
+const ALL_MESSAGE = [...MAIN_MESSAGE, ...HOLDOUT_MESSAGE_CASES];
 const HOLDOUT_IDS = new Set(
   [...HOLDOUT_APPROACH_CASES, ...HOLDOUT_MESSAGE_CASES].map((entry) => entry.id),
 );
@@ -292,10 +298,10 @@ it.skipIf(!enabled || regradeSource)(
       approach: loadPrompt('relationship-approach', approachVersion),
       message: loadPrompt('relationship-message', messageVersion),
     };
-    const approachCases = (holdout ? ALL_APPROACH : APPROACH_CASES).filter(
+    const approachCases = (holdout ? ALL_APPROACH : MAIN_APPROACH).filter(
       (entry) => !caseFilter || caseFilter.includes(entry.id),
     );
-    const messageCases = (holdout ? ALL_MESSAGE : MESSAGE_CASES).filter(
+    const messageCases = (holdout ? ALL_MESSAGE : MAIN_MESSAGE).filter(
       (entry) => !caseFilter || caseFilter.includes(entry.id),
     );
     const runs: Run[] = [];

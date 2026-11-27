@@ -1,7 +1,9 @@
 import {
   EMPTY_INVESTIGATION_SNAPSHOT,
   type CnpjRegistryRecord,
+  type CommercialThesis,
   type Investigation,
+  type ThesisAngle,
   type Recommendation,
   type ReplyAnalysis,
 } from '@prospector/contracts';
@@ -520,6 +522,155 @@ describe('RelationshipService (ADR-0014)', () => {
       const error = await appError(service.prepareApproach(ctx, { companyId: company.id }));
       expect(error.reason).toBe('invalid_input');
       expect(fake.calls).not.toContain('approach');
+    });
+  });
+
+  describe('Parte 5.1 — a mensagem parte do ângulo da tese escolhido', () => {
+    function angle(title: string, claimId: string, problemId: string): ThesisAngle {
+      return {
+        problemId,
+        solutionId: null,
+        title,
+        context: `Contexto sintético de ${title}.`,
+        problem: 'Hipótese sintética de problema.',
+        offer: ['Serviço sintético'],
+        why: 'Motivo sintético.',
+        whyNow: 'Momento sintético.',
+        approachRole: 'Direção',
+        openingTopic: `Abertura sintética de ${title}.`,
+        signals: [],
+        claimIds: [claimId],
+      };
+    }
+
+    /** Diagnóstico com tese (principal e uma alternativa). */
+    async function withThesis() {
+      const { caseId } = await readyStrategy();
+      const second = await secondActiveOffer();
+      const { company, claimId, otherClaimId } = await companyWithFacts();
+      const investigation = diagnosed(company.id, claimId, second.id, second.current!.id, {
+        summaryClaimId: otherClaimId,
+      });
+      const thesis = {
+        version: 'compatibility/v1',
+        profileId: 'found-studio',
+        profileVersion: 1,
+        recommendation: 'approach',
+        recommendationReason: 'Há sinal com fonte e ângulo claro.',
+        principal: angle('Ângulo principal sintético', claimId, 'principal-sintetico'),
+        alternatives: [angle('Ângulo alternativo sintético', otherClaimId, 'alternativo-sintetico')],
+        dimensions: [],
+        doNotOffer: [{ item: 'Site novo', reason: 'Sem sinal de site.' }],
+        toConfirm: ['Quem decide.'],
+      } as unknown as CommercialThesis;
+      investigation.diagnosis = { ...investigation.diagnosis!, thesis };
+      return { company, claimId, caseId, investigation };
+    }
+
+    function readThesis(value: boolean) {
+      (fake.ai as { thesisAware?: boolean }).thesisAware = value;
+    }
+
+    it('com prompt que lê a tese, o ângulo escolhido vai para a IA e fica gravado na estratégia', async () => {
+      const { company, claimId, caseId, investigation } = await withThesis();
+      readThesis(true);
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.thesisAware).toBe(true);
+      expect(panel.insights.thesis).toMatchObject({
+        investigationId: investigation.id,
+        recommendation: 'approach',
+        principal: { title: 'Ângulo principal sintético' },
+      });
+
+      // O modelo tenta gravar a própria base da tese: o servidor descarta e grava a dele.
+      const output = approachOutput(claimId, caseId);
+      fake.next.approach = ok({
+        ...output,
+        strategy: {
+          ...output.strategy,
+          thesisBasis: {
+            investigationId: investigation.id,
+            choice: 'principal',
+            title: 'Inventado pelo modelo',
+            approvedAt: '2020-01-01T00:00:00.000Z',
+          },
+        },
+      });
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        thesisAngle: 'alternative_1',
+      });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      const sent = fake.requests.approach.at(-1)!;
+      expect(sent.thesis).toMatchObject({
+        investigationId: investigation.id,
+        choice: 'alternative_1',
+        angle: { title: 'Ângulo alternativo sintético' },
+        doNotOffer: [{ item: 'Site novo', reason: 'Sem sinal de site.' }],
+      });
+      expect(result.plan.content.thesisBasis).toEqual({
+        investigationId: investigation.id,
+        choice: 'alternative_1',
+        title: 'Ângulo alternativo sintético',
+        approvedAt: now.toISOString(),
+      });
+      const generated = audit
+        .entries()
+        .find((entry) => entry.action === 'relationship.approach.generated');
+      expect(generated?.diff).toMatchObject({ thesisAngle: 'alternative_1' });
+
+      // Uma nova versão da mensagem continua no mesmo ângulo aprovado.
+      fake.next.message = ok(
+        { subject: 'Assunto', body: `Olá! Aqui é da ${AGENCY}. Nova versão.` },
+        'relationship-message/v5',
+      );
+      await service.regenerateMessage(ctx, { messageId: result.message.id });
+      expect(fake.requests.message.at(-1)!.thesis).toMatchObject({
+        choice: 'alternative_1',
+        angle: { title: 'Ângulo alternativo sintético' },
+      });
+    });
+
+    it('sem escolha, vale o ângulo principal da tese', async () => {
+      const { company, claimId, caseId } = await withThesis();
+      readThesis(true);
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const first = await service.prepareApproach(ctx, { companyId: company.id });
+      if (first.status !== 'created') throw new Error('abordagem não criada');
+      expect(fake.requests.approach.at(-1)!.thesis?.choice).toBe('principal');
+      expect(first.plan.content.thesisBasis?.choice).toBe('principal');
+    });
+
+    it('"sem a tese" não manda ângulo nem grava base de tese', async () => {
+      const { company, claimId, caseId } = await withThesis();
+      readThesis(true);
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        thesisAngle: 'none',
+      });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      expect(fake.requests.approach.at(-1)!.thesis).toBeNull();
+      expect(result.plan.content.thesisBasis).toBeUndefined();
+    });
+
+    it('com prompt que não lê a tese, nada de ângulo: nem na IA, nem gravado como aprovado', async () => {
+      const { company, claimId, caseId } = await withThesis();
+      readThesis(false);
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.thesisAware).toBe(false);
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        thesisAngle: 'principal',
+      });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      expect(fake.requests.approach.at(-1)!.thesis).toBeNull();
+      expect(result.plan.content.thesisBasis).toBeUndefined();
+      const generated = audit
+        .entries()
+        .find((entry) => entry.action === 'relationship.approach.generated');
+      expect(generated?.diff).toMatchObject({ thesisAngle: 'none' });
     });
   });
 

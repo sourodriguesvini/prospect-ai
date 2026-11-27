@@ -4,11 +4,13 @@ import type {
   ApproachBasis,
   ApproachInsights,
   ApproachStrategyContent,
+  CompanyLanguage,
   ConfidenceBand,
   MessageChannel,
   MessageKind,
   MessageTone,
   ReplyAnalysis,
+  SelectedThesis,
   SourceKind,
   SourceReliabilityTier,
   VoiceGuideContent,
@@ -80,6 +82,10 @@ export interface AiContext {
   company: AiCompany;
   claims: AiClaim[];
   insights: ApproachInsights;
+  /** Ângulo da tese aprovado (Parte 5.1); null/ausente = abordagem só pelo dossiê. */
+  thesis?: SelectedThesis | null;
+  /** Medida da linguagem pública da empresa (Parte 5.2); null quando há pouco texto dela. */
+  language?: CompanyLanguage | null;
   offer: AiOffer;
   voice: VoiceGuideContent | null;
   agencyName: string | null;
@@ -167,6 +173,11 @@ export type AiOutcome =
     };
 
 export interface RelationshipAi {
+  /**
+   * O prompt de estratégia em uso lê a tese aprovada (Parte 5.1; `relationship-approach/v5` em
+   * diante). Sem isso, o serviço não grava ângulo nenhum e a tela não oferece a escolha.
+   */
+  readonly thesisAware?: boolean;
   /** Estratégia + primeira mensagem: `{ strategy, message: { subject, body } }`. */
   approach(request: ApproachAiRequest, signal?: AbortSignal): Promise<AiOutcome>;
   /** Uma mensagem: `{ subject, body }`. */

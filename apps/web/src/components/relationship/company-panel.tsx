@@ -23,7 +23,7 @@ async function Relationship({ companyId, archived }: { companyId: string; archiv
   if (result.kind === 'unavailable') {
     return <p className="text-sm text-muted-foreground">{result.message}</p>;
   }
-  const { open, closed, activeSuppressions, insights } = result.data;
+  const { open, closed, activeSuppressions, insights, thesisAware } = result.data;
   const suppressed = activeSuppressions.length > 0;
   const offers = open || suppressed || archived ? [] : await activeOfferOptions();
   const recommendedOfferId = preparedOfferId(
@@ -78,6 +78,7 @@ async function Relationship({ companyId, archived }: { companyId: string; archiv
               action={prepareApproachAction.bind(null, companyId)}
               offers={offers}
               defaultOfferId={recommendedOfferId}
+              thesis={thesisAware ? (insights.thesis ?? null) : null}
             />
           ) : (
             <p className="text-sm text-muted-foreground">

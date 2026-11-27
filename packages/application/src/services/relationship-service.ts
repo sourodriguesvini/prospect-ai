@@ -44,9 +44,11 @@ import {
   type OpportunitySummary,
   type OutboundMessage,
   type StageChange,
+  type SelectedThesis,
   type StrategySnapshot,
   type SuppressionEntry,
   type Task,
+  type ThesisBasis,
 } from '@prospector/contracts';
 import {
   APPROVAL_VALIDITY_DAYS,
@@ -57,6 +59,7 @@ import {
   channelIssues,
   contactState,
   isCitableClaim,
+  measureCompanyLanguage,
   type ContactState,
   messageIssues,
   messagePayload,
@@ -87,6 +90,7 @@ import type {
   StageMove,
 } from '../ports/relationship-repository';
 import type { CompanyDossier, CompanyService } from './company-service';
+import { selectThesis } from './approach-insights';
 import { pendingAudit } from './pending-audit';
 import type { StrategyService } from './strategy-service';
 
@@ -214,6 +218,8 @@ export interface CompanyRelationship {
   activeSuppressions: SuppressionEntry[];
   /** Diagnóstico de Empresas que "Preparar abordagem" vai usar (KI-129). */
   insights: ApproachInsights;
+  /** O prompt de estratégia em uso lê a tese (a tela só oferece a escolha do ângulo com isto). */
+  thesisAware: boolean;
 }
 
 export interface ApprovalQueueItem {
@@ -604,10 +610,22 @@ export function createRelationshipService(deps: {
     insights: ApproachInsights,
     offer: Offer,
     snapshot: StrategySnapshot,
+    thesis: SelectedThesis | null = null,
   ): AiContext {
     const content = offer.current!.content;
     const company = dossier.company;
+    // Linguagem da empresa (Parte 5.2): só trechos literais que ela mesma publicou (site e perfis
+    // próprios), de claims em vigor.
+    const ownWords = dossier.claims
+      .filter((view) => isCitableClaim(view.claim, clock.now()))
+      .flatMap((view) =>
+        view.evidence
+          .filter(({ evidence }) => evidence.reliabilityTier === 'company_owned')
+          .map(({ evidence }) => evidence.quote ?? ''),
+      );
     return {
+      thesis,
+      language: measureCompanyLanguage(ownWords, company.displayName),
       company: {
         displayName: company.displayName,
         city: company.city,
@@ -927,7 +945,14 @@ export function createRelationshipService(deps: {
     const plan = currentPlan(plans);
     const contact = await contactStateOf(args.opportunity.id);
     const channel = channelFor(args.kind, args.channel, contact);
-    const context = aiContext(args.dossier, insights, offer, snapshot);
+    // O ângulo aprovado na estratégia vale enquanto a tese for a mesma investigação; com uma
+    // investigação nova, a mensagem segue a estratégia gravada, sem trocar de ângulo sozinha.
+    const approved = plan?.content.thesisBasis;
+    const thesis =
+      deps.ai.thesisAware && approved && insights.thesis?.investigationId === approved.investigationId
+        ? selectThesis(insights.thesis, approved.choice)
+        : null;
+    const context = aiContext(args.dossier, insights, offer, snapshot, thesis);
     const outcome = await deps.ai.message(
       {
         ...context,
@@ -1134,6 +1159,8 @@ export function createRelationshipService(deps: {
         closed: summaries.filter((item) => item.closedAt),
         activeSuppressions,
         insights,
+        // A tela só oferece a escolha do ângulo quando o prompt em uso lê a tese.
+        thesisAware: Boolean(deps.ai?.thesisAware),
       };
     },
 
@@ -1353,7 +1380,10 @@ export function createRelationshipService(deps: {
       }
       if (!deps.ai) return { status: 'ai_failed', failure: aiFailure('no_ai') };
 
-      const context = aiContext(dossier, insights, offer, snapshot);
+      // Ângulo da tese aprovado ao pedir (Parte 5.1); sem tese, com "none" ou com um prompt que
+      // não lê a tese, só o dossiê (nada é gravado como aprovado sem ter sido usado).
+      const thesis = deps.ai.thesisAware ? selectThesis(insights.thesis, input.thesisAngle) : null;
+      const context = aiContext(dossier, insights, offer, snapshot, thesis);
       // O modelo sabe se a empresa já foi contatada (canal e identificação do primeiro contato).
       const before = existing ? await contactStateOf(existing.id) : null;
       const outcome = await deps.ai.approach(
@@ -1395,7 +1425,21 @@ export function createRelationshipService(deps: {
       if (!opportunity.offerId) opportunity = await setOffer(ctx, opportunity, offer.id);
       const contact = await contactStateOf(opportunity.id);
       const channel = channelFor(input.kind, grounded.content.channel, contact);
-      const content: ApproachStrategyContent = { ...grounded.content, channel };
+      // A base da tese é gravada pelo servidor (o modelo não escolhe nem inventa o ângulo).
+      const { thesisBasis: _fromModel, ...strategy } = grounded.content;
+      const thesisBasis: ThesisBasis | null = thesis
+        ? {
+            investigationId: thesis.investigationId,
+            choice: thesis.choice,
+            title: thesis.angle.title,
+            approvedAt: now.toISOString(),
+          }
+        : null;
+      const content: ApproachStrategyContent = {
+        ...strategy,
+        channel,
+        ...(thesisBasis ? { thesisBasis } : {}),
+      };
 
       const plan = await repo.insertPlan(
         {
@@ -1420,6 +1464,8 @@ export function createRelationshipService(deps: {
             promptId: outcome.promptId,
             // Investigação de Empresas cujo diagnóstico entrou na geração (KI-129); null sem ele.
             diagnosisId: insights.diagnosis?.id ?? null,
+            // Ângulo da tese aprovado (Parte 5.1); "none" quando a abordagem foi só pelo dossiê.
+            thesisAngle: thesis?.choice ?? 'none',
             ...(review ? { aiReview: review } : {}),
           },
           withVersion: true,

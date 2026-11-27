@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Uuid } from './common';
+import { ThesisAngle, ThesisRecommendation } from './commercial';
 import { ApproachClearance } from './strategy';
 
 /**
@@ -289,6 +290,59 @@ export const RecommendedService = z.object({
 });
 export type RecommendedService = z.infer<typeof RecommendedService>;
 
+/**
+ * Ângulo da tese que a pessoa escolhe ao pedir a abordagem (diretriz 2026-11-26, Parte 5.1: a
+ * mensagem é consequência de uma tese aprovada). "none" = abordagem só pelo dossiê, como antes.
+ */
+export const ThesisChoice = z.enum(['principal', 'alternative_1', 'alternative_2', 'none']);
+export type ThesisChoice = z.infer<typeof ThesisChoice>;
+export const THESIS_CHOICE_LABELS: Record<ThesisChoice, string> = {
+  principal: 'Ângulo principal',
+  alternative_1: 'Primeira alternativa',
+  alternative_2: 'Segunda alternativa',
+  none: 'Sem a tese (só o dossiê)',
+};
+export const ChosenThesisAngle = ThesisChoice.exclude(['none']);
+export type ChosenThesisAngle = z.infer<typeof ChosenThesisAngle>;
+
+const ThesisCaveats = {
+  doNotOffer: z
+    .array(z.object({ item: z.string().trim().min(1).max(160), reason: z.string().trim().max(300) }))
+    .max(8),
+  toConfirm: z.array(z.string().trim().min(1).max(240)).max(10),
+};
+
+/** Tese comercial da investigação mais recente, como insumo da abordagem (regra, sem modelo). */
+export const ApproachThesis = z.object({
+  investigationId: Uuid,
+  recommendation: ThesisRecommendation,
+  recommendationReason: z.string().trim().min(1).max(400),
+  principal: ThesisAngle.nullable(),
+  alternatives: z.array(ThesisAngle).max(2),
+  ...ThesisCaveats,
+});
+export type ApproachThesis = z.infer<typeof ApproachThesis>;
+
+/** O ângulo escolhido, com o que não oferecer e o que confirmar: o que o modelo recebe. */
+export const SelectedThesis = z.object({
+  investigationId: Uuid,
+  choice: ChosenThesisAngle,
+  recommendation: ThesisRecommendation,
+  recommendationReason: z.string().trim().min(1).max(400),
+  angle: ThesisAngle,
+  ...ThesisCaveats,
+});
+export type SelectedThesis = z.infer<typeof SelectedThesis>;
+
+/** Qual ângulo a pessoa aprovou ao pedir a abordagem (gravado na estratégia, conferível depois). */
+export const ThesisBasis = z.object({
+  investigationId: Uuid,
+  choice: ChosenThesisAngle,
+  title: z.string().trim().min(1).max(160),
+  approvedAt: z.string(),
+});
+export type ThesisBasis = z.infer<typeof ThesisBasis>;
+
 export const ApproachInsights = z.object({
   diagnosis: DiagnosisSummary.nullable(),
   recommendedService: RecommendedService.nullable(),
@@ -299,6 +353,8 @@ export const ApproachInsights = z.object({
       assessedAt: z.string(),
     })
     .nullable(),
+  /** Tese da investigação (ausente nas anteriores ao motor de inteligência). */
+  thesis: ApproachThesis.nullable().optional(),
 });
 export type ApproachInsights = z.infer<typeof ApproachInsights>;
 
@@ -347,6 +403,8 @@ export const ApproachStrategyContent = z.object({
   risks: z.array(z.string().trim().min(3).max(200)).max(5),
   /** Cases citáveis usados (só `publicOk`, conferidos no servidor). */
   caseIds: z.array(Uuid).max(3),
+  /** Ângulo da tese aprovado ao pedir a abordagem; gravado pelo servidor, nunca pelo modelo. */
+  thesisBasis: ThesisBasis.optional(),
 });
 export type ApproachStrategyContent = z.infer<typeof ApproachStrategyContent>;
 
@@ -746,6 +804,11 @@ export const PrepareApproachInput = z.object({
   tone: MessageTone.default('consultative'),
   /** Pedido livre do usuário ("cite a expansão para Campinas"); é dado, não instrução de sistema. */
   instruction: optional(500),
+  /**
+   * Ângulo da tese aprovado (Parte 5.1). Sem ele: o principal, quando a tese tem um; "none" faz a
+   * abordagem só pelo dossiê.
+   */
+  thesisAngle: ThesisChoice.optional(),
 });
 export type PrepareApproachInput = z.input<typeof PrepareApproachInput>;
 

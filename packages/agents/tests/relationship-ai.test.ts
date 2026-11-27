@@ -202,15 +202,15 @@ const V1 = {
 };
 
 describe('createRelationshipAi', () => {
-  it('sem `prompts`, vale a versão promovida (abordagem e mensagem v3, resposta v1)', async () => {
-    expect(RELATIONSHIP_PROMPT_VERSIONS).toEqual({ approach: 3, message: 3, reply: 1 });
+  it('sem `prompts`, vale a versão promovida (abordagem e mensagem v5, resposta v1)', async () => {
+    expect(RELATIONSHIP_PROMPT_VERSIONS).toEqual({ approach: 5, message: 5, reply: 1 });
     const { gateway, calls } = fakeGateway({ text: '{}' });
     const outcome = await createRelationshipAi({ gateway }).approach(APPROACH);
     expect(calls[0]!.input.messages[0]).toEqual({
       role: 'system',
-      content: loadPrompt('relationship-approach', 3).text,
+      content: loadPrompt('relationship-approach', 5).text,
     });
-    expect(outcome).toMatchObject({ promptId: 'relationship-approach/v3' });
+    expect(outcome).toMatchObject({ promptId: 'relationship-approach/v5' });
   });
 
   it('abordagem: prompt versionado, dados com referências curtas e esquema restrito a elas', async () => {
@@ -752,8 +752,11 @@ describe('esquemas e prompts', () => {
     const strategy = (
       approachSchema(['C1'], ['K1']) as { properties: { strategy: Record<string, unknown> } }
     ).properties.strategy;
+    // `thesisBasis` é gravado pelo servidor (ângulo aprovado), nunca pedido ao modelo.
     expect(swap(keys(strategy), 'caseRefs', 'caseIds')).toEqual(
-      Object.keys(ApproachStrategyContent.shape).sort(),
+      Object.keys(ApproachStrategyContent.shape)
+        .filter((key) => key !== 'thesisBasis')
+        .sort(),
     );
   });
 
@@ -2002,5 +2005,94 @@ describe('conferência da resposta (v3, KI-150)', () => {
     expect(createHash('sha256').update(contents.join('\n---\n')).digest('hex')).toBe(
       '3276d75fea206993232215820419c505a563728545ee7320fd5946bac4662a80',
     );
+  });
+});
+
+describe('tese e linguagem da empresa (Parte 5, prompts v5)', () => {
+  const V5 = {
+    approach: loadPrompt('relationship-approach', 5),
+    message: loadPrompt('relationship-message', 5),
+  };
+  const WITH_THESIS: ApproachAiRequest = {
+    ...APPROACH,
+    thesis: {
+      investigationId: ID(40),
+      choice: 'principal',
+      recommendation: 'approach',
+      recommendationReason: 'Há sinal com fonte.',
+      angle: {
+        problemId: 'expansao',
+        solutionId: null,
+        title: 'Expansão com marca para a nova fase',
+        context: 'Abriu uma nova unidade em 2026.',
+        problem: 'A marca pode não acompanhar a nova fase.',
+        offer: ['Revisão de identidade visual'],
+        why: 'Momento de expansão.',
+        whyNow: 'Unidade aberta este ano.',
+        approachRole: 'Sócia',
+        openingTopic: 'A nova unidade',
+        signals: ['expansion'],
+        claimIds: [ID(1)],
+      },
+      doNotOffer: [{ item: 'Site novo', reason: 'Sem sinal de site.' }],
+      toConfirm: ['Quem decide.'],
+    },
+    language: { formality: 'informal', address: 'second_person', terms: ['ateliê'], samples: 3 },
+  };
+
+  it('a v5 lê a tese; a v3 não, e não recebe tese nem linguagem', async () => {
+    const { gateway } = fakeGateway({ text: '{}' });
+    expect(createRelationshipAi({ gateway, prompts: V5 }).thesisAware).toBe(true);
+    expect(createRelationshipAi({ gateway }).thesisAware).toBe(
+      RELATIONSHIP_PROMPT_VERSIONS.approach >= 5,
+    );
+    expect(
+      createRelationshipAi({
+        gateway,
+        prompts: {
+          approach: loadPrompt('relationship-approach', 3),
+          message: loadPrompt('relationship-message', 3),
+        },
+      }).thesisAware,
+    ).toBe(false);
+
+    const v3 = fakeGateway({ text: '{}' });
+    await createRelationshipAi({
+      gateway: v3.gateway,
+      prompts: {
+        approach: loadPrompt('relationship-approach', 3),
+        message: loadPrompt('relationship-message', 3),
+      },
+    }).approach(WITH_THESIS);
+    const data3 = dataOf(v3.calls[0]!.input.messages[1]!.content);
+    expect(data3).not.toHaveProperty('tese');
+    expect(data3).not.toHaveProperty('linguagem_da_empresa');
+  });
+
+  it('com a v5, o ângulo vai com refs curtas, o que não oferecer e a linguagem medida', async () => {
+    const { gateway, calls } = fakeGateway({ text: '{}' });
+    await createRelationshipAi({ gateway, prompts: V5 }).approach(WITH_THESIS);
+    const content = calls[0]!.input.messages[1]!.content;
+    expect(content).not.toContain(ID(40));
+    const data = dataOf(content) as {
+      tese: Record<string, unknown>;
+      linguagem_da_empresa: Record<string, unknown>;
+    };
+    expect(data.tese).toMatchObject({
+      angulo: 'Expansão com marca para a nova fase',
+      assunto_de_abertura: 'A nova unidade',
+      perfil_a_abordar: 'Sócia',
+      solucao: ['Revisão de identidade visual'],
+      estrategia_sugerida: 'expansão',
+      refs: ['C1'],
+      nao_oferecer: ['Site novo: Sem sinal de site.'],
+      confirmar_antes: ['Quem decide.'],
+    });
+    expect(data.tese.recomendacao).toMatch(/Há sinal com fonte\./);
+    expect(data.linguagem_da_empresa).toEqual({
+      formalidade: 'informal',
+      tratamento: expect.any(String),
+      termos_recorrentes: ['ateliê'],
+    });
   });
 });

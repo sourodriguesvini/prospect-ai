@@ -1,6 +1,12 @@
 'use client';
 
-import type { OpportunityStage } from '@prospector/contracts';
+import {
+  THESIS_CHOICE_LABELS,
+  THESIS_RECOMMENDATION_LABELS,
+  type ApproachThesis,
+  type OpportunityStage,
+  type ThesisChoice,
+} from '@prospector/contracts';
 import { useId } from 'react';
 import {
   CheckboxField,
@@ -34,24 +40,53 @@ type Option = { value: string; label: string };
 
 const AI_PENDING = 'Gerando com a IA local… (pode levar até 1 minuto)';
 
+/** Ângulos que a tese oferece, na ordem: principal, alternativas e "sem a tese". */
+export function thesisAngleOptions(thesis: ApproachThesis): Option[] {
+  const angles: Array<[ThesisChoice, string | undefined]> = [
+    ['principal', thesis.principal?.title],
+    ['alternative_1', thesis.alternatives[0]?.title],
+    ['alternative_2', thesis.alternatives[1]?.title],
+  ];
+  return [
+    ...angles
+      .filter((entry): entry is [ThesisChoice, string] => Boolean(entry[1]))
+      .map(([value, title]) => ({ value, label: `${THESIS_CHOICE_LABELS[value]}: ${title}` })),
+    { value: 'none', label: THESIS_CHOICE_LABELS.none },
+  ];
+}
+
 export function PrepareApproachForm({
   action,
   offers,
   defaultOfferId,
+  thesis = null,
 }: {
   action: FormAction;
   offers: readonly Option[];
   defaultOfferId: string | null;
+  /** Tese da investigação, quando o prompt em uso a lê (Parte 5.1). */
+  thesis?: ApproachThesis | null;
 }) {
+  const angleOptions = thesis ? thesisAngleOptions(thesis) : [];
   const { state, values, formAction } = useActionForm(action, {
     offerId: defaultOfferId ?? offers[0]?.value ?? '',
     kind: 'initial_email',
     tone: 'consultative',
+    thesisAngle: angleOptions[0]?.value ?? 'none',
   });
   const field = { state, values, idScope: useId() };
   return (
     <form action={formAction} noValidate className="@container space-y-4">
       <FormMessage state={state} />
+      {thesis && angleOptions.length > 1 ? (
+        <SelectField
+          name="thesisAngle"
+          label="Ângulo da tese"
+          hint={`${THESIS_RECOMMENDATION_LABELS[thesis.recommendation]}: ${thesis.recommendationReason} A mensagem parte do ângulo que você escolher.`}
+          options={angleOptions}
+          {...field}
+        />
+      ) : null}
       <SelectField name="offerId" label="Oferta" options={offers} required {...field} />
       <div className="grid gap-4 @md:grid-cols-2">
         <SelectField

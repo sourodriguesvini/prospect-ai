@@ -14,12 +14,16 @@ import type {
 import {
   AiReviewKind,
   ApproachObjective,
+  LANGUAGE_ADDRESS_LABELS,
+  LANGUAGE_FORMALITY_LABELS,
   MESSAGE_CHANNEL_LABELS,
   MESSAGE_KIND_LABELS,
   MESSAGE_TONE_LABELS,
   MessageChannel,
   ReplyClassification,
   ReplyConfidence,
+  THESIS_RECOMMENDATION_LABELS,
+  type CommercialSignal,
   type ConfidenceBand,
   type MessageKind,
 } from '@prospector/contracts';
@@ -59,8 +63,19 @@ import { loadPrompt, type PromptDoc } from '../prompts';
  * `12-45` e `12-52`): estratégia 91–96% e mensagem 96–97,5%, com 1 a 6 falhas de tolerância zero
  * por rodada, contra 92% / 90% e 13 falhas do v1 com os mesmos corretores (`12-23-a1-m1.regraded`).
  * O v2 foi etapa da mesma rodada, não usado. A análise de resposta continua na v1.
+ *
+ * Estratégia e mensagem v5 (2026-11-27, Parte 5 da diretriz de 2026-11-26, KI-209): partem do
+ * ângulo da tese aprovado (`tese`), com a linguagem medida da empresa (`linguagem_da_empresa`),
+ * estratégias de primeiro contato por acontecimento e sem falar de verba. Mesmos casos + 4 casos
+ * de tese, 3 repetições, v3 e v5 na mesma noite (`evals/relationship/results/2026-11-27-01-44-a3-m3`
+ * e `01-48-a5-m5`; com os casos fora da amostra, `01-53-a3-m3` e `01-57-a5-m5`): estratégia 89–90%
+ * → 96–97%, mensagem 95% → 96–97%, fora da amostra estratégia 93% → 100% e mensagem 95% → 94%
+ * (uma verificação), p95 de 11,7–13,6 s → 12,0–12,5 s, 0 erros de formato. Falhas de tolerância
+ * zero: 8 e 4 na v3, 4 e 4 na v5, todas na família já conhecida (lugar do Instagram atribuído a
+ * outra fonte); as de tese da v3 ("investimento" atribuído ao site) sumiram. Promovida pelo doc 11
+ * §4.3 (nenhum limiar piorou, a taxa melhorou), como a v3 foi.
  */
-export const RELATIONSHIP_PROMPT_VERSIONS = { approach: 3, message: 3, reply: 1 } as const;
+export const RELATIONSHIP_PROMPT_VERSIONS = { approach: 5, message: 5, reply: 1 } as const;
 
 /**
  * A partir desta versão, a estratégia e a mensagem recebem a fonte de cada evidência (`fonte`),
@@ -75,6 +90,16 @@ export const SOURCE_AWARE_FROM_VERSION = 2;
  * montava um a partir do domínio ("Estúdio Análiza" de estudioanaluiza.test).
  */
 export const PERSON_NAME_HIDDEN_FROM_VERSION = 3;
+
+/**
+ * A partir desta versão (diretriz 2026-11-26, Parte 5), a estratégia e a mensagem recebem o ângulo
+ * da tese aprovado (`tese`: contexto, problema como hipótese, solução, por que agora, assunto de
+ * abertura, quem abordar, o que não oferecer e o que confirmar), a estratégia de aproximação
+ * sugerida pela regra e a medida da linguagem pública da empresa (`linguagem_da_empresa`). As
+ * evidências do ângulo entram primeiro no dossiê. As versões anteriores recebem os DADOS como foram
+ * avaliadas.
+ */
+export const THESIS_FROM_VERSION = 5;
 
 /** Número da versão de um prompt (`relationship-message/v2` → 2); 1 se o id não disser. */
 export function promptVersion(doc: Pick<PromptDoc, 'id'>): number {
@@ -175,6 +200,24 @@ export const CONTEXT_LEVELS: readonly ContextLimits[] = [
     exampleText: 0,
     strategyPoints: 3,
     external: 1200,
+  },
+  // Prompts v5 (com a tese) são quase o dobro dos v3: no pior caso (versão anterior inteira para
+  // reescrever, muito claim e texto longo), só este nível cabe na janela de 16 mil tokens.
+  {
+    claims: 5,
+    statement: 140,
+    cases: 1,
+    caseText: 160,
+    diagnosis: 200,
+    findings: 2,
+    findingText: 160,
+    description: 150,
+    listItems: 2,
+    itemText: 100,
+    voiceExamples: 0,
+    exampleText: 0,
+    strategyPoints: 2,
+    external: 800,
   },
 ];
 
@@ -343,12 +386,42 @@ const clip = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 
 /** Claims citados pelo diagnóstico e pelo serviço recomendado: vão primeiro, para as refs valerem. */
-function citedByInsights(context: AiContext): Set<string> {
+function citedByInsights(context: AiContext, withThesis = false): Set<string> {
   const { diagnosis, recommendedService } = context.insights;
   return new Set([
+    ...(withThesis ? (context.thesis?.angle.claimIds ?? []) : []),
     ...(diagnosis?.findings.flatMap((finding) => finding.claimIds) ?? []),
     ...(recommendedService?.claimIds ?? []),
   ]);
+}
+
+/**
+ * Estratégia de aproximação sugerida pelo acontecimento que sustenta o ângulo (Parte 5.3). Só
+ * medições do site: conversa consultiva (pergunta), nunca diagnóstico do site como motivo.
+ */
+const EVENT_STRATEGY: Partial<Record<CommercialSignal, string>> = {
+  funding: 'movimentação empresarial',
+  acquisition: 'movimentação empresarial',
+  merger: 'movimentação empresarial',
+  restructuring: 'movimentação empresarial',
+  leadership: 'movimentação empresarial',
+  partnership: 'movimentação empresarial',
+  expansion: 'expansão',
+  new_market: 'expansão',
+  move: 'expansão',
+  launch: 'lançamento',
+  hiring: 'desafio operacional',
+  brand_change: 'posicionamento',
+  award: 'networking',
+  anniversary: 'networking',
+};
+
+export function suggestedStrategy(signals: readonly CommercialSignal[]): string {
+  for (const signal of signals) {
+    const strategy = EVENT_STRATEGY[signal];
+    if (strategy) return strategy;
+  }
+  return 'consultiva';
 }
 
 /**
@@ -381,8 +454,8 @@ function caseData(cases: readonly AiCase[], table: RefTable, limits: ContextLimi
 }
 
 /** Claims e cases de um nível, com as tabelas de referência curta. */
-function refsFor(context: AiContext, limits: ContextLimits) {
-  const picked = pickClaims(context.claims, citedByInsights(context), limits.claims);
+function refsFor(context: AiContext, limits: ContextLimits, withThesis = false) {
+  const picked = pickClaims(context.claims, citedByInsights(context, withThesis), limits.claims);
   const pickedCases = context.cases.slice(0, limits.cases);
   return {
     picked,
@@ -513,6 +586,7 @@ function contextData(
   limits: ContextLimits,
   withSources = false,
   hidePersonName = false,
+  withThesis = false,
 ) {
   const { claims, cases, picked, pickedCases } = refs;
   const refsOf = (ids: readonly string[]) =>
@@ -581,6 +655,7 @@ function contextData(
           recomendacao: qualification.recommendation,
         }
       : null,
+    ...(withThesis ? thesisData(context, refsOf, said, limits) : {}),
     cases: caseData(pickedCases, cases, limits),
     voz: context.voice
       ? {
@@ -590,6 +665,53 @@ function contextData(
           bons_exemplos: context.voice.goodExamples
             .slice(0, limits.voiceExamples)
             .map((text) => clip(text, limits.exampleText)),
+        }
+      : null,
+  };
+}
+
+/** Blocos da v5: o ângulo aprovado da tese e a linguagem da empresa (Parte 5). */
+function thesisData(
+  context: AiContext,
+  refsOf: (ids: readonly string[]) => string[],
+  said: (text: string, max: number) => string,
+  limits: ContextLimits,
+) {
+  const thesis = context.thesis ?? null;
+  const language = context.language ?? null;
+  const items = (values: readonly string[], max: number) =>
+    values.slice(0, Math.min(limits.listItems, 5)).map((value) => said(value, max));
+  return {
+    tese: thesis
+      ? {
+          recomendacao: said(
+            `${THESIS_RECOMMENDATION_LABELS[thesis.recommendation]}: ${thesis.recommendationReason}`,
+            400,
+          ),
+          angulo: said(thesis.angle.title, 160),
+          estrategia_sugerida: suggestedStrategy(thesis.angle.signals),
+          contexto: said(thesis.angle.context, 600),
+          problema: said(thesis.angle.problem, 400),
+          solucao: items(thesis.angle.offer, 160),
+          por_que: said(thesis.angle.why, 600),
+          por_que_agora: said(thesis.angle.whyNow, 400),
+          assunto_de_abertura: said(thesis.angle.openingTopic, 300),
+          perfil_a_abordar: said(thesis.angle.approachRole, 160),
+          refs: refsOf(thesis.angle.claimIds),
+          nao_oferecer: items(
+            thesis.doNotOffer.map((entry) =>
+              entry.reason ? `${entry.item}: ${entry.reason}` : entry.item,
+            ),
+            240,
+          ),
+          confirmar_antes: items(thesis.toConfirm, 240),
+        }
+      : null,
+    linguagem_da_empresa: language
+      ? {
+          formalidade: LANGUAGE_FORMALITY_LABELS[language.formality],
+          tratamento: LANGUAGE_ADDRESS_LABELS[language.address],
+          termos_recorrentes: language.terms.slice(0, 6),
         }
       : null,
   };
@@ -908,18 +1030,20 @@ export function createRelationshipAi(options: RelationshipAiOptions): Relationsh
   }
 
   return {
+    thesisAware: promptVersion(prompt('approach')) >= THESIS_FROM_VERSION,
     approach(request: ApproachAiRequest, signal?: AbortSignal) {
       const day = today(now());
       const version = promptVersion(prompt('approach'));
       const aware = version >= SOURCE_AWARE_FROM_VERSION;
       const hideName = version >= PERSON_NAME_HIDDEN_FROM_VERSION;
+      const withThesis = version >= THESIS_FROM_VERSION;
       return run(
         'approach',
         (limits) => {
-          const refs = refsFor(request, limits);
+          const refs = refsFor(request, limits, withThesis);
           const data = {
             hoje: day,
-            ...contextData(request, refs, limits, aware, hideName),
+            ...contextData(request, refs, limits, aware, hideName, withThesis),
             base: request.basis === 'sufficient' ? 'suficiente' : 'limitada',
             lacunas: request.gaps.slice(0, 6).map((gap) => clip(gap, 200)),
             mensagem: {
@@ -1003,6 +1127,7 @@ export function createRelationshipAi(options: RelationshipAiOptions): Relationsh
       const version = promptVersion(prompt('message'));
       const aware = version >= SOURCE_AWARE_FROM_VERSION;
       const hideName = version >= PERSON_NAME_HIDDEN_FROM_VERSION;
+      const withThesis = version >= THESIS_FROM_VERSION;
       const task = request.previous
         ? aware
           ? REWRITE_TASK
@@ -1026,7 +1151,7 @@ export function createRelationshipAi(options: RelationshipAiOptions): Relationsh
       return run(
         'message',
         (limits) => {
-          const refs = refsFor(request, limits);
+          const refs = refsFor(request, limits, withThesis);
           const mensagem = {
             tipo: MESSAGE_KIND_LABELS[request.kind],
             tipo_codigo: request.kind,
@@ -1072,7 +1197,7 @@ export function createRelationshipAi(options: RelationshipAiOptions): Relationsh
                   : null,
               }
             : null;
-          const context = contextData(request, refs, limits, aware, hideName);
+          const context = contextData(request, refs, limits, aware, hideName, withThesis);
           // Da v2 em diante, a versão a reescrever vem logo depois do tipo de mensagem, antes do
           // dossiê: é a base do texto, e o dossiê é só consulta (KI-150).
           const data = aware

@@ -38,6 +38,7 @@ export async function prepareApproachAction(
       kind: text(values, 'kind') || undefined,
       tone: text(values, 'tone') || undefined,
       instruction: optionalText(values, 'instruction'),
+      thesisAngle: text(values, 'thesisAngle') || undefined,
     });
     if (result.status === 'ai_failed') return { error: result.failure.message };
     return relationshipRoutes.opportunity(

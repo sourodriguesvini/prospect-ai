@@ -3,6 +3,8 @@ import {
   NEXT_STEP_LABELS,
   RECOMMENDATION_LABELS,
   type ApproachInsights,
+  type ApproachThesis,
+  type ChosenThesisAngle,
   type Claim,
   type DiagnosisSummary,
   type Investigation,
@@ -11,6 +13,8 @@ import {
   type OpportunityPriority,
   type Recommendation,
   type RecommendedService,
+  type SelectedThesis,
+  type ThesisChoice,
 } from '@prospector/contracts';
 import { effectiveStatus } from '@prospector/domain';
 import { systemClock, type Clock } from '../clock';
@@ -33,6 +37,8 @@ const MAX_FINDINGS = 12;
  * é oportunidade, inferência e hipótese, que vêm logo depois e preenchem o resto, até 12.
  */
 const MAX_FACT_FINDINGS = 4;
+/** Claims do ângulo principal da tese que abrem os achados (acontecimentos antes do site). */
+const MAX_THESIS_FINDINGS = 4;
 const MAX_STATEMENT = 500;
 const MAX_RATIONALE = 800;
 const MAX_RECOMMENDATION = 300;
@@ -96,6 +102,7 @@ export function claimIdsOf(investigation: Investigation): string[] {
       ...diagnosis.hypothesisClaimIds,
       ...(recommended?.opportunity.claimIds ?? []),
       ...(recommended?.readingClaimId ? [recommended.readingClaimId] : []),
+      ...(diagnosis.thesis?.principal?.claimIds ?? []),
     ]),
   ];
 }
@@ -130,11 +137,15 @@ export function insightsFromInvestigation(
   );
   const assessedAt = investigation.finishedAt ?? investigation.updatedAt;
 
-  // Achados: até 4 fatos e, depois, oportunidade, inferência e hipótese, nessa ordem, até 12,
-  // sem repetir claim.
+  // Achados: com tese, primeiro o que sustenta o ângulo principal (acontecimentos com fonte, não
+  // medições do site); depois até 4 fatos e oportunidade, inferência e hipótese, nessa ordem, até
+  // 12, sem repetir claim.
+  const thesis = thesisOf(investigation);
   const seen = new Set<string>();
   const findings: DiagnosisSummary['findings'] = [];
+  const thesisIds = thesis?.principal?.claimIds ?? [];
   const groups: ReadonlyArray<{ ids: readonly string[]; opportunity: boolean; max: number }> = [
+    { ids: thesisIds, opportunity: false, max: MAX_THESIS_FINDINGS },
     { ids: diagnosis.factClaimIds, opportunity: false, max: MAX_FACT_FINDINGS },
     { ids: diagnosis.opportunityClaimIds, opportunity: true, max: MAX_FINDINGS },
     { ids: diagnosis.inferenceClaimIds, opportunity: false, max: MAX_FINDINGS },
@@ -208,7 +219,54 @@ export function insightsFromInvestigation(
       }
     : null;
 
-  return { diagnosis: summary, recommendedService, qualification };
+  return { diagnosis: summary, recommendedService, qualification, thesis };
+}
+
+/** Tese da investigação como insumo (cópia do que a regra gravou; nada escrito pelo modelo). */
+function thesisOf(investigation: Investigation): ApproachThesis | null {
+  const thesis = investigation.diagnosis?.thesis;
+  if (!thesis) return null;
+  return {
+    investigationId: investigation.id,
+    recommendation: thesis.recommendation,
+    recommendationReason: thesis.recommendationReason,
+    principal: thesis.principal,
+    alternatives: thesis.alternatives,
+    doNotOffer: thesis.doNotOffer,
+    toConfirm: thesis.toConfirm,
+  };
+}
+
+/** Escolha padrão: o ângulo principal, quando a tese tem um; senão, sem tese. */
+export function defaultThesisChoice(thesis: ApproachThesis | null | undefined): ThesisChoice {
+  return thesis?.principal ? 'principal' : 'none';
+}
+
+/**
+ * Ângulo escolhido pela pessoa (Parte 5.1: a mensagem parte de uma tese aprovada). Sem escolha,
+ * vale o principal; uma alternativa que a tese não tem, ou "none", dá null (abordagem pelo dossiê).
+ */
+export function selectThesis(
+  thesis: ApproachThesis | null | undefined,
+  choice: ThesisChoice | undefined,
+): SelectedThesis | null {
+  if (!thesis) return null;
+  const picked: ThesisChoice = choice ?? defaultThesisChoice(thesis);
+  if (picked === 'none') return null;
+  const angle =
+    picked === 'principal'
+      ? thesis.principal
+      : (thesis.alternatives[picked === 'alternative_1' ? 0 : 1] ?? null);
+  if (!angle) return null;
+  return {
+    investigationId: thesis.investigationId,
+    choice: picked as ChosenThesisAngle,
+    recommendation: thesis.recommendation,
+    recommendationReason: thesis.recommendationReason,
+    angle,
+    doNotOffer: thesis.doNotOffer,
+    toConfirm: thesis.toConfirm,
+  };
 }
 
 /**
