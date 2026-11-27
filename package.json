@@ -19,6 +19,7 @@
     "format:check": "prettier --check .",
     "ai:live": "pnpm --filter @prospector/agents test:live",
     "evals": "pnpm --filter @prospector/agents evals",
+    "review:quality": "pnpm --filter @prospector/application review:quality",
     "app:install": "node scripts/app/instalar.mjs"
   },
   "devDependencies": {

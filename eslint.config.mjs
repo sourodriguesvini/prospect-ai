@@ -79,7 +79,11 @@ export default defineConfig(
   },
   {
     // Avaliações e testes contra o Ollama real imprimem o relatório no terminal.
-    files: ['packages/agents/evals/**', 'packages/agents/tests/live/**'],
+    files: [
+      'packages/agents/evals/**',
+      'packages/agents/tests/live/**',
+      'packages/application/evals/**',
+    ],
     rules: { 'no-console': 'off' },
   },
   {

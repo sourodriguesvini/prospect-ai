@@ -89,6 +89,19 @@ Construídos com **dados reais e públicos** de empresas, anotados pela equipe d
 
 Uma nova versão de prompt/modelo só é promovida se não regredir nenhum limiar e melhorar ao menos um, com resultados anexados a `prompt_versions.eval_summary`.
 
+### 4.3a Revisão humana da qualidade (Parte 8, 2026-11-27)
+
+A diretriz de 2026-11-26 pede doze avaliações e revisão humana, sem deixar o próprio modelo julgar o próprio trabalho. `pnpm review:quality` (sem GPU, sem banco, sem internet) grava em `packages/application/evals/review/results/` uma página HTML local com cada análise como ela aparece para quem decide (recomendação, resumo executivo, tese, "não oferecer", "a confirmar", fontes e, quando houver, a mensagem) e um formulário por item. A página não carrega nada de fora e baixa as respostas em JSON; `EVAL_ANSWERS=<respostas.json> EVAL_ITEMS=<itens.json> pnpm review:quality` apura e grava o relatório ao lado das respostas. Código: `packages/application/evals/review/quality-review.ts`; casos: `part8-cases.ts`; testes: `packages/application/tests/quality-review.test.ts`.
+
+| Métrica | Como é medida |
+|---|---|
+| Precisão factual, atualidade, qualidade das fontes, profundidade, relevância estratégica, compatibilidade comercial, qualidade dos decisores, adequação ao contexto | nota humana de 1 a 5 (ou "não se aplica") |
+| Naturalidade da mensagem, personalização | nota humana de 1 a 5, só em itens com mensagem; a comparação entre versões de mensagem continua na leitura às cegas do Relacionamento |
+| Tempo de resposta | medido: p50 e p95 do tempo gravado de cada análise (nos casos sintéticos, só a regra, sem busca) |
+| Taxa de falsos positivos | medida: recomendações de "abordar" que a pessoa marcou como erradas |
+
+Limiares propostos (iniciais): média ≥ 4 em cada métrica, no máximo 10% de notas 1 ou 2, concordância da recomendação ≥ 80% (mesmo limiar da qualificação acima). **Estado:** instrumento pronto e testado; nenhuma revisão humana feita ainda, e a página gerada traz só os casos SINTÉTICOS da Parte 8 (KI-231).
+
 ### 4.4 Avaliação online
 
 - Feedback explícito no produto (confirmar/contestar claims, concordar/discordar de recomendação, edições em mensagens).
