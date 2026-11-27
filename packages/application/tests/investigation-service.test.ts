@@ -1554,6 +1554,29 @@ describe('InvestigationService (ADR-0015)', () => {
     expect(actions).toContain('company.investigation.resumed');
   });
 
+  it('busca de sinais feita pelo método anterior (sem acontecimentos investigados) não é reaproveitada', async () => {
+    const company = await importCompany();
+    const svc = service();
+    const first = await run(svc, company.id);
+    expect(first.snapshot?.signalsMethod).toBe(2);
+    // Análise de antes do ADR-0019: o retrato não diz o método.
+    const { signalsMethod: _dropped, ...oldSnapshot } = first.snapshot!;
+    await investigations.update(first.id, { snapshot: oldSnapshot });
+    const searches = search.calls.length;
+
+    now = new Date(now.getTime() + 24 * 3600_000);
+    const second = await run(svc, company.id);
+    expect(state(second).signals).toBe('done');
+    expect(search.calls.length).toBeGreaterThan(searches);
+    expect(second.snapshot?.signalsMethod).toBe(2);
+
+    // Com o método atual gravado, a análise seguinte reaproveita a busca dentro dos 30 dias.
+    now = new Date(now.getTime() + 24 * 3600_000);
+    const third = await run(svc, company.id);
+    expect(state(third).signals).toBe('reused');
+    expect(third.snapshot?.signalsMethod).toBe(2);
+  });
+
   it('não retoma investigação concluída', async () => {
     const company = await importCompany();
     const svc = service();

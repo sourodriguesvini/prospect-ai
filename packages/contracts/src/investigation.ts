@@ -259,6 +259,12 @@ export const InvestigationSnapshot = z.object({
    */
   captures: z.array(CaptureRecord).max(16).optional(),
   signals: z.array(z.string().max(120)).max(10),
+  /**
+   * Método da busca de sinais que produziu `signals`: 2 = acontecimentos investigados (ADR-0019,
+   * matéria de origem lida). Ausente nas análises anteriores: a busca delas não é reaproveitada,
+   * senão o método novo só rodaria depois de 30 dias.
+   */
+  signalsMethod: z.number().int().min(1).max(99).optional(),
   competitors: z.array(z.string().max(253)).max(10),
   /**
    * Consultas da pesquisa de concorrentes desta investigação: com as mesmas consultas, uma

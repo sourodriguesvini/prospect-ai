@@ -1093,11 +1093,19 @@ function corroboration(event: BusinessEvent): string {
   return parts.filter(Boolean).join(' ');
 }
 
+/**
+ * Método atual da busca de sinais (ver `InvestigationSnapshot.signalsMethod`). Mudou a forma de
+ * investigar os acontecimentos: suba o número, para a busca da análise anterior não ser reaproveitada.
+ */
+export const SIGNALS_METHOD = 2;
+
 export async function stepSignals(run: Run): Promise<StepOutcome> {
   const web = run.deps.webResearch;
   if (!web) return { state: 'skipped', issue: 'search_unavailable' };
-  if (reusable(run, 'signals', REUSE_SEARCH_DAYS)) {
+  const sameMethod = run.previous?.snapshot?.signalsMethod === SIGNALS_METHOD;
+  if (sameMethod && reusable(run, 'signals', REUSE_SEARCH_DAYS)) {
     run.snapshot.signals = run.previous?.snapshot?.signals ?? [];
+    run.snapshot.signalsMethod = SIGNALS_METHOD;
     markSearched(run, 'signals', searchedAt(run, 'signals'));
     return { state: 'reused', counts: { found: run.snapshot.signals.length } };
   }
@@ -1252,6 +1260,7 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
     labels.push(label);
   }
   run.snapshot.signals = [...new Set(labels)].slice(0, 10);
+  run.snapshot.signalsMethod = SIGNALS_METHOD;
   if (claims.length === 0) return { state: 'done', counts: { found: 0 } };
   const accepted = await recordStep(run, {
     action: 'company.investigation.signals',
