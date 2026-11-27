@@ -307,7 +307,9 @@ export type ChosenThesisAngle = z.infer<typeof ChosenThesisAngle>;
 
 const ThesisCaveats = {
   doNotOffer: z
-    .array(z.object({ item: z.string().trim().min(1).max(160), reason: z.string().trim().max(300) }))
+    .array(
+      z.object({ item: z.string().trim().min(1).max(160), reason: z.string().trim().max(300) }),
+    )
     .max(8),
   toConfirm: z.array(z.string().trim().min(1).max(240)).max(10),
 };

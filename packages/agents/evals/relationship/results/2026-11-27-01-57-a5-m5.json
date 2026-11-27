@@ -37,46 +37,31 @@
   "summary": [
     {
       "model": "qwen3.5:4b",
-      "prompts": [
-        "relationship-approach/v5",
-        "relationship-message/v5"
-      ],
+      "prompts": ["relationship-approach/v5", "relationship-message/v5"],
       "approach": {
         "checks": 441,
         "passed": 423,
         "rate": 0.9591836734693877,
-        "wilson95": [
-          0.936,
-          0.974
-        ]
+        "wilson95": [0.936, 0.974]
       },
       "message": {
         "checks": 396,
         "passed": 382,
         "rate": 0.9646464646464646,
-        "wilson95": [
-          0.942,
-          0.979
-        ]
+        "wilson95": [0.942, 0.979]
       },
       "inSample": {
         "approach": {
           "checks": 387,
           "passed": 369,
           "rate": 0.9534883720930233,
-          "wilson95": [
-            0.928,
-            0.97
-          ]
+          "wilson95": [0.928, 0.97]
         },
         "message": {
           "checks": 318,
           "passed": 309,
           "rate": 0.9716981132075472,
-          "wilson95": [
-            0.947,
-            0.985
-          ]
+          "wilson95": [0.947, 0.985]
         }
       },
       "outOfSample": {
@@ -84,19 +69,13 @@
           "checks": 54,
           "passed": 54,
           "rate": 1,
-          "wilson95": [
-            0.934,
-            1
-          ]
+          "wilson95": [0.934, 1]
         },
         "message": {
           "checks": 78,
           "passed": 73,
           "rate": 0.9358974358974359,
-          "wilson95": [
-            0.859,
-            0.972
-          ]
+          "wilson95": [0.859, 0.972]
         }
       },
       "zeroFailures": [
@@ -428,21 +407,15 @@
             },
             {
               "statement": "Medição automática do contraste mostra que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "Saber se a empresa já está pensando em alinhar as peças de identidade visual entre os canais.",
@@ -473,21 +446,15 @@
             },
             {
               "statement": "Medição automática do contraste mostra que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "Saber se a empresa já está pensando em alinhar as peças de identidade visual entre os canais.",
@@ -620,21 +587,15 @@
           "evidence": [
             {
               "statement": "A empresa está abrindo uma nova loja em Vila Aurora.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000003"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000003"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "Medição automática mostra que 6 de 41 amostras de texto no site ficam abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             }
           ],
           "nextStep": "Saber se a empresa já está pensando em alinhar as cores e textos entre o novo local e os canais atuais.",
@@ -765,21 +726,15 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "Medição automática do contraste mostra que seis de quarenta e uma amostras de texto ficaram abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "saber se a empresa já tem alguém cuidando da organização visual das lojas e canais",
@@ -894,9 +849,7 @@
           "evidence": [
             {
               "statement": "A empresa opera três lojas em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "As cores e logotipos variam entre o site e as redes sociais.",
@@ -904,10 +857,7 @@
             }
           ],
           "nextStep": "confirmar com quem decide sobre a marca",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [
             "Não saber quem é o decisor pode levar ao contato com a pessoa errada.",
             "A empresa pode já ter um projeto em andamento sem que se saiba.",
@@ -1027,15 +977,11 @@
           "evidence": [
             {
               "statement": "A empresa anunciou uma rodada Série D de R$ 100 milhões para expandir a conta digital em março de 2026.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site mostra hoje a conta digital, a maquininha e o pagamento por link como itens distintos.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             }
           ],
           "nextStep": "Saber quem cuida da marca depois do investimento.",
@@ -1194,15 +1140,11 @@
           "evidence": [
             {
               "statement": "A empresa anunciou que refaz a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "Vocês trabalham com móveis de madeira sob medida e têm showroom em Joinville.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000722"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000722"]
             }
           ],
           "nextStep": "saber se faz sentido conversar sobre como organizar a marca para o lançamento",
@@ -1226,15 +1168,11 @@
           "evidence": [
             {
               "statement": "A empresa está buscando um estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "O site apresenta móveis de madeira sob medida, com showroom em Joinville.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000722"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000722"]
             }
           ],
           "nextStep": "saber se a empresa já tem um estúdio no mercado ou se está começando do zero",
@@ -1375,9 +1313,7 @@
           "evidence": [
             {
               "statement": "A medição automática mostrou que 6 de 41 amostras de texto ficam com pouco contraste.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             }
           ],
           "nextStep": "Saber quem cuida do site hoje e se há interesse em revisar a legibilidade.",
@@ -1516,15 +1452,11 @@
           "evidence": [
             {
               "statement": "O site ainda apresenta o logotipo antigo em 9 de 30 páginas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             },
             {
               "statement": "A clínica tem unidades em Savassi e Pampulha.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000021"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000021"]
             }
           ],
           "nextStep": "Perguntar se a clínica já está planejando como unificar a marca nas novas unidades.",
@@ -2498,9 +2430,7 @@
           "evidence": [
             {
               "statement": "A PetVila Sintética opera três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "Saber se a empresa já tem um plano de identidade visual para a nova loja ou precisa organizar as peças atuais.",
@@ -2635,9 +2565,7 @@
             },
             {
               "statement": "Estão preparando a abertura de uma nova loja no bairro Vila Aurora.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000003"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000003"]
             }
           ],
           "nextStep": "confirmar com quem cuida da marca ou comunicação",
@@ -2664,15 +2592,11 @@
           "evidence": [
             {
               "statement": "A empresa está abrindo uma nova loja no bairro Vila Aurora.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000003"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000003"]
             },
             {
               "statement": "As cores do logotipo no site diferem das usadas nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "Perguntar se já estão definindo a identidade visual para a nova unidade ou se precisam alinhar tudo antes de abrir.",
@@ -2810,15 +2734,11 @@
           "evidence": [
             {
               "statement": "A medição automática do site mostra que 6 de 41 amostras de texto têm contraste abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "saber se a empresa já está verificando o contraste das cores da marca",
@@ -2940,16 +2860,11 @@
             },
             {
               "statement": "O negócio está ativo há mais de uma década.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "Quem cuida da identidade visual da marca?",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [],
           "caseIds": []
         }
@@ -3065,15 +2980,11 @@
           "evidence": [
             {
               "statement": "A Veloz Pagamentos Sintética anunciou uma rodada Série D de R$ 100 milhões para expandir a conta digital.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site atual mostra a conta digital, a maquininha e o pagamento por link separadamente.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             }
           ],
           "nextStep": "Quem cuida da marca agora que houve essa expansão?",
@@ -3232,15 +3143,11 @@
           "evidence": [
             {
               "statement": "A empresa está ativamente procurando um estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "O negócio foca em móveis de madeira sob medida e já possui showroom em Joinville.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000722"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000722"]
             }
           ],
           "nextStep": "saber se faz sentido conversar sobre o alinhamento da nova linha",
@@ -3371,15 +3278,11 @@
           "evidence": [
             {
               "statement": "Medições automáticas mostram parte dos textos do site com pouco contraste.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             }
           ],
           "nextStep": "Responder se alguém cuida da marca hoje",
-          "gaps": [
-            "Quem cuida do site hoje."
-          ],
+          "gaps": ["Quem cuida do site hoje."],
           "risks": [],
           "caseIds": []
         }
@@ -3518,15 +3421,11 @@
             },
             {
               "statement": "Apenas 9 das 30 páginas do site ainda usam o logotipo antigo.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             },
             {
               "statement": "A clínica tem uma terceira unidade anunciada no bairro Buritis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000023"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000023"]
             }
           ],
           "nextStep": "Saber se a clínica já está aplicando o novo logotipo nas unidades existentes e na nova de Buritis.",
@@ -3560,15 +3459,11 @@
             },
             {
               "statement": "Apenas 9 das 30 páginas do site ainda usam o logotipo antigo.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             },
             {
               "statement": "A clínica tem uma terceira unidade anunciada no bairro Buritis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000023"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000023"]
             }
           ],
           "nextStep": "Saber se a clínica já está aplicando o novo logotipo nas unidades existentes e na nova de Buritis.",
@@ -4022,9 +3917,7 @@
       "corrections": [
         "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\no trecho «Vi que estão abrindo uma loja em Vila Aurora e notei que o laranja do logotipo no site parece diferente dos posts recen…» diz que «Vila Aurora» foi visto no site, e nenhuma evidência de lá traz isso. Deixe o que a evidência mostra numa frase e ponha «Vila Aurora» noutra frase, sem dizer onde foi visto.\nno primeiro contato, a primeira frase depois da saudação diz quem escreve, com o nome «[nome da agência]», e por que está escrevendo.\nResponda de novo o JSON inteiro, com o resto igual."
       ],
-      "unresolved": [
-        "Confira \"Agência\": não está nas evidências nem no pedido."
-      ],
+      "unresolved": ["Confira \"Agência\": não está nas evidências nem no pedido."],
       "checks": [
         {
           "name": "usa o marcador [nome da agência]",
@@ -4572,27 +4465,19 @@
           "evidence": [
             {
               "statement": "A PetVila Sintética está ativa desde 2014 com sede em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "O site da empresa lista três lojas no Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A medição automática do contraste no site mostrou que seis de quarenta e uma amostras de texto ficaram abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "saber se a PetVila já está organizando a identidade visual para as lojas",
@@ -4631,21 +4516,15 @@
             },
             {
               "statement": "Medição automática do contraste revela que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa está ativa desde 2014, com sede em Curitiba (PR).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "Gostaria de saber se a PetVila já está organizando as peças da marca para todas as lojas.",
@@ -4780,21 +4659,15 @@
           "evidence": [
             {
               "statement": "A empresa tem três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "Está abrindo uma nova loja no bairro Vila Aurora.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000003"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000003"]
             },
             {
               "statement": "As cores do logotipo variam entre o site e os posts recentes nas redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "saber se a empresa já tem um guia de marca ou se precisa organizar as peças visuais para a nova loja",
@@ -4818,21 +4691,15 @@
           "evidence": [
             {
               "statement": "A empresa prepara a abertura de uma loja no bairro Vila Aurora.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000003"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000003"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "Medição automática do contraste: 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             }
           ],
           "nextStep": "saber se a empresa já tem um plano para alinhar a marca nas novas lojas e canais.",
@@ -4970,15 +4837,11 @@
           "evidence": [
             {
               "statement": "No site da PetVila Sintética, 6 de 41 amostras de texto têm contraste abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site parece diferente do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "saber se a empresa já tem um plano para padronizar as cores e melhorar a legibilidade",
@@ -5099,15 +4962,11 @@
           "evidence": [
             {
               "statement": "A empresa opera com três lojas físicas em Curitiba desde 2014.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "O site mostra cores e logotipos diferentes entre as redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "Entender quem cuida da marca hoje e se há interesse em alinhar a identidade visual entre os canais.",
@@ -5134,15 +4993,11 @@
           "evidence": [
             {
               "statement": "A empresa opera com três lojas físicas em Curitiba desde 2014.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "O site mostra cores e logotipos diferentes entre as redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "Entender quem cuida da marca hoje e se há interesse em alinhar a identidade visual entre os canais.",
@@ -5271,15 +5126,11 @@
           "evidence": [
             {
               "statement": "A empresa anunciou uma rodada Série D de R$ 100 milhões, liderada pelo Fundo Horizonte Sintético, para expandir a conta digital para pequenas empresas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site da empresa apresenta a conta digital, a maquininha e o pagamento por link para pequenos negócios.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             }
           ],
           "nextStep": "Quem cuida da marca ou da comunicação agora na Veloz Pagamentos Sintética?",
@@ -5438,15 +5289,11 @@
           "evidence": [
             {
               "statement": "A empresa publicou no site que procura um estúdio para refazer a identidade visual.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "O negócio é de móveis sob medida com showroom em Joinville.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000722"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000722"]
             }
           ],
           "nextStep": "confirmar se faz sentido conversar sobre a nova linha",
@@ -5577,9 +5424,7 @@
           "evidence": [
             {
               "statement": "Medição automática detectou 6 de 41 amostras de texto com contraste abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             }
           ],
           "nextStep": "Verificar se há alguém responsável pelo site para discutir a melhoria da legibilidade.",
@@ -5721,15 +5566,11 @@
           "evidence": [
             {
               "statement": "O site apresenta duas unidades em Belo Horizonte: Savassi e Pampulha.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000021"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000021"]
             },
             {
               "statement": "9 de 30 páginas do site ainda usam o logotipo antigo da clínica.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             }
           ],
           "nextStep": "saber se a empresa já tem um plano para unificar os logotipos nas novas unidades",

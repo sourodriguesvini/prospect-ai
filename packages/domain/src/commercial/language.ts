@@ -46,7 +46,8 @@ const FORMAL_MARKERS: readonly RegExp[] = [
 ];
 
 const SECOND_PERSON = /\b(?:voces?|vc|seu|sua|seus|suas)\b/g;
-const THIRD_PERSON = /\b(?:nossos clientes|nossas clientes|os clientes|o cliente|a empresa|nossa empresa)\b/g;
+const THIRD_PERSON =
+  /\b(?:nossos clientes|nossas clientes|os clientes|o cliente|a empresa|nossa empresa)\b/g;
 
 /** Palavras comuns que não dizem nada sobre como a empresa escreve. */
 const STOPWORDS = new Set(
@@ -149,9 +150,7 @@ function addressOf(folded: string): LanguageAddress {
  * na forma escrita pela empresa (com acento), sem as palavras do nome da empresa.
  */
 function recurringTerms(samples: readonly string[], companyName: string): string[] {
-  const nameWords = new Set(
-    (companyName.match(WORD) ?? []).map((word) => fold(word)),
-  );
+  const nameWords = new Set((companyName.match(WORD) ?? []).map((word) => fold(word)));
   const seen = new Map<string, { shown: string; samples: number; total: number }>();
   for (const sample of samples) {
     const inThis = new Set<string>();

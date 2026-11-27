@@ -37,27 +37,18 @@
   "summary": [
     {
       "model": "qwen3.5:4b",
-      "prompts": [
-        "relationship-approach/v3",
-        "relationship-message/v3"
-      ],
+      "prompts": ["relationship-approach/v3", "relationship-message/v3"],
       "approach": {
         "checks": 387,
         "passed": 343,
         "rate": 0.8863049095607235,
-        "wilson95": [
-          0.851,
-          0.914
-        ]
+        "wilson95": [0.851, 0.914]
       },
       "message": {
         "checks": 318,
         "passed": 302,
         "rate": 0.949685534591195,
-        "wilson95": [
-          0.92,
-          0.969
-        ]
+        "wilson95": [0.92, 0.969]
       },
       "zeroFailures": [
         "pedido-sem-fonte#1: sem experiência, especialidade ou clientes inventados da agência",
@@ -341,21 +332,15 @@
           "evidence": [
             {
               "statement": "O site da empresa lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "Medição automática do contraste no site mostrou que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "agendar conversa",
@@ -483,15 +468,11 @@
           "evidence": [
             {
               "statement": "Três lojas físicas já operam em Curitiba (Centro, Água Verde e Jardim Botânico).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "O laranja do logotipo no site difere do usado nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "agendar uma conversa de 20 minutos",
@@ -622,15 +603,11 @@
           "evidence": [
             {
               "statement": "O site apresenta falhas de contraste em 6 de 41 amostras de texto, ficando abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores do logotipo no site diferem das usadas nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -654,15 +631,11 @@
           "evidence": [
             {
               "statement": "No site da empresa, 6 de 41 amostras de texto apresentam contraste abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores do logotipo no site diferem das utilizadas nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "agendar uma conversa de 20 minutos",
@@ -781,22 +754,15 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa é ativa desde 2014 com sede em Curitiba (PR).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [],
           "caseIds": []
         }
@@ -912,21 +878,15 @@
           "evidence": [
             {
               "statement": "O site apresenta a conta digital, a maquininha e o pagamento por link como produtos distintos.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             },
             {
               "statement": "Medição automática do contraste identificou 6 de 41 amostras de texto com contraste abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000703"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000703"]
             },
             {
               "statement": "A empresa anunciou uma rodada Série D de R$ 100 milhões para expandir a conta digital para pequenas empresas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -1082,9 +1042,7 @@
           "evidence": [
             {
               "statement": "A Casa Aurora Móveis Sintética busca um estúdio para refazer sua identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "O site da empresa mostra cores e logotipos diferentes entre o canal do site e as redes sociais.",
@@ -1219,27 +1177,19 @@
           "evidence": [
             {
               "statement": "6 de 41 amostras de texto no site ficaram abaixo do mínimo recomendado de contraste (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site difere do laranja usado em posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa opera três lojas físicas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "O site da PetVila Sintética lista as unidades comerciais em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -1516,9 +1466,7 @@
       "corrections": [
         "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\no trecho «Vi no site de vocês as três lojas em Curitiba e a preparação para abrir uma unidade na Vila Aurora.» diz que «Vila Aurora» foi visto no site, e nenhuma evidência de lá traz isso. Deixe o que a evidência mostra numa frase e ponha «Vila Aurora» noutra frase, sem dizer onde foi visto.\nResponda de novo o JSON inteiro, com o resto igual."
       ],
-      "unresolved": [
-        "Confira \"6 41\": não estava na versão anterior nem no pedido."
-      ],
+      "unresolved": ["Confira \"6 41\": não estava na versão anterior nem no pedido."],
       "checks": [
         {
           "name": "acrescenta a loja nova pedida",
@@ -2079,27 +2027,19 @@
           "evidence": [
             {
               "statement": "O site da empresa lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "Medição automática do contraste no site mostra que seis de quarenta e uma amostras de texto estão abaixo do padrão recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "O laranja do logotipo no site parece diferente do tom usado nos posts recentes das redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de vinte minutos",
@@ -2123,21 +2063,15 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "Medição automática do contraste revela que 6 de 41 amostras de texto no site estão abaixo do mínimo recomendado de acessibilidade.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A cor laranja do logotipo no site difere da usada nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -2266,15 +2200,11 @@
           "evidence": [
             {
               "statement": "6 das 41 amostras de texto do site não passam no contraste mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa opera em Curitiba desde 2014 e já prepara a abertura de uma loja no bairro Vila Aurora.",
@@ -2305,15 +2235,11 @@
           "evidence": [
             {
               "statement": "Cores e logotipos variam entre o site e as redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "6 de 41 amostras de texto não atendem aos padrões de acessibilidade recomendados.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A empresa opera com lojas em Curitiba e está preparando a abertura de uma nova unidade.",
@@ -2456,21 +2382,15 @@
           "evidence": [
             {
               "statement": "O site apresenta 6 de 41 amostras de texto com contraste abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A marca está presente em três lojas físicas em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -2494,27 +2414,19 @@
           "evidence": [
             {
               "statement": "O site da empresa possui 6 de 41 amostras de texto com contraste abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores do logotipo no site diferem das utilizadas nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa opera com três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "O cadastro público confirma que a empresa está ativa desde 2014.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -2633,15 +2545,11 @@
           "evidence": [
             {
               "statement": "O site da empresa lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba (PR).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "As cores e logotipos aparecem de forma diferente entre o site e as redes sociais.",
@@ -2649,10 +2557,7 @@
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [],
           "caseIds": []
         }
@@ -2768,21 +2673,15 @@
           "evidence": [
             {
               "statement": "A empresa anunciou uma rodada Série D de R$ 100 milhões para expandir sua conta digital em março de 2026.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site apresenta a conta digital, a maquininha e o pagamento por link para pequenos negócios.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             },
             {
               "statement": "Medição automática do contraste mostrou que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000703"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000703"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -2806,21 +2705,15 @@
           "evidence": [
             {
               "statement": "A empresa anunciou uma rodada de R$ 100 milhões para expandir sua conta digital.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site apresenta a conta digital, a maquininha e o pagamento por link para pequenos negócios.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             },
             {
               "statement": "Medição automática do contraste revelou que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000703"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000703"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos para alinhar como podemos ajudar a organizar a marca e garantir que os produtos se apresentem com clareza.",
@@ -2982,15 +2875,11 @@
           "evidence": [
             {
               "statement": "A empresa publicou que procura um estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "O site apresenta móveis de madeira sob medida, com showroom em Joinville.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000722"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000722"]
             }
           ],
           "nextStep": "agendar uma conversa",
@@ -3121,21 +3010,15 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "Medição automática do contraste mostra que seis de quarenta e uma amostras de texto ficaram abaixo do mínimo recomendado para acessibilidade.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de vinte minutos",
@@ -3946,21 +3829,15 @@
           "evidence": [
             {
               "statement": "O laranja do logotipo no site é diferente do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "Medição automática mostrou que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado para acessibilidade.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "agendar conversa de 20 minutos",
@@ -3987,21 +3864,15 @@
           "evidence": [
             {
               "statement": "O laranja do logotipo no site é diferente do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "Medição automática mostrou que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado para acessibilidade.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "agendar conversa de 20 minutos",
@@ -4016,9 +3887,7 @@
       "corrections": [
         "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\no PEDIDO manda citar «Vila Aurora», e a resposta não traz. Acrescente isso numa frase própria; a fonte, só se uma evidência a trouxer.\nno primeiro contato, a primeira frase depois da saudação diz quem escreve, com o nome «Estúdio Faro», e por que está escrevendo.\nResponda de novo o JSON inteiro, com o resto igual."
       ],
-      "unresolved": [
-        "O pedido mandava citar \"Vila Aurora\", e o texto não traz."
-      ],
+      "unresolved": ["O pedido mandava citar \"Vila Aurora\", e o texto não traz."],
       "checks": [
         {
           "name": "nenhum ponto da estratégia apoia a loja do pedido em evidência",
@@ -4135,21 +4004,15 @@
           "evidence": [
             {
               "statement": "O site apresenta 6 de 41 amostras de texto com contraste abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores do logotipo no site diferem das usadas nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa está preparando a abertura de uma nova loja no bairro Vila Aurora.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000003"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000003"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -4280,27 +4143,19 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba (PR).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "O site mostra que 6 de 41 amostras de texto ficam abaixo do contraste recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores do laranja no site diferem das usadas em posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -4324,15 +4179,11 @@
           "evidence": [
             {
               "statement": "O site apresenta 6 de 41 amostras de texto com contraste abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A cor laranja do logotipo no site difere da usada nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "Uma conversa de 20 minutos para alinhar a identidade visual e garantir consistência entre lojas, site e redes sociais.",
@@ -4451,22 +4302,15 @@
           "evidence": [
             {
               "statement": "A empresa opera com três lojas físicas em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa foi fundada em 2014.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "Uma conversa de 20 minutos para alinhar a identidade visual com as lojas físicas e o site.",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [],
           "caseIds": []
         }
@@ -4582,21 +4426,15 @@
           "evidence": [
             {
               "statement": "O site apresenta problemas de acessibilidade em 6 de 41 amostras de texto.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000703"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000703"]
             },
             {
               "statement": "A empresa anunciou uma rodada de R$ 100 milhões para expandir a conta digital.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site apresenta a conta digital, a maquininha e o pagamento por link para pequenos negócios.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -4620,21 +4458,15 @@
           "evidence": [
             {
               "statement": "A empresa anunciou uma rodada Série D de R$ 100 milhões para expandir sua conta digital para pequenas empresas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site apresenta a conta digital, a maquininha e o pagamento por link para pequenos negócios.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             },
             {
               "statement": "Medição automática do contraste mostrou que seis de quarenta e uma amostras de texto ficaram abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000703"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000703"]
             }
           ],
           "nextStep": "uma conversa de vinte minutos",
@@ -4920,21 +4752,15 @@
           "evidence": [
             {
               "statement": "O laranja do logotipo no site difere do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "Medição automática mostrou que seis de quarenta e uma amostras de texto ficaram abaixo do mínimo recomendado de contraste.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "uma conversa de vinte minutos",
@@ -4958,15 +4784,11 @@
           "evidence": [
             {
               "statement": "O site apresenta problemas de acessibilidade com 6 de 41 amostras de texto abaixo do padrão recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A cor do logotipo no site difere da usada nas redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa opera três lojas físicas em Curitiba além do seu site.",

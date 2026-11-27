@@ -949,7 +949,9 @@ export function createRelationshipService(deps: {
     // investigação nova, a mensagem segue a estratégia gravada, sem trocar de ângulo sozinha.
     const approved = plan?.content.thesisBasis;
     const thesis =
-      deps.ai.thesisAware && approved && insights.thesis?.investigationId === approved.investigationId
+      deps.ai.thesisAware &&
+      approved &&
+      insights.thesis?.investigationId === approved.investigationId
         ? selectThesis(insights.thesis, approved.choice)
         : null;
     const context = aiContext(args.dossier, insights, offer, snapshot, thesis);

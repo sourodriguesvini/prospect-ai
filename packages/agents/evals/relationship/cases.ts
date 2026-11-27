@@ -1222,7 +1222,8 @@ const noBudgetTalk: Check<MessageDraftText> = {
   zeroTolerance: true,
   pass: (draft) => !BUDGET.test(plain(draftText(draft))),
 };
-const SITE_MEASURE = /\b(contraste|wcag|acessibilidade|legibilidade|amostras?|desempenho|6 de 41)\b/;
+const SITE_MEASURE =
+  /\b(contraste|wcag|acessibilidade|legibilidade|amostras?|desempenho|6 de 41)\b/;
 const noSiteMeasure: Check<MessageDraftText> = {
   name: 'não fala de medição do site (contraste, acessibilidade, desempenho)',
   pass: (draft) => !SITE_MEASURE.test(plain(draftText(draft))),
@@ -1276,7 +1277,8 @@ const S_ANGLE: ThesisAngle = {
   problemId: 'site-readability',
   solutionId: null,
   title: 'Leitura de parte dos textos do site',
-  context: 'Medição automática do contraste: 6 de 41 amostras de texto abaixo do mínimo recomendado.',
+  context:
+    'Medição automática do contraste: 6 de 41 amostras de texto abaixo do mínimo recomendado.',
   problem: 'Hipótese a confirmar: parte dos textos do site pode ser difícil de ler.',
   offer: ['Revisão do site'],
   why: 'A medição mostra uma parte dos textos com pouco contraste. Sustentado por: medições do site.',

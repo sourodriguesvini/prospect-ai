@@ -558,7 +558,9 @@ describe('RelationshipService (ADR-0014)', () => {
         recommendation: 'approach',
         recommendationReason: 'Há sinal com fonte e ângulo claro.',
         principal: angle('Ângulo principal sintético', claimId, 'principal-sintetico'),
-        alternatives: [angle('Ângulo alternativo sintético', otherClaimId, 'alternativo-sintetico')],
+        alternatives: [
+          angle('Ângulo alternativo sintético', otherClaimId, 'alternativo-sintetico'),
+        ],
         dimensions: [],
         doNotOffer: [{ item: 'Site novo', reason: 'Sem sinal de site.' }],
         toConfirm: ['Quem decide.'],

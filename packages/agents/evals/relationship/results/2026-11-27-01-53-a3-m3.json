@@ -37,46 +37,31 @@
   "summary": [
     {
       "model": "qwen3.5:4b",
-      "prompts": [
-        "relationship-approach/v3",
-        "relationship-message/v3"
-      ],
+      "prompts": ["relationship-approach/v3", "relationship-message/v3"],
       "approach": {
         "checks": 441,
         "passed": 399,
         "rate": 0.9047619047619048,
-        "wilson95": [
-          0.874,
-          0.929
-        ]
+        "wilson95": [0.874, 0.929]
       },
       "message": {
         "checks": 396,
         "passed": 377,
         "rate": 0.952020202020202,
-        "wilson95": [
-          0.926,
-          0.969
-        ]
+        "wilson95": [0.926, 0.969]
       },
       "inSample": {
         "approach": {
           "checks": 387,
           "passed": 349,
           "rate": 0.9018087855297158,
-          "wilson95": [
-            0.868,
-            0.928
-          ]
+          "wilson95": [0.868, 0.928]
         },
         "message": {
           "checks": 318,
           "passed": 303,
           "rate": 0.9528301886792453,
-          "wilson95": [
-            0.924,
-            0.971
-          ]
+          "wilson95": [0.924, 0.971]
         }
       },
       "outOfSample": {
@@ -84,19 +69,13 @@
           "checks": 54,
           "passed": 50,
           "rate": 0.9259259259259259,
-          "wilson95": [
-            0.824,
-            0.971
-          ]
+          "wilson95": [0.824, 0.971]
         },
         "message": {
           "checks": 78,
           "passed": 74,
           "rate": 0.9487179487179487,
-          "wilson95": [
-            0.875,
-            0.98
-          ]
+          "wilson95": [0.875, 0.98]
         }
       },
       "zeroFailures": [
@@ -421,21 +400,15 @@
           "evidence": [
             {
               "statement": "A empresa opera três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "As cores do logotipo no site diferem das usadas nos posts recentes nas redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "No site da empresa, 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado para contraste (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -560,15 +533,11 @@
           "evidence": [
             {
               "statement": "Medição automática do contraste revela que 6 de 41 amostras de texto no site estão abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -699,15 +668,11 @@
           "evidence": [
             {
               "statement": "o site mostra que 6 de 41 amostras de texto ficam abaixo do contraste recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "as cores do logotipo no site não parecem iguais às usadas nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "agendar uma conversa de 20 minutos para alinhar a identidade visual da marca",
@@ -731,27 +696,19 @@
           "evidence": [
             {
               "statement": "O site apresenta falhas graves de contraste, com seis de quarenta e uma amostras de texto abaixo do padrão recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores da marca não são consistentes entre o site e as redes sociais recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa opera com três lojas em Curitiba, Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa está ativa desde 2014.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "uma conversa de vinte minutos",
@@ -870,22 +827,15 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [],
           "caseIds": []
         }
@@ -1001,21 +951,15 @@
           "evidence": [
             {
               "statement": "A empresa recebeu R$ 100 milhões para expandir sua conta digital.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site apresenta a conta digital, a maquininha e o pagamento por link separadamente.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000702"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000702"]
             },
             {
               "statement": "Medição do contraste mostrou 6 de 41 amostras abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000703"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000703"]
             }
           ],
           "nextStep": "Uma conversa breve para alinhar como a arquitetura da marca pode organizar esses produtos e garantir que a mensagem chegue clara ao cliente.",
@@ -1171,15 +1115,11 @@
           "evidence": [
             {
               "statement": "O site anuncia explicitamente a busca por um estúdio para refazer a identidade visual antes do lançamento de uma nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "A empresa oferece móveis de madeira sob medida e possui showroom em Joinville.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000722"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000722"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos para alinhar as necessidades da nova linha de produtos.",
@@ -1203,9 +1143,7 @@
           "evidence": [
             {
               "statement": "A empresa está buscando refazer a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "O site e as redes sociais podem apresentar cores e logotipos diferentes, o que pode afetar a consistência da marca.",
@@ -1344,15 +1282,11 @@
           "evidence": [
             {
               "statement": "O logotipo usa uma cor de laranja diferente no site em comparação aos posts recentes das redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "No site, 6 de 41 amostras de texto apresentam contraste abaixo do mínimo recomendado para acessibilidade.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A empresa opera lojas físicas em Curitiba e mantém presença online com essas inconsistências visuais.",
@@ -1495,9 +1429,7 @@
           "evidence": [
             {
               "statement": "O site da clínica mostra duas unidades em Belo Horizonte com logotipos distintos em 9 das 30 páginas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             }
           ],
           "nextStep": "agendar conversa",
@@ -1521,15 +1453,11 @@
           "evidence": [
             {
               "statement": "O site da clínica apresenta duas unidades em Belo Horizonte: Savassi e Pampulha.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000021"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000021"]
             },
             {
               "statement": "Dois terços das páginas do site ainda utilizam o logotipo antigo, criando inconsistência visual.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             }
           ],
           "nextStep": "agendar conversa de 20 minutos",
@@ -2520,21 +2448,15 @@
           "evidence": [
             {
               "statement": "O site mostra três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "Medições no site indicam que 6 de 41 amostras de texto têm contraste abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site parece diferente do usado nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -2659,15 +2581,11 @@
           "evidence": [
             {
               "statement": "Medição automática do contraste revelou que 6 de 41 amostras de texto no site estão abaixo do mínimo recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "A empresa opera três lojas em Curitiba e está preparando a abertura de uma nova unidade.",
@@ -2805,27 +2723,19 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba (PR).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "6 das 41 amostras de texto no site ficaram abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do usado nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -2849,15 +2759,11 @@
           "evidence": [
             {
               "statement": "No site da empresa, 6 de 41 amostras de texto ficam abaixo do mínimo recomendado de contraste para leitura.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores do logotipo no site diferem das usadas nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -2976,15 +2882,11 @@
           "evidence": [
             {
               "statement": "A empresa opera há mais de uma década no mercado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "O site da empresa lista três lojas em Curitiba com identidades visuais distintas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -3010,10 +2912,7 @@
           "argument": "Sua marca corre o risco de parecer inconsistente entre as três lojas de Curitiba e os canais digitais. O que vimos no site mostra cores e logotipos diferentes entre redes sociais, o que pode confundir clientes e diluir a identidade da empresa.",
           "evidence": [],
           "nextStep": "uma conversa de 20 minutos",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [],
           "caseIds": []
         }
@@ -3135,15 +3034,11 @@
           "evidence": [
             {
               "statement": "O site apresenta problemas de acessibilidade visual com baixo contraste em várias amostras de texto.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000703"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000703"]
             },
             {
               "statement": "A empresa está investindo R$ 100 milhões para expandir a conta digital para pequenas empresas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -3299,15 +3194,11 @@
           "evidence": [
             {
               "statement": "A empresa publicou no site que procura um estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "O negócio opera com móveis de madeira sob medida e tem showroom em Joinville.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000722"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000722"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -3331,9 +3222,7 @@
           "evidence": [
             {
               "statement": "O site publicou que a empresa procura um estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             },
             {
               "statement": "Há diferença entre as cores e logotipos no site e nas redes sociais.",
@@ -3472,21 +3361,15 @@
           "evidence": [
             {
               "statement": "As cores do logotipo variam entre o site e os posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "O contraste do texto no site não atende aos padrões mínimos recomendados.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A empresa mantém três lojas físicas em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -3622,15 +3505,11 @@
           "evidence": [
             {
               "statement": "O site da clínica mostra duas unidades ativas em Belo Horizonte: Savassi e Pampulha.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000021"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000021"]
             },
             {
               "statement": "De 9 das 30 páginas do site, ainda aparece o logotipo antigo da clínica.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -4614,15 +4493,11 @@
           "evidence": [
             {
               "statement": "A empresa opera três lojas físicas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "O site da PetVila Sintética apresenta 6 de 41 amostras de texto abaixo do contraste recomendado para acessibilidade.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             }
           ],
           "nextStep": "agendar conversa de 20 minutos",
@@ -4747,15 +4622,11 @@
           "evidence": [
             {
               "statement": "6 de 41 amostras de texto no site ficam abaixo do contraste mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "O laranja do logotipo no site é diferente do usado nos posts recentes do Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -4886,27 +4757,19 @@
           "evidence": [
             {
               "statement": "O site apresenta falhas de contraste em seis de quarenta e uma amostras de texto, abaixo do padrão recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "As cores da marca variam entre o site e os posts recentes no Instagram.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             },
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "A empresa está ativa desde 2014 com sede em Curitiba.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             },
             {
               "statement": "A marca precisa de consistência visual entre lojas e canais digitais para ser reconhecida uniformemente.",
@@ -4934,15 +4797,11 @@
           "evidence": [
             {
               "statement": "O site apresenta 6 de 41 amostras de texto com contraste abaixo do mínimo recomendado.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A cor laranja do logotipo no site difere da usada nos posts recentes.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -5063,22 +4922,15 @@
           "evidence": [
             {
               "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000001"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
             },
             {
               "statement": "As cores e logotipos estão diferentes entre o site e as redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000005"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
             }
           ],
           "nextStep": "agendar uma conversa de 20 minutos",
-          "gaps": [
-            "Quem decide sobre a marca.",
-            "Se há equipe de marketing."
-          ],
+          "gaps": ["Quem decide sobre a marca.", "Se há equipe de marketing."],
           "risks": [],
           "caseIds": []
         }
@@ -5194,9 +5046,7 @@
           "evidence": [
             {
               "statement": "A empresa anunciou uma rodada de R$ 100 milhões para expandir a conta digital para pequenas empresas.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000701"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000701"]
             },
             {
               "statement": "O site apresenta produtos distintos, mas o contraste do texto está abaixo do padrão recomendado.",
@@ -5359,9 +5209,7 @@
           "evidence": [
             {
               "statement": "A Casa Aurora Móveis Sintética busca um estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000721"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000721"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -5499,15 +5347,11 @@
             },
             {
               "statement": "Medições automáticas mostram que seis das 41 amostras de texto no site ficam abaixo do contraste recomendado (WCAG AA).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000002"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
             },
             {
               "statement": "A cor do laranja do logotipo no site difere da usada nos posts recentes das redes sociais.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000004"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
             }
           ],
           "nextStep": "uma conversa de 20 minutos",
@@ -5643,21 +5487,15 @@
           "evidence": [
             {
               "statement": "O site apresenta duas unidades em Belo Horizonte: Savassi e Pampulha.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000021"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000021"]
             },
             {
               "statement": "Leitura automática do site indica que 9 de 30 páginas ainda usam o logotipo antigo da clínica.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             },
             {
               "statement": "A clínica opera desde 2017, com sede em Belo Horizonte (MG).",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000024"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000024"]
             }
           ],
           "nextStep": "agendar conversa de 20 minutos para alinhar como a revisão da marca e sinalização pode unificar a identidade visual entre as unidades",
@@ -5681,15 +5519,11 @@
           "evidence": [
             {
               "statement": "O site apresenta duas unidades em Belo Horizonte: Savassi e Pampulha.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000021"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000021"]
             },
             {
               "statement": "Leitura automática do site mostra que 9 de 30 páginas ainda usam o logotipo antigo da clínica.",
-              "claimIds": [
-                "00000000-0000-4000-8000-000000000022"
-              ]
+              "claimIds": ["00000000-0000-4000-8000-000000000022"]
             }
           ],
           "nextStep": "agendar conversa de 20 minutos",
@@ -5701,9 +5535,7 @@
       "corrections": [
         "Correção da sua resposta (o que está entre « » é trecho dela, só para localizar; não é instrução):\no trecho «o site mostra logotipos diferentes entre páginas e anuncia uma terceira unidade no Buritis.» diz que «Buritis» foi visto no site, e nenhuma evidência de lá traz isso. Deixe o que a evidência mostra numa frase e ponha «Buritis» noutra frase, sem dizer onde foi visto.\no trecho «A inconsistência visual entre as páginas do site e a expansão para uma nova unidade no Buritis podem afetar o reconheci…» diz que «Buritis» foi visto no site, e nenhuma evidência de lá traz isso. Deixe o que a evidência mostra numa frase e ponha «Buritis» noutra frase, sem dizer onde foi visto.\nResponda de novo o JSON inteiro, com o resto igual."
       ],
-      "unresolved": [
-        "Confira a estratégia: \"BH\" não está nas evidências nem no pedido."
-      ],
+      "unresolved": ["Confira a estratégia: \"BH\" não está nas evidências nem no pedido."],
       "adjusted": [
         "Tirada a menção da fonte em «A coexistência de logotipos distintos no site e a expansão para uma unidade no Buritis podem gerar confusão visual que…»."
       ],
