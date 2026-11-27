@@ -27,6 +27,10 @@ Dados
   dados-da-janela é o perfil do navegador interno da janela: cookies, armazenamento das páginas,
   cache, além do tamanho da janela e do zoom. Apagar essa pasta com o Prospector fechado só faz a
   janela voltar ao tamanho padrão.
+  As imagens das capturas de marca ficam na pasta ao lado desta, com o mesmo nome e "-dados" no
+  fim (ex.: D:\Prospector-dados\capturas), com o mesmo acesso restrito. Atualizar ou desinstalar
+  o programa não apaga essa pasta. Cada imagem fica 12 meses depois do último uso e depois é
+  apagada sozinha. O estado dela aparece em Configurações > Sistema.
 
 Atualizar depois de mudar o código
   Em C:\dev\prospector, rode:  pnpm app:install
@@ -42,5 +46,6 @@ Problemas
 Desinstalar
   Menu Iniciar > Prospector > "Desinstalar Prospector", ou Configurações > Aplicativos >
   Aplicativos instalados > Prospector. Remove esta pasta, os atalhos e o registro do programa;
-  os dados no Supabase e o código em C:\dev\prospector não são tocados. Se você fixou o
+  os dados no Supabase, as capturas na pasta "-dados" e o código em C:\dev\prospector não são
+  tocados. Se você fixou o
   Prospector na barra de tarefas, desafixe à mão (o Windows não deixa programas mexerem nisso).

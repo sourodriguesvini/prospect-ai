@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -150,6 +151,23 @@ describe('createBrandCapturer: proteções antes do navegador', () => {
     expect(browser.calls).toBe(0);
   });
 
+  it('tela anti-robô no lugar do site: acesso negado, sem abrir o navegador', async () => {
+    const browser = fakeBrowser();
+    const { capturer } = capturerWith(
+      {
+        'https://empresa.example.com/': html(
+          '<html><head><title>Just a moment...</title></head><body>Enable JavaScript and cookies to continue</body></html>',
+        ),
+      },
+      browser,
+    );
+    expect(await capturer.capture('https://empresa.example.com/', 'mobile')).toEqual({
+      ok: false,
+      failure: 'access_denied',
+    });
+    expect(browser.calls).toBe(0);
+  });
+
   it('medições fora do contrato não viram captura; navegador ausente tem motivo próprio', async () => {
     const { capturer } = capturerWith(
       { 'https://empresa.example.com/': html(PAGE) },
@@ -191,7 +209,55 @@ afterAll(async () => {
   await renderer.close();
 });
 
+describe.skipIf(!chromiumInstalled())('captura com rodapé e menu (Chromium real, sem rede)', () => {
+  it('repassa as partes pedidas (menu só no celular), com o hash de cada imagem', async () => {
+    const seen: unknown[] = [];
+    const spy: BrowserCapturer = {
+      capture: (main, options) => {
+        seen.push(options.extras ?? null);
+        return renderer.capture(main, options);
+      },
+    };
+    const { capturer } = capturerWith({ 'https://empresa.example.com/': html(PAGE) }, spy);
+    const plain = await capturer.capture('https://empresa.example.com/', 'desktop');
+    if (!plain.ok) throw new Error(`falhou: ${plain.failure}`);
+    expect(plain.capture.extras).toBeUndefined();
+    expect(plain.capture.missing).toBeUndefined();
+
+    for (const viewport of ['desktop', 'mobile'] as const) {
+      const result = await capturer.capture('https://empresa.example.com/', viewport, {
+        extras: { footer: true, menu: true },
+      });
+      if (!result.ok) throw new Error(`falhou: ${result.failure}`);
+      const parts = viewport === 'mobile' ? 2 : 1;
+      const extras = result.capture.extras ?? [];
+      const missing = result.capture.missing ?? [];
+      expect(extras.length + missing.length).toBe(parts);
+      for (const extra of extras) {
+        expect(extra.image.sha256).toBe(
+          createHash('sha256').update(extra.image.bytes).digest('hex'),
+        );
+        expect(extra.image.mime).toBe('image/jpeg');
+      }
+    }
+    expect(seen).toEqual([null, { footer: true, menu: false }, { footer: true, menu: true }]);
+  }, 90_000);
+});
+
 describe.skipIf(!chromiumInstalled())('captura com Chromium real (sem rede)', () => {
+  it('desafio que só aparece depois do script: acesso negado, nenhuma imagem', async () => {
+    const challenge = `<!doctype html><html><head><title>Loja Exemplo</title></head>
+<body><p>Aguarde</p><script>document.title = 'Client Challenge';</script></body></html>`;
+    const { capturer } = capturerWith(
+      { 'https://empresa.example.com/': html(challenge) },
+      renderer,
+    );
+    expect(await capturer.capture('https://empresa.example.com/', 'desktop')).toEqual({
+      ok: false,
+      failure: 'access_denied',
+    });
+  }, 40_000);
+
   it('computador: JPEG com altura limitada e medições da página', async () => {
     const { capturer } = capturerWith({ 'https://empresa.example.com/': html(PAGE) }, renderer);
     const result = await capturer.capture('https://empresa.example.com/', 'desktop');

@@ -278,6 +278,20 @@ describe('createPageReader', () => {
     });
   });
 
+  it('tela anti-robô no lugar do site: acesso negado, sem guardar nada', async () => {
+    const { pages } = reader({
+      'https://empresa.example.com/robots.txt': ROBOTS_OPEN,
+      'https://empresa.example.com/suporte': html(
+        '<html><head><title>Client Challenge</title></head><body><p>Carregando…</p></body></html>',
+      ),
+    });
+    expect(await pages.fetchPage('https://empresa.example.com/suporte')).toEqual({
+      ok: false,
+      failure: 'access_denied',
+      httpStatus: 200,
+    });
+  });
+
   it('PDF e imagem: conteúdo não suportado; texto puro é lido', async () => {
     const { pages } = reader({
       'https://empresa.example.com/robots.txt': ROBOTS_OPEN,

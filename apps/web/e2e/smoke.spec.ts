@@ -45,6 +45,8 @@ test.describe('telas (sem banco configurado)', () => {
     await expect(status).toHaveAttribute('data-status', 'not_configured');
     await expect(status).toContainText('Não configurado');
     await expect(status).toContainText('SUPABASE_URL');
+    // A pasta das capturas tem estado próprio (Parte 13.2): sem pasta de dados, pede ação.
+    await expect(page.locator('[data-capture-status]')).toContainText('Capturas de marca');
   });
 
   test('não há tela de login nem pedido de credenciais', async ({ page }) => {

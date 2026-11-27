@@ -1,4 +1,5 @@
 import type { AnalyzeProspectResult } from '@prospector/application';
+import { CAPTURE_FILE_PATTERN } from '@prospector/contracts';
 
 /** Endereços das telas de Empresas (M2). */
 const LIST = '/empresas';
@@ -87,7 +88,7 @@ export const companyRoutes = {
   capture: (companyId: string, storagePath: string): string | null => {
     const [owner, file, ...rest] = storagePath.split('/');
     if (owner !== companyId || !file || rest.length > 0) return null;
-    if (!/^[0-9a-f-]{36}-(desktop|mobile)\.jpg$/.test(file)) return null;
+    if (!CAPTURE_FILE_PATTERN.test(file)) return null;
     return `${LIST}/${encodeURIComponent(companyId)}/capturas/${file}`;
   },
 } as const;

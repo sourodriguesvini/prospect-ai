@@ -3,7 +3,9 @@
  *
  * 1. Prepara a pasta de instalação (padrão `D:\Prospector`, ou `PROSPECTOR_INSTALL_DIR`): só a sua
  *    conta, o sistema e os administradores têm acesso (ela guarda a chave do banco e programas que
- *    rodam com a sua conta), e grava os scripts de parada, desinstalação, atalhos e ícone.
+ *    rodam com a sua conta), e grava os scripts de parada, desinstalação, atalhos e ícone. Prepara
+ *    também a pasta de dados ao lado (`D:\Prospector-dados\capturas`), com o mesmo acesso, que
+ *    nenhuma atualização ou desinstalação apaga, e o registro dela para o `pnpm dev`.
  * 2. Gera o build autônomo do Next (`PROSPECTOR_STANDALONE=1`, ver apps/web/next.config.ts).
  * 3. Monta a janela nova (`programa.novo`, Electron) com apps/desktop: o Electron é baixado uma vez
  *    por versão para `<pasta>\cache` e conferido pelo SHA-256.
@@ -41,6 +43,7 @@ const desktop = join(raizRepo, 'apps', 'desktop');
 const scripts = join(raizRepo, 'scripts', 'app');
 const destino = resolve(process.env.PROSPECTOR_INSTALL_DIR ?? 'D:\\Prospector');
 const MARCA = '.prospector-instalacao';
+const MARCA_DOS_DADOS = '.prospector-dados';
 /** Marca de ordem de bytes do UTF-8: o Windows PowerShell 5.1 e o Bloco de Notas leem acentos com ela. */
 const BOM = String.fromCharCode(0xfeff);
 const SCRIPTS_PS = ['parar.ps1', 'desinstalar.ps1', 'criar-atalhos.ps1', 'criar-icone.ps1'];
@@ -251,6 +254,46 @@ function versaoDoCodigo() {
   return `${commit}${alterado}`;
 }
 
+/**
+ * Pasta de dados do usuário ao lado da instalação (`D:\Prospector-dados`, mesma regra de
+ * apps/desktop/src/config.ts `pastaDeDados`): hoje guarda as capturas de marca. Atualizar ou
+ * desinstalar o programa nunca a apaga (diretriz de 2026-11-26, Parte 13.2). Mesmo acesso restrito
+ * da instalação. Também grava `%LOCALAPPDATA%\Prospector\instalacao.json`, com o qual o `pnpm dev`
+ * acha a mesma pasta (os dois leem o mesmo banco).
+ */
+function prepararPastaDeDados() {
+  const dados = `${destino.replace(/[\\/]+$/, '')}-dados`;
+  if (
+    existsSync(dados) &&
+    !existsSync(join(dados, MARCA_DOS_DADOS)) &&
+    readdirSync(dados).length > 0
+  ) {
+    falhar(
+      `${dados} já existe e não é a pasta de dados do Prospector. Escolha outra pasta de instalação com PROSPECTOR_INSTALL_DIR.`,
+    );
+  }
+  mkdirSync(dados, { recursive: true });
+  restringirPasta(dados);
+  // Depois da restrição: a subpasta herda o acesso da pasta de dados.
+  mkdirSync(join(dados, 'capturas'), { recursive: true });
+  writeFileSync(
+    join(dados, MARCA_DOS_DADOS),
+    'Dados do Prospector (capturas de marca). Atualizar ou desinstalar o programa não apaga esta pasta.\r\n',
+  );
+  const local = process.env.LOCALAPPDATA;
+  if (local && isAbsolute(local)) {
+    const pastaDoRegistro = join(local, 'Prospector');
+    mkdirSync(pastaDoRegistro, { recursive: true });
+    writeFileSync(
+      join(pastaDoRegistro, 'instalacao.json'),
+      `${JSON.stringify({ raiz: destino, dados, atualizadoEm: new Date().toISOString() }, null, 2)}\n`,
+    );
+  } else {
+    console.warn('  Aviso: sem %LOCALAPPDATA%; o pnpm dev não vai achar a pasta de dados sozinho.');
+  }
+  console.log(`  Dados do usuário (capturas): ${join(dados, 'capturas')}`);
+}
+
 if (process.platform !== 'win32') falhar('A instalação como aplicativo é só para Windows.');
 
 if (existsSync(destino) && !existsSync(join(destino, MARCA)) && readdirSync(destino).length > 0) {
@@ -266,6 +309,7 @@ mkdirSync(destino, { recursive: true });
 restringirPasta(destino);
 writeFileSync(join(destino, MARCA), 'Pasta criada por `pnpm app:install` (Prospector).\r\n');
 for (const nome of SCRIPTS_PS) copiarScriptPowershell(nome);
+prepararPastaDeDados();
 
 etapa('Gerando o build autônomo (next build)');
 const standalone = join(web, '.next', 'standalone');

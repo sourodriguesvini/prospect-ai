@@ -1,6 +1,12 @@
 import type { AnalyzeProspectResult } from '@prospector/application';
 import { describe, expect, it } from 'vitest';
-import { COMPANY_NOTICES, WARNING_NOTICES, analyzeNotice, visibleNotice } from './company-routes';
+import {
+  COMPANY_NOTICES,
+  WARNING_NOTICES,
+  analyzeNotice,
+  companyRoutes,
+  visibleNotice,
+} from './company-routes';
 
 /** Ids SINTÉTICOS de teste. */
 const COMPANY = '11111111-1111-4111-8111-111111111111';
@@ -49,5 +55,37 @@ describe('aviso depois de "Analisar empresa"', () => {
       COMPANY_NOTICES.analysisQueueFull,
     );
     expect(visibleNotice(undefined, true)).toBeUndefined();
+  });
+});
+
+describe('endereço da imagem de uma captura', () => {
+  it('aceita as partes da captura (primeiras telas, rodapé, menu e página interna)', () => {
+    for (const suffix of [
+      'desktop',
+      'mobile',
+      'desktop-footer',
+      'mobile-footer',
+      'mobile-menu',
+      'desktop-inner',
+      'mobile-inner',
+    ]) {
+      expect(companyRoutes.capture(COMPANY, `${COMPANY}/${RUN}-${suffix}.jpg`)).toBe(
+        `/empresas/${COMPANY}/capturas/${RUN}-${suffix}.jpg`,
+      );
+    }
+  });
+
+  it('recusa caminho de outra empresa, fora do formato ou com pasta a mais', () => {
+    const other = '33333333-3333-4333-8333-333333333333';
+    for (const path of [
+      `${other}/${RUN}-desktop.jpg`,
+      `${COMPANY}/${RUN}-tablet.jpg`,
+      `${COMPANY}/${RUN}-desktop-header.jpg`,
+      `${COMPANY}/${RUN}-desktop.png`,
+      `${COMPANY}/x/${RUN}-desktop.jpg`,
+      `${COMPANY}/../${RUN}-desktop.jpg`,
+    ]) {
+      expect(companyRoutes.capture(COMPANY, path)).toBeNull();
+    }
   });
 });

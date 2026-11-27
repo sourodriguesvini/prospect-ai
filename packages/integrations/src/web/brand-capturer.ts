@@ -5,10 +5,19 @@ import {
   CAPTURE_MAX_HEIGHT,
   CAPTURE_VIEWPORTS,
   type BrandCaptureFailure,
+  type CaptureExtra,
+  type CaptureExtrasRequest,
+  type CaptureImage,
   type CaptureViewport,
 } from '@prospector/contracts';
 import type { BrowserCapturer } from './browser';
-import { extractFromHtml, forbidsAiUse, forbidsArchiving, headerDirectives } from './html';
+import {
+  extractFromHtml,
+  forbidsAiUse,
+  forbidsArchiving,
+  headerDirectives,
+  looksLikeBotChallenge,
+} from './html';
 import { decode, isRestrictedHost, mimeOf, statusFailure } from './page-reader';
 import { createRobotsChecker, type RobotsChecker } from './robots';
 import { safeFetch, type SafeFetchFailure, type Transport } from './safe-http';
@@ -29,6 +38,8 @@ export interface BrandCapturerOptions {
   transport?: Transport;
   /** Prazo total de uma captura (documento, navegador, medições e imagem). */
   timeoutMs?: number;
+  /** Prazo a mais quando a captura também tira rodapé e menu aberto (padrão 15 s). */
+  extrasTimeoutMs?: number;
   /** Altura máxima da imagem por janela (px CSS): as primeiras telas, não a página inteira. */
   maxHeight?: Partial<Record<CaptureViewport, number>>;
   /** Qualidade JPEG (0–100). */
@@ -272,6 +283,7 @@ function browserMissing(error: unknown): boolean {
 export function createBrandCapturer(options: BrandCapturerOptions): BrandCapturer {
   const resolver = options.resolver ?? systemResolver;
   const timeoutMs = options.timeoutMs ?? 30_000;
+  const extrasTimeoutMs = options.extrasTimeoutMs ?? 15_000;
   const quality = Math.min(90, Math.max(40, options.quality ?? 70));
   const now = options.now ?? (() => new Date());
   const log = options.log ?? ((message: string) => console.warn(message));
@@ -293,6 +305,8 @@ export function createBrandCapturer(options: BrandCapturerOptions): BrandCapture
     viewport: CaptureViewport,
     signal: AbortSignal,
     started: number,
+    limitMs: number,
+    extras: CaptureExtrasRequest | undefined,
   ): Promise<BrandCaptureResult> {
     const failed = (failure: BrandCaptureFailure): BrandCaptureResult => ({ ok: false, failure });
     const browser = options.browser;
@@ -323,17 +337,27 @@ export function createBrandCapturer(options: BrandCapturerOptions): BrandCapture
     const { mime, charset } = mimeOf(response.headers['content-type']);
     if (!HTML_TYPES.has(mime)) return failed('unsupported_content');
     const html = decode(response.body, charset, true);
-    const { robots } = extractFromHtml(html);
+    const statics = extractFromHtml(html);
+    const { robots } = statics;
     if (forbidsAiUse(robots)) return failed('access_denied');
+    // Tela anti-robô no lugar do site: não é a marca da empresa (diretriz 2026-11-26, 13.4).
+    if (looksLikeBotChallenge({ title: statics.title, text: statics.text.slice(0, 4000) })) {
+      return failed('access_denied');
+    }
     // Mesmo critério da leitura de páginas (ADR-0012 §2): sem cópia guardada.
     const noArchive =
       forbidsArchiving(fromHeader) ||
       forbidsArchiving(robots) ||
       response.headers['tdm-reservation']?.trim() === '1';
 
-    const left = timeoutMs - (Date.now() - started) - 250;
+    const left = limitMs - (Date.now() - started) - 250;
     if (left < 3000) return failed('unavailable');
     const size = CAPTURE_VIEWPORTS[viewport];
+    // Menu aberto só no celular: no computador a navegação já está no cabeçalho.
+    const wanted =
+      extras && (extras.footer || (extras.menu && viewport === 'mobile'))
+        ? { footer: extras.footer === true, menu: extras.menu === true && viewport === 'mobile' }
+        : null;
     let shot;
     try {
       shot = await browser.capture(
@@ -350,6 +374,7 @@ export function createBrandCapturer(options: BrandCapturerOptions): BrandCapture
           maxHeight: options.maxHeight?.[viewport] ?? DEFAULT_CAPTURE_MAX_HEIGHT[viewport],
           quality,
           metricsScript: METRICS_SCRIPT,
+          ...(wanted ? { extras: wanted } : {}),
         },
       );
     } catch (error) {
@@ -365,21 +390,31 @@ export function createBrandCapturer(options: BrandCapturerOptions): BrandCapture
       log('[captura] medições fora do contrato');
       return failed('unavailable');
     }
+    // O desafio também pode aparecer só depois do script da página rodar.
+    if (looksLikeBotChallenge({ title: metrics.data.title })) return failed('access_denied');
+    const image = (bytes: Uint8Array, width: number, height: number): CaptureImage => ({
+      bytes,
+      mime: 'image/jpeg',
+      width,
+      height,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    });
+    const capturedExtras: CaptureExtra[] = (shot.extras ?? [])
+      .filter((extra) => extra.image.length > 0)
+      .map((extra) => ({
+        region: extra.region,
+        image: image(extra.image, extra.width, extra.height),
+      }));
     return {
       ok: true,
       capture: {
         viewport,
         url: url.toString(),
         capturedAt: now().toISOString(),
-        image: {
-          bytes: shot.image,
-          mime: 'image/jpeg',
-          width: shot.width,
-          height: shot.height,
-          sha256: createHash('sha256').update(shot.image).digest('hex'),
-        },
+        image: image(shot.image, shot.width, shot.height),
         metrics: metrics.data,
         noArchive,
+        ...(wanted ? { extras: capturedExtras, missing: shot.missing ?? [] } : {}),
       },
     };
   }
@@ -387,7 +422,11 @@ export function createBrandCapturer(options: BrandCapturerOptions): BrandCapture
   return {
     async capture(raw, viewport, captureOptions) {
       const started = Date.now();
-      const deadline = AbortSignal.timeout(timeoutMs);
+      const extras = captureOptions?.extras;
+      // Rodapé e menu ganham um prazo a mais: a imagem principal não perde tempo por causa deles.
+      const limitMs =
+        extras && (extras.footer || extras.menu) ? timeoutMs + extrasTimeoutMs : timeoutMs;
+      const deadline = AbortSignal.timeout(limitMs);
       const signal = captureOptions?.signal
         ? AbortSignal.any([captureOptions.signal, deadline])
         : deadline;
@@ -395,7 +434,7 @@ export function createBrandCapturer(options: BrandCapturerOptions): BrandCapture
       let onAbort: (() => void) | undefined;
       try {
         return await Promise.race([
-          run(raw, viewport, signal, started),
+          run(raw, viewport, signal, started, limitMs, extras),
           new Promise<never>((_resolve, reject) => {
             onAbort = () => reject(signal.reason);
             if (signal.aborted) onAbort();

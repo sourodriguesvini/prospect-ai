@@ -8,6 +8,7 @@ import {
   DemoDataValue,
   safeguards,
 } from '@/components/system/database-status';
+import { CaptureStorageValue } from '@/components/system/capture-storage-status';
 import { SETTINGS_SECTIONS } from '@/lib/navigation';
 
 export const metadata: Metadata = { title: 'Configurações' };
@@ -49,7 +50,7 @@ export default function SettingsPage() {
           <PanelHeader
             titleId="sistema"
             title="Sistema"
-            description="Banco de dados e proteções desta instalação."
+            description="Banco de dados, pasta das capturas e proteções desta instalação."
           />
           <Suspense
             fallback={
@@ -79,6 +80,11 @@ export default function SettingsPage() {
               ))}
             </ul>
           </Well>
+          <div className="mt-5">
+            <Suspense fallback={<p role="status">Conferindo a pasta das capturas…</p>}>
+              <CaptureStorageValue />
+            </Suspense>
+          </div>
         </Panel>
       </div>
     </div>

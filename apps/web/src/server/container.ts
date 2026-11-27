@@ -80,6 +80,8 @@ import {
   type ToolRegistry,
   type WebResearchService,
   type WebResearchUsageStore,
+  type CaptureStore,
+  type CaptureStoreHealth,
 } from '@prospector/application';
 import {
   createMemoryAuditRepository,
@@ -620,9 +622,7 @@ function investigationService(parts: {
       strategy: parts.strategy,
       webResearch: parts.research.service,
       capturer,
-      captureStore: settings.capturesDir
-        ? createFileCaptureStore({ dir: settings.capturesDir })
-        : null,
+      captureStore: captureStoreFor(settings.capturesDir, log),
       // Mesmo gateway (e mesma fila de inferências) do Copiloto: uma inferência por vez.
       ai: createLocalBrandAnalysisAi({
         gateway: {
@@ -651,10 +651,67 @@ function investigationService(parts: {
   return service;
 }
 
-/** Imagens das capturas para a rota que as serve; null = pasta não configurada. */
-export function getCaptureStore(): ReturnType<typeof createFileCaptureStore> | null {
+/**
+ * Retenção das imagens das capturas: a mesma das fontes (12 meses, `REGISTRY_SOURCE_RETENTION_MONTHS`),
+ * contada do último uso (uma análise nova que reaproveita a imagem renova o prazo).
+ */
+const CAPTURE_RETENTION_MONTHS = 12;
+const CAPTURE_PURGE_EVERY_MS = 24 * 60 * 60 * 1000;
+const CAPTURE_STORE_KEY = Symbol.for('prospector.captureStore');
+type CaptureStoreHolder = typeof globalThis & {
+  [CAPTURE_STORE_KEY]?: { dir: string; store: CaptureStore };
+};
+
+/**
+ * Armazenamento das capturas (um por processo e por pasta). Ao abrir, confere leitura e escrita e
+ * agenda a limpeza das imagens vencidas: um minuto depois e a cada 24 horas.
+ */
+function captureStoreFor(dir: string | null, log: (message: string) => void): CaptureStore | null {
+  if (!dir) return null;
+  const holder = globalThis as CaptureStoreHolder;
+  const current = holder[CAPTURE_STORE_KEY];
+  if (current && current.dir === dir) return current.store;
+  const store = createFileCaptureStore({ dir });
+  holder[CAPTURE_STORE_KEY] = { dir, store };
+  void store.check().then((health) => {
+    if (!health.ok && health.problem) log(`pasta das capturas: ${health.problem}`);
+  });
+  const purge = () => {
+    const before = new Date();
+    before.setUTCMonth(before.getUTCMonth() - CAPTURE_RETENTION_MONTHS);
+    store.purgeExpired(before).then(
+      (count) => {
+        if (count > 0) log(`${count} captura(s) com mais de 12 meses sem uso apagada(s).`);
+      },
+      () => log('não foi possível limpar as capturas vencidas.'),
+    );
+  };
+  setTimeout(purge, 60_000).unref?.();
+  setInterval(purge, CAPTURE_PURGE_EVERY_MS).unref?.();
+  return store;
+}
+
+export interface CaptureStorageStatus {
+  /** Captura de tela ligada nesta instalação. */
+  captureEnabled: boolean;
+  /** null = nenhuma pasta configurada (as imagens não ficam guardadas). */
+  health: CaptureStoreHealth | null;
+  /** Motivo de uma pasta ter sido recusada (sem o valor), ou null. */
+  problem: string | null;
+  source: ReturnType<typeof investigationEnv>['capturesDirSource'];
+}
+
+/** Estado da pasta das capturas para o painel Sistema (leitura e escrita conferidas agora). */
+export async function captureStorageStatus(): Promise<CaptureStorageStatus> {
   const settings = investigationEnv();
-  return settings.capturesDir ? createFileCaptureStore({ dir: settings.capturesDir }) : null;
+  const log = (message: string) => console.warn(`[investigacao] ${message}`);
+  const store = captureStoreFor(settings.capturesDir, log);
+  return {
+    captureEnabled: settings.captureEnabled,
+    health: store ? await store.check() : null,
+    problem: settings.capturesDirProblem,
+    source: settings.capturesDirSource,
+  };
 }
 
 /**

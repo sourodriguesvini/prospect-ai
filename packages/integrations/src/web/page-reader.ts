@@ -18,6 +18,7 @@ import {
   forbidsAiUse,
   forbidsArchiving,
   headerDirectives,
+  looksLikeBotChallenge,
   normalizeText,
 } from './html';
 import { createRobotsChecker, type RobotsChecker } from './robots';
@@ -302,6 +303,11 @@ export function createPageReader(options: PageReaderOptions = {}): PageFetcher &
       };
     } else {
       return failed('unsupported_content', response.status);
+    }
+
+    // Tela anti-robô no lugar do site: acesso recusado, nunca evidência (diretriz 2026-11-26, 13.4).
+    if (looksLikeBotChallenge({ title: content.title, text: content.text.slice(0, 4000) })) {
+      return failed('access_denied', response.status);
     }
 
     // Texto como está na página, sem máscara (decisão do usuário de 2026-11-10, ADR-0012).

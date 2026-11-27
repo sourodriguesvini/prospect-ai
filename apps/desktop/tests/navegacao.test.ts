@@ -56,5 +56,10 @@ describe('caminhosDaInstalacao', () => {
     expect(caminhos.pid).toBe('D:\\Prospector\\servidor.pid');
     expect(caminhos.dadosDaJanela).toBe('D:\\Prospector\\dados-da-janela');
     expect(caminhos.marca).toBe('D:\\Prospector\\.prospector-instalacao');
+    // Dados do usuário fora da pasta do programa: atualizar ou desinstalar não os apaga.
+    expect(caminhos.dados).toBe('D:\\Prospector-dados');
+    expect(caminhosDaInstalacao('E:\\Apps\\Prospector\\programa\\Prospector.exe').dados).toBe(
+      'E:\\Apps\\Prospector-dados',
+    );
   });
 });

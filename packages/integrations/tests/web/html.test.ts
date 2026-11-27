@@ -4,6 +4,7 @@ import {
   extractFromHtml,
   forbidsAiUse,
   headerDirectives,
+  looksLikeBotChallenge,
   normalizeText,
 } from '../../src/web/html';
 
@@ -124,5 +125,37 @@ describe('links da página', () => {
   it('para em 300 links', () => {
     const html = Array.from({ length: 400 }, (_, i) => `<a href="/p${i}">p</a>`).join('');
     expect(extractFromHtml(html).links).toHaveLength(300);
+  });
+});
+
+describe('looksLikeBotChallenge', () => {
+  it.each([
+    'Just a moment...',
+    'Attention Required! | Cloudflare',
+    'Client Challenge',
+    'Access Denied',
+    'Pardon Our Interruption',
+    'Verificação de segurança',
+    'DDoS-Guard',
+  ])('título de tela anti-robô: %s', (title) => {
+    expect(looksLikeBotChallenge({ title })).toBe(true);
+  });
+
+  it.each([
+    'Security Check Ferramentas — Equipamentos de segurança',
+    'Desafio Client Challenge: o evento',
+    'Mozilla — Internet para pessoas',
+    'Um momento especial para a sua festa | Buffet Alegria',
+  ])('título normal não é desafio: %s', (title) => {
+    expect(looksLikeBotChallenge({ title })).toBe(false);
+  });
+
+  it('frase típica só conta em página curta', () => {
+    const tela =
+      'Checking if the site connection is secure. Enable JavaScript and cookies to continue.';
+    expect(looksLikeBotChallenge({ title: 'loja.example.com', text: tela })).toBe(true);
+    const artigo = `${'Como funcionam os bloqueios de robôs. '.repeat(60)} ${tela}`;
+    expect(looksLikeBotChallenge({ title: 'Blog', text: artigo })).toBe(false);
+    expect(looksLikeBotChallenge({ title: null, text: null })).toBe(false);
   });
 });

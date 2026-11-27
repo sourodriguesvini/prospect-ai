@@ -102,8 +102,11 @@ interface ServidorAtivo {
   pronto: boolean;
 }
 
-/** Ambiente do `node server.js`: o do usuário, sem variáveis do Electron, com porta e host fixos. */
-export function ambienteDoServidor(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+/**
+ * Ambiente do `node server.js`: o do usuário, sem variáveis do Electron, com porta e host fixos e
+ * a pasta de dados da instalação (onde ficam as capturas de marca).
+ */
+export function ambienteDoServidor(base: NodeJS.ProcessEnv, dados: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [chave, valor] of Object.entries(base)) {
     if (!chave.toUpperCase().startsWith('ELECTRON_')) env[chave] = valor;
@@ -112,6 +115,7 @@ export function ambienteDoServidor(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   env.HOSTNAME = HOST;
   env.NODE_ENV = 'production';
   env.NEXT_TELEMETRY_DISABLED = '1';
+  env.PROSPECTOR_DATA_DIR = dados;
   return env;
 }
 
@@ -232,7 +236,11 @@ export class ServidorDoProspector {
       };
     }
 
-    const filho = this.sistema.abrirServidor(node, this.caminhos, ambienteDoServidor(process.env));
+    const filho = this.sistema.abrirServidor(
+      node,
+      this.caminhos,
+      ambienteDoServidor(process.env, this.caminhos.dados),
+    );
     const falhaAoAbrir = new Promise<Error>((resolver) => filho.once('error', resolver));
     const pid = filho.pid;
     if (!pid) {

@@ -1,4 +1,5 @@
 import 'server-only';
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { ModelName, WEB_RESEARCH_ENV_FORMATS, WebResearchEnv } from '@prospector/contracts';
 
@@ -280,45 +281,113 @@ export function webResearchEnv(): WebResearchSettings {
 }
 
 /**
- * Investigação de empresas (ADR-0015). `PROSPECTOR_CAPTURES_DIR`: pasta absoluta das capturas de
- * marca, fora do disco do sistema (C: quase cheio, KI-017); vazia = as imagens são analisadas,
- * mas não ficam guardadas (o dossiê mostra só as medições). `PROSPECTOR_BRAND_CAPTURE=off`
+ * Investigação de empresas (ADR-0015, emenda de 2026-11-26). A pasta das capturas de marca sai,
+ * nesta ordem, de: `PROSPECTOR_CAPTURES_DIR`; `PROSPECTOR_DATA_DIR\capturas` (o programa do
+ * Prospector define a pasta de dados ao abrir o servidor); o registro da instalação
+ * (`%LOCALAPPDATA%\Prospector\instalacao.json`, gravado por `pnpm app:install`), para o `pnpm dev`
+ * usar a mesma pasta do app instalado, que lê o mesmo banco. Sempre fora do disco do sistema
+ * (C: quase cheio, KI-017), fora de rede e de pasta sincronizada. Sem pasta válida, as imagens são
+ * analisadas, mas não ficam guardadas, e a tela diz por quê. `PROSPECTOR_BRAND_CAPTURE=off`
  * desliga a captura de tela (padrão: ligada).
  */
 export interface InvestigationSettings {
   capturesDir: string | null;
   captureEnabled: boolean;
-  /** Motivo de a pasta ter sido ignorada (texto para o log, sem o valor). */
+  /** Motivo de a pasta ter sido ignorada (texto para o log e a tela, sem o valor). */
   capturesDirProblem: string | null;
+  /** De onde veio a pasta (para o painel Sistema); null = nenhuma. */
+  capturesDirSource: 'captures_dir' | 'data_dir' | 'installation' | null;
+}
+
+/** Problema de uma pasta de dados local; null = aceita. Nunca repete o valor na mensagem. */
+function dataDirProblem(name: string, dir: string): string | null {
+  const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(dir);
+  const posixAbsolute = /^\/(?![\\/])/.test(dir);
+  if (/^[\\/]{2}/.test(dir)) {
+    // Compartilhamento de rede (\\servidor\pasta ou //servidor): a imagem sairia do computador.
+    return `${name} não pode ser uma pasta de rede: as capturas ficam neste computador`;
+  }
+  if (!windowsAbsolute && !posixAbsolute) {
+    return `${name} precisa ser um caminho absoluto com letra de unidade (ex.: D:\\Prospector-dados)`;
+  }
+  if (/^[Cc]:/.test(dir)) return `${name} não pode ficar no disco C: (quase cheio, KI-017)`;
+  if (/(^|[\\/])\.\.([\\/]|$)/.test(dir)) return `${name} não pode ter ".." no caminho`;
+  if (/onedrive|dropbox|google ?drive|icloud ?drive|meu drive|my drive/i.test(dir)) {
+    // Pasta sincronizada copia as imagens para a nuvem (ADR-0015 §8, R-OPS-1).
+    return `${name} não pode ficar numa pasta sincronizada com a nuvem (OneDrive, Dropbox, Google Drive, iCloud)`;
+  }
+  return null;
+}
+
+function joinDir(dir: string, child: string): string {
+  const separator = dir.includes('\\') || /^[A-Za-z]:/.test(dir) ? '\\' : '/';
+  return `${dir.replace(/[\\/]+$/, '')}${separator}${child}`;
+}
+
+const InstallationPointer = z.object({ dados: z.string().min(3).max(260) });
+
+/** Pasta de dados registrada pela instalação do app (`pnpm app:install`); null se não houver. */
+function installationDataDir(): string | null {
+  const local = readVar('LOCALAPPDATA');
+  if (!local) return null;
+  try {
+    const file = joinDir(joinDir(local, 'Prospector'), 'instalacao.json');
+    const text = readFileSync(file, 'utf8');
+    if (text.length > 4096) return null;
+    const parsed = InstallationPointer.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data.dados.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 export function investigationEnv(): InvestigationSettings {
-  const capture = readVar('PROSPECTOR_BRAND_CAPTURE');
-  const dir = readVar('PROSPECTOR_CAPTURES_DIR');
-  let capturesDir: string | null = null;
-  let capturesDirProblem: string | null = null;
-  if (dir !== undefined) {
-    const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(dir);
-    const posixAbsolute = /^\/(?![\\/])/.test(dir);
-    if (/^[\\/]{2}/.test(dir)) {
-      // Compartilhamento de rede (\\servidor\pasta ou //servidor): a imagem sairia do computador.
-      capturesDirProblem =
-        'PROSPECTOR_CAPTURES_DIR não pode ser uma pasta de rede: as capturas ficam neste computador';
-    } else if (!windowsAbsolute && !posixAbsolute) {
-      capturesDirProblem =
-        'PROSPECTOR_CAPTURES_DIR precisa ser um caminho absoluto com letra de unidade (ex.: D:\\Prospector-dados\\capturas)';
-    } else if (/^[Cc]:/.test(dir)) {
-      capturesDirProblem =
-        'PROSPECTOR_CAPTURES_DIR não pode ficar no disco C: (quase cheio, KI-017)';
-    } else if (/(^|[\\/])\.\.([\\/]|$)/.test(dir)) {
-      capturesDirProblem = 'PROSPECTOR_CAPTURES_DIR não pode ter ".." no caminho';
-    } else if (/onedrive|dropbox|google ?drive|icloud ?drive|meu drive|my drive/i.test(dir)) {
-      // Pasta sincronizada copia as imagens para a nuvem (ADR-0015 §8, R-OPS-1).
-      capturesDirProblem =
-        'PROSPECTOR_CAPTURES_DIR não pode ficar numa pasta sincronizada com a nuvem (OneDrive, Dropbox, Google Drive, iCloud)';
-    } else {
-      capturesDir = dir;
-    }
+  const captureEnabled = readVar('PROSPECTOR_BRAND_CAPTURE') !== 'off';
+  const candidates: Array<{
+    name: string;
+    dir: string | null | undefined;
+    source: NonNullable<InvestigationSettings['capturesDirSource']>;
+  }> = [
+    {
+      name: 'PROSPECTOR_CAPTURES_DIR',
+      dir: readVar('PROSPECTOR_CAPTURES_DIR'),
+      source: 'captures_dir',
+    },
+    {
+      name: 'PROSPECTOR_DATA_DIR',
+      dir: readVar('PROSPECTOR_DATA_DIR'),
+      source: 'data_dir',
+    },
+  ];
+  // Dados só na memória (testes de tela) não usam a pasta do app instalado: as imagens ficariam
+  // sem nenhum claim apontando para elas quando o servidor reinicia.
+  if (readVar('PROSPECTOR_STORAGE') !== 'memory') {
+    candidates.push({
+      name: 'A pasta de dados da instalação',
+      dir: installationDataDir(),
+      source: 'installation',
+    });
   }
-  return { capturesDir, captureEnabled: capture !== 'off', capturesDirProblem };
+  let firstProblem: string | null = null;
+  for (const candidate of candidates) {
+    if (!candidate.dir) continue;
+    const problem = dataDirProblem(candidate.name, candidate.dir);
+    if (problem) {
+      firstProblem ??= problem;
+      continue;
+    }
+    return {
+      capturesDir:
+        candidate.source === 'captures_dir' ? candidate.dir : joinDir(candidate.dir, 'capturas'),
+      captureEnabled,
+      capturesDirProblem: firstProblem,
+      capturesDirSource: candidate.source,
+    };
+  }
+  return {
+    capturesDir: null,
+    captureEnabled,
+    capturesDirProblem: firstProblem,
+    capturesDirSource: null,
+  };
 }

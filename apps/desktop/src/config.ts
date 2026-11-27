@@ -36,6 +36,12 @@ export interface Caminhos {
   /** Perfil do Chromium da janela (cache, cookies): fica no disco da instalação, não no C:. */
   dadosDaJanela: string;
   estadoDaJanela: string;
+  /**
+   * Pasta de dados do usuário (capturas de marca), ao lado da instalação (`D:\Prospector-dados`):
+   * atualizar ou desinstalar o programa apaga a pasta dele, nunca esta (diretriz de 2026-11-26,
+   * Parte 13.2).
+   */
+  dados: string;
 }
 
 /**
@@ -57,5 +63,11 @@ export function caminhosDaInstalacao(executavel: string): Caminhos {
     versao: join(raiz, 'versao.txt'),
     dadosDaJanela,
     estadoDaJanela: join(dadosDaJanela, 'janela.json'),
+    dados: pastaDeDados(raiz),
   };
+}
+
+/** `D:\Prospector` → `D:\Prospector-dados`: irmã da instalação, no mesmo disco. */
+export function pastaDeDados(raiz: string): string {
+  return `${resolve(raiz).replace(/[\\/]+$/, '')}-dados`;
 }

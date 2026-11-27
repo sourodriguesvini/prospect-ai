@@ -59,6 +59,22 @@ export interface CaptureOptions {
   quality: number;
   /** Script das medições (expressão que devolve um objeto JSON), executado antes da imagem. */
   metricsScript: string;
+  /** Partes extras na mesma sessão: rodapé e menu aberto (Parte 13.3 da diretriz de 2026-11-26). */
+  extras?: { footer?: boolean; menu?: boolean };
+}
+
+export interface PageCaptureExtra {
+  region: 'footer' | 'menu';
+  image: Uint8Array;
+  width: number;
+  height: number;
+  /** Rodapé achado pelo elemento (`footer`) ou o fim da página, quando não há elemento. */
+  located: 'element' | 'page_end';
+}
+
+export interface PageCaptureMissing {
+  region: 'footer' | 'menu';
+  reason: 'inside_top' | 'not_found' | 'failed';
 }
 
 export interface PageCapture {
@@ -69,6 +85,8 @@ export interface PageCapture {
   height: number;
   /** Bytes do documento e dos sub-recursos entregues à página. */
   transferredBytes: number;
+  extras?: PageCaptureExtra[];
+  missing?: PageCaptureMissing[];
 }
 
 export interface BrowserCapturer {
@@ -183,6 +201,205 @@ interface SessionConfig {
 const PAGE_HEIGHT_SCRIPT =
   'Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)';
 const FONTS_READY_SCRIPT = 'document.fonts ? document.fonts.ready.then(() => true) : true';
+
+/** Rodapé: maior altura aceita na imagem (px CSS) e posição máxima onde ainda vale procurar. */
+const FOOTER_MAX_HEIGHT = 1200;
+const FOOTER_MIN_HEIGHT = 40;
+const FOOTER_MAX_TOP = 40_000;
+
+/** Posição do rodapé na página (topo absoluto e altura), ou null. */
+const FOOTER_SCRIPT = `(() => {
+  const candidates = Array.from(document.querySelectorAll('footer, [role="contentinfo"]'));
+  let best = null;
+  for (const el of candidates) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const top = Math.round(rect.top + window.scrollY);
+    if (!best || top > best.top) best = { top, height: Math.round(rect.height) };
+  }
+  return best;
+})()`;
+
+/**
+ * Marca o botão que abre o menu no celular (o mais provável, por rótulo, aria-expanded,
+ * aria-controls e posição no cabeçalho). Vale botão, âncora da própria página (#) e elemento
+ * pequeno com cursor de clique; link para outra página nunca (sairia da página). Devolve se achou.
+ */
+const MENU_SCRIPT = `(() => {
+  const selector = 'button, [role="button"], summary, [aria-expanded], a[href^="#"], [class*="menu" i], [class*="hamburg" i], [class*="toggle" i], [id*="menu" i]';
+  const items = Array.from(document.querySelectorAll(selector));
+  const label = (el) => {
+    const cls = typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal) || '';
+    return ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.textContent || '').slice(0, 80) + ' ' + cls + ' ' + (el.id || '')).toLowerCase();
+  };
+  const score = (el) => {
+    const link = el.closest('a[href]');
+    if (link && !(link.getAttribute('href') || '').startsWith('#')) return -1;
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    if (rect.width <= 0 || rect.height <= 0 || rect.top > window.innerHeight || style.visibility === 'hidden' || style.display === 'none') return -1;
+    const tag = el.tagName;
+    const native = tag === 'BUTTON' || tag === 'SUMMARY' || tag === 'A' || el.getAttribute('role') === 'button' || el.hasAttribute('aria-expanded');
+    // Elemento genérico (div, span) só conta se parece um botão: pequeno e com cursor de clique.
+    if (!native && (style.cursor !== 'pointer' || rect.width > 120 || rect.height > 120)) return -1;
+    const text = label(el);
+    let points = 0;
+    if (/menu|naveg|hamburg|toggle|navbar/.test(text)) points += 3;
+    if (el.getAttribute('aria-expanded') === 'false') points += 2;
+    if (el.hasAttribute('aria-controls')) points += 1;
+    if (el.closest('header, nav')) points += 1;
+    if (native) points += 1;
+    return points;
+  };
+  let best = null;
+  let bestScore = 0;
+  for (const el of items) {
+    const value = score(el);
+    if (value > bestScore) { best = el; bestScore = value; }
+  }
+  if (!best || bestScore < 3) return false;
+  best.setAttribute('data-prospector-menu', '1');
+  return true;
+})()`;
+
+/** Estado do botão marcado e links visíveis na tela: confirma que o menu abriu de fato. */
+const MENU_STATE_SCRIPT = `(() => {
+  const button = document.querySelector('[data-prospector-menu="1"]');
+  let links = 0;
+  for (const a of document.querySelectorAll('a[href]')) {
+    const r = a.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0 || r.bottom <= 0 || r.top >= window.innerHeight) continue;
+    if (r.right <= 0 || r.left >= window.innerWidth) continue;
+    const style = getComputedStyle(a);
+    if (style.visibility === 'hidden' || Number(style.opacity) < 0.05) continue;
+    links += 1;
+  }
+  return { expanded: button ? button.getAttribute('aria-expanded') === 'true' : false, links };
+})()`;
+
+const FooterBox = z.object({ top: z.number(), height: z.number() }).nullable();
+const MenuState = z.object({ expanded: z.boolean(), links: z.number() });
+
+/** Abaixo disto do prazo da sessão, as partes extras nem começam (a imagem principal vem antes). */
+const EXTRA_MIN_BUDGET_MS = 5000;
+/** Folga deixada ao fim de cada passo extra, para a sessão não estourar o prazo. */
+const EXTRA_MARGIN_MS = 1500;
+
+interface ExtraContext {
+  width: number;
+  viewportHeight: number;
+  quality: number;
+  remaining: () => number;
+}
+
+type ExtraResult = PageCaptureExtra | { reason: PageCaptureMissing['reason'] };
+
+function budget(context: ExtraContext, ms: number): number {
+  return Math.max(1, Math.min(ms, context.remaining() - EXTRA_MARGIN_MS));
+}
+
+/**
+ * Rodapé: rola até o fim (conteúdo tardio aparece), acha `footer`/`contentinfo` e recorta. Sem
+ * elemento, usa o fim da página. Se ele já cabe nas primeiras telas, não repete a imagem.
+ */
+async function captureFooter(
+  page: Page,
+  context: ExtraContext & { pageHeight: number; topHeight: number },
+): Promise<ExtraResult> {
+  if (context.remaining() < EXTRA_MIN_BUDGET_MS) return { reason: 'failed' };
+  if (context.pageHeight <= context.topHeight) return { reason: 'inside_top' };
+  const target = Math.min(context.pageHeight, FOOTER_MAX_TOP);
+  await page.evaluate(`window.scrollTo(0, ${target})`).catch(() => undefined);
+  await page.waitForTimeout(budget(context, 500));
+  await page
+    .waitForLoadState('networkidle', { timeout: budget(context, 1500) })
+    .catch(() => undefined);
+  const measured = Number(await page.evaluate(PAGE_HEIGHT_SCRIPT).catch(() => 0));
+  const fullHeight = Math.max(context.pageHeight, Number.isFinite(measured) ? measured : 0);
+  const box = FooterBox.safeParse(await page.evaluate(FOOTER_SCRIPT).catch(() => null));
+  const element = box.success && box.data && box.data.height >= FOOTER_MIN_HEIGHT ? box.data : null;
+  let top: number;
+  let height: number;
+  let located: PageCaptureExtra['located'];
+  if (element) {
+    const full = Math.round(element.height);
+    height = Math.min(full, FOOTER_MAX_HEIGHT);
+    // Rodapé mais alto que o limite: a parte de baixo (contato, endereço, redes, direitos) é a
+    // que mais informa.
+    top = Math.round(element.top) + full - height;
+    located = 'element';
+  } else {
+    height = Math.min(FOOTER_MAX_HEIGHT, context.viewportHeight);
+    top = Math.round(fullHeight) - height;
+    located = 'page_end';
+  }
+  if (top > FOOTER_MAX_TOP) return { reason: 'not_found' };
+  top = Math.max(0, Math.min(top, Math.round(fullHeight) - height));
+  if (top + height <= context.topHeight) return { reason: 'inside_top' };
+  if (context.remaining() < EXTRA_MARGIN_MS * 2) return { reason: 'failed' };
+  const image = await page.screenshot({
+    type: 'jpeg',
+    quality: context.quality,
+    fullPage: true,
+    clip: { x: 0, y: top, width: context.width, height },
+    animations: 'disabled',
+    caret: 'hide',
+    timeout: budget(context, 8000),
+  });
+  return { region: 'footer', image: new Uint8Array(image), width: context.width, height, located };
+}
+
+/**
+ * Menu do celular: volta ao topo, toca no botão do menu e só aceita a imagem se o menu abriu
+ * (aria-expanded passou a true ou apareceram links novos na tela). Navegação continua bloqueada
+ * pela sessão; se o endereço mudar mesmo assim, a imagem é descartada.
+ */
+async function captureMenu(page: Page, context: ExtraContext): Promise<ExtraResult> {
+  if (context.remaining() < EXTRA_MIN_BUDGET_MS) return { reason: 'failed' };
+  await page.evaluate('window.scrollTo(0, 0)').catch(() => undefined);
+  await page.waitForTimeout(budget(context, 300));
+  const marked = await page.evaluate(MENU_SCRIPT).catch(() => false);
+  if (marked !== true) return { reason: 'not_found' };
+  const before = MenuState.safeParse(await page.evaluate(MENU_STATE_SCRIPT).catch(() => null));
+  const address = (value: string) => {
+    try {
+      const url = new URL(value);
+      return `${url.origin}${url.pathname}${url.search}`;
+    } catch {
+      return value;
+    }
+  };
+  const startedAt = address(page.url());
+  try {
+    await page.click('[data-prospector-menu="1"]', { timeout: budget(context, 1500) });
+  } catch {
+    return { reason: 'failed' };
+  }
+  await page.waitForTimeout(budget(context, 600));
+  if (address(page.url()) !== startedAt) return { reason: 'not_found' };
+  const after = MenuState.safeParse(await page.evaluate(MENU_STATE_SCRIPT).catch(() => null));
+  const opened =
+    after.success &&
+    (after.data.expanded ||
+      (before.success ? after.data.links >= before.data.links + 2 : after.data.links >= 3));
+  if (!opened) return { reason: 'not_found' };
+  if (context.remaining() < EXTRA_MARGIN_MS * 2) return { reason: 'failed' };
+  const image = await page.screenshot({
+    type: 'jpeg',
+    quality: context.quality,
+    // A tela como a pessoa vê depois do toque (menu sobreposto ou âncora que rolou até ele).
+    animations: 'disabled',
+    caret: 'hide',
+    timeout: budget(context, 6000),
+  });
+  return {
+    region: 'menu',
+    image: new Uint8Array(image),
+    width: context.width,
+    height: context.viewportHeight,
+    located: 'element',
+  };
+}
 
 export function createPlaywrightRenderer(
   options: PlaywrightRendererOptions,
@@ -435,12 +652,46 @@ export function createPlaywrightRenderer(
             caret: 'hide',
             timeout: remaining(),
           });
+          const extras: PageCaptureExtra[] = [];
+          const missing: PageCaptureMissing[] = [];
+          // Partes extras: cada uma com o tempo que sobrou; falha numa não derruba a captura.
+          if (capture.extras?.footer) {
+            try {
+              const footer = await captureFooter(page, {
+                width,
+                pageHeight,
+                topHeight: height,
+                viewportHeight: capture.viewport.height,
+                quality: capture.quality,
+                remaining,
+              });
+              if ('reason' in footer) missing.push({ region: 'footer', reason: footer.reason });
+              else extras.push(footer);
+            } catch {
+              missing.push({ region: 'footer', reason: 'failed' });
+            }
+          }
+          if (capture.extras?.menu) {
+            try {
+              const menu = await captureMenu(page, {
+                width,
+                viewportHeight: capture.viewport.height,
+                quality: capture.quality,
+                remaining,
+              });
+              if ('reason' in menu) missing.push({ region: 'menu', reason: menu.reason });
+              else extras.push(menu);
+            } catch {
+              missing.push({ region: 'menu', reason: 'failed' });
+            }
+          }
           return {
             metrics,
             image: new Uint8Array(image),
             width,
             height,
             transferredBytes: delivered(),
+            ...(capture.extras ? { extras, missing } : {}),
           };
         },
       );

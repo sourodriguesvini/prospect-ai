@@ -90,20 +90,25 @@ describe('atalhos', () => {
 });
 
 describe('servidor', () => {
-  it('ambiente sem variáveis do Electron, com porta e host fixos', () => {
-    const env = ambienteDoServidor({
-      PATH: 'C:\\x',
-      ELECTRON_RUN_AS_NODE: '1',
-      electron_algo: 'y',
-      PORT: '9999',
-      HOSTNAME: '0.0.0.0',
-    });
+  it('ambiente sem variáveis do Electron, com porta, host e pasta de dados fixos', () => {
+    const env = ambienteDoServidor(
+      {
+        PATH: 'C:\\x',
+        ELECTRON_RUN_AS_NODE: '1',
+        electron_algo: 'y',
+        PORT: '9999',
+        HOSTNAME: '0.0.0.0',
+        PROSPECTOR_DATA_DIR: 'E:\\outra',
+      },
+      'D:\\Prospector-dados',
+    );
     expect(env).toEqual({
       PATH: 'C:\\x',
       PORT: '3210',
       HOSTNAME: '127.0.0.1',
       NODE_ENV: 'production',
       NEXT_TELEMETRY_DISABLED: '1',
+      PROSPECTOR_DATA_DIR: 'D:\\Prospector-dados',
     });
   });
 

@@ -266,3 +266,37 @@ export function headerDirectives(value: string | undefined): string[] {
     .map((directive) => directive.trim().toLowerCase())
     .filter(Boolean);
 }
+
+/**
+ * Título de tela anti-robô (Cloudflare, Fastly, Akamai, Imperva, DDoS-Guard…), sem acento. O
+ * título inteiro é a frase, no máximo com pontuação e "| fornecedor" depois: "Security Check
+ * Ferramentas" é nome de empresa, não desafio.
+ */
+const CHALLENGE_TITLE =
+  /^(just a moment|attention required|client challenge|checking your browser|verifying you are human|verify you are human|human verification|security check|are you a robot|robot or human|pardon our interruption|access denied|access to this page has been denied|request rejected|ddos-guard|ddos protection|one more step|captcha|um momento|verificando se voce e humano|verificacao de seguranca|acesso negado)[\s.!?…]*([|:–—-].*)?$/;
+
+/** Frase típica do corpo dessas telas; só vale em página curta, para não pegar artigo sobre o tema. */
+const CHALLENGE_TEXT =
+  /(enable javascript and cookies to continue|checking if the site connection is secure|verify you are human by completing|needs to review the security of your connection|please complete the security check|please enable js and disable any ad blocker|press (and|&) hold to confirm you are a human|verifique que voce e humano|confirme que voce e humano)/;
+
+function folded(value: string | null | undefined): string {
+  return (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * A página é uma tela de bloqueio anti-robô, e não o conteúdo do site. Vira "acesso recusado":
+ * o Prospector não contorna o bloqueio e nunca guarda essa tela como evidência ou captura.
+ */
+export function looksLikeBotChallenge(page: {
+  title?: string | null;
+  text?: string | null;
+}): boolean {
+  if (CHALLENGE_TITLE.test(folded(page.title))) return true;
+  const text = folded(page.text);
+  return text.length > 0 && text.length <= 1500 && CHALLENGE_TEXT.test(text);
+}

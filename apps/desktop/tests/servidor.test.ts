@@ -122,6 +122,7 @@ describe('ServidorDoProspector', () => {
       versao: join(pasta, 'versao.txt'),
       dadosDaJanela: join(pasta, 'dados-da-janela'),
       estadoDaJanela: join(pasta, 'dados-da-janela', 'janela.json'),
+      dados: `${pasta}-dados`,
     };
     mundo = criarMundo();
     registro = [];

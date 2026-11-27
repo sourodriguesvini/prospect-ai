@@ -1,6 +1,7 @@
 # Prospector: remove o aplicativo instalado, os atalhos e o registro em "Aplicativos instalados"
 # (atalho "Desinstalar Prospector" e Configurações > Aplicativos).
-# Não toca nos dados (ficam no Supabase) nem no código-fonte (C:\dev\prospector).
+# Não toca nos dados (no Supabase e, as capturas de marca, em <instalação>-dados) nem no
+# código-fonte (C:\dev\prospector).
 Add-Type -AssemblyName PresentationFramework
 
 $raiz = $PSScriptRoot
@@ -10,8 +11,9 @@ if (-not (Test-Path $marca)) {
   exit 1
 }
 
+$dados = "$($raiz.TrimEnd('\'))-dados"
 $resposta = [System.Windows.MessageBox]::Show(
-  "Remover o Prospector instalado em $raiz e os atalhos?`n`nOs dados continuam no banco (Supabase) e o código em C:\dev\prospector não é alterado. Para instalar de novo: pnpm app:install.",
+  "Remover o Prospector instalado em $raiz e os atalhos?`n`nOs dados continuam no banco (Supabase), as capturas de marca continuam em $dados e o código em C:\dev\prospector não é alterado. Para instalar de novo: pnpm app:install.",
   'Prospector', 'YesNo', 'Question')
 if ($resposta -ne 'Yes') { exit 0 }
 

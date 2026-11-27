@@ -30,6 +30,104 @@ export const CAPTURE_VIEWPORT_LABELS: Record<CaptureViewport, string> = {
   mobile: 'celular',
 };
 
+/**
+ * Parte da página numa imagem (diretriz de 2026-11-26, Parte 13.3): `top` são as primeiras telas
+ * (cabeçalho, navegação, destaque e as primeiras seções); `footer`, o rodapé, quando ele fica fora
+ * das primeiras telas; `menu`, o menu de navegação aberto no celular.
+ */
+export const CaptureRegion = z.enum(['top', 'footer', 'menu']);
+export type CaptureRegion = z.infer<typeof CaptureRegion>;
+
+export const CAPTURE_REGION_LABELS: Record<CaptureRegion, string> = {
+  top: 'primeiras telas',
+  footer: 'rodapé',
+  menu: 'menu de navegação aberto',
+};
+
+/** Página capturada: a inicial ou uma página interna relevante (produtos, serviços ou institucional). */
+export const CapturePage = z.enum(['home', 'inner']);
+export type CapturePage = z.infer<typeof CapturePage>;
+
+/** Cada imagem guardada ocupa uma vaga: página × janela × parte. */
+export interface CaptureSlot {
+  page: CapturePage;
+  viewport: CaptureViewport;
+  region: CaptureRegion;
+}
+
+/**
+ * Vagas aceitas. A página interna leva só as primeiras telas; o menu aberto é só do celular (no
+ * computador a navegação já aparece no cabeçalho).
+ */
+export const CaptureKind = z.enum([
+  'site_desktop',
+  'site_mobile',
+  'site_desktop_footer',
+  'site_mobile_footer',
+  'site_mobile_menu',
+  'inner_desktop',
+  'inner_mobile',
+]);
+export type CaptureKind = z.infer<typeof CaptureKind>;
+
+const SLOT_BY_KIND: Record<CaptureKind, CaptureSlot> = {
+  site_desktop: { page: 'home', viewport: 'desktop', region: 'top' },
+  site_mobile: { page: 'home', viewport: 'mobile', region: 'top' },
+  site_desktop_footer: { page: 'home', viewport: 'desktop', region: 'footer' },
+  site_mobile_footer: { page: 'home', viewport: 'mobile', region: 'footer' },
+  site_mobile_menu: { page: 'home', viewport: 'mobile', region: 'menu' },
+  inner_desktop: { page: 'inner', viewport: 'desktop', region: 'top' },
+  inner_mobile: { page: 'inner', viewport: 'mobile', region: 'top' },
+};
+
+export function captureSlotOf(kind: CaptureKind): CaptureSlot {
+  return SLOT_BY_KIND[kind];
+}
+
+/** Vaga → tipo; null quando a combinação não é aceita (ex.: menu no computador). */
+export function captureKindOf(slot: CaptureSlot): CaptureKind | null {
+  for (const kind of CaptureKind.options) {
+    const known = SLOT_BY_KIND[kind];
+    if (
+      known.page === slot.page &&
+      known.viewport === slot.viewport &&
+      known.region === slot.region
+    ) {
+      return kind;
+    }
+  }
+  return null;
+}
+
+/**
+ * Final do nome do arquivo de cada vaga: `<investigação>-<janela>[-<parte>].jpg`. As primeiras telas
+ * da página inicial mantêm o nome de antes (`-desktop.jpg`, `-mobile.jpg`): imagens antigas
+ * continuam válidas.
+ */
+export function captureFileSuffix(kind: CaptureKind): string {
+  const slot = SLOT_BY_KIND[kind];
+  const part = slot.page === 'inner' ? '-inner' : slot.region === 'top' ? '' : `-${slot.region}`;
+  return `${slot.viewport}${part}`;
+}
+
+/** Nome de arquivo de captura (sem a pasta da empresa). */
+export const CAPTURE_FILE_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(desktop|mobile)(-(footer|menu|inner))?\.jpg$/;
+
+/**
+ * Como terminou a imagem de uma vaga (diretriz, Parte 13.4): guardada agora, reaproveitada de uma
+ * análise anterior (mesma imagem, mesmo hash), não guardada a pedido do site, não guardada por
+ * falha de gravação ou porque a pasta de dados não estava disponível.
+ */
+export const CaptureStorageOutcome = z.enum([
+  'stored',
+  'reused',
+  'no_archive',
+  'failed',
+  'not_configured',
+]);
+export type CaptureStorageOutcome = z.infer<typeof CaptureStorageOutcome>;
+
 /** Cor em hexadecimal maiúsculo (#RRGGBB). */
 const Hex = z.string().regex(/^#[0-9A-F]{6}$/);
 const ShortText = z.string().max(120);
@@ -103,6 +201,30 @@ export interface BrandCapture {
    * página): a imagem só vai à IA local nesta investigação e não fica guardada.
    */
   noArchive?: boolean;
+  /** Rodapé e menu aberto, quando pedidos e encontrados, na mesma sessão do navegador. */
+  extras?: CaptureExtra[];
+  /** Partes pedidas que não viraram imagem, com o motivo (sem rodapé, menu não encontrado…). */
+  missing?: CaptureMissingPart[];
+}
+
+export interface CaptureExtra {
+  region: Exclude<CaptureRegion, 'top'>;
+  image: CaptureImage;
+}
+
+export interface CaptureMissingPart {
+  region: Exclude<CaptureRegion, 'top'>;
+  /**
+   * `inside_top`: o rodapé já aparece nas primeiras telas (página curta); `not_found`: a página não
+   * tem rodapé ou menu reconhecível; `failed`: o navegador não conseguiu fazer a imagem.
+   */
+  reason: 'inside_top' | 'not_found' | 'failed';
+}
+
+/** Partes extras que a captura deve tentar, além das primeiras telas. */
+export interface CaptureExtrasRequest {
+  footer?: boolean;
+  menu?: boolean;
 }
 
 export const BrandCaptureFailure = z.enum([
