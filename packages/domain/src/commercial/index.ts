@@ -4,6 +4,7 @@ export * from './events';
 export * from './identify';
 export * from './language';
 export * from './profiles';
+export * from './proposal';
 export * from './report-sections';
 export * from './reports';
 export * from './timeline';

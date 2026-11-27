@@ -423,6 +423,41 @@ describe('um acontecimento conta uma vez (Parte 3.3)', () => {
     ]);
     expect(kept.map((item) => item.claimId)).toEqual([id(21), id(22)]);
   });
+
+  it('mesma Série D lida num veículo e só no título de outro vira uma só (KI-242)', () => {
+    const kept = dedupeEventEvidence([
+      {
+        claimId: id(23),
+        epistemicType: 'fact',
+        event: event({
+          type: 'funding',
+          headline: 'A Flash não precisava de dinheiro, mas levantou R$ 400 milhões',
+          funding: {
+            amountCents: 40_000_000_000,
+            amount: { text: 'R$ 400 milhões', quote: 'R$ 400 milhões' },
+            round: { text: 'Série D', quote: 'rodada Série D' },
+            investors: [],
+            modality: 'equity',
+            purpose: { status: 'unknown' },
+            context: null,
+          },
+        }),
+      },
+      {
+        claimId: id(24),
+        epistemicType: 'hypothesis',
+        event: event({
+          type: 'funding',
+          occurredOn: '2026-08-21',
+          headline: 'Flash conclui Série D e mira novos produtos',
+          url: 'https://startups.com.br/flash',
+          host: 'startups.com.br',
+          pageRead: false,
+        }),
+      },
+    ]);
+    expect(kept.map((item) => item.claimId)).toEqual([id(23)]);
+  });
 });
 
 describe('linha do tempo (Parte 2.4)', () => {

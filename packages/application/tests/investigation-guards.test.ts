@@ -4,6 +4,7 @@ import {
   CompetitorTriageOutput,
   DiagnosisOutput,
   VisualAuditOutput,
+  type BusinessEvent,
 } from '@prospector/contracts';
 import {
   checkText,
@@ -18,6 +19,7 @@ import {
   guardVisualOutput,
   type DiagnosisInput,
 } from '../src';
+import { staleEvent } from '../src/services/investigation/qualify';
 
 const company = {
   name: 'Oficina Exemplo',
@@ -451,5 +453,57 @@ describe('guardas do servidor: revisão independente', () => {
     });
     expect(guarded.discards).toEqual([]);
     expect(guarded.altered.join(' ')).toMatch(/última frase completa/);
+  });
+});
+
+describe('guardas do servidor: acontecimentos gravados por regra antiga (KI-242)', () => {
+  const event = (partial: Partial<BusinessEvent> & Pick<BusinessEvent, 'type' | 'headline'>) =>
+    ({
+      occurredOn: null,
+      dateBasis: 'unknown',
+      url: 'https://neofeed.com.br/materia',
+      host: 'neofeed.com.br',
+      sourceTier: 'recognized_press',
+      republishedBy: [],
+      confirmedBy: [],
+      conflicts: [],
+      pageRead: true,
+      funding: null,
+      ...partial,
+    }) satisfies BusinessEvent;
+
+  it('página de conteúdo gravada como lançamento sai da tese (Salesforce, 27/11)', () => {
+    expect(
+      staleEvent(
+        event({
+          type: 'launch',
+          headline: 'O que é SaaS (Software como Serviço)? | Salesforce BR',
+          url: 'https://www.salesforce.com/br/saas',
+          host: 'salesforce.com',
+          sourceTier: 'official',
+        }),
+        ['salesforce'],
+      ),
+    ).toBe(true);
+  });
+
+  it('"<empresa> investe R$" gravado como rodada sai da tese; a rodada de verdade fica', () => {
+    expect(
+      staleEvent(event({ type: 'funding', headline: 'Flash investe R$ 400 milhões em IA' }), [
+        'flash',
+      ]),
+    ).toBe(true);
+    expect(
+      staleEvent(
+        event({
+          type: 'funding',
+          headline: 'A Flash não precisava de dinheiro, mas levantou R$ 400 milhões',
+        }),
+        ['flash'],
+      ),
+    ).toBe(false);
+    expect(
+      staleEvent(event({ type: 'launch', headline: 'Flash lança cartão corporativo' }), ['flash']),
+    ).toBe(false);
   });
 });

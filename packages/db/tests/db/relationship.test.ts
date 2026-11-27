@@ -322,6 +322,45 @@ describe('Relacionamento no banco', () => {
     });
   });
 
+  describe('estratégia de abordagem sem oferta da Estratégia (ADR-0021)', () => {
+    const plan = (
+      opportunityId: string,
+      companyId: string,
+      offer: string | null,
+      version: string | null,
+    ) =>
+      write<{ id: string; version: number }>(
+        'approach_plans',
+        {
+          action: 'relationship.approach.generated',
+          entityType: 'approach_plan',
+          withVersion: true,
+        },
+        [],
+        `insert into public.approach_plans (
+           opportunity_id, company_id, offer_id, offer_version_id, basis, content)
+         values ($1, $2, $3, $4, 'limited', $5::jsonb) returning id, version`,
+        [
+          opportunityId,
+          companyId,
+          offer,
+          version,
+          JSON.stringify({ opportunity: 'Proposta sintética do perfil comercial.' }),
+        ],
+      );
+
+    it('grava sem oferta; com oferta, oferta e versão vêm juntas', async () => {
+      const companyId = await company();
+      const opportunityId = await openOpportunity(companyId);
+      const [first] = await plan(opportunityId, companyId, null, null);
+      expect(first?.version).toBe(1);
+      const [second] = await plan(opportunityId, companyId, offerId, offerVersionId);
+      expect(second?.version).toBe(2);
+      await expectDbError(plan(opportunityId, companyId, offerId, null), { code: '23514' });
+      await expectDbError(plan(opportunityId, companyId, null, offerVersionId), { code: '23514' });
+    });
+  });
+
   describe('rascunhos e aprovação', () => {
     it('versão por linha de mensagem; conteúdo imutável', async () => {
       const opp = await openOpportunity(await company());

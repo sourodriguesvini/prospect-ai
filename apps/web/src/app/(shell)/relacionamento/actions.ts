@@ -1,7 +1,7 @@
 'use server';
 
 import { reviewNeedsAttention } from '@prospector/application';
-import { brlToCents, checked, formValues, text } from '@/lib/form-data';
+import { all, brlToCents, checked, formValues, text } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
 import { localDateTimeToIso, localDateToIso } from '@/lib/relationship-dates';
 import { backWith, OPPORTUNITY_NOTICES, relationshipRoutes } from '@/lib/relationship-routes';
@@ -24,7 +24,11 @@ const optionalText = (values: Parameters<typeof text>[0], name: string) => {
 
 // --- Oportunidade e abordagem -----------------------------------------------------------------
 
-/** Gera estratégia + primeiro rascunho com a IA local; nada é gravado se a IA falhar. */
+/**
+ * Gera estratégia + primeiro rascunho com a IA local; nada é gravado se a IA falhar. A proposta
+ * (perfil, modo e frentes) e a oferta da Estratégia, opcional, vêm do formulário; a barreira de
+ * coerência é do serviço (ajuste e correção de 27/11).
+ */
 export async function prepareApproachAction(
   companyId: string,
   _prev: FormState,
@@ -35,6 +39,9 @@ export async function prepareApproachAction(
     const result = await relationship.prepareApproach(ctx, {
       companyId,
       offerId: optionalText(values, 'offerId'),
+      profileId: optionalText(values, 'profileId') ?? undefined,
+      proposalMode: text(values, 'proposalMode') || undefined,
+      families: all(values, 'families'),
       kind: text(values, 'kind') || undefined,
       tone: text(values, 'tone') || undefined,
       instruction: optionalText(values, 'instruction'),

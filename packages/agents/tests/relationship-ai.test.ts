@@ -752,10 +752,11 @@ describe('esquemas e prompts', () => {
     const strategy = (
       approachSchema(['C1'], ['K1']) as { properties: { strategy: Record<string, unknown> } }
     ).properties.strategy;
-    // `thesisBasis` é gravado pelo servidor (ângulo aprovado), nunca pedido ao modelo.
+    // `thesisBasis` (ângulo aprovado) e `proposal` (o que propor) são gravados pelo servidor, nunca
+    // pedidos ao modelo.
     expect(swap(keys(strategy), 'caseRefs', 'caseIds')).toEqual(
       Object.keys(ApproachStrategyContent.shape)
-        .filter((key) => key !== 'thesisBasis')
+        .filter((key) => key !== 'thesisBasis' && key !== 'proposal')
         .sort(),
     );
   });
@@ -1491,6 +1492,16 @@ describe('conferência da resposta (v3, KI-150)', () => {
         agencyName: null,
       }),
     ).toBe('Olá!\n\nPodemos conversar?\n\nAtenciosamente,\n[nome da agência]');
+    // Assinada com o nome do produto do perfil (rodada de 27/11, proposta-produto-clinica): quem
+    // escreve é a agência (KI-243); a frase depois da despedida, se não é nome, fica.
+    expect(closeDraft('Olá!\n\nPodemos conversar?\n\nAtenciosamente,\nFloria', base)).toBe(
+      'Olá!\n\nPodemos conversar?\n\nAtenciosamente,\nEstúdio Faro',
+    );
+    expect(
+      closeDraft('Olá!\n\nPodemos conversar?\n\nFico à disposição.\nBom fim de semana', base),
+    ).toBe(
+      'Olá!\n\nPodemos conversar?\n\nFico à disposição.\nBom fim de semana\n\nAbraço,\nEstúdio Faro',
+    );
     expect(closeDraft('Olá!\n\nPodemos conversar?\n\nAbraço,\n[Seu nome]', base)).toBe(
       'Olá!\n\nPodemos conversar?\n\nAbraço,\nEstúdio Faro',
     );
@@ -2094,5 +2105,120 @@ describe('tese e linguagem da empresa (Parte 5, prompts v5)', () => {
       tratamento: expect.any(String),
       termos_recorrentes: ['ateliê'],
     });
+  });
+});
+
+describe('perfil e proposta (ajuste de 27/11, prompts v6)', () => {
+  const V6 = {
+    approach: loadPrompt('relationship-approach', 6),
+    message: loadPrompt('relationship-message', 6),
+  };
+  const PROFILE = {
+    id: 'blummy',
+    name: 'Blummy',
+    kind: 'product' as const,
+    description: 'Produto SaaS de gestão para profissionais da área terapêutica.',
+    positioning: 'Gestão para quem atende na área terapêutica.',
+    valueProposition: 'Rotina de atendimento organizada.',
+    language: 'Próxima e clara.',
+    restrictions: ['Nunca misturar com os serviços da agência.'],
+  };
+  const PROPOSAL = {
+    profileId: 'blummy',
+    profileName: 'Blummy',
+    profileKind: 'product' as const,
+    mode: 'recommended' as const,
+    title: 'Clínica que cresce precisa de rotina organizada',
+    families: [{ code: 'G', name: 'Produto Blummy' }],
+    services: ['Assinatura da Blummy'],
+    rationale: 'A unidade nova aumenta a agenda da equipe.',
+    objective: 'Despertar interesse em conhecer o produto.',
+    note: 'Sem falar de preço.',
+  };
+
+  it('a v6 lê a proposta; a v5 não, e recebe a proposta só no formato de oferta', async () => {
+    const { gateway } = fakeGateway({ text: '{}' });
+    expect(createRelationshipAi({ gateway, prompts: V6 }).proposalAware).toBe(true);
+    expect(
+      createRelationshipAi({
+        gateway,
+        prompts: {
+          approach: loadPrompt('relationship-approach', 5),
+          message: loadPrompt('relationship-message', 5),
+        },
+      }).proposalAware,
+    ).toBe(false);
+
+    const v5 = fakeGateway({ text: '{}' });
+    await createRelationshipAi({
+      gateway: v5.gateway,
+      prompts: {
+        approach: loadPrompt('relationship-approach', 5),
+        message: loadPrompt('relationship-message', 5),
+      },
+    }).approach({ ...APPROACH, profile: PROFILE, proposal: PROPOSAL, offerFromStrategy: false });
+    const data5 = dataOf(v5.calls[0]!.input.messages[1]!.content);
+    expect(data5).not.toHaveProperty('perfil');
+    expect(data5).not.toHaveProperty('proposta');
+    expect(data5.oferta).toMatchObject({ nome: APPROACH.offer.name });
+  });
+
+  it('com a v6, perfil e proposta vão nos DADOS; oferta só quando é da Estratégia', async () => {
+    const { gateway, calls } = fakeGateway({ text: '{}' });
+    const ai = createRelationshipAi({ gateway, prompts: V6 });
+    await ai.approach({
+      ...APPROACH,
+      profile: PROFILE,
+      proposal: PROPOSAL,
+      offerFromStrategy: false,
+    });
+    const data = dataOf(calls[0]!.input.messages[1]!.content) as Record<string, unknown>;
+    expect(data.oferta).toBeNull();
+    expect(data.perfil).toMatchObject({
+      nome: 'Blummy',
+      tipo: 'produto (software por assinatura)',
+      restricoes: ['Nunca misturar com os serviços da agência.'],
+    });
+    expect(data.proposta).toEqual({
+      modo: 'Seguir a recomendação',
+      titulo: 'Clínica que cresce precisa de rotina organizada',
+      frentes: ['Produto Blummy'],
+      servicos: ['Assinatura da Blummy'],
+      justificativa: 'A unidade nova aumenta a agenda da equipe.',
+      objetivo_da_primeira_interacao: 'Despertar interesse em conhecer o produto.',
+    });
+
+    await ai.approach({
+      ...APPROACH,
+      profile: PROFILE,
+      proposal: PROPOSAL,
+      offerFromStrategy: true,
+    });
+    const withOffer = dataOf(calls[1]!.input.messages[1]!.content);
+    expect(withOffer.oferta).toMatchObject({ nome: APPROACH.offer.name });
+
+    // Conversa sem oferta: a proposta vai sem serviço nem frente.
+    await ai.approach({
+      ...APPROACH,
+      profile: PROFILE,
+      proposal: { ...PROPOSAL, mode: 'conversation', families: [], services: [], note: null },
+      offerFromStrategy: false,
+    });
+    const conversation = dataOf(calls[2]!.input.messages[1]!.content);
+    expect(conversation.proposta).toMatchObject({
+      modo: 'Sem oferta: só abrir uma conversa',
+      frentes: [],
+      servicos: [],
+    });
+  });
+
+  it('os prompts v6 trazem as regras de coerência e da conversa sem oferta', () => {
+    for (const doc of [V6.approach, V6.message]) {
+      expect(doc.text).toContain('Conteúdo não é acontecimento');
+      expect(doc.text).toContain('Nada de crescimento genérico');
+      expect(doc.text).toContain('Só esta empresa');
+      expect(doc.text).toContain('Sem oferta: só abrir uma conversa');
+      expect(doc.text).toContain('perfil` do tipo produto');
+    }
   });
 });

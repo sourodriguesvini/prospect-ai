@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   detectEventTypes,
+  eventLeadQuote,
   extractCompanyFunding,
   extractFunding,
   formatBrlAmount,
   fundingQuotes,
   groupEventReports,
+  isExplainerContent,
   reportTier,
+  thirdPartyMention,
 } from '../../src';
 import { normalizeForQuote } from '../../src/evidence/quotes';
 
@@ -42,6 +45,115 @@ describe('detectEventTypes', () => {
 
   it('texto sem acontecimento não vira sinal', () => {
     expect(detectEventTypes('Conheça os benefícios da Flash para sua equipe')).toEqual([]);
+  });
+
+  // KI-242 (títulos SINTÉTICOS no formato dos da validação da Flash, 27/11).
+  it('"<empresa> investe R$" é a empresa gastando, não rodada que ela recebeu', () => {
+    expect(
+      detectEventTypes('Flash investe R$ 400 milhões em IA e novos produtos', ['flash']),
+    ).not.toContain('funding');
+    expect(detectEventTypes('Flash investe R$ 400 mi em IA')).not.toContain('funding');
+  });
+
+  it('"investe R$" conta quando quem recebe é a empresa ou quem investe é investidor', () => {
+    expect(detectEventTypes('Fundo americano investe R$ 50 milhões na Flash', ['flash'])).toContain(
+      'funding',
+    );
+    expect(detectEventTypes('SoftBank investe R$ 80 mi na Flash', ['flash'])).toContain('funding');
+    expect(detectEventTypes('Gestora investe R$ 30 milhões em healthtech paulista')).toContain(
+      'funding',
+    );
+  });
+
+  it('rodada no mesmo título continua rodada, mesmo com "investe"', () => {
+    expect(
+      detectEventTypes('Flash capta R$ 400 milhões e investe R$ 100 mi em IA', ['flash']),
+    ).toContain('funding');
+  });
+});
+
+describe('isExplainerContent (validação da Salesforce, 27/11)', () => {
+  it.each([
+    ['O que é SaaS (Software como Serviço)? | Salesforce BR', 'https://www.salesforce.com/br/saas'],
+    ['Guia completo de CRM para pequenas empresas', 'https://empresa.test/blog/crm'],
+    ['Como funciona a gestão de benefícios', 'https://empresa.test/blog/beneficios'],
+    ['7 dicas para lançar um produto digital', 'https://empresa.test/blog/lancar'],
+    ['Entenda o que muda com a nova lei', 'https://empresa.test/noticia'],
+    ['Plataforma de vendas', 'https://empresa.test/o-que-e/plataforma'],
+    ['SaaS: vale a pena para a sua empresa?', 'https://empresa.test/artigo'],
+  ])('"%s" é conteúdo, não acontecimento', (title, url) => {
+    expect(isExplainerContent(title, url)).toBe(true);
+  });
+
+  it.each([
+    ['Salesforce lança Agentforce no Brasil', 'https://neofeed.com.br/salesforce-lanca-agentforce'],
+    ['A Flash não precisava de dinheiro, mas levantou R$ 150 milhões', 'https://neofeed.com.br/x'],
+    ['Rede inaugura nova unidade em Campinas', 'https://empresa.test/noticias/campinas'],
+  ])('"%s" continua sendo notícia', (title, url) => {
+    expect(isExplainerContent(title, url)).toBe(false);
+  });
+
+  it('a página de conteúdo não entra no agrupamento de acontecimentos', () => {
+    const groups = groupEventReports(
+      [
+        {
+          url: 'https://www.salesforce.com/br/saas',
+          title: 'O que é SaaS (Software como Serviço)? | Salesforce BR',
+          snippet: 'A Salesforce apresenta o lançamento de ferramentas como o Agentforce.',
+          publishedAt: null,
+        },
+      ],
+      'salesforce.com.br',
+      ['salesforce'],
+    );
+    expect(groups).toEqual([]);
+  });
+});
+
+describe('a mesma rodada em veículos diferentes é um grupo só (KI-242)', () => {
+  it('mesma Série D, títulos diferentes, sem o mesmo valor no título', () => {
+    const groups = groupEventReports(
+      [
+        {
+          url: 'https://neofeed.com.br/flash-serie-d',
+          title: 'A Flash não precisava de dinheiro, mas levantou R$ 400 milhões',
+          snippet: 'A Flash anunciou uma rodada Série D liderada por fundos americanos.',
+          publishedAt: '2026-08-19',
+        },
+        {
+          url: 'https://startups.com.br/flash-rodada',
+          title: 'Flash conclui Série D e mira novos produtos',
+          snippet: 'A plataforma de benefícios fechou a rodada Série D.',
+          publishedAt: '2026-08-20',
+        },
+      ],
+      null,
+      ['flash'],
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.members).toHaveLength(2);
+  });
+
+  it('Série A e Série D da mesma empresa continuam separadas', () => {
+    const groups = groupEventReports(
+      [
+        {
+          url: 'https://neofeed.com.br/a',
+          title: 'Flash capta Série A',
+          snippet: 'Rodada Série A da Flash.',
+          publishedAt: '2022-03-01',
+        },
+        {
+          url: 'https://neofeed.com.br/d',
+          title: 'Flash fecha Série D com fundos',
+          snippet: 'Rodada Série D da Flash.',
+          publishedAt: '2026-08-19',
+        },
+      ],
+      null,
+      ['flash'],
+    );
+    expect(groups).toHaveLength(2);
   });
 });
 
@@ -192,5 +304,41 @@ describe('fontes e republicações (Partes 3.2 e 3.3)', () => {
     expect(funding?.republishedBy).toEqual(['agregador.test']);
     expect(funding?.confirmedBy).toEqual(['braziljournal.com']);
     expect(groups.find((group) => group.type === 'hiring')?.members).toHaveLength(1);
+  });
+});
+
+describe('checagem de entidade: o acontecimento é da empresa (27/11)', () => {
+  it('empresa citada só como cliente ou concorrente não recebe o acontecimento de outra', () => {
+    expect(thirdPartyMention('a xyz, concorrente da flash, captou r$ 100 milhoes', ['flash'])).toBe(
+      true,
+    );
+    expect(
+      thirdPartyMention('startup que tem como cliente a flash capta r$ 20 mi', ['flash']),
+    ).toBe(true);
+    expect(thirdPartyMention('a flash captou r$ 400 milhoes em serie d', ['flash'])).toBe(false);
+  });
+
+  it('a frase principal da evidência não é a que cita a empresa como terceira', () => {
+    const text = [
+      'A XYZ, concorrente da Flash, captou R$ 100 milhões nesta semana.',
+      'O mercado de benefícios segue aquecido.',
+    ].join(' ');
+    expect(eventLeadQuote(text, ['flash'], 'funding')).toBeNull();
+  });
+
+  it('resultado de busca que fala de outra empresa não vira grupo de acontecimento', () => {
+    const groups = groupEventReports(
+      [
+        {
+          url: 'https://neofeed.com.br/xyz',
+          title: 'XYZ, rival da Flash, levanta R$ 100 milhões',
+          snippet: 'A rodada da XYZ foi liderada por fundos.',
+          publishedAt: '2026-10-01',
+        },
+      ],
+      null,
+      ['flash'],
+    );
+    expect(groups).toEqual([]);
   });
 });

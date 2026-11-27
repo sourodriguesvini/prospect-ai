@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { NO_BASIS_BLOCKER } from '@prospector/domain';
 
 export type AppErrorCode = 'validation' | 'not_found' | 'conflict' | 'unavailable' | 'unexpected';
 
@@ -57,8 +58,11 @@ export const ERROR_MESSAGES = {
   approval_invalid:
     'A aprovação desta mensagem não vale mais (texto editado, revogada, vencida ou de outro canal). Revise e aprove de novo.',
   message_blocked: 'Esta mensagem ainda não pode ser aprovada. Falta:',
-  approach_basis_insufficient:
-    'Ainda não há base para uma abordagem: investigue a empresa (fatos do cadastro ou do site) antes de gerar.',
+  approach_basis_insufficient: NO_BASIS_BLOCKER,
+  proposal_incoherent:
+    'A proposta não se sustenta nas evidências desta empresa. Nada foi gerado. Motivo:',
+  approach_plan_offer_required:
+    'Esta instalação ainda não grava estratégia sem oferta cadastrada: falta a atualização do banco de 27/11 (KI-244). Por enquanto, siga a recomendação ou ajuste as frentes incluindo uma oferta cadastrada, ou escreva sem a IA.',
   approval_used:
     'Esta aprovação já foi usada: o contato já está registrado. Para escrever de novo, crie outra mensagem.',
   suppression_inherited:

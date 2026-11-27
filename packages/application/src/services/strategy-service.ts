@@ -34,6 +34,7 @@ import {
   addDays,
   addMonths,
   approachClearance,
+  assessApproachWithoutOffer,
   assessReadiness,
   canChangeStatus,
   discoveryClearance,
@@ -242,7 +243,11 @@ export function createStrategyService(deps: {
       const scope = parseInput(ApproachScope, raw);
       const snapshot = await repo.loadSnapshot();
       const day = today();
-      const { approach } = assessReadiness(snapshot, day, scope, options);
+      // Sem oferta da Estratégia (ADR-0021): só voz, opt-out e LIA.
+      const approach =
+        scope.offerId === null
+          ? assessApproachWithoutOffer(snapshot, day, options)
+          : assessReadiness(snapshot, day, { ...scope, offerId: scope.offerId }, options).approach;
       const clearance = approachClearance(snapshot, day, scope, options);
       if (!approach.ready || !clearance) throw blocked(approach, 'approach_blocked');
       return clearance;

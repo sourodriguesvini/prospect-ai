@@ -16,7 +16,7 @@ import {
   type SelectedThesis,
   type ThesisChoice,
 } from '@prospector/contracts';
-import { effectiveStatus } from '@prospector/domain';
+import { DEFAULT_COMMERCIAL_PROFILE_ID, effectiveStatus } from '@prospector/domain';
 import { systemClock, type Clock } from '../clock';
 import type { RequestContext } from '../context';
 import type { EvidenceRepository } from '../ports/company-repository';
@@ -219,15 +219,31 @@ export function insightsFromInvestigation(
       }
     : null;
 
-  return { diagnosis: summary, recommendedService, qualification, thesis };
+  const profileTheses = (diagnosis.profileTheses ?? []).map((item) =>
+    approachThesis(investigation, item),
+  );
+  return {
+    diagnosis: summary,
+    recommendedService,
+    qualification,
+    thesis,
+    ...(profileTheses.length > 0 ? { profileTheses } : {}),
+  };
 }
 
 /** Tese da investigação como insumo (cópia do que a regra gravou; nada escrito pelo modelo). */
 function thesisOf(investigation: Investigation): ApproachThesis | null {
   const thesis = investigation.diagnosis?.thesis;
-  if (!thesis) return null;
+  return thesis ? approachThesis(investigation, thesis) : null;
+}
+
+function approachThesis(
+  investigation: Investigation,
+  thesis: NonNullable<NonNullable<Investigation['diagnosis']>['thesis']>,
+): ApproachThesis {
   return {
     investigationId: investigation.id,
+    profileId: thesis.profileId,
     recommendation: thesis.recommendation,
     recommendationReason: thesis.recommendationReason,
     principal: thesis.principal,
@@ -235,6 +251,19 @@ function thesisOf(investigation: Investigation): ApproachThesis | null {
     doNotOffer: thesis.doNotOffer,
     toConfirm: thesis.toConfirm,
   };
+}
+
+/**
+ * Tese do perfil escolhido: a principal da investigação (sem perfil gravado, era sempre o padrão)
+ * ou a de outro perfil que a investigação ligou à empresa. Null = nenhuma tese desse perfil.
+ */
+export function thesisForProfile(
+  insights: ApproachInsights,
+  profileId: string,
+): ApproachThesis | null {
+  const main = insights.thesis ?? null;
+  if (main && (main.profileId ?? DEFAULT_COMMERCIAL_PROFILE_ID) === profileId) return main;
+  return insights.profileTheses?.find((item) => item.profileId === profileId) ?? null;
 }
 
 /** Escolha padrão: o ângulo principal, quando a tese tem um; senão, sem tese. */

@@ -19,6 +19,7 @@ import {
   MESSAGE_CHANNEL_LABELS,
   MESSAGE_KIND_LABELS,
   MESSAGE_TONE_LABELS,
+  PROPOSAL_MODE_LABELS,
   MessageChannel,
   ReplyClassification,
   ReplyConfidence,
@@ -100,6 +101,16 @@ export const PERSON_NAME_HIDDEN_FROM_VERSION = 3;
  * avaliadas.
  */
 export const THESIS_FROM_VERSION = 5;
+
+/**
+ * A partir desta versão (ajuste de 2026-11-27, ADR-0021), a estratégia e a mensagem recebem o
+ * perfil comercial em nome de quem se escreve (`perfil`: agência de serviços ou produto) e a
+ * proposta decidida pelo servidor (`proposta`: modo, frentes, serviços, justificativa e objetivo da
+ * primeira interação), inclusive a conversa sem oferta. `oferta` só vai quando há uma oferta da
+ * Estratégia escolhida. As versões anteriores recebem a proposta no formato de `oferta`, como
+ * foram avaliadas.
+ */
+export const PROPOSAL_FROM_VERSION = 6;
 
 /** Número da versão de um prompt (`relationship-message/v2` → 2); 1 se o id não disser. */
 export function promptVersion(doc: Pick<PromptDoc, 'id'>): number {
@@ -587,6 +598,7 @@ function contextData(
   withSources = false,
   hidePersonName = false,
   withThesis = false,
+  withProposal = false,
 ) {
   const { claims, cases, picked, pickedCases } = refs;
   const refsOf = (ids: readonly string[]) =>
@@ -613,16 +625,21 @@ function contextData(
       site: hidden ? null : context.company.primaryDomain,
       individual: context.company.individual,
     },
-    oferta: {
-      nome: context.offer.name,
-      descricao: context.offer.description
-        ? clip(context.offer.description, limits.description)
-        : null,
-      problemas_que_resolve: list(context.offer.problems),
-      sinais_de_necessidade: list(context.offer.needSignals),
-      entregaveis: list(context.offer.deliverables),
-      propostas_de_valor: list(context.offer.valueProps),
-    },
+    ...(withProposal ? proposalData(context, limits) : {}),
+    // Da v6 em diante, `oferta` só existe quando há oferta da Estratégia escolhida.
+    oferta:
+      withProposal && context.offerFromStrategy !== true
+        ? null
+        : {
+            nome: context.offer.name,
+            descricao: context.offer.description
+              ? clip(context.offer.description, limits.description)
+              : null,
+            problemas_que_resolve: list(context.offer.problems),
+            sinais_de_necessidade: list(context.offer.needSignals),
+            entregaveis: list(context.offer.deliverables),
+            propostas_de_valor: list(context.offer.valueProps),
+          },
     evidencias: picked.map((claim) => ({
       ref: claims.toRef.get(claim.id),
       tipo: EPISTEMIC_LABELS[claim.epistemicType],
@@ -665,6 +682,59 @@ function contextData(
           bons_exemplos: context.voice.goodExamples
             .slice(0, limits.voiceExamples)
             .map((text) => clip(text, limits.exampleText)),
+        }
+      : null,
+  };
+}
+
+const PROFILE_KIND_TEXT = {
+  services: 'agência de serviços',
+  product: 'produto (software por assinatura)',
+} as const;
+
+/**
+ * Texto do perfil sem as ressalvas internas "(… a confirmar …)": o modelo não deve copiar nem
+ * completar o que ainda não foi definido (revisão de conformidade de 27/11).
+ */
+export function settledProfileText(text: string): string {
+  return text
+    .replace(/\s*\([^()]*\ba confirmar\b[^()]*\)/gi, '')
+    .replace(/\s+([.,;])/g, '$1')
+    .trim();
+}
+
+/**
+ * Blocos da v6: o perfil em nome de quem se escreve e a proposta decidida pelo servidor (ajuste
+ * de 27/11). Sem texto livre de quem dirige a agência: o PEDIDO continua fora dos DADOS.
+ */
+function proposalData(context: AiContext, limits: ContextLimits) {
+  const profile = context.profile ?? null;
+  const proposal = context.proposal ?? null;
+  const items = (values: readonly string[], max: number) =>
+    values
+      .slice(0, limits.listItems)
+      .map((value) => clip(settledProfileText(value), max))
+      .filter((value) => value.length > 0);
+  return {
+    perfil: profile
+      ? {
+          nome: profile.name,
+          tipo: PROFILE_KIND_TEXT[profile.kind],
+          descricao: clip(settledProfileText(profile.description), limits.description),
+          posicionamento: clip(settledProfileText(profile.positioning), limits.description),
+          proposta_de_valor: clip(settledProfileText(profile.valueProposition), limits.description),
+          linguagem: clip(settledProfileText(profile.language), 300),
+          restricoes: items(profile.restrictions, 240),
+        }
+      : null,
+    proposta: proposal
+      ? {
+          modo: PROPOSAL_MODE_LABELS[proposal.mode],
+          titulo: clip(proposal.title, 160),
+          frentes: proposal.families.map((family) => family.name),
+          servicos: items(proposal.services, 160),
+          justificativa: clip(proposal.rationale, limits.description),
+          objetivo_da_primeira_interacao: clip(proposal.objective, 300),
         }
       : null,
   };
@@ -1031,19 +1101,21 @@ export function createRelationshipAi(options: RelationshipAiOptions): Relationsh
 
   return {
     thesisAware: promptVersion(prompt('approach')) >= THESIS_FROM_VERSION,
+    proposalAware: promptVersion(prompt('approach')) >= PROPOSAL_FROM_VERSION,
     approach(request: ApproachAiRequest, signal?: AbortSignal) {
       const day = today(now());
       const version = promptVersion(prompt('approach'));
       const aware = version >= SOURCE_AWARE_FROM_VERSION;
       const hideName = version >= PERSON_NAME_HIDDEN_FROM_VERSION;
       const withThesis = version >= THESIS_FROM_VERSION;
+      const withProposal = version >= PROPOSAL_FROM_VERSION;
       return run(
         'approach',
         (limits) => {
           const refs = refsFor(request, limits, withThesis);
           const data = {
             hoje: day,
-            ...contextData(request, refs, limits, aware, hideName, withThesis),
+            ...contextData(request, refs, limits, aware, hideName, withThesis, withProposal),
             base: request.basis === 'sufficient' ? 'suficiente' : 'limitada',
             lacunas: request.gaps.slice(0, 6).map((gap) => clip(gap, 200)),
             mensagem: {
@@ -1128,6 +1200,7 @@ export function createRelationshipAi(options: RelationshipAiOptions): Relationsh
       const aware = version >= SOURCE_AWARE_FROM_VERSION;
       const hideName = version >= PERSON_NAME_HIDDEN_FROM_VERSION;
       const withThesis = version >= THESIS_FROM_VERSION;
+      const withProposal = version >= PROPOSAL_FROM_VERSION;
       const task = request.previous
         ? aware
           ? REWRITE_TASK
@@ -1197,7 +1270,15 @@ export function createRelationshipAi(options: RelationshipAiOptions): Relationsh
                   : null,
               }
             : null;
-          const context = contextData(request, refs, limits, aware, hideName, withThesis);
+          const context = contextData(
+            request,
+            refs,
+            limits,
+            aware,
+            hideName,
+            withThesis,
+            withProposal,
+          );
           // Da v2 em diante, a versão a reescrever vem logo depois do tipo de mensagem, antes do
           // dossiê: é a base do texto, e o dossiê é só consulta (KI-150).
           const data = aware
@@ -1391,7 +1472,11 @@ export function sourceSupport(
   const voice = request.voice
     ? [request.voice.summary, ...request.voice.principles, ...request.voice.goodExamples]
     : [];
-  const offer = [request.offer.description ?? '', ...request.offer.valueProps];
+  const offer = [
+    request.offer.description ?? '',
+    ...request.offer.valueProps,
+    ...profileTexts(request),
+  ];
   return {
     site: from(/site da empresa/),
     instagram: from(/^Instagram$/),
@@ -1848,6 +1933,13 @@ function hasClosing(body: string, agency: string): boolean {
   return value.includes(name) && wordCount(last) <= wordCount(agency) + 5;
 }
 
+/** Linha que é só um nome próprio ("Floria", "Equipe Floria"), não uma frase ("Bom fim de semana"). */
+function looksLikeName(line: string): boolean {
+  const words = line.replace(/[.!]$/, '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 4 || /[?\d,;:]/.test(line)) return false;
+  return words.every((word) => /^\p{Lu}/u.test(word) || /^(da|de|do|das|dos|e|&)$/.test(word));
+}
+
 /**
  * Despedida com o nome da agência (sem nome, o marcador que o Prospector obriga a trocar antes de
  * aprovar). Fica de fora em telefone e visita, e na reescrita cuja versão anterior não a tinha.
@@ -1863,10 +1955,12 @@ export function closeDraft(body: string, context: ClosingContext): string {
   const lines = text.split('\n');
   const last = lines.at(-1)?.trim() ?? '';
   if (FAREWELL.test(comparable(last)) && wordCount(last) <= 6) return `${text}\n${name}`;
-  // Assinatura com marcador inventado logo depois da despedida ("Atenciosamente,\nAgência
-  // [Nome]"): troca pela assinatura certa, sem assinar duas vezes.
+  // Assinatura com marcador inventado ("Atenciosamente,\nAgência [Nome]") ou com outro nome logo
+  // depois da despedida ("Atenciosamente,\nFloria", o produto do perfil): quem escreve é a agência
+  // (ADR-0021, KI-243). Troca pela assinatura certa, sem assinar duas vezes.
   const before = lines.at(-2)?.trim() ?? '';
-  if (/\[[^\]]{1,40}\]/.test(last) && wordCount(last) <= 6 && FAREWELL.test(comparable(before))) {
+  const signature = /\[[^\]]{1,40}\]/.test(last) || looksLikeName(last);
+  if (signature && wordCount(last) <= 6 && FAREWELL.test(comparable(before))) {
     return [...lines.slice(0, -1), name].join('\n');
   }
   return `${text}\n\n${context.tone === 'formal' ? 'Atenciosamente' : 'Abraço'},\n${name}`;
@@ -2004,11 +2098,31 @@ function groundingFor(request: AiContext, picked: readonly AiClaim[]): Grounding
         ...request.offer.needSignals,
         ...request.offer.deliverables,
         ...request.offer.valueProps,
+        ...profileTexts(request),
       ]
         .filter(Boolean)
         .join(' '),
     ),
   };
+}
+
+/** O que os DADOS dizem do perfil e da proposta (v6): pode aparecer na resposta sem inventar. */
+function profileTexts(request: AiContext): string[] {
+  const profile = request.profile ?? null;
+  const proposal = request.proposal ?? null;
+  return [
+    ...(profile
+      ? [profile.name, profile.description, profile.positioning, profile.valueProposition]
+      : []),
+    ...(proposal
+      ? [
+          proposal.title,
+          proposal.rationale,
+          ...proposal.services,
+          ...proposal.families.map((family) => family.name),
+        ]
+      : []),
+  ];
 }
 
 const comparable = (text: string) =>

@@ -324,14 +324,20 @@ export function createSupabaseRelationshipRepository(
     },
 
     async insertPlan(plan, audit) {
-      const data = await run(
-        client
-          .from('approach_plans')
-          .insert(planColumns(plan))
-          .select('*')
-          .single()
-          .setHeader(AUDIT_HEADER, header('approach_plans', audit)),
-      );
+      const { data, error } = await client
+        .from('approach_plans')
+        .insert(planColumns(plan))
+        .select('*')
+        .single()
+        .setHeader(AUDIT_HEADER, header('approach_plans', audit));
+      if (error) {
+        // Estratégia sem oferta da Estratégia (ADR-0021) num banco sem a migração de 27/11, que
+        // tira o NOT NULL de offer_id: explica em vez de "algo deu errado".
+        if (error.code === '23502' && plan.offerId === null) {
+          throw new AppError('conflict', 'approach_plan_offer_required', { cause: error });
+        }
+        throw toAppError(error);
+      }
       return mapPlan(data);
     },
 

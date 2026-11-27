@@ -1,5 +1,5 @@
 import type { BusinessEvent, BusinessEventType } from '@prospector/contracts';
-import { detectEventTypes } from './events';
+import { detectEventTypes, fundingRoundOf, isExplainerContent, thirdPartyMention } from './events';
 import { contentTokens, fold, jaccard } from './text';
 
 /**
@@ -147,24 +147,40 @@ function citesOrigin(text: string, originHost: string): boolean {
   ).test(folded);
 }
 
+/** Datas de publicação compatíveis com o mesmo acontecimento (uma delas sem data também vale). */
+function closeDates(a: string | null, b: string | null, days = 120): boolean {
+  if (!a || !b) return true;
+  const gap = Math.abs(Date.parse(a.slice(0, 10)) - Date.parse(b.slice(0, 10)));
+  return Number.isFinite(gap) && gap <= days * 86_400_000;
+}
+
 /**
- * Agrupa as matérias por acontecimento: mesmo tipo principal e (mesmo valor citado ou títulos
- * parecidos). Em cada grupo, separa republicação de confirmação independente (Parte 3.3: "não
- * considere republicações da mesma notícia como confirmações independentes").
+ * Agrupa as matérias por acontecimento: mesmo tipo principal e (mesmo valor citado, mesma rodada
+ * em datas próximas ou títulos parecidos). Em cada grupo, separa republicação de confirmação
+ * independente (Parte 3.3: "não considere republicações da mesma notícia como confirmações
+ * independentes"). Página de conteúdo permanente ("O que é SaaS?") não é acontecimento. Com o
+ * nome da empresa (`nameTokens`), "investe R$" só conta como investimento que ela recebeu.
  */
 export function groupEventReports<T extends EventReport>(
   reports: readonly T[],
   companyDomain: string | null,
+  nameTokens: readonly string[] = [],
 ): EventReportGroup<T>[] {
   const typed = reports.flatMap((report) => {
-    const [type] = detectEventTypes(`${report.title} ${report.snippet}`);
+    if (isExplainerContent(report.title, report.url)) return [];
+    const text = `${report.title} ${report.snippet}`;
+    // A empresa só aparece como cliente, parceira ou concorrente de outra: não é dela.
+    const tokens = nameTokens.map((token) => fold(token));
+    if (thirdPartyMention(fold(text), tokens)) return [];
+    const [type] = detectEventTypes(text, nameTokens);
     return type
       ? [
           {
             report,
             type,
             tokens: contentTokens(report.title),
-            amount: amountKey(`${report.title} ${report.snippet}`),
+            amount: amountKey(text),
+            round: type === 'funding' ? fundingRoundOf(text) : null,
           },
         ]
       : [];
@@ -176,8 +192,13 @@ export function groupEventReports<T extends EventReport>(
         candidate.type === item.type &&
         candidate.items.some(
           (other) =>
-            (item.amount !== null && item.amount === other.amount) ||
-            jaccard(item.tokens, other.tokens) >= 0.35,
+            // Rodadas diferentes (Série A e Série D) nunca são o mesmo acontecimento.
+            !(item.round !== null && other.round !== null && item.round !== other.round) &&
+            ((item.amount !== null && item.amount === other.amount) ||
+              (item.round !== null &&
+                item.round === other.round &&
+                closeDates(item.report.publishedAt, other.report.publishedAt)) ||
+              jaccard(item.tokens, other.tokens) >= 0.35),
         ),
     );
     if (group) group.items.push(item);

@@ -102,9 +102,22 @@ test('prepara a abordagem no dossiê, com a estratégia apoiada em evidências (
   // Sem investigação concluída, o painel avisa que a abordagem sai com base limitada (KI-129).
   await expect(panel.locator('[data-diagnosis="none"]')).toContainText('Sem diagnóstico');
   await expectNoA11yViolations(page);
+  // Sem tese da investigação, propor serviço não se sustenta: o motivo aparece antes do clique e
+  // "Preparar" fica desligado (correção de 27/11). Escolher a oferta da Estratégia não basta.
+  const propose = panel.getByRole('group', { name: 'O que propor' });
+  await propose.getByRole('radio', { name: 'Seguir a recomendação' }).check();
+  await expect(panel.locator('[data-proposal-blocked]')).toContainText('Ainda não há tese');
   await panel
-    .getByRole('combobox', { name: 'Oferta (obrigatório)' })
+    .getByRole('combobox', { name: 'Oferta da Estratégia (opcional)' })
     .selectOption({ label: 'Oferta E2E de rebranding' });
+  await expect(panel.getByRole('button', { name: 'Preparar mensagem' })).toBeDisabled();
+  await expectNoA11yViolations(page);
+  // Só abrir uma conversa, sem oferta: liberado com o dossiê que há.
+  await propose.getByRole('radio', { name: 'Sem oferta: só abrir uma conversa' }).check();
+  await expect(panel.locator('[data-proposal-blocked]')).toHaveCount(0);
+  await expect(
+    panel.getByRole('combobox', { name: 'Oferta da Estratégia (opcional)' }),
+  ).toHaveCount(0);
   await panel.getByRole('button', { name: 'Preparar mensagem' }).click();
 
   await expect(page).toHaveURL(
@@ -117,6 +130,9 @@ test('prepara a abordagem no dossiê, com a estratégia apoiada em evidências (
   );
 
   const strategy = page.getByRole('region', { name: 'Estratégia' });
+  await expect(strategy.locator('[data-proposal-recorded="conversation"]')).toContainText(
+    'Sem oferta direta: abrir uma conversa',
+  );
   await expect(strategy).toContainText('Em que se apoia');
   await expect(strategy).toContainText('Ponto de teste baseado em');
   // Cada ponto mostra a evidência do dossiê que o sustenta, com o tipo e a confiança.

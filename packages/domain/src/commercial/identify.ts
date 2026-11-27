@@ -17,6 +17,16 @@ function hasTerm(text: string, term: string): boolean {
 }
 
 /**
+ * Palavras do público e do catálogo do perfil que aparecem num texto sobre a empresa (nome,
+ * atividade, posicionamento). Liga a empresa a um perfil além do padrão — ex.: uma clínica de
+ * terapia ocupacional ao público da Blummy — sem misturar os catálogos.
+ */
+export function profileKeywordMatches(profile: CommercialProfile, text: string): string[] {
+  const folded = fold(text);
+  return profile.keywords.filter((keyword) => hasTerm(folded, fold(keyword)));
+}
+
+/**
  * Parte 1.5: identifica a operação de prospecção a partir do pedido. O nome do perfil decide;
  * sem nome, vence o perfil com mais palavras do seu público e catálogo. Empate ou nada →
  * `profileId: null` (quem chama pergunta ao usuário — informação essencial, Parte 6.6).

@@ -194,7 +194,32 @@ export function assessReadiness(
   options: ReadinessOptions = {},
 ): Readiness {
   const { offer, items: perOffer } = scopedOffer(s, scope);
+  const compliance = complianceItems(s, today, offer, options);
+  return {
+    discover: gate(perOffer, offer),
+    approach: gate([...perOffer, ...compliance], offer),
+  };
+}
 
+/**
+ * Barreira de abordagem sem oferta da Estratégia (ADR-0021): a proposta sai da tese e do
+ * catálogo do perfil comercial, então valem só os itens de conformidade (voz, opt-out, LIA,
+ * banco persistente). Case citável segue como recomendação.
+ */
+export function assessApproachWithoutOffer(
+  s: StrategySnapshot,
+  today: string,
+  options: ReadinessOptions = {},
+): ReadinessGate {
+  return gate(complianceItems(s, today, null, options), null);
+}
+
+function complianceItems(
+  s: StrategySnapshot,
+  today: string,
+  offer: Offer | null,
+  options: ReadinessOptions,
+): ReadinessItem[] {
   const lia = effectiveLia(s.liaVersions, today);
   const liaDetail = (() => {
     switch (lia.status) {
@@ -253,24 +278,36 @@ export function assessReadiness(
       ),
     );
   }
-
-  return {
-    discover: gate(perOffer, offer),
-    approach: gate([...perOffer, ...compliance], offer),
-  };
+  return compliance;
 }
 
 /**
  * Versões conferidas pela barreira de abordagem. Null se a barreira não estiver liberada para
- * esse escopo (quem chama já recebeu o motivo em `assessReadiness`).
+ * esse escopo (quem chama já recebeu o motivo em `assessReadiness`). Com `offerId: null`
+ * (ADR-0021), confere só voz, opt-out e LIA, e oferta, rubrica e score ficam null.
  */
 export function approachClearance(
   s: StrategySnapshot,
   today: string,
-  scope: { offerId: string; icpId?: string },
+  scope: { offerId: string | null; icpId?: string },
   options: ReadinessOptions = {},
 ): ApproachClearance | null {
-  const { approach } = assessReadiness(s, today, scope, options);
+  if (scope.offerId === null) {
+    if (!assessApproachWithoutOffer(s, today, options).ready) return null;
+    const lia = effectiveLia(s.liaVersions, today);
+    if (!s.voiceGuide || !s.contactPolicy || lia.status !== 'approved') return null;
+    return {
+      offerId: null,
+      offerVersionId: null,
+      rubricVersionId: null,
+      scoringModelVersionId: null,
+      icpVersionId: null,
+      voiceGuideVersionId: s.voiceGuide.id,
+      contactPolicyVersionId: s.contactPolicy.id,
+      liaVersionId: lia.version.id,
+    };
+  }
+  const { approach } = assessReadiness(s, today, { ...scope, offerId: scope.offerId }, options);
   if (!approach.ready) return null;
   const offer = s.offers.find((o) => o.id === scope.offerId);
   const rubric = s.rubrics.find((r) => r.offerId === scope.offerId);

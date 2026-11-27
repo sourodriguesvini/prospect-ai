@@ -25,15 +25,23 @@ import { EXPLICIT_DEMAND_PATTERN } from './demand';
  * diz fica `unknown` (a finalidade nunca é presumida: investimento não é orçamento).
  */
 
+/**
+ * Investimento recebido, sem o verbo "investir": "investe R$ 400 mi" sozinho não diz quem recebe
+ * (KI-242: "Flash investe R$ 400 mi em IA" é a empresa gastando, não uma rodada dela).
+ */
+const FUNDING_PATTERN =
+  /\b(rodada|series? [a-h]\b|aporte|capta(cao|cou|r|m)\b|capta (r\$|us\$|\d)|levant(a|ou|am|aram|ar|ara|ando) (r\$|us\$|\d|cerca|mais|ate)|recebe(u)? (um |novo )?investimento|investimento de (r\$|us\$|\d)|pre-?seed|seed\b|venture debt|debentures?\b)/;
+/** "investe R$", "investiu US$", "vai investir R$". */
+const INVESTS = /\b(investe|investiu|investira|vai investir|irao investir|investem)\s+(r\$|us\$)/g;
+/** Quem investe é investidor (fundo, gestora…): o dinheiro vai para a empresa da matéria. */
+const INVESTOR_SUBJECT =
+  /\b(fundos?|gestoras?|investidor(?:es|a|as)?|venture capital|family office|bndes|finep|aceleradora|corporate venture|cvc|anjos?)\b[^.!?]{0,60}$/;
+
 /** Padrões sobre texto dobrado (sem acento, minúsculo), na ordem de prioridade. */
 const EVENT_PATTERNS: ReadonlyArray<{ type: BusinessEventType; pattern: RegExp }> = [
   // Caso 5: a própria empresa diz o que procura; vem antes de "contratação" (vagas de emprego).
   { type: 'explicit_demand', pattern: EXPLICIT_DEMAND_PATTERN },
-  {
-    type: 'funding',
-    pattern:
-      /\b(rodada|series? [a-h]\b|aporte|capta(cao|cou|r|m)\b|levant(a|ou|am|aram|ar|ara|ando) (r\$|us\$|\d|cerca|mais|ate)|recebe(u)? (um |novo )?investimento|investimento de (r\$|us\$|\d)|pre-?seed|seed\b|venture debt|debentures?\b|investe (r\$|us\$)|investira (r\$|us\$))/,
-  },
+  { type: 'funding', pattern: FUNDING_PATTERN },
   {
     type: 'acquisition',
     pattern:
@@ -88,10 +96,66 @@ const EVENT_PATTERNS: ReadonlyArray<{ type: BusinessEventType; pattern: RegExp }
   },
 ];
 
-/** Tipos de acontecimento que o texto menciona, do mais forte para o mais fraco. */
-export function detectEventTypes(text: string): BusinessEventType[] {
+/**
+ * "X investe R$ …" é investimento recebido pela empresa só quando ela é quem recebe: o sujeito é
+ * um investidor (fundo, gestora…) ou o nome da empresa vem depois do valor ("investe R$ 50 mi na
+ * Flash"). Com o nome dela antes do verbo, é a empresa gastando (KI-242).
+ */
+function investsInCompany(folded: string, tokens: readonly string[]): boolean {
+  for (const match of folded.matchAll(INVESTS)) {
+    const at = match.index ?? 0;
+    const before = folded.slice(Math.max(0, at - 80), at);
+    const after = folded.slice(at, at + 90);
+    const named = tokens.length > 0 && tokens.every((token) => after.includes(token));
+    const ownSpending = tokens.length > 0 && tokens.every((token) => before.includes(token));
+    if (named && /\b(na|no|em|para a|para o)\s+/.test(after)) return true;
+    if (!ownSpending && INVESTOR_SUBJECT.test(before)) return true;
+  }
+  return false;
+}
+
+/**
+ * Tipos de acontecimento que o texto menciona, do mais forte para o mais fraco. Com o nome da
+ * empresa (`nameTokens`, sem acento), "investe R$" conta como investimento recebido só quando é ela
+ * quem recebe; sem o nome, só quando quem investe é um investidor.
+ */
+export function detectEventTypes(
+  text: string,
+  nameTokens: readonly string[] = [],
+): BusinessEventType[] {
   const folded = fold(text);
-  return EVENT_PATTERNS.filter((item) => item.pattern.test(folded)).map((item) => item.type);
+  const tokens = nameTokens.map((token) => fold(token)).filter((token) => token.length > 0);
+  return EVENT_PATTERNS.filter(
+    (item) =>
+      item.pattern.test(folded) || (item.type === 'funding' && investsInCompany(folded, tokens)),
+  ).map((item) => item.type);
+}
+
+/**
+ * Página de conteúdo permanente (explicação, guia, glossário, lista de dicas): não é acontecimento
+ * da empresa, mesmo publicada por ela (validação da Salesforce, 27/11: "O que é SaaS?" virou
+ * "lançamento"). Publicar conteúdo não é lançar produto.
+ */
+const EXPLAINER_TITLE =
+  /^(o que (e|sao|significa)|como (fazer|funciona|funcionam|escolher|criar|usar|montar|calcular|melhorar|aumentar|evitar)|guia\b|entenda\b|saiba (mais|como|o que|tudo)|tudo (o que|sobre)|conheca\b|descubra\b|aprenda\b|por que\b|qual (e|a diferenca)|quais (sao|as)|\d{1,2} (dicas|passos|formas|maneiras|motivos|razoes|exemplos|ferramentas|tendencias|beneficios)\b|glossario|definicao|conceito d|passo a passo|tutorial|ebook|e-book|webinar|whitepaper|checklist)/;
+const EXPLAINER_ANYWHERE =
+  /\b(o que e|o que sao|guia (completo|pratico|definitivo|basico)|passo a passo|glossario|para iniciantes|tudo o que voce precisa saber)\b/;
+const EXPLAINER_PATH =
+  /\/(o-que-e|o-que-sao|glossario|glossary|guia|guias|guide|guides|learn|aprenda|recursos|resources|ebooks?|whitepapers?|webinars?|tutoriais|tutorial|dicas|definicao|conceito)(\/|-|$)/;
+
+export function isExplainerContent(title: string, url: string | null = null): boolean {
+  // O título da página costuma trazer " | Marca" ou " - Marca" no fim; vale o começo.
+  const folded = fold(title).replace(/\s+/g, ' ').trim();
+  if (EXPLAINER_TITLE.test(folded) || EXPLAINER_ANYWHERE.test(folded)) return true;
+  // Título em forma de pergunta ("SaaS: o que é?", "Vale a pena…?") é conteúdo, não anúncio.
+  const head = folded.split(/\s[|–—-]\s/)[0] ?? folded;
+  if (/\?\s*$/.test(head)) return true;
+  if (!url) return false;
+  try {
+    return EXPLAINER_PATH.test(fold(new URL(url).pathname));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -189,6 +253,17 @@ function extractAmount(
 
 const ROUND =
   /\b(series? ([a-h])\b|pre-?seed\b|seed\b|rodada anjo|investimento anjo|pre-series? ([a-h])\b)/;
+
+/** Rodada citada ("Série D", "Seed"): reconhece o mesmo investimento em títulos diferentes. */
+export function fundingRoundOf(text: string): string | null {
+  const match = ROUND.exec(fold(text));
+  return match ? roundLabel(match) : null;
+}
+
+/** Valor em reais citado (centavos), para comparar títulos sem a matéria lida. */
+export function fundingAmountCentsOf(text: string): number | null {
+  return extractAmount(text, foldWithMap(text)).amountCents;
+}
 
 function roundLabel(match: RegExpMatchArray): string {
   const [all = ''] = match;
@@ -314,6 +389,28 @@ export function extractFunding(text: string): FundingDetails {
 }
 
 /**
+ * A empresa aparece na frase só como terceira ("cliente da Flash", "concorrente da Flash", "como
+ * a Flash"): o acontecimento é de outra empresa e não pode ser atribuído a ela (checagem de
+ * entidade, correção de 27/11).
+ */
+const THIRD_PARTY =
+  /\b(clientes?|parceir[ao]s?|concorrentes?|rivais|rival|fornecedor(?:a|es|as)?|investidas?|como|assim como|a exemplo d[aoe]s?|ex-?(?:funcionari[ao]s?|executiv[ao]s?|socio?s?))\s+(?:(?:d[aoe]s?|a|o|as|os)\s+)?$/;
+
+export function thirdPartyMention(folded: string, tokens: readonly string[]): boolean {
+  const named = tokens.filter((token) => token.length > 0);
+  if (named.length === 0) return false;
+  const first = named[0] as string;
+  let at = folded.indexOf(first);
+  if (at < 0) return false;
+  while (at >= 0) {
+    const before = folded.slice(Math.max(0, at - 30), at);
+    if (!THIRD_PARTY.test(before)) return false;
+    at = folded.indexOf(first, at + first.length);
+  }
+  return true;
+}
+
+/**
  * Frase da matéria que cita a empresa e o acontecimento (trecho principal da evidência). Prefere
  * a que tem todas as palavras do nome; sem nenhuma, null (a matéria não é sobre a empresa).
  */
@@ -323,11 +420,12 @@ export function eventLeadQuote(
   type: BusinessEventType,
 ): string | null {
   const candidates = sentences(text).filter((sentence) =>
-    detectEventTypes(sentence.text).includes(type),
+    detectEventTypes(sentence.text, nameTokens).includes(type),
   );
   const tokens = nameTokens.map((token) => fold(token));
   const score = (sentence: string) => {
     const folded = fold(sentence);
+    if (thirdPartyMention(folded, tokens)) return 0;
     return tokens.filter((token) => folded.includes(token)).length;
   };
   const best = [...candidates].sort((a, b) => score(b.text) - score(a.text))[0];

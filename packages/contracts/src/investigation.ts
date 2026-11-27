@@ -423,6 +423,12 @@ export const Diagnosis = z.object({
    * o que não oferecer e o que confirmar. Ausente nas investigações anteriores ao motor.
    */
   thesis: CommercialThesis.nullable().optional(),
+  /**
+   * Teses de outros perfis comerciais cujo público a empresa parece ter (palavras do perfil no
+   * nome, na atividade ou no posicionamento; ex.: Blummy para uma clínica terapêutica). Ausente
+   * nas investigações anteriores a 27/11/2026.
+   */
+  profileTheses: z.array(CommercialThesis).max(3).optional(),
 });
 export type Diagnosis = z.infer<typeof Diagnosis>;
 

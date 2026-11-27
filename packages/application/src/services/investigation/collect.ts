@@ -35,6 +35,7 @@ import {
   detectEventTypes,
   eventLeadQuote,
   extractCompanyFunding,
+  isExplainerContent,
   extractDemand,
   formatBrlAmount,
   fundingQuotes,
@@ -95,7 +96,7 @@ function fold(text: string): string {
 }
 
 /** Palavras do nome que identificam a empresa (sem "clínica", "ltda"…). */
-function nameTokens(name: string): string[] {
+export function nameTokens(name: string): string[] {
   const generic = new Set([
     'ltda',
     'eireli',
@@ -1020,6 +1021,9 @@ async function readEventPage(
   run.usage.pagesRead += 1;
   const page = read.page;
   const title = page.title ? cut(page.title, 300) : null;
+  // Página de conteúdo permanente ("O que é SaaS?", guia, glossário) não é acontecimento, mesmo
+  // quando o resultado da busca parecia notícia (validação da Salesforce, 27/11).
+  if (title && isExplainerContent(title, page.url)) return { ok: false, reason: 'off_topic' };
   const body = [title, page.text].filter(Boolean).join('\n');
   const lead = eventLeadQuote(body, tokens, type);
   if (!lead) return { ok: false, reason: 'off_topic' };
@@ -1137,8 +1141,10 @@ function corroboration(event: BusinessEvent): string {
  * 5 (2026-11-27): a busca que traz de novo a matéria de um sinal guardado, sem data, fica com a
  * data do sinal.
  * 6 (2026-11-27): "a startup liderada por" não lista investidores (a leitura das matérias é refeita).
+ * 7 (2026-11-27): página de conteúdo ("O que é SaaS?") não é acontecimento; "<empresa> investe R$"
+ * é a empresa gastando, não rodada; a mesma rodada em veículos diferentes é um grupo só (KI-242).
  */
-export const SIGNALS_METHOD = 6;
+export const SIGNALS_METHOD = 7;
 
 /** ADR-0015: uma investigação gasta de 1 a 3 buscas (site, sinais, concorrentes). */
 const MAX_SEARCHES_PER_RUN = 3;
@@ -1239,7 +1245,7 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
   // A primeira consulta (nome e cidade) não trouxe nenhum acontecimento: uma consulta voltada a
   // acontecimentos, só se ainda sobra uma busca para os concorrentes (teto do ADR-0015).
   if (
-    groupEventReports(results, run.company.primaryDomain).length === 0 &&
+    groupEventReports(results, run.company.primaryDomain, tokens).length === 0 &&
     run.usage.searches + 1 < MAX_SEARCHES_PER_RUN
   ) {
     const second = await web.search(run.ctx, {
@@ -1272,7 +1278,10 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
   });
   const mentions: EventCandidate[] = [...stored, ...results];
   // Parte 3.3: mesma notícia em vários sites vira um acontecimento só, com a origem na frente.
-  const groups = groupEventReports(mentions, run.company.primaryDomain).slice(0, MAX_EVENTS);
+  const groups = groupEventReports(mentions, run.company.primaryDomain, tokens).slice(
+    0,
+    MAX_EVENTS,
+  );
   const sources: Array<{ id: string; source: SourceInputDraft }> = [];
   const claims: ClaimDraftItem[] = [];
   const labels: string[] = [];

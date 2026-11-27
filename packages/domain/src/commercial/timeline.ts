@@ -5,7 +5,7 @@ import {
   type EpistemicType,
   type QualitativeLevel,
 } from '@prospector/contracts';
-import { SIGNAL_STRENGTH } from './events';
+import { fundingAmountCentsOf, fundingRoundOf, SIGNAL_STRENGTH } from './events';
 import { contentTokens, jaccard } from './text';
 
 /**
@@ -99,11 +99,35 @@ const EPISTEMIC_RANK: Readonly<Record<EpistemicType, number>> = {
   hypothesis: 2,
 };
 
+/** Valor e rodada de um investimento: os lidos na matéria ou, sem ela, os citados no título. */
+function fundingFacts(event: BusinessEvent): { cents: number | null; round: string | null } {
+  return {
+    cents: event.funding?.amountCents ?? fundingAmountCentsOf(event.headline),
+    round: event.funding?.round?.text ?? fundingRoundOf(event.headline),
+  };
+}
+
+function closeDays(a: string | null, b: string | null, days: number): boolean {
+  const da = dayOf(a);
+  const db = dayOf(b);
+  return da === null || db === null || Math.abs(da - db) <= days * DAY_MS;
+}
+
+/**
+ * Mesmo acontecimento: mesmo tipo e, num investimento, o mesmo valor ou a mesma rodada em datas
+ * próximas (KI-242: a Série D da NeoFeed e a de outro veículo, com outro título, são uma rodada
+ * só); nos demais, títulos parecidos.
+ */
 function sameEvent(a: BusinessEvent, b: BusinessEvent): boolean {
   if (a.type !== b.type) return false;
-  const amountA = a.funding?.amountCents ?? null;
-  const amountB = b.funding?.amountCents ?? null;
-  if (amountA !== null && amountA === amountB) return true;
+  if (a.type === 'funding') {
+    const fa = fundingFacts(a);
+    const fb = fundingFacts(b);
+    if (fa.cents !== null && fa.cents === fb.cents) return true;
+    if (fa.round !== null && fa.round === fb.round && closeDays(a.occurredOn, b.occurredOn, 120)) {
+      return true;
+    }
+  }
   return jaccard(contentTokens(a.headline), contentTokens(b.headline)) >= 0.5;
 }
 

@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { Uuid } from './common';
-import { ThesisAngle, ThesisRecommendation } from './commercial';
+import {
+  ApproachProposal,
+  ProposalFamily,
+  ProposalMode,
+  ProposalRecommendation,
+  ThesisAngle,
+  ThesisRecommendation,
+} from './commercial';
 import { ApproachClearance } from './strategy';
 
 /**
@@ -317,6 +324,8 @@ const ThesisCaveats = {
 /** Tese comercial da investigação mais recente, como insumo da abordagem (regra, sem modelo). */
 export const ApproachThesis = z.object({
   investigationId: Uuid,
+  /** Perfil comercial da tese (ausente nas anteriores a 27/11: eram sempre da Found Studio). */
+  profileId: z.string().trim().min(1).max(60).optional(),
   recommendation: ThesisRecommendation,
   recommendationReason: z.string().trim().min(1).max(400),
   principal: ThesisAngle.nullable(),
@@ -357,8 +366,58 @@ export const ApproachInsights = z.object({
     .nullable(),
   /** Tese da investigação (ausente nas anteriores ao motor de inteligência). */
   thesis: ApproachThesis.nullable().optional(),
+  /**
+   * Teses de outros perfis comerciais cujo público a empresa parece ter (ex.: Blummy para uma
+   * clínica). Ausente nas investigações anteriores a 27/11.
+   */
+  profileTheses: z.array(ApproachThesis).max(3).optional(),
 });
 export type ApproachInsights = z.infer<typeof ApproachInsights>;
+
+/** O que propor com um ângulo da tese: a recomendação, as frentes ligadas e o que bloqueia. */
+export const ProposalAngleOption = z.object({
+  choice: ChosenThesisAngle,
+  title: z.string().trim().min(1).max(160),
+  /** O acontecimento ou a observação que sustenta o ângulo, com a fonte (texto da tese). */
+  context: z.string().trim().max(600),
+  /** Evidências do ângulo na tese (a tela leva até elas). */
+  evidenceCount: z.number().int().min(0).max(12),
+  recommendation: ProposalRecommendation,
+  /** Frentes do catálogo ligadas ao problema do ângulo (a combinação precisa incluir uma). */
+  connectedFamilies: z.array(z.string().regex(/^[A-Z]$/)).max(10),
+  /** Barreira de coerência para propor serviço com este ângulo: vazio = pode preparar. */
+  blockers: z.array(z.string().trim().min(1).max(600)).max(6),
+});
+export type ProposalAngleOption = z.infer<typeof ProposalAngleOption>;
+
+/**
+ * Opções de proposta de um perfil comercial para a empresa (ajuste de 27/11): a tela mostra a
+ * recomendação de cada ângulo com o motivo, as frentes do catálogo para ajustar e se a conversa
+ * sem oferta está liberada. Calculado no servidor, por regra.
+ */
+export const ProposalOptions = z.object({
+  profileId: z.string().trim().min(1).max(60),
+  profileName: z.string().trim().min(1).max(80),
+  profileKind: z.enum(['services', 'product']),
+  thesis: z
+    .object({
+      recommendation: ThesisRecommendation,
+      reason: z.string().trim().min(1).max(400),
+    })
+    .nullable(),
+  families: z.array(ProposalFamily).max(10),
+  angles: z.array(ProposalAngleOption).max(3),
+  /** Por que não dá para propor serviço sem ângulo (sem tese, tese sem ângulo). */
+  serviceBlockers: z.array(z.string().trim().min(1).max(600)).max(6),
+  /** Conversa sem oferta: liberada quando o dossiê tem base (fato ou diagnóstico citável). */
+  conversationAllowed: z.boolean(),
+  /**
+   * "Ajustar" as frentes: só com o prompt que lê a `proposta` (v6+). Com um anterior, as frentes
+   * escolhidas não chegariam ao modelo como decisão (revisão de arquitetura de 27/11).
+   */
+  customAllowed: z.boolean(),
+});
+export type ProposalOptions = z.infer<typeof ProposalOptions>;
 
 export const EMPTY_APPROACH_INSIGHTS: ApproachInsights = {
   diagnosis: null,
@@ -407,6 +466,11 @@ export const ApproachStrategyContent = z.object({
   caseIds: z.array(Uuid).max(3),
   /** Ângulo da tese aprovado ao pedir a abordagem; gravado pelo servidor, nunca pelo modelo. */
   thesisBasis: ThesisBasis.optional(),
+  /**
+   * O que a abordagem propõe (perfil, frentes, serviços, justificativa, objetivo); gravado pelo
+   * servidor. Ausente nas estratégias anteriores a 27/11, que usavam a oferta da Estratégia.
+   */
+  proposal: ApproachProposal.optional(),
 });
 export type ApproachStrategyContent = z.infer<typeof ApproachStrategyContent>;
 
@@ -421,8 +485,9 @@ export const ApproachPlan = z.object({
   id: Uuid,
   opportunityId: Uuid,
   companyId: Uuid,
-  offerId: Uuid,
-  offerVersionId: Uuid,
+  /** Oferta da Estratégia; null quando a proposta sai só do perfil comercial (ADR-0021). */
+  offerId: Uuid.nullable(),
+  offerVersionId: Uuid.nullable(),
   version: z.number().int().min(1),
   status: ApproachPlanStatus,
   basis: ApproachBasis,
@@ -798,10 +863,28 @@ export type LiftSuppressionInput = z.input<typeof LiftSuppressionInput>;
 // Pedidos à IA
 // -----------------------------------------------------------------------------
 
+/** Código de uma frente do catálogo do perfil (A a F na Found Studio). */
+export const ProposalFamilyCode = z.string().regex(/^[A-Z]$/, { error: 'Frente inválida.' });
+
 export const PrepareApproachInput = z.object({
   companyId: Uuid,
-  /** Oferta escolhida; sem ela, usa a da oportunidade, a recomendada ou a única ativa. */
+  /**
+   * Oferta da Estratégia, opcional (ADR-0021): quando vem, a abordagem passa pela barreira dela e
+   * os cases dela entram. Sem ela, a proposta sai da tese e do catálogo do perfil.
+   */
   offerId: Uuid.nullable().default(null),
+  /** Perfil comercial em nome de quem a abordagem é feita; sem ele, o da tese principal. */
+  profileId: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/, { error: 'Perfil inválido.' })
+    .max(60)
+    .optional(),
+  /** Seguir a recomendação, ajustar as frentes ou só abrir conversa (sem oferta direta). */
+  proposalMode: ProposalMode.default('recommended'),
+  /** Frentes escolhidas no modo "ajustar" (combinação livre do catálogo do perfil). */
+  families: z.array(ProposalFamilyCode).max(10).default([]),
+  /** O que a pessoa quer propor, nas palavras dela (dado, não instrução de sistema). */
   kind: MessageKind.default('initial_email'),
   tone: MessageTone.default('consultative'),
   /** Pedido livre do usuário ("cite a expansão para Campinas"); é dado, não instrução de sistema. */
@@ -841,9 +924,12 @@ export const EditMessageInput = z.object({
 });
 export type EditMessageInput = z.input<typeof EditMessageInput>;
 
-/** Saída da IA ao preparar a abordagem: estratégia + primeira mensagem (JSON pedido ao modelo). */
+/**
+ * Saída da IA ao preparar a abordagem: estratégia + primeira mensagem (JSON pedido ao modelo). A
+ * base da tese e a proposta são do servidor: se o modelo as devolver, saem sem invalidar o resto.
+ */
 export const ApproachAiOutput = z.object({
-  strategy: ApproachStrategyContent,
+  strategy: ApproachStrategyContent.omit({ thesisBasis: true, proposal: true }),
   message: MessageDraftText,
 });
 export type ApproachAiOutput = z.infer<typeof ApproachAiOutput>;

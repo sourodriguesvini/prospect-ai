@@ -11,6 +11,7 @@ import {
 } from '@prospector/contracts';
 import {
   buildCommercialThesis,
+  COMMERCIAL_PROFILES,
   commercialProfileById,
   dedupeEventEvidence,
   DEFAULT_COMMERCIAL_PROFILE_ID,
@@ -18,18 +19,21 @@ import {
   detectEventTypes,
   extractDemand,
   guardEventText,
+  isExplainerContent,
   type EventEvidence,
   type SiteSignalEvidence,
   knowledgeGaps,
   linkedCnpjFromClaims,
   nextStepFor,
   pickRecommendedOffer,
+  profileKeywordMatches,
   qualifyOffer,
   type CoverageState,
   type Firmographics,
   type SignalInput,
   type UsedClaim,
 } from '@prospector/domain';
+import { nameTokens } from './collect';
 import { claimsWithPrefix, daysBetween, hostOf, type Run, type StepOutcome } from './run';
 
 /**
@@ -165,13 +169,27 @@ function idsOf(
 // Tese comercial (diretriz 2026-11-26, Parte 4)
 // -----------------------------------------------------------------------------
 
+/**
+ * Acontecimento gravado por uma regra anterior que a regra atual não aceita mais: página de
+ * conteúdo permanente, ou investimento cujo título mostra a própria empresa investindo (sem rodada
+ * lida na matéria). Some da tese até a página ser relida.
+ */
+export function staleEvent(event: BusinessEvent, tokens: readonly string[]): boolean {
+  if (isExplainerContent(event.headline, event.url)) return true;
+  if (event.type !== 'funding' || event.funding?.round) return false;
+  return !detectEventTypes(event.headline, tokens).includes('funding');
+}
+
 /** Acontecimentos gravados nesta investigação (claims `signal.web.*` com `value.event`). */
 function eventEvidence(run: Run): EventEvidence[] {
+  const tokens = nameTokens(run.company.displayName).slice(0, 2);
   const fromWeb = claimsWithPrefix(run, 'signal.web.').flatMap((claim) => {
     const parsed = BusinessEvent.safeParse(claim.value?.event);
     // Texto de página que se dirige a máquinas não chega à tese (vale também para claims
-    // gravados antes da guarda).
-    return parsed.success
+    // gravados antes da guarda). Claims gravados antes das regras de 27/11 também passam por elas:
+    // página de conteúdo ("O que é SaaS?") não é acontecimento, e "<empresa> investe R$" sem
+    // rodada lida não é investimento recebido (KI-242).
+    return parsed.success && !staleEvent(parsed.data, tokens)
       ? [
           {
             claimId: claim.id,
@@ -258,13 +276,17 @@ function siteSignals(run: Run): SiteSignalEvidence[] {
  * doc 15 §7.1). Regra pura; se algo sair do contrato, a investigação segue sem tese em vez de
  * falhar (o resto do diagnóstico continua válido).
  */
-export function commercialThesis(run: Run): CommercialThesis | null {
-  const profile = commercialProfileById(DEFAULT_COMMERCIAL_PROFILE_ID);
+export function commercialThesis(
+  run: Run,
+  profileId: string = DEFAULT_COMMERCIAL_PROFILE_ID,
+  events: readonly EventEvidence[] = eventEvidence(run),
+): CommercialThesis | null {
+  const profile = commercialProfileById(profileId);
   if (!profile) return null;
   const thesis = buildCommercialThesis({
     profile,
     companyName: run.company.displayName,
-    events: eventEvidence(run),
+    events,
     siteSignals: siteSignals(run),
     contactKnown: accessKnown(run),
     now: run.deps.clock.now(),
@@ -275,6 +297,37 @@ export function commercialThesis(run: Run): CommercialThesis | null {
     return null;
   }
   return parsed.data;
+}
+
+/** O que a empresa diz de si e o cadastro: nome, razão social, atividade e posicionamento. */
+function audienceText(run: Run): string {
+  return [
+    run.company.displayName,
+    run.company.legalName ?? '',
+    ...claimsWithPrefix(run, 'registry.', 'positioning.')
+      .filter((claim) => claim.epistemicType !== 'hypothesis')
+      .map((claim) => claim.statement),
+  ].join(' \n ');
+}
+
+/**
+ * Teses dos outros perfis comerciais cujo público a empresa parece ter (ajuste de 27/11): uma
+ * clínica de terapia ocupacional ganha a tese da Blummy além da Found Studio. Cada tese usa só o
+ * catálogo do próprio perfil; os perfis nunca se misturam (Parte 1.5).
+ */
+export function profileTheses(run: Run): CommercialThesis[] {
+  const text = audienceText(run);
+  const others = COMMERCIAL_PROFILES.filter(
+    (profile) =>
+      profile.id !== DEFAULT_COMMERCIAL_PROFILE_ID &&
+      profileKeywordMatches(profile, text).length > 0,
+  );
+  if (others.length === 0) return [];
+  const events = eventEvidence(run);
+  return others
+    .slice(0, 3)
+    .map((profile) => commercialThesis(run, profile.id, events))
+    .filter((thesis): thesis is CommercialThesis => thesis !== null);
 }
 
 const FACT_PREFIXES = [
@@ -405,6 +458,7 @@ export async function stepQualification(run: Run): Promise<StepOutcome> {
       reasons: [...run.verification.reasons],
     },
     thesis: commercialThesis(run),
+    profileTheses: profileTheses(run),
   };
   run.diagnosis = diagnosis;
   run.changes = detectChanges(run.previous?.snapshot ?? null, run.snapshot).slice(0, 30);

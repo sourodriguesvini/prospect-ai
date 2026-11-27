@@ -176,8 +176,9 @@ export function DiagnosisNote({
       <ul className="space-y-0.5 text-muted-foreground">
         {recommendedService ? (
           <li>
-            Serviço recomendado: {offerName ?? 'uma oferta que não está ativa na Estratégia'} ·
-            confiança {INSIGHT_CONFIDENCE_LABELS[recommendedService.confidence]}
+            Oferta da Estratégia mais aderente:{' '}
+            {offerName ?? 'uma oferta que não está ativa na Estratégia'} · confiança{' '}
+            {INSIGHT_CONFIDENCE_LABELS[recommendedService.confidence]}
           </li>
         ) : null}
         {qualification ? (

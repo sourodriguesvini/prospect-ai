@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { Loading } from '@/components/strategy/loading';
 import { formatDate } from '@/lib/format';
-import { preparedOfferId, stageLabel } from '@/lib/relationship-labels';
+import { stageLabel } from '@/lib/relationship-labels';
 import { relationshipRoutes } from '@/lib/relationship-routes';
 import { activeOfferOptions, loadRelationship } from '@/server/relationship';
 import { openOpportunityAction, prepareApproachAction } from '@/app/(shell)/relacionamento/actions';
-import { OpenOpportunityForm, PrepareApproachForm } from './forms';
 import { DiagnosisNote, OpportunityBadges, OpportunityFacts } from './parts';
+import { PrepareApproachForm } from './proposal-form';
 import { SuppressionLift } from './suppression';
 
 /**
@@ -23,14 +23,9 @@ async function Relationship({ companyId, archived }: { companyId: string; archiv
   if (result.kind === 'unavailable') {
     return <p className="text-sm text-muted-foreground">{result.message}</p>;
   }
-  const { open, closed, activeSuppressions, insights, thesisAware } = result.data;
+  const { open, closed, activeSuppressions, insights, proposals } = result.data;
   const suppressed = activeSuppressions.length > 0;
   const offers = open || suppressed || archived ? [] : await activeOfferOptions();
-  const recommendedOfferId = preparedOfferId(
-    offers,
-    null,
-    insights.recommendedService?.offerId ?? null,
-  );
   return (
     <div className="space-y-4">
       {suppressed ? (
@@ -73,23 +68,12 @@ async function Relationship({ companyId, archived }: { companyId: string; archiv
       ) : suppressed ? null : (
         <div className="space-y-4">
           <DiagnosisNote insights={insights} offers={offers} />
-          {offers.length > 0 ? (
-            <PrepareApproachForm
-              action={prepareApproachAction.bind(null, companyId)}
-              offers={offers}
-              defaultOfferId={recommendedOfferId}
-              thesis={thesisAware ? (insights.thesis ?? null) : null}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma oferta ativa na Estratégia: sem ela, a IA não tem o que propor. Você ainda
-              pode abrir a oportunidade e escrever à mão.
-            </p>
-          )}
-          <OpenOpportunityForm
-            action={openOpportunityAction.bind(null, companyId)}
+          <PrepareApproachForm
+            action={prepareApproachAction.bind(null, companyId)}
+            openAction={openOpportunityAction.bind(null, companyId)}
+            proposals={proposals}
             offers={offers}
-            defaultOfferId={recommendedOfferId}
+            defaultOfferId={null}
           />
         </div>
       )}

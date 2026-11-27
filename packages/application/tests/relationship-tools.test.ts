@@ -195,7 +195,10 @@ describe('ferramentas do Relacionamento (Copiloto)', () => {
     const imported = await companies.importFromCnpj(ctx, { cnpj: RECORD.cnpj });
     if (imported.status !== 'created') throw new Error('empresa não criada');
     claimId = (await companies.dossier(ctx, imported.company.id)).claims[0]!.claim.id;
-    const prepared = await relationship.prepareApproach(ctx, { companyId: imported.company.id });
+    const prepared = await relationship.prepareApproach(ctx, {
+      companyId: imported.company.id,
+      proposalMode: 'conversation',
+    });
     if (prepared.status !== 'created') throw new Error('abordagem não criada');
     const { message, opportunity } = prepared;
     await relationship.approveMessage(ctx, {

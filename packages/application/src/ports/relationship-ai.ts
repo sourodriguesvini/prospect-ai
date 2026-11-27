@@ -3,6 +3,7 @@ import type {
   AiReviewKind,
   ApproachBasis,
   ApproachInsights,
+  ApproachProposal,
   ApproachStrategyContent,
   CompanyLanguage,
   ConfidenceBand,
@@ -78,6 +79,19 @@ export interface AiOffer {
   valueProps: string[];
 }
 
+/** Perfil comercial em nome de quem a abordagem é feita (Parte 1; ajuste de 27/11). */
+export interface AiProfile {
+  id: string;
+  name: string;
+  kind: 'services' | 'product';
+  description: string;
+  positioning: string;
+  valueProposition: string;
+  language: string;
+  /** O que o perfil não pode prometer nem fazer. */
+  restrictions: string[];
+}
+
 export interface AiContext {
   company: AiCompany;
   claims: AiClaim[];
@@ -86,7 +100,17 @@ export interface AiContext {
   thesis?: SelectedThesis | null;
   /** Medida da linguagem pública da empresa (Parte 5.2); null quando há pouco texto dela. */
   language?: CompanyLanguage | null;
+  /**
+   * O que a abordagem propõe, no formato que os prompts até a v5 leem: a oferta da Estratégia,
+   * quando escolhida, ou a proposta do perfil (ADR-0021).
+   */
   offer: AiOffer;
+  /** A `offer` é uma oferta da Estratégia (false = montada da proposta do perfil). */
+  offerFromStrategy?: boolean;
+  /** Perfil comercial da abordagem (ausente nas estratégias anteriores a 27/11). */
+  profile?: AiProfile | null;
+  /** Proposta gravada pelo servidor: modo, frentes, serviços, justificativa e objetivo. */
+  proposal?: ApproachProposal | null;
   voice: VoiceGuideContent | null;
   agencyName: string | null;
   optOutText: string | null;
@@ -178,6 +202,12 @@ export interface RelationshipAi {
    * diante). Sem isso, o serviço não grava ângulo nenhum e a tela não oferece a escolha.
    */
   readonly thesisAware?: boolean;
+  /**
+   * O prompt em uso lê o perfil e a proposta (`perfil`, `proposta`; v6 em diante), inclusive a
+   * conversa sem oferta. Sem isso, a proposta vai no formato de `oferta` e, na conversa sem oferta,
+   * o ângulo da tese não vai (o prompt antigo ofereceria os serviços dele).
+   */
+  readonly proposalAware?: boolean;
   /** Estratégia + primeira mensagem: `{ strategy, message: { subject, body } }`. */
   approach(request: ApproachAiRequest, signal?: AbortSignal): Promise<AiOutcome>;
   /** Uma mensagem: `{ subject, body }`. */

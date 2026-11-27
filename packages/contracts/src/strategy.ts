@@ -586,9 +586,11 @@ export type Readiness = z.infer<typeof Readiness>;
 
 /**
  * Escopo das barreiras: a oferta da abordagem (F10), com o ICP que qualificou o prospect quando
- * houver, ou o ICP da descoberta (F4).
+ * houver, ou o ICP da descoberta (F4). Abordagem sem oferta da Estratégia (`offerId: null`,
+ * ADR-0021): a proposta sai da tese e do catálogo do perfil, e a barreira confere só voz, opt-out
+ * e LIA.
  */
-export const ApproachScope = z.object({ offerId: Uuid, icpId: Uuid.optional() });
+export const ApproachScope = z.object({ offerId: Uuid.nullable(), icpId: Uuid.optional() });
 export type ApproachScope = z.infer<typeof ApproachScope>;
 export const DiscoveryScope = z.object({ icpId: Uuid });
 export type DiscoveryScope = z.infer<typeof DiscoveryScope>;
@@ -596,12 +598,13 @@ export type DiscoveryScope = z.infer<typeof DiscoveryScope>;
 /**
  * Versões que a barreira de abordagem conferiu. A ação de abordagem (F10) grava esses ids para
  * provar com que oferta, LIA, opt-out e voz ela foi liberada (versões nunca mudam: ADR-0009).
+ * Sem oferta da Estratégia (ADR-0021), oferta, rubrica e score ficam null.
  */
 export const ApproachClearance = z.object({
-  offerId: Uuid,
-  offerVersionId: Uuid,
-  rubricVersionId: Uuid,
-  scoringModelVersionId: Uuid,
+  offerId: Uuid.nullable(),
+  offerVersionId: Uuid.nullable(),
+  rubricVersionId: Uuid.nullable(),
+  scoringModelVersionId: Uuid.nullable(),
   /** Versão do ICP pedido no escopo (null quando a abordagem não informou ICP). */
   icpVersionId: Uuid.nullable(),
   voiceGuideVersionId: Uuid,

@@ -17,6 +17,8 @@ import {
   HOLDOUT_APPROACH_CASES,
   HOLDOUT_MESSAGE_CASES,
   MESSAGE_CASES,
+  PROPOSAL_APPROACH_CASES,
+  PROPOSAL_MESSAGE_CASES,
   THESIS_APPROACH_CASES,
   THESIS_MESSAGE_CASES,
   type Check,
@@ -66,8 +68,8 @@ const withVoice = <T extends { voice: unknown; agencyName: string | null }>(inpu
   experimentalVoice ? { ...input, voice: withAgency(experimentalVoice, input.agencyName) } : input;
 // Os casos da tese (Parte 5) entram na amostra: com prompt anterior à v5, a tese não chega ao
 // modelo, e a comparação mostra o que ela muda.
-const MAIN_APPROACH = [...APPROACH_CASES, ...THESIS_APPROACH_CASES];
-const MAIN_MESSAGE = [...MESSAGE_CASES, ...THESIS_MESSAGE_CASES];
+const MAIN_APPROACH = [...APPROACH_CASES, ...THESIS_APPROACH_CASES, ...PROPOSAL_APPROACH_CASES];
+const MAIN_MESSAGE = [...MESSAGE_CASES, ...THESIS_MESSAGE_CASES, ...PROPOSAL_MESSAGE_CASES];
 const ALL_APPROACH = [...MAIN_APPROACH, ...HOLDOUT_APPROACH_CASES];
 const ALL_MESSAGE = [...MAIN_MESSAGE, ...HOLDOUT_MESSAGE_CASES];
 const HOLDOUT_IDS = new Set(

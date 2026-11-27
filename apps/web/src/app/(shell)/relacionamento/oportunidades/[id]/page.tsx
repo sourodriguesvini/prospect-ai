@@ -2,6 +2,7 @@ import type { OpportunityDetail } from '@prospector/application';
 import {
   APPROACH_OBJECTIVE_LABELS,
   CONFIDENCE_BAND_LABELS,
+  PROPOSAL_MODE_LABELS,
   SUPPRESSION_REASON_LABELS,
   TASK_KIND_LABELS,
   type ConfidenceBand,
@@ -18,7 +19,6 @@ import {
   NewMessageForm,
   NoteForm,
   OpportunityDetailsForm,
-  PrepareApproachForm,
   RecordInboundForm,
   RescheduleForm,
   StageForm,
@@ -26,6 +26,7 @@ import {
   TaskForm,
   WriteMessageForm,
 } from '@/components/relationship/forms';
+import { PrepareApproachForm } from '@/components/relationship/proposal-form';
 import { MessageThread } from '@/components/relationship/message-thread';
 import { SuppressionLift } from '@/components/relationship/suppression';
 import {
@@ -188,17 +189,14 @@ function Strategy({
   const { plan, basis, opportunity, company } = detail;
   const open = opportunity.closedAt === null;
   const suppressed = detail.activeSuppressions.length > 0;
-  const offerForApproach = preparedOfferId(
-    offers,
-    opportunity.offerId,
-    detail.insights.recommendedService?.offerId ?? null,
-  );
+  // A oferta da Estratégia é opcional (ADR-0021): só vem marcada a que a oportunidade já tem.
+  const offerForApproach = preparedOfferId(offers, opportunity.offerId, null);
   if (!plan) {
     return (
       <Section
         id="estrategia"
         title="Estratégia"
-        description="Ainda não há estratégia de abordagem. A IA local monta uma a partir do dossiê, da oferta e da voz da agência."
+        description="Ainda não há estratégia de abordagem. A IA local monta uma a partir do dossiê, da tese, do que você escolher propor e da voz da agência."
       >
         <DiagnosisNote insights={detail.insights} offers={offers} />
         {basis.basis === 'insufficient' ? (
@@ -218,18 +216,12 @@ function Strategy({
           </div>
         ) : null}
         {open && !suppressed && basis.basis !== 'insufficient' ? (
-          offers.length > 0 ? (
-            <PrepareApproachForm
-              action={prepareApproachAction.bind(null, company.id)}
-              offers={offers}
-              defaultOfferId={offerForApproach}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Nenhuma oferta ativa na Estratégia: cadastre ou ative uma oferta para preparar a
-              abordagem.
-            </p>
-          )
+          <PrepareApproachForm
+            action={prepareApproachAction.bind(null, company.id)}
+            proposals={detail.proposals}
+            offers={offers}
+            defaultOfferId={offerForApproach}
+          />
         ) : null}
       </Section>
     );
@@ -256,6 +248,27 @@ function Strategy({
           <dt className="text-xs text-muted-foreground">Oportunidade</dt>
           <dd>{content.opportunity}</dd>
         </div>
+        {content.proposal ? (
+          // A proposta gravada pelo servidor (ajuste de 27/11); estratégias antigas não têm.
+          <div data-proposal-recorded={content.proposal.mode}>
+            <dt className="text-xs text-muted-foreground">O que propor</dt>
+            <dd>
+              {content.proposal.title}
+              <span className="text-muted-foreground">
+                {' · '}
+                {PROPOSAL_MODE_LABELS[content.proposal.mode]}
+                {content.proposal.profileKind === 'product'
+                  ? ` · em nome de ${content.proposal.profileName}`
+                  : ''}
+              </span>
+              {content.proposal.services.length > 0 ? (
+                <span className="block text-muted-foreground">
+                  {content.proposal.services.join(', ')}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt className="text-xs text-muted-foreground">Com quem falar (função)</dt>
           <dd>{content.counterpartRole}</dd>
@@ -319,10 +332,11 @@ function Strategy({
       ) : null}
       {open ? (
         <div className="flex flex-wrap items-start gap-2">
-          {!suppressed && offers.length > 0 ? (
+          {!suppressed ? (
             <Collapsible summary="Preparar de novo (nova estratégia e novo rascunho)">
               <PrepareApproachForm
                 action={prepareApproachAction.bind(null, company.id)}
+                proposals={detail.proposals}
                 offers={offers}
                 defaultOfferId={offerForApproach}
               />

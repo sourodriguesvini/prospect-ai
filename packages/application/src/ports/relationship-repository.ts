@@ -81,8 +81,9 @@ export interface NewApproachPlan {
   id: string;
   opportunityId: string;
   companyId: string;
-  offerId: string;
-  offerVersionId: string;
+  /** Oferta da Estratégia; null quando a proposta sai só do perfil comercial (ADR-0021). */
+  offerId: string | null;
+  offerVersionId: string | null;
   basis: ApproachBasis;
   content: ApproachStrategyContent;
   claimIds: string[];

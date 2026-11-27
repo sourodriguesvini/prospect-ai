@@ -335,6 +335,61 @@ export const CommercialThesis = z.object({
 export type CommercialThesis = z.infer<typeof CommercialThesis>;
 
 // -----------------------------------------------------------------------------
+// Proposta da abordagem (ajuste de 27/11: a oferta sai da tese e do catálogo do perfil)
+// -----------------------------------------------------------------------------
+
+/**
+ * O que a abordagem propõe. `recommended`: a solução que a tese recomenda (ou a combinação dela);
+ * `custom`: as frentes que a pessoa escolheu no catálogo do perfil; `conversation`: nenhuma oferta
+ * direta (networking, sondar interesse, entender o momento).
+ */
+export const ProposalMode = z.enum(['recommended', 'custom', 'conversation']);
+export type ProposalMode = z.infer<typeof ProposalMode>;
+export const PROPOSAL_MODE_LABELS: Record<ProposalMode, string> = {
+  recommended: 'Seguir a recomendação',
+  custom: 'Ajustar o que propor',
+  conversation: 'Sem oferta: só abrir uma conversa',
+};
+
+/** Frente do catálogo do perfil (as famílias de capacidades: A a F na Found Studio). */
+export const ProposalFamily = z.object({
+  code: z.string().regex(/^[A-Z]$/),
+  name: Text(120),
+});
+export type ProposalFamily = z.infer<typeof ProposalFamily>;
+
+/** O que a tese recomenda propor, com o motivo (regra, sem modelo). */
+export const ProposalRecommendation = z.object({
+  title: Text(160),
+  families: z.array(ProposalFamily).max(10),
+  services: z.array(Text(160)).max(12),
+  rationale: Text(600),
+  /** Ângulo alternativo combinado ao principal (o mesmo acontecimento sustenta os dois). */
+  combinedWith: Text(160).nullable(),
+});
+export type ProposalRecommendation = z.infer<typeof ProposalRecommendation>;
+
+/**
+ * A proposta gravada na estratégia e entregue à IA: perfil, frentes, serviços, justificativa e o
+ * objetivo da primeira interação. Gravada pelo servidor (o modelo não escolhe a oferta).
+ */
+export const ApproachProposal = z.object({
+  profileId: Slug,
+  profileName: Text(80),
+  profileKind: CommercialProfile.shape.kind,
+  mode: ProposalMode,
+  title: Text(160),
+  families: z.array(ProposalFamily).max(10),
+  services: z.array(Text(160)).max(12),
+  rationale: Text(600),
+  /** Objetivo da primeira interação (conversa, entender o momento, apresentar…). */
+  objective: Text(300),
+  /** O que a pessoa escreveu ao ajustar a proposta, nas palavras dela. */
+  note: Text(400).nullable(),
+});
+export type ApproachProposal = z.infer<typeof ApproachProposal>;
+
+// -----------------------------------------------------------------------------
 // Linguagem pública da empresa (Parte 5.2)
 // -----------------------------------------------------------------------------
 

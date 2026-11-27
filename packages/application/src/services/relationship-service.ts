@@ -29,7 +29,10 @@ import {
   type ApproachClearance,
   type ApproachInsights,
   type ApproachPlan,
+  type ApproachProposal,
   type ApproachStrategyContent,
+  type CommercialProfile,
+  type ProposalOptions,
   type Approval,
   type ApprovalProblem,
   type AttentionItem,
@@ -52,8 +55,18 @@ import {
 } from '@prospector/contracts';
 import {
   APPROVAL_VALIDITY_DAYS,
+  COMMERCIAL_PROFILES,
+  DEFAULT_COMMERCIAL_PROFILE_ID,
+  angleOf,
+  angleScope,
   approvalProblems,
   assessApproachBasis,
+  assessProposalCoherence,
+  buildProposal,
+  commercialProfileById,
+  profileFamilies,
+  recommendProposal,
+  type ProposalAngleChoice,
   attentionItems,
   isClosedStage,
   channelIssues,
@@ -78,7 +91,9 @@ import type { AiTelemetryRepository } from '../ports/copilot-repository';
 import type {
   AiCase,
   AiContext,
+  AiOffer,
   AiOutcome,
+  AiProfile,
   AiReview,
   ApproachInsightsSource,
   RelationshipAi,
@@ -90,7 +105,7 @@ import type {
   StageMove,
 } from '../ports/relationship-repository';
 import type { CompanyDossier, CompanyService } from './company-service';
-import { selectThesis } from './approach-insights';
+import { selectThesis, thesisForProfile } from './approach-insights';
 import { pendingAudit } from './pending-audit';
 import type { StrategyService } from './strategy-service';
 
@@ -195,6 +210,8 @@ export interface OpportunityDetail {
   basis: ApproachBasisAssessment;
   /** Diagnóstico de Empresas que a abordagem usa (KI-129); vazio sem investigação concluída. */
   insights: ApproachInsights;
+  /** O que propor, por perfil comercial: recomendação de cada ângulo e o que bloqueia. */
+  proposals: ProposalOptions[];
   readAt: string;
 }
 
@@ -220,6 +237,8 @@ export interface CompanyRelationship {
   insights: ApproachInsights;
   /** O prompt de estratégia em uso lê a tese (a tela só oferece a escolha do ângulo com isto). */
   thesisAware: boolean;
+  /** O que propor, por perfil comercial (ajuste de 27/11): o padrão primeiro. */
+  proposals: ProposalOptions[];
 }
 
 export interface ApprovalQueueItem {
@@ -420,6 +439,125 @@ function citableCases(
     }));
 }
 
+const ANGLE_CHOICES: readonly ProposalAngleChoice[] = [
+  'principal',
+  'alternative_1',
+  'alternative_2',
+];
+
+/** Nome do perfil padrão (a agência), para as mensagens de bloqueio. */
+const DEFAULT_PROFILE_NAME =
+  commercialProfileById(DEFAULT_COMMERCIAL_PROFILE_ID)?.name ?? 'agência';
+
+/**
+ * Perfis comerciais oferecidos para a empresa: o padrão sempre; os outros, quando a investigação
+ * ligou a empresa ao público deles (tese gravada). Os catálogos nunca se misturam.
+ */
+function profilesFor(insights: ApproachInsights): CommercialProfile[] {
+  return COMMERCIAL_PROFILES.filter(
+    (profile) =>
+      profile.id === DEFAULT_COMMERCIAL_PROFILE_ID || thesisForProfile(insights, profile.id),
+  );
+}
+
+/**
+ * O que propor, por perfil (ajuste de 27/11): a recomendação de cada ângulo com o motivo, as
+ * frentes do catálogo para ajustar e a barreira de coerência. Regra, sem modelo.
+ */
+export function proposalOptionsFor(
+  insights: ApproachInsights,
+  citableClaimIds: ReadonlySet<string>,
+  conversationAllowed: boolean,
+  /** O prompt em uso lê `perfil` e `proposta` (v6+): sem isso, só o perfil padrão e sem ajuste. */
+  proposalAware = true,
+): ProposalOptions[] {
+  const profiles = proposalAware
+    ? profilesFor(insights)
+    : profilesFor(insights).filter((profile) => profile.id === DEFAULT_COMMERCIAL_PROFILE_ID);
+  return profiles.map((profile) => {
+    const thesis = thesisForProfile(insights, profile.id);
+    const angles = ANGLE_CHOICES.flatMap((choice) => {
+      const angle = angleOf(thesis, choice);
+      const recommendation = angle ? recommendProposal(profile, thesis, choice) : null;
+      if (!angle || !recommendation) return [];
+      return [
+        {
+          choice,
+          title: angle.title,
+          context: angle.context,
+          evidenceCount: angle.claimIds.length,
+          recommendation,
+          connectedFamilies: [...angleScope(profile, angle).connectedFamilyCodes],
+          blockers: assessProposalCoherence({
+            profile,
+            thesis,
+            choice,
+            mode: 'recommended',
+            families: [],
+            citableClaimIds,
+          }),
+        },
+      ];
+    });
+    return {
+      profileId: profile.id,
+      profileName: profile.name,
+      profileKind: profile.kind,
+      thesis: thesis
+        ? { recommendation: thesis.recommendation, reason: thesis.recommendationReason }
+        : null,
+      families: profileFamilies(profile),
+      angles,
+      serviceBlockers:
+        angles.length > 0
+          ? []
+          : assessProposalCoherence({
+              profile,
+              thesis,
+              choice: null,
+              mode: 'recommended',
+              families: [],
+              citableClaimIds,
+            }),
+      conversationAllowed,
+      customAllowed: proposalAware,
+    };
+  });
+}
+
+/**
+ * A proposta no formato que os prompts até a v5 leem (`oferta`): sem oferta da Estratégia, vem do
+ * perfil e da proposta; na conversa sem oferta, sem entregáveis nem proposta de valor.
+ */
+function offerFromProposal(
+  proposal: ApproachProposal,
+  profile: CommercialProfile | null,
+  problem: string | null,
+): AiOffer {
+  const conversation = proposal.mode === 'conversation';
+  return {
+    name: proposal.title,
+    description: `${proposal.rationale} Objetivo da primeira interação: ${proposal.objective}`,
+    problems: problem && !conversation ? [problem] : [],
+    needSignals: [],
+    deliverables: conversation ? [] : proposal.services,
+    valueProps: conversation || !profile ? [] : [profile.valueProposition],
+  };
+}
+
+function aiProfile(profile: CommercialProfile): AiProfile {
+  return {
+    id: profile.id,
+    name: profile.name,
+    kind: profile.kind,
+    description: profile.description,
+    positioning: profile.positioning,
+    valueProposition: profile.valueProposition,
+    language: profile.language,
+    restrictions: profile.restrictions,
+  };
+}
+
 /** Canal sugerido pela IA, trocado por e-mail se não for permitido no estado do contato. */
 function channelFor(
   kind: MessageKind,
@@ -571,19 +709,38 @@ export function createRelationshipService(deps: {
     return contactState(await repo.listInteractions({ opportunityId }));
   }
 
+  /**
+   * Barreira de abordagem da oportunidade. Com oferta da Estratégia, a dela; sem oferta
+   * (ADR-0021), só voz, opt-out e LIA — a proposta sai do perfil comercial.
+   */
+  /**
+   * A LIA vigente é uma só, escrita para a prospecção da agência (KI-215): mensagem de estratégia
+   * em nome de outro perfil (ex.: Blummy) pode ser preparada, mas não aprovada, até a base legal
+   * desse perfil ser decidida (revisão de conformidade de 27/11).
+   */
+  async function assertProfileCovered(message: OutboundMessage): Promise<void> {
+    if (!message.planId) return;
+    const plan = (await repo.listPlans(message.opportunityId)).find(
+      (item) => item.id === message.planId,
+    );
+    const profileId = plan?.content.proposal?.profileId ?? DEFAULT_COMMERCIAL_PROFILE_ID;
+    if (profileId === DEFAULT_COMMERCIAL_PROFILE_ID) return;
+    const name = commercialProfileById(profileId)?.name ?? profileId;
+    throw new AppError('conflict', 'approach_blocked', {
+      fieldErrors: {
+        _form: [
+          `A avaliação de legítimo interesse aprovada cobre a prospecção da ${DEFAULT_PROFILE_NAME}. Para aprovar mensagens em nome de ${name}, falta decidir a base legal desse perfil (KI-215).`,
+        ],
+      },
+    });
+  }
+
   async function compliance(
     ctx: RequestContext,
     offerId: string | null,
   ): Promise<ComplianceState & { clearance: ApproachClearance | null }> {
-    if (!offerId) {
-      return {
-        ready: false,
-        missing: ['Escolha a oferta desta oportunidade (em Detalhes).'],
-        clearance: null,
-      };
-    }
     try {
-      const clearance = await strategy.assertReadyToApproach(ctx, { offerId });
+      const clearance = await strategy.assertReadyToApproach(ctx, { offerId: offerId ?? null });
       return { ready: true, missing: [], clearance };
     } catch (error) {
       if (isAppError(error) && error.reason === 'approach_blocked') {
@@ -605,15 +762,36 @@ export function createRelationshipService(deps: {
     return { ...row, offerName: offer?.current?.content.name ?? null };
   }
 
+  /**
+   * O que a IA recebe: dossiê citável, tese aprovada, perfil comercial, proposta e (quando
+   * escolhida) a oferta da Estratégia. Sem oferta, a `offer` dos prompts antigos vem da proposta.
+   */
   function aiContext(
     dossier: CompanyDossier,
     insights: ApproachInsights,
-    offer: Offer,
+    offer: Offer | null,
     snapshot: StrategySnapshot,
-    thesis: SelectedThesis | null = null,
+    thesis: SelectedThesis | null,
+    proposal: ApproachProposal | null,
   ): AiContext {
-    const content = offer.current!.content;
     const company = dossier.company;
+    const profile = commercialProfileById(proposal?.profileId ?? DEFAULT_COMMERCIAL_PROFILE_ID);
+    const content = offer?.current?.content ?? null;
+    let aiOffer: AiOffer;
+    if (content) {
+      aiOffer = {
+        name: content.name,
+        description: content.description,
+        problems: content.problems,
+        needSignals: content.needSignals,
+        deliverables: content.deliverables,
+        valueProps: content.valueProps,
+      };
+    } else if (proposal) {
+      aiOffer = offerFromProposal(proposal, profile, thesis?.angle.problem ?? null);
+    } else {
+      throw new AppError('unexpected', 'unexpected');
+    }
     // Linguagem da empresa (Parte 5.2): só trechos literais que ela mesma publicou (site e perfis
     // próprios), de claims em vigor.
     const ownWords = dossier.claims
@@ -658,18 +836,20 @@ export function createRelationshipService(deps: {
           ),
         })),
       insights,
-      offer: {
-        name: content.name,
-        description: content.description,
-        problems: content.problems,
-        needSignals: content.needSignals,
-        deliverables: content.deliverables,
-        valueProps: content.valueProps,
-      },
+      offer: aiOffer,
+      offerFromStrategy: content !== null,
+      profile: profile ? aiProfile(profile) : null,
+      proposal,
       voice: snapshot.voiceGuide?.content ?? null,
       agencyName: snapshot.contactPolicy?.content.agencyName ?? null,
       optOutText: snapshot.contactPolicy?.content.optOutText ?? null,
-      cases: citableCases(snapshot, offer.id, company.isDemo),
+      // Cases gerais e, com oferta da Estratégia, os dela. Na conversa sem oferta, nenhum: o
+      // primeiro contato não apresenta serviço. Em nome de um produto, nenhum: os cases são da
+      // agência e sugeririam um histórico que o produto não tem (revisão de conformidade de 27/11).
+      cases:
+        proposal?.mode === 'conversation' || profile?.kind === 'product'
+          ? []
+          : citableCases(snapshot, offer?.id ?? null, company.isDemo),
     };
   }
 
@@ -702,6 +882,19 @@ export function createRelationshipService(deps: {
       totalMs: outcome.usage?.totalMs ?? null,
       loadMs: outcome.usage?.loadMs ?? null,
     });
+  }
+
+  /**
+   * Oferta da Estratégia que vale para a oportunidade: a da estratégia vigente, mesmo nula
+   * (ADR-0021: a proposta pode sair só do perfil); sem estratégia, a da oportunidade. Usada nas
+   * mensagens seguintes e na barreira de aprovação (revisões de 27/11).
+   */
+  function offerInEffect(opportunity: Opportunity, plan: ApproachPlan | null): string | null {
+    return plan ? plan.offerId : opportunity.offerId;
+  }
+
+  async function offerInEffectFor(opportunity: Opportunity): Promise<string | null> {
+    return offerInEffect(opportunity, currentPlan(await repo.listPlans(opportunity.id)));
   }
 
   function currentPlan(plans: readonly ApproachPlan[]): ApproachPlan | null {
@@ -770,7 +963,7 @@ export function createRelationshipService(deps: {
       repo.listApprovals({ opportunityId: opportunity.id }),
       repo.listInteractions({ opportunityId: opportunity.id }),
       isSuppressed(company),
-      compliance(ctx, opportunity.offerId),
+      offerInEffectFor(opportunity).then((offerId) => compliance(ctx, offerId)),
     ]);
     const policy = snapshot.contactPolicy?.content ?? null;
     const contact = contactState(interactions);
@@ -934,27 +1127,43 @@ export function createRelationshipService(deps: {
   ): Promise<GenerateMessageResult> {
     if (!deps.ai) return { status: 'ai_failed', failure: aiFailure('no_ai') };
     const snapshot = await snapshotOf(ctx);
-    const offer = offerById(snapshot, args.opportunity.offerId);
-    if (!offer) {
-      throw new AppError('validation', 'invalid_input', {
-        fieldErrors: { offerId: ['Escolha a oferta desta oportunidade (em Detalhes).'] },
-      });
-    }
     const insights = await insightsSource.forCompany(ctx, args.dossier.company.id);
     const plans = await repo.listPlans(args.opportunity.id);
     const plan = currentPlan(plans);
+    // A oferta da estratégia vigente (nula na conversa sem oferta ou na proposta só do perfil);
+    // sem estratégia, a da oportunidade (ADR-0021).
+    const offer =
+      plan?.content.proposal?.mode === 'conversation'
+        ? null
+        : offerById(snapshot, offerInEffect(args.opportunity, plan));
+    // A proposta gravada na estratégia vale para as mensagens seguintes. Sem estratégia nem oferta
+    // (oportunidade aberta à mão), a mensagem não propõe serviço: só abre ou continua a conversa.
+    const proposal: ApproachProposal | null =
+      plan?.content.proposal ??
+      (offer
+        ? null
+        : buildProposal({
+            profile: commercialProfileById(DEFAULT_COMMERCIAL_PROFILE_ID)!,
+            thesis: null,
+            choice: null,
+            mode: 'conversation',
+            families: [],
+            note: null,
+          }));
     const contact = await contactStateOf(args.opportunity.id);
     const channel = channelFor(args.kind, args.channel, contact);
     // O ângulo aprovado na estratégia vale enquanto a tese for a mesma investigação; com uma
     // investigação nova, a mensagem segue a estratégia gravada, sem trocar de ângulo sozinha.
     const approved = plan?.content.thesisBasis;
+    const profileThesis = thesisForProfile(
+      insights,
+      proposal?.profileId ?? DEFAULT_COMMERCIAL_PROFILE_ID,
+    );
     const thesis =
-      deps.ai.thesisAware &&
-      approved &&
-      insights.thesis?.investigationId === approved.investigationId
-        ? selectThesis(insights.thesis, approved.choice)
+      deps.ai.thesisAware && approved && profileThesis?.investigationId === approved.investigationId
+        ? selectThesis(profileThesis, approved.choice)
         : null;
-    const context = aiContext(args.dossier, insights, offer, snapshot, thesis);
+    const context = aiContext(args.dossier, insights, offer, snapshot, thesis, proposal);
     const outcome = await deps.ai.message(
       {
         ...context,
@@ -1122,6 +1331,12 @@ export function createRelationshipService(deps: {
         insightsSource.forCompany(ctx, dossier.company.id),
       ]);
       const now = clock.now();
+      const basis = assessApproachBasis({
+        claims: dossier.claims.map((view) => view.claim),
+        insights,
+        hasDomain: Boolean(dossier.company.primaryDomain),
+        now,
+      });
       return {
         opportunity: withOfferName(summaryRow, snapshot),
         company: dossier.company,
@@ -1135,13 +1350,14 @@ export function createRelationshipService(deps: {
         activeSuppressions,
         compliance: views.compliance,
         contact: views.contact,
-        basis: assessApproachBasis({
-          claims: dossier.claims.map((view) => view.claim),
-          insights,
-          hasDomain: Boolean(dossier.company.primaryDomain),
-          now,
-        }),
+        basis,
         insights,
+        proposals: proposalOptionsFor(
+          insights,
+          new Set(basis.usableClaimIds),
+          basis.basis !== 'insufficient',
+          deps.ai?.proposalAware === true,
+        ),
         readAt: now.toISOString(),
       };
     },
@@ -1156,6 +1372,12 @@ export function createRelationshipService(deps: {
         insightsSource.forCompany(ctx, id),
       ]);
       const summaries = rows.map((row) => withOfferName(row, snapshot));
+      const basis = assessApproachBasis({
+        claims: dossier.claims.map((view) => view.claim),
+        insights,
+        hasDomain: Boolean(dossier.company.primaryDomain),
+        now: clock.now(),
+      });
       return {
         open: summaries.find((item) => !item.closedAt) ?? null,
         closed: summaries.filter((item) => item.closedAt),
@@ -1163,6 +1385,12 @@ export function createRelationshipService(deps: {
         insights,
         // A tela só oferece a escolha do ângulo quando o prompt em uso lê a tese.
         thesisAware: Boolean(deps.ai?.thesisAware),
+        proposals: proposalOptionsFor(
+          insights,
+          new Set(basis.usableClaimIds),
+          basis.basis !== 'insufficient',
+          deps.ai?.proposalAware === true,
+        ),
       };
     },
 
@@ -1191,16 +1419,25 @@ export function createRelationshipService(deps: {
         return value;
       };
       const now = clock.now();
-      const offers = [...new Set(rows.map((row) => row.offerId).filter(Boolean))] as string[];
+      // Oferta que vale para cada oportunidade com rascunho: a da estratégia vigente (ADR-0021).
+      const effective = new Map<string, string | null>();
+      for (const message of drafts) {
+        const opportunity = summaries.get(message.opportunityId);
+        if (opportunity && !effective.has(opportunity.id)) {
+          effective.set(opportunity.id, await offerInEffectFor(opportunity));
+        }
+      }
+      const offers = [
+        ...new Set([...rows.map((row) => row.offerId), ...effective.values()].filter(Boolean)),
+      ] as string[];
       const states = new Map<string, ComplianceState>();
       for (const offerId of offers) {
         const state = await compliance(ctx, offerId);
         states.set(offerId, { ready: state.ready, missing: state.missing });
       }
-      const noOffer: ComplianceState = {
-        ready: false,
-        missing: ['Escolha a oferta desta oportunidade (em Detalhes).'],
-      };
+      // Sem oferta da Estratégia (ADR-0021): a barreira só de conformidade (voz, opt-out, LIA).
+      const offerless = await compliance(ctx, null);
+      const noOffer: ComplianceState = { ready: offerless.ready, missing: offerless.missing };
       const complianceOf = (offerId: string | null) =>
         (offerId ? states.get(offerId) : null) ?? noOffer;
       const pending: ApprovalQueueItem[] = [];
@@ -1211,7 +1448,7 @@ export function createRelationshipService(deps: {
         const contact = await contactOf(message.opportunityId);
         pending.push({
           opportunity,
-          compliance: complianceOf(opportunity.offerId),
+          compliance: complianceOf(effective.get(opportunity.id) ?? null),
           view: {
             message,
             status: 'draft',
@@ -1349,24 +1586,52 @@ export function createRelationshipService(deps: {
         snapshotOf(ctx),
         insightsSource.forCompany(ctx, company.id),
       ]);
-      const activeOffers = snapshot.offers.filter(
-        (offer) => offer.status === 'active' && offer.current,
-      );
-      const offer =
-        offerById(snapshot, input.offerId) ??
-        offerById(snapshot, existing?.offerId ?? null) ??
-        offerById(snapshot, insights.recommendedService?.offerId ?? null) ??
-        (activeOffers.length === 1 ? activeOffers[0]! : null);
-      if (!offer) {
+      // Oferta da Estratégia: opcional e só quando escolhida (ADR-0021). Na conversa sem oferta,
+      // não entra mesmo que venha.
+      const conversation = input.proposalMode === 'conversation';
+      const offer = input.offerId && !conversation ? offerById(snapshot, input.offerId) : null;
+      if (input.offerId && !conversation && !offer) {
         throw new AppError('validation', 'invalid_input', {
-          fieldErrors: { offerId: ['Escolha a oferta que você quer propor.'] },
+          fieldErrors: { offerId: ['Oferta não encontrada. Recarregue a página.'] },
         });
       }
       // A abordagem só propõe oferta ativa (ADR-0014, item 8): rascunho ou arquivada não sai.
-      if (offer.status !== 'active') {
+      if (offer && offer.status !== 'active') {
         throw new AppError('validation', 'invalid_input', {
           fieldErrors: {
             offerId: ['Esta oferta não está ativa. Ative-a em Estratégia ou escolha outra.'],
+          },
+        });
+      }
+      const profile = commercialProfileById(input.profileId ?? DEFAULT_COMMERCIAL_PROFILE_ID);
+      // Só um perfil que a investigação ligou à empresa (o servidor não confia na tela; revisão de
+      // segurança de 27/11).
+      if (!profile || !profilesFor(insights).some((item) => item.id === profile.id)) {
+        throw new AppError('validation', 'invalid_input', {
+          fieldErrors: { profileId: ['Perfil comercial não encontrado. Recarregue a página.'] },
+        });
+      }
+      // Prompt que não lê `perfil` e `proposta` (até a v5) escreveria em nome da agência: outro
+      // perfil só com o prompt que sabe dele (revisões de 27/11).
+      if (input.proposalMode === 'custom' && deps.ai && deps.ai.proposalAware !== true) {
+        throw new AppError('validation', 'invalid_input', {
+          fieldErrors: {
+            proposalMode: [
+              'A versão da IA em uso ainda não lê as frentes ajustadas. Siga a recomendação ou só abra uma conversa.',
+            ],
+          },
+        });
+      }
+      if (
+        profile.id !== DEFAULT_COMMERCIAL_PROFILE_ID &&
+        deps.ai &&
+        deps.ai.proposalAware !== true
+      ) {
+        throw new AppError('validation', 'invalid_input', {
+          fieldErrors: {
+            profileId: [
+              `A versão da IA em uso ainda não escreve em nome de ${profile.name}. Escolha a ${DEFAULT_PROFILE_NAME} ou escreva sem a IA.`,
+            ],
           },
         });
       }
@@ -1380,12 +1645,46 @@ export function createRelationshipService(deps: {
       if (basis.basis === 'insufficient') {
         throw new AppError('validation', 'approach_basis_insufficient');
       }
+
+      // Barreira de coerência comercial (correção de 27/11): propor serviço exige tese do perfil
+      // que recomende abordar, ângulo com evidência em vigor e frentes ligadas a ele. Clicar em
+      // "Preparar" não basta; o motivo volta para a tela e nada é gerado.
+      const profileThesis = thesisForProfile(insights, profile.id);
+      const requested = input.thesisAngle ?? (profileThesis?.principal ? 'principal' : 'none');
+      const choice: ProposalAngleChoice | null = requested === 'none' ? null : requested;
+      const blockers = assessProposalCoherence({
+        profile,
+        thesis: profileThesis,
+        choice,
+        mode: input.proposalMode,
+        families: input.families,
+        citableClaimIds: new Set(basis.usableClaimIds),
+      });
+      if (blockers.length > 0) {
+        throw new AppError('validation', 'proposal_incoherent', {
+          fieldErrors: { _form: blockers },
+        });
+      }
+      const proposal = buildProposal({
+        profile,
+        thesis: profileThesis,
+        choice,
+        mode: input.proposalMode,
+        families: input.families,
+        note: null,
+      });
       if (!deps.ai) return { status: 'ai_failed', failure: aiFailure('no_ai') };
 
       // Ângulo da tese aprovado ao pedir (Parte 5.1); sem tese, com "none" ou com um prompt que
-      // não lê a tese, só o dossiê (nada é gravado como aprovado sem ter sido usado).
-      const thesis = deps.ai.thesisAware ? selectThesis(insights.thesis, input.thesisAngle) : null;
-      const context = aiContext(dossier, insights, offer, snapshot, thesis);
+      // não lê a tese, só o dossiê (nada é gravado como aprovado sem ter sido usado). Na conversa
+      // sem oferta, o ângulo só vai para o prompt que sabe não oferecer os serviços dele, e só
+      // quando a tese recomenda abordar (senão o "porquê agora" não se sustenta).
+      const thesisUsable =
+        deps.ai.thesisAware &&
+        (!conversation ||
+          (deps.ai.proposalAware === true && profileThesis?.recommendation === 'approach'));
+      const thesis = thesisUsable ? selectThesis(profileThesis, input.thesisAngle) : null;
+      const context = aiContext(dossier, insights, offer, snapshot, thesis, proposal);
       // O modelo sabe se a empresa já foi contatada (canal e identificação do primeiro contato).
       const before = existing ? await contactStateOf(existing.id) : null;
       const outcome = await deps.ai.approach(
@@ -1420,11 +1719,11 @@ export function createRelationshipService(deps: {
       let { opportunity } = await ensureOpportunity(
         ctx,
         company,
-        offer.id,
+        offer?.id ?? null,
         'approach_ready',
         'company',
       );
-      if (!opportunity.offerId) opportunity = await setOffer(ctx, opportunity, offer.id);
+      if (offer && !opportunity.offerId) opportunity = await setOffer(ctx, opportunity, offer.id);
       const contact = await contactStateOf(opportunity.id);
       const channel = channelFor(input.kind, grounded.content.channel, contact);
       // A base da tese é gravada pelo servidor (o modelo não escolhe nem inventa o ângulo).
@@ -1437,10 +1736,15 @@ export function createRelationshipService(deps: {
             approvedAt: now.toISOString(),
           }
         : null;
+      // A proposta também é do servidor: o modelo não escolhe a oferta.
+      const { proposal: _proposalFromModel, ...fromModel } = strategy;
       const content: ApproachStrategyContent = {
-        ...strategy,
+        ...fromModel,
+        // Na conversa sem oferta, o objetivo é do modo, não do modelo (ADR-0021).
+        ...(proposal.mode === 'conversation' ? { objective: 'conversation' as const } : {}),
         channel,
         ...(thesisBasis ? { thesisBasis } : {}),
+        proposal,
       };
 
       const plan = await repo.insertPlan(
@@ -1448,8 +1752,8 @@ export function createRelationshipService(deps: {
           id: newId(),
           opportunityId: opportunity.id,
           companyId: company.id,
-          offerId: offer.id,
-          offerVersionId: offer.current!.id,
+          offerId: offer?.id ?? null,
+          offerVersionId: offer?.current?.id ?? null,
           basis: basis.basis,
           content,
           claimIds: grounded.claimIds,
@@ -1468,6 +1772,11 @@ export function createRelationshipService(deps: {
             diagnosisId: insights.diagnosis?.id ?? null,
             // Ângulo da tese aprovado (Parte 5.1); "none" quando a abordagem foi só pelo dossiê.
             thesisAngle: thesis?.choice ?? 'none',
+            // Proposta (ajuste de 27/11): perfil, modo e frentes; sem texto livre na auditoria.
+            profileId: proposal.profileId,
+            proposalMode: proposal.mode,
+            families: proposal.families.map((family) => family.code),
+            strategyOffer: offer !== null,
             ...(review ? { aiReview: review } : {}),
           },
           withVersion: true,
@@ -1664,7 +1973,8 @@ export function createRelationshipService(deps: {
       const opportunity = await requireOpen(message.opportunityId);
       const dossier = await companies.dossier(ctx, opportunity.companyId);
       await assertNotSuppressed(dossier.company);
-      const state = await compliance(ctx, opportunity.offerId);
+      await assertProfileCovered(message);
+      const state = await compliance(ctx, await offerInEffectFor(opportunity));
       if (!state.ready || !state.clearance) {
         throw new AppError('conflict', 'approach_blocked', {
           fieldErrors: { _form: state.missing },
@@ -1734,7 +2044,7 @@ export function createRelationshipService(deps: {
       ]);
       const [suppressed, state, interactions] = await Promise.all([
         isSuppressed(dossier.company),
-        compliance(ctx, opportunity.offerId),
+        offerInEffectFor(opportunity).then((offerId) => compliance(ctx, offerId)),
         repo.listInteractions({ opportunityId: opportunity.id }),
       ]);
       const problems = approvalProblems({

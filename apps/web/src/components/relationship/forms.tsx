@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  THESIS_CHOICE_LABELS,
-  THESIS_RECOMMENDATION_LABELS,
-  type ApproachThesis,
-  type OpportunityStage,
-  type ThesisChoice,
-} from '@prospector/contracts';
+import { type OpportunityStage } from '@prospector/contracts';
 import { useId } from 'react';
 import {
   CheckboxField,
@@ -20,7 +14,6 @@ import { SubmitButton } from '@/components/forms/submit-button';
 import { useActionForm, type FormAction } from '@/components/forms/use-action-form';
 import {
   ANY_CHANNEL_OPTIONS,
-  FIRST_MESSAGE_KIND_OPTIONS,
   MESSAGE_KIND_OPTIONS,
   PRIORITY_OPTIONS,
   STAGE_OPTIONS,
@@ -39,109 +32,6 @@ import {
 type Option = { value: string; label: string };
 
 const AI_PENDING = 'Gerando com a IA local… (pode levar até 1 minuto)';
-
-/** Ângulos que a tese oferece, na ordem: principal, alternativas e "sem a tese". */
-export function thesisAngleOptions(thesis: ApproachThesis): Option[] {
-  const angles: Array<[ThesisChoice, string | undefined]> = [
-    ['principal', thesis.principal?.title],
-    ['alternative_1', thesis.alternatives[0]?.title],
-    ['alternative_2', thesis.alternatives[1]?.title],
-  ];
-  return [
-    ...angles
-      .filter((entry): entry is [ThesisChoice, string] => Boolean(entry[1]))
-      .map(([value, title]) => ({ value, label: `${THESIS_CHOICE_LABELS[value]}: ${title}` })),
-    { value: 'none', label: THESIS_CHOICE_LABELS.none },
-  ];
-}
-
-export function PrepareApproachForm({
-  action,
-  offers,
-  defaultOfferId,
-  thesis = null,
-}: {
-  action: FormAction;
-  offers: readonly Option[];
-  defaultOfferId: string | null;
-  /** Tese da investigação, quando o prompt em uso a lê (Parte 5.1). */
-  thesis?: ApproachThesis | null;
-}) {
-  const angleOptions = thesis ? thesisAngleOptions(thesis) : [];
-  const { state, values, formAction } = useActionForm(action, {
-    offerId: defaultOfferId ?? offers[0]?.value ?? '',
-    kind: 'initial_email',
-    tone: 'consultative',
-    thesisAngle: angleOptions[0]?.value ?? 'none',
-  });
-  const field = { state, values, idScope: useId() };
-  return (
-    <form action={formAction} noValidate className="@container space-y-4">
-      <FormMessage state={state} />
-      {thesis && angleOptions.length > 1 ? (
-        <SelectField
-          name="thesisAngle"
-          label="Ângulo da tese"
-          hint={`${THESIS_RECOMMENDATION_LABELS[thesis.recommendation]}: ${thesis.recommendationReason} A mensagem parte do ângulo que você escolher.`}
-          options={angleOptions}
-          {...field}
-        />
-      ) : null}
-      <SelectField name="offerId" label="Oferta" options={offers} required {...field} />
-      <div className="grid gap-4 @md:grid-cols-2">
-        <SelectField
-          name="kind"
-          label="Primeira mensagem"
-          options={FIRST_MESSAGE_KIND_OPTIONS}
-          {...field}
-        />
-        <SelectField name="tone" label="Tom" options={TONE_OPTIONS} {...field} />
-      </div>
-      <TextAreaField
-        name="instruction"
-        label="Pedido para a IA (opcional)"
-        hint='Ex.: "cite a nova unidade em Campinas", "mais curto". Vale só para este texto.'
-        rows={2}
-        {...field}
-      />
-      <SubmitButton pendingLabel={AI_PENDING}>Preparar mensagem</SubmitButton>
-      <PendingAnnouncement text={AI_PENDING} />
-      <p className="text-xs text-muted-foreground">
-        A IA usa só o dossiê da empresa, a oferta, a voz da agência e os cases autorizados. O
-        resultado é um rascunho: nada é enviado.
-      </p>
-    </form>
-  );
-}
-
-export function OpenOpportunityForm({
-  action,
-  offers,
-  defaultOfferId,
-}: {
-  action: FormAction;
-  offers: readonly Option[];
-  defaultOfferId: string | null;
-}) {
-  const { state, values, formAction } = useActionForm(action, {
-    offerId: defaultOfferId ?? '',
-  });
-  const field = { state, values, idScope: useId() };
-  return (
-    <form action={formAction} noValidate className="space-y-3">
-      <FormMessage state={state} />
-      <SelectField
-        name="offerId"
-        label="Oferta (opcional)"
-        options={[{ value: '', label: 'Definir depois' }, ...offers]}
-        {...field}
-      />
-      <SubmitButton variant="secondary" pendingLabel="Abrindo…">
-        Escrever sem a IA
-      </SubmitButton>
-    </form>
-  );
-}
 
 export function StageForm({ action, current }: { action: FormAction; current: OpportunityStage }) {
   const { state, values, formAction } = useActionForm(action, { toStage: current });

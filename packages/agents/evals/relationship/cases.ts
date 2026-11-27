@@ -7,6 +7,7 @@ import type {
 import {
   EMPTY_APPROACH_INSIGHTS,
   type ApproachAiOutput,
+  type ApproachProposal,
   type MessageDraftText,
   type SelectedThesis,
   type ThesisAngle,
@@ -314,6 +315,13 @@ function dataText(input: AiContext & { instruction: string | null }): string {
     ...input.offer.deliverables,
     ...input.offer.valueProps,
     ...input.claims.map((item) => item.statement),
+    // Perfil e proposta (v6): nome do produto e textos do perfil não são lugar inventado.
+    input.profile?.name ?? '',
+    input.profile?.description ?? '',
+    input.profile?.positioning ?? '',
+    input.profile?.valueProposition ?? '',
+    input.proposal?.title ?? '',
+    ...(input.proposal?.services ?? []),
     input.instruction ?? '',
     'Instagram LinkedIn WhatsApp Facebook TikTok YouTube Google Brasil',
   ].join(' ');
@@ -1456,6 +1464,579 @@ export const THESIS_MESSAGE_CASES: MessageCase[] = [
       fundingMentioned,
       fundingNotFromSite,
       noInventedPlace(dataText(TESE_MENSAGEM)),
+      ...firstContactChecks(AGENCY),
+      ...baseDraftChecks(130),
+    ],
+  },
+];
+
+// --- Casos da proposta (ajuste de 2026-11-27, prompts v6) ----------------------------------------
+//
+// A proposta sai da tese e do catálogo do perfil comercial, não de uma oferta cadastrada
+// (ADR-0021). Os prompts até a v5 recebem a proposta no formato de `oferta`, como o serviço manda;
+// a v6 recebe também `perfil` e `proposta`. Cenários do pedido de 27/11: produto e tecnologia para
+// a empresa da rodada (nunca site institucional), reestruturação (estratégia, marca e operação),
+// produto para a clínica que abre unidade, conversa sem oferta e conteúdo publicado que não é
+// lançamento (o "O que é SaaS?" da correção de 27/11). Empresas, produto e domínios inventados.
+
+type ProposalContext = Pick<AiContext, 'profile' | 'proposal' | 'offer' | 'offerFromStrategy'>;
+
+/** O que o serviço manda sem oferta da Estratégia (`offerFromProposal`, relationship-service). */
+function withProposal(
+  profile: NonNullable<AiContext['profile']>,
+  proposal: ApproachProposal,
+  problem: string | null,
+): ProposalContext {
+  const conversation = proposal.mode === 'conversation';
+  return {
+    profile,
+    proposal,
+    offerFromStrategy: false,
+    offer: {
+      name: proposal.title,
+      description: `${proposal.rationale} Objetivo da primeira interação: ${proposal.objective}`,
+      problems: problem && !conversation ? [problem] : [],
+      needSignals: [],
+      deliverables: conversation ? [] : proposal.services,
+      valueProps: conversation ? [] : [profile.valueProposition],
+    },
+  };
+}
+
+const STUDIO_PROFILE: NonNullable<AiContext['profile']> = {
+  id: 'found-studio',
+  name: AGENCY,
+  kind: 'services',
+  description:
+    'Estúdio multidisciplinar que conecta estratégia, marca, produto, comunicação, tecnologia e operação.',
+  positioning:
+    'Não é uma agência de logotipos e sites: atua em estratégia de marca, produto digital, direção de projetos, tecnologia e operação.',
+  valueProposition: 'Entender o momento da empresa, estruturar o que ele pede e construir junto.',
+  language: 'Direta, próxima e sem jargão.',
+  restrictions: ['Não prometer resultado nem prazo.'],
+};
+
+const SERVICES_OBJECTIVE =
+  'Abrir uma conversa sobre o momento da empresa e o que ele pede, propondo a frente certa sem apresentar o portfólio inteiro.';
+const CONVERSATION_OBJECTIVE =
+  'Abrir uma conversa ou sondar interesse, sem apresentar serviço nem pedir reunião de venda.';
+
+/** Crescimento dito como rótulo, sem o acontecimento (correção de 27/11). */
+const GENERIC_GROWTH =
+  /\b(fase de (crescimento|expansao)|momento de (crescimento|expansao)|crescimento acelerado|em plena expansao|vem crescendo|nova fase de crescimento)\b/;
+const noGenericGrowth: Check<MessageDraftText> = {
+  name: 'sem crescimento genérico ("fase de crescimento")',
+  pass: (draft) => !GENERIC_GROWTH.test(plain(draftText(draft))),
+};
+const SITE_OFFER =
+  /\b(site institucional|site novo|novo site|refazer o site|redesenho do site|reformular o site)\b/;
+const noSiteOffer: Check<ApproachAiOutput> = {
+  name: 'não oferece site institucional (a proposta é produto e tecnologia)',
+  zeroTolerance: true,
+  pass: (output) =>
+    !SITE_OFFER.test(plain(`${strategyText(output)}\n${draftText(output.message)}`)),
+};
+const ANY_SERVICE =
+  /\b(identidade visual|branding|rebranding|logotipo|arquitetura de marca|nossos servicos|portfolio|proposta comercial|orcamento|ux\/ui|roadmap|site novo|novo site|diagnostico de produto)\b/;
+const noServiceOffer: Check<MessageDraftText> = {
+  name: 'conversa sem oferta: não apresenta serviço nem portfólio',
+  zeroTolerance: true,
+  pass: (draft) => !ANY_SERVICE.test(plain(draftText(draft))),
+};
+
+// Caso A: a empresa da rodada (como a Flash real): produto e tecnologia, nunca site.
+const P_ANGLE: ThesisAngle = {
+  ...V_ANGLE,
+  problemId: 'produto-em-estruturacao',
+  solutionId: 'estruturacao-produto-digital',
+  title: 'Estruturação do produto digital depois da rodada',
+  problem:
+    'Hipótese a confirmar: com a expansão da conta digital, o produto pode precisar de prioridades claras e de uma experiência simples para pequenos negócios.',
+  offer: ['Diagnóstico de produto', 'Estruturação de roadmap', 'UX/UI'],
+  why: 'Rodada para expandir um produto digital costuma pedir prioridades de produto e experiência consistente. Sustentado por: investimento ou rodada.',
+  approachRole: 'Liderança de produto',
+  openingTopic:
+    'A rodada para expandir a conta digital e o que ela muda no produto da Veloz Pagamentos Sintética.',
+};
+const P_PROPOSAL: ApproachProposal = {
+  profileId: 'found-studio',
+  profileName: AGENCY,
+  profileKind: 'services',
+  mode: 'recommended',
+  title: 'Estruturação e evolução do produto digital',
+  families: [
+    { code: 'D', name: 'Produto e Experiência Digital' },
+    { code: 'E', name: 'Tecnologia, Inteligência Artificial e Inovação' },
+  ],
+  services: [
+    'Diagnóstico de produto',
+    'Estruturação de roadmap',
+    'UX/UI',
+    'Direção de implementação',
+  ],
+  rationale:
+    'A rodada é para expandir um produto digital: o que pesa agora é prioridade de produto, experiência e implementação.',
+  objective: SERVICES_OBJECTIVE,
+  note: null,
+};
+const PROPOSTA_PRODUTO = approach({
+  ...VELOZ_CONTEXT,
+  thesis: { ...V_THESIS, angle: P_ANGLE, doNotOffer: [] },
+  ...withProposal(STUDIO_PROFILE, P_PROPOSAL, P_ANGLE.problem),
+});
+
+// Caso B: reestruturação anunciada: estratégia, marca e operação juntas.
+const BETA = 'betaengenharia.test';
+const B_RESTRUCTURING = claim(
+  741,
+  'A Beta Engenharia Sintética anunciou a reestruturação da operação em duas unidades de negócio e o reposicionamento da marca (outubro de 2026).',
+  'fact',
+  [NEWS_SOURCE],
+  'signal',
+);
+const B_SITE = claim(
+  742,
+  'O site apresenta projetos de engenharia para indústrias e obras de infraestrutura.',
+  'fact',
+  [{ kind: 'web_page', tier: 'company_owned', host: BETA }],
+  'positioning',
+);
+const B_ACTIVE = claim(
+  743,
+  'Empresa ativa desde 2009, com sede em Campinas (SP).',
+  'fact',
+  [REGISTRY_SOURCE],
+  'firmographic',
+);
+const B_ANGLE: ThesisAngle = {
+  problemId: 'reestruturacao',
+  solutionId: 'marca-nova-estrutura',
+  title: 'Marca e operação para a nova estrutura',
+  context:
+    'Reestruturação: duas unidades de negócio e reposicionamento da marca (noticias-economia.test em outubro de 2026)',
+  problem:
+    'Hipótese a confirmar: com duas unidades de negócio, a marca e a forma de tocar os projetos podem precisar se reorganizar.',
+  offer: [
+    'Estratégia e arquitetura de marca',
+    'Marca para a nova estrutura da empresa',
+    'Estruturação da operação de projetos',
+  ],
+  why: 'Uma reestruturação anunciada costuma mexer em como a empresa se apresenta e em como organiza os projetos. Sustentado por: reestruturação.',
+  whyNow: 'O anúncio é de outubro de 2026.',
+  approachRole: 'Diretoria ou sócios',
+  openingTopic:
+    'A reestruturação em duas unidades de negócio e o que ela muda na marca e na operação.',
+  signals: ['restructuring'],
+  claimIds: [ID(741)],
+};
+const B_PROPOSAL: ApproachProposal = {
+  profileId: 'found-studio',
+  profileName: AGENCY,
+  profileKind: 'services',
+  mode: 'recommended',
+  title: 'Marca e operação para a nova estrutura',
+  families: [
+    { code: 'A', name: 'Estratégia e Inteligência de Marca' },
+    { code: 'B', name: 'Branding e Sistemas de Identidade' },
+    { code: 'F', name: 'Direção de Projetos e Estruturação Operacional' },
+  ],
+  services: B_ANGLE.offer,
+  rationale:
+    'A reestruturação mexe na marca e na operação ao mesmo tempo: estratégia de marca, marca para a nova estrutura e organização dos projetos.',
+  objective: SERVICES_OBJECTIVE,
+  note: null,
+};
+const PROPOSTA_REESTRUTURACAO = approach({
+  company: {
+    displayName: 'Beta Engenharia Sintética',
+    city: 'Campinas',
+    uf: 'SP',
+    cnaeMain: '7112-0/00',
+    sizeBand: 'DEMAIS',
+    primaryDomain: BETA,
+    individual: false,
+  },
+  claims: [B_RESTRUCTURING, B_SITE, B_ACTIVE],
+  thesis: {
+    investigationId: ID(750),
+    choice: 'principal',
+    recommendation: 'approach',
+    recommendationReason: 'A reestruturação tem fonte e pede marca e operação juntas.',
+    angle: B_ANGLE,
+    doNotOffer: [],
+    toConfirm: ['Quem conduz a reestruturação.'],
+  },
+  ...withProposal(STUDIO_PROFILE, B_PROPOSAL, B_ANGLE.problem),
+});
+
+// Caso C: produto (SaaS) para a clínica que abre unidade; nada da agência em nome do produto.
+const CLINIC = 'clinicahorizonte.test';
+const FLORIA: NonNullable<AiContext['profile']> = {
+  id: 'produto-sintetico',
+  name: 'Floria',
+  kind: 'product',
+  description:
+    'Software por assinatura de gestão para profissionais e clínicas da área terapêutica.',
+  positioning: 'Gestão da rotina de atendimento para quem atende na área terapêutica.',
+  valueProposition: 'Agenda, prontuário e rotina da equipe organizados num lugar só.',
+  language: 'Próxima, clara e respeitosa com a prática clínica, sem jargão de tecnologia.',
+  restrictions: [
+    'Não citar funcionalidades, preços, planos ou resultados que não estejam no perfil.',
+    'Nunca misturar com os serviços da agência.',
+  ],
+};
+const C_EXPANSION = claim(
+  761,
+  'A Clínica Horizonte Sintética abriu uma segunda unidade em Contagem e contratou seis terapeutas ocupacionais (outubro de 2026).',
+  'fact',
+  [NEWS_SOURCE],
+  'signal',
+);
+const C_SITE = claim(
+  762,
+  'O site apresenta atendimento de terapia ocupacional e fonoaudiologia para crianças.',
+  'fact',
+  [{ kind: 'web_page', tier: 'company_owned', host: CLINIC }],
+  'positioning',
+);
+const C_ACTIVE = claim(
+  763,
+  'Empresa ativa desde 2018, com sede em Belo Horizonte (MG).',
+  'fact',
+  [REGISTRY_SOURCE],
+  'firmographic',
+);
+const C_ANGLE: ThesisAngle = {
+  problemId: 'clinica-em-crescimento',
+  solutionId: 'assinatura',
+  title: 'Rotina da equipe com a unidade nova',
+  context:
+    'Expansão: segunda unidade em Contagem e seis terapeutas contratados (noticias-economia.test em outubro de 2026)',
+  problem:
+    'Hipótese a confirmar: com duas unidades e equipe maior, agenda e rotina dos terapeutas podem ficar mais difíceis de acompanhar.',
+  offer: ['Assinatura da Floria'],
+  why: 'Clínica que abre unidade e contrata costuma precisar organizar agenda e rotina da equipe. Sustentado por: expansão.',
+  whyNow: 'A unidade foi aberta em outubro de 2026.',
+  approachRole: 'Gestão ou sócios da clínica',
+  openingTopic:
+    'A unidade nova em Contagem e como a equipe está organizando a rotina entre as duas.',
+  signals: ['expansion'],
+  claimIds: [ID(761)],
+};
+const C_PROPOSAL: ApproachProposal = {
+  profileId: 'produto-sintetico',
+  profileName: 'Floria',
+  profileKind: 'product',
+  mode: 'recommended',
+  title: 'Rotina da equipe com a unidade nova',
+  families: [{ code: 'G', name: 'Gestão para a área terapêutica' }],
+  services: ['Assinatura da Floria'],
+  rationale:
+    'Com duas unidades e equipe maior, a rotina de atendimento é o que muda: é onde o produto ajuda.',
+  objective:
+    'Despertar interesse em conhecer o produto, a partir do momento da empresa, sem lista de funções.',
+  note: null,
+};
+const CLINIC_COMPANY: AiContext['company'] = {
+  displayName: 'Clínica Horizonte Sintética',
+  city: 'Belo Horizonte',
+  uf: 'MG',
+  cnaeMain: '8650-0/04',
+  sizeBand: 'EPP',
+  primaryDomain: CLINIC,
+  individual: false,
+};
+const PROPOSTA_CLINICA = approach({
+  company: CLINIC_COMPANY,
+  claims: [C_EXPANSION, C_SITE, C_ACTIVE],
+  thesis: {
+    investigationId: ID(770),
+    choice: 'principal',
+    recommendation: 'approach',
+    recommendationReason: 'A expansão tem fonte e a clínica é do público do produto.',
+    angle: C_ANGLE,
+    doNotOffer: [],
+    toConfirm: ['Que sistema a clínica usa hoje.'],
+  },
+  ...withProposal(FLORIA, C_PROPOSAL, C_ANGLE.problem),
+});
+const AGENCY_SERVICE =
+  /\b(identidade visual|branding|rebranding|logotipo|logo|arquitetura de marca|site novo|novo site|direcao criativa)\b/;
+const noAgencyInProduct: Check<MessageDraftText> = {
+  name: 'produto: não oferece serviço de agência',
+  zeroTolerance: true,
+  pass: (draft) => !AGENCY_SERVICE.test(plain(draftText(draft))),
+};
+const PRICE = /\b(precos?|planos?|mensalidade|r\$ ?\d|gratis|gratuito|desconto|teste gratuito)\b/;
+const noPrice: Check<MessageDraftText> = {
+  name: 'produto: sem preço nem plano (não estão no perfil)',
+  zeroTolerance: true,
+  pass: (draft) => !PRICE.test(plain(draftText(draft))),
+};
+
+// Caso D: networking — primeira mensagem sem oferta.
+const NORTE = 'atelienorte.test';
+const N_SHOWROOM = claim(
+  781,
+  'O Ateliê Norte Sintético abriu um showroom em Porto Alegre para a linha de móveis de madeira (setembro de 2026).',
+  'fact',
+  [NEWS_SOURCE],
+  'signal',
+);
+const N_SITE = claim(
+  782,
+  'O site apresenta móveis de madeira sob medida e projetos para arquitetos.',
+  'fact',
+  [{ kind: 'web_page', tier: 'company_owned', host: NORTE }],
+  'positioning',
+);
+const N_ACTIVE = claim(
+  783,
+  'Empresa ativa desde 2015, com sede em Caxias do Sul (RS).',
+  'fact',
+  [REGISTRY_SOURCE],
+  'firmographic',
+);
+const CONVERSATION: ApproachProposal = {
+  profileId: 'found-studio',
+  profileName: AGENCY,
+  profileKind: 'services',
+  mode: 'conversation',
+  title: 'Sem oferta direta: abrir uma conversa',
+  families: [],
+  services: [],
+  rationale:
+    'Primeiro contato sem apresentar serviço: entender o momento da empresa e se há interesse em conversar.',
+  objective: CONVERSATION_OBJECTIVE,
+  note: null,
+};
+const NORTE_COMPANY: AiContext['company'] = {
+  displayName: 'Ateliê Norte Sintético',
+  city: 'Caxias do Sul',
+  uf: 'RS',
+  cnaeMain: '3101-2/00',
+  sizeBand: 'EPP',
+  primaryDomain: NORTE,
+  individual: false,
+};
+const CONVERSA = approach({
+  company: NORTE_COMPANY,
+  claims: [N_SHOWROOM, N_SITE, N_ACTIVE],
+  thesis: null,
+  ...withProposal(STUDIO_PROFILE, CONVERSATION, null),
+});
+
+// Caso E: conteúdo publicado não é lançamento (o "O que é SaaS?" da correção de 27/11).
+const NUVEM = 'nuvemvendas.test';
+const CONTEUDO = approach({
+  company: {
+    displayName: 'Nuvem Vendas Sintética',
+    city: 'São Paulo',
+    uf: 'SP',
+    cnaeMain: '6203-1/00',
+    sizeBand: 'DEMAIS',
+    primaryDomain: NUVEM,
+    individual: false,
+  },
+  claims: [
+    claim(
+      791,
+      'O blog da empresa publicou o artigo "O que é SaaS? Entenda o modelo de software como serviço" (outubro de 2026).',
+      'fact',
+      [{ kind: 'web_page', tier: 'company_owned', host: NUVEM }],
+      'content',
+    ),
+    claim(
+      792,
+      'O site apresenta um sistema de gestão de vendas para equipes comerciais.',
+      'fact',
+      [{ kind: 'web_page', tier: 'company_owned', host: NUVEM }],
+      'positioning',
+    ),
+    claim(
+      793,
+      'Empresa ativa desde 2012, com sede em São Paulo (SP).',
+      'fact',
+      [REGISTRY_SOURCE],
+      'firmographic',
+    ),
+  ],
+  thesis: null,
+  ...withProposal(STUDIO_PROFILE, CONVERSATION, null),
+});
+const LAUNCH = /\blanc(ou|ar|aram|amento|amentos|ando|ada|ado)\b/;
+const notLaunch: Check<ApproachAiOutput> = {
+  name: 'o artigo não vira lançamento (nem na estratégia)',
+  zeroTolerance: true,
+  pass: (output) => !LAUNCH.test(plain(`${strategyText(output)}\n${draftText(output.message)}`)),
+};
+
+const proposalServiceCommon = (input: ApproachAiRequest): Check<ApproachAiOutput>[] => [
+  approachDraft(noGenericGrowth),
+  approachDraft(noBudgetTalk),
+  ...approachCommon(input),
+];
+
+export const PROPOSAL_APPROACH_CASES: ApproachCase[] = [
+  {
+    id: 'proposta-produto-rodada',
+    synthetic: true,
+    input: PROPOSTA_PRODUTO,
+    checks: [
+      noSiteOffer,
+      approachDraft(noSiteMeasure),
+      approachDraft(
+        mentions(['produto', 'conta digital', 'experiencia', 'roadmap'], 'fala do produto digital'),
+      ),
+      approachDraft(fundingMentioned),
+      ...proposalServiceCommon(PROPOSTA_PRODUTO),
+    ],
+  },
+  {
+    id: 'proposta-reestruturacao',
+    synthetic: true,
+    input: PROPOSTA_REESTRUTURACAO,
+    checks: [
+      approachDraft(
+        mentions(['reestrutura', 'unidades de negocio', 'nova estrutura'], 'liga à reestruturação'),
+      ),
+      approachDraft(
+        mentions(['marca', 'operacao', 'projetos'], 'fala de marca ou operação (a proposta)'),
+      ),
+      noSiteOffer,
+      ...proposalServiceCommon(PROPOSTA_REESTRUTURACAO),
+    ],
+  },
+  {
+    id: 'proposta-produto-clinica',
+    synthetic: true,
+    input: PROPOSTA_CLINICA,
+    checks: [
+      approachDraft(noAgencyInProduct),
+      approachDraft(noPrice),
+      approachDraft(mentions(['floria'], 'apresenta o produto pelo nome')),
+      approachDraft(
+        mentions(['unidade', 'contagem', 'terapeutas', 'equipe'], 'liga ao momento da clínica'),
+      ),
+      ...proposalServiceCommon(PROPOSTA_CLINICA),
+    ],
+  },
+  {
+    id: 'conversa-sem-oferta',
+    synthetic: true,
+    input: CONVERSA,
+    checks: [
+      approachDraft(noServiceOffer),
+      {
+        name: 'não propõe reunião (só abrir conversa)',
+        pass: (output) =>
+          output.strategy.objective !== 'meeting' && !MEETING.test(plain(output.message.body)),
+      },
+      {
+        name: 'objetivo: conversa',
+        pass: (output) => output.strategy.objective === 'conversation',
+      },
+      approachDraft({ name: 'mensagem pergunta', pass: (draft) => draft.body.includes('?') }),
+      approachDraft(mentions(['showroom', 'porto alegre'], 'motivo concreto: o showroom')),
+      {
+        name: 'estratégia de networking, consultiva ou pedido de direcionamento',
+        informative: true,
+        pass: (output) =>
+          /^estrategia (de )?(networking|consultiva|pedido de direcionamento)/.test(
+            plain(output.strategy.argument),
+          ),
+      },
+      approachDraft(noGenericGrowth),
+      ...approachCommon(CONVERSA),
+    ],
+  },
+  {
+    id: 'conteudo-nao-e-lancamento',
+    synthetic: true,
+    input: CONTEUDO,
+    checks: [
+      notLaunch,
+      approachDraft(noServiceOffer),
+      approachDraft(noGenericGrowth),
+      ...approachCommon(CONTEUDO),
+    ],
+  },
+];
+
+const N_STRATEGY: MessageAiRequest['strategy'] = {
+  opportunity:
+    'O Ateliê Norte abriu um showroom em Porto Alegre para a linha de móveis de madeira.',
+  objective: 'conversation',
+  counterpartRole: 'Sócios',
+  channel: 'email',
+  channelReason: 'O tipo pedido é um e-mail de apresentação.',
+  argument:
+    'Estratégia networking: abrir uma conversa a partir do showroom novo, sem apresentar serviço.',
+  evidence: [{ statement: 'Showroom aberto em Porto Alegre.', claimIds: [ID(781)] }],
+  nextStep: 'Perguntar como está sendo a chegada a Porto Alegre.',
+  gaps: [],
+  risks: [],
+  caseIds: [],
+  proposal: CONVERSATION,
+};
+const CONVERSA_MENSAGEM = message({
+  company: NORTE_COMPANY,
+  claims: [N_SHOWROOM, N_SITE, N_ACTIVE],
+  thesis: null,
+  strategy: N_STRATEGY,
+  ...withProposal(STUDIO_PROFILE, CONVERSATION, null),
+});
+
+const C_STRATEGY: MessageAiRequest['strategy'] = {
+  opportunity: 'A clínica abriu uma segunda unidade em Contagem e contratou seis terapeutas.',
+  objective: 'conversation',
+  counterpartRole: 'Gestão ou sócios da clínica',
+  channel: 'email',
+  channelReason: 'O tipo pedido é um e-mail de apresentação.',
+  argument:
+    'Estratégia expansão: com duas unidades, a rotina da equipe é o que muda, e é onde o produto ajuda.',
+  evidence: [{ statement: 'Segunda unidade em Contagem e seis terapeutas.', claimIds: [ID(761)] }],
+  nextStep: 'Perguntar como a equipe está organizando a agenda entre as duas unidades.',
+  gaps: ['Que sistema a clínica usa hoje.'],
+  risks: [],
+  caseIds: [],
+  proposal: C_PROPOSAL,
+};
+const CLINICA_MENSAGEM = message({
+  company: CLINIC_COMPANY,
+  claims: [C_EXPANSION, C_SITE, C_ACTIVE],
+  thesis: null,
+  strategy: C_STRATEGY,
+  ...withProposal(FLORIA, C_PROPOSAL, C_ANGLE.problem),
+});
+
+export const PROPOSAL_MESSAGE_CASES: MessageCase[] = [
+  {
+    id: 'conversa-sem-oferta-mensagem',
+    synthetic: true,
+    input: CONVERSA_MENSAGEM,
+    checks: [
+      noServiceOffer,
+      {
+        name: 'não propõe reunião (só abrir conversa)',
+        pass: (draft) => !MEETING.test(plain(draft.body)),
+      },
+      noGenericGrowth,
+      noInventedPlace(dataText(CONVERSA_MENSAGEM)),
+      ...firstContactChecks(AGENCY),
+      ...baseDraftChecks(130),
+    ],
+  },
+  {
+    id: 'proposta-produto-clinica-mensagem',
+    synthetic: true,
+    input: CLINICA_MENSAGEM,
+    checks: [
+      noAgencyInProduct,
+      noPrice,
+      mentions(['floria'], 'apresenta o produto pelo nome'),
+      noGenericGrowth,
+      noInventedPlace(dataText(CLINICA_MENSAGEM)),
       ...firstContactChecks(AGENCY),
       ...baseDraftChecks(130),
     ],

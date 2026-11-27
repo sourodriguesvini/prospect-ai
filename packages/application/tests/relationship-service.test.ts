@@ -7,7 +7,13 @@ import {
   type Recommendation,
   type ReplyAnalysis,
 } from '@prospector/contracts';
-import { DRAFT_BRANDING_RUBRIC, DRAFT_LIA, DRAFT_SCORING_MODEL } from '@prospector/domain';
+import {
+  BLUMMY_PROFILE,
+  DRAFT_BRANDING_RUBRIC,
+  DRAFT_LIA,
+  DRAFT_SCORING_MODEL,
+  buildCommercialThesis,
+} from '@prospector/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   AppError,
@@ -399,11 +405,18 @@ describe('RelationshipService (ADR-0014)', () => {
     return second;
   }
 
+  /**
+   * Abordagem pronta para os testes de aprovação, contato e resposta. A empresa SINTÉTICA não tem
+   * tese, então só a conversa sem oferta passa na barreira de coerência (correção de 27/11).
+   */
   async function prepared(options: { lia?: boolean; body?: string } = {}) {
     const { offer, caseId } = await readyStrategy({ lia: options.lia ?? true });
     const { company, claimId } = await companyWithFacts();
     fake.next.approach = ok(approachOutput(claimId, caseId, options.body));
-    const result = await service.prepareApproach(ctx, { companyId: company.id });
+    const result = await service.prepareApproach(ctx, {
+      companyId: company.id,
+      proposalMode: 'conversation',
+    });
     if (result.status !== 'created')
       throw new Error(`abordagem não criada: ${result.failure.code}`);
     return { ...result, company, offer, claimId, caseId };
@@ -420,8 +433,8 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(panel.insights.diagnosis).toBeNull();
     });
 
-    it('com diagnóstico completo, a abordagem usa o diagnóstico e a oferta recomendada', async () => {
-      const { offer: first, caseId } = await readyStrategy();
+    it('com diagnóstico completo, a abordagem usa o diagnóstico; oferta da Estratégia só quando escolhida', async () => {
+      const { caseId } = await readyStrategy();
       const second = await secondActiveOffer();
       const { company, claimId, otherClaimId } = await companyWithFacts();
       const investigation = diagnosed(company.id, claimId, second.id, second.current!.id, {
@@ -440,11 +453,22 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(panel.insights.qualification?.priority).toBe('high');
 
       fake.next.approach = ok(approachOutput(claimId, caseId));
-      const result = await service.prepareApproach(ctx, { companyId: company.id });
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
       if (result.status !== 'created') throw new Error('abordagem não criada');
-      // Sem oferta escolhida, vale a recomendada pelo diagnóstico (não a primeira cadastrada).
-      expect(result.opportunity.offerId).toBe(second.id);
-      expect(result.opportunity.offerId).not.toBe(first.id);
+      // A oferta da Estratégia deixou de ser obrigatória (ADR-0021): sem escolha, nenhuma entra,
+      // nem a que o diagnóstico pontuou melhor.
+      expect(result.opportunity.offerId).toBeNull();
+      expect(result.plan.offerId).toBeNull();
+      expect(result.plan.offerVersionId).toBeNull();
+      expect(result.plan.content.proposal).toMatchObject({
+        profileId: 'found-studio',
+        mode: 'conversation',
+        families: [],
+        services: [],
+      });
       // Completo e com achado citável: base suficiente.
       expect(result.plan.basis).toBe('sufficient');
       expect(result.plan.content.gaps).not.toContain(
@@ -487,9 +511,16 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(panel.insights.diagnosis?.status).toBe('partial');
 
       fake.next.approach = ok(approachOutput(claimId, caseId));
-      const result = await service.prepareApproach(ctx, { companyId: company.id });
+      // Oferta da Estratégia enviada junto com a conversa sem oferta: não entra (o primeiro contato
+      // não a apresenta), nem na oportunidade nem na estratégia.
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        offerId: second.id,
+        proposalMode: 'conversation',
+      });
       if (result.status !== 'created') throw new Error('abordagem não criada');
-      expect(result.opportunity.offerId).toBe(second.id);
+      expect(result.opportunity.offerId).toBeNull();
+      expect(result.plan.offerId).toBeNull();
       expect(result.plan.basis).toBe('limited');
       expect(result.plan.content.gaps).toContain(
         'Diagnóstico parcial: a investigação terminou com lacunas.',
@@ -505,8 +536,8 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(detail.basis.basis).toBe('limited');
     });
 
-    it('quando a investigação não manda seguir, não há oferta recomendada: a pessoa escolhe', async () => {
-      await readyStrategy();
+    it('sem tese, propor serviço é barrado com o motivo, mesmo com oferta escolhida; conversar passa', async () => {
+      const { caseId } = await readyStrategy();
       const second = await secondActiveOffer();
       const { company, claimId, otherClaimId } = await companyWithFacts();
       diagnosed(company.id, claimId, second.id, second.current!.id, {
@@ -518,10 +549,36 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(panel.insights.diagnosis?.status).toBe('complete');
       expect(panel.insights.recommendedService).toBeNull();
       expect(panel.insights.qualification?.recommendation).toMatch(/^Sem base suficiente/);
-      // Duas ofertas ativas e nenhuma recomendada: o serviço pede a escolha e não chama a IA.
-      const error = await appError(service.prepareApproach(ctx, { companyId: company.id }));
-      expect(error.reason).toBe('invalid_input');
+      // A tela recebe o motivo antes de clicar: sem tese, só a conversa.
+      expect(panel.proposals).toHaveLength(1);
+      expect(panel.proposals[0]).toMatchObject({
+        profileId: 'found-studio',
+        thesis: null,
+        angles: [],
+        conversationAllowed: true,
+      });
+      expect(panel.proposals[0]!.serviceBlockers.join(' ')).toMatch(/Ainda não há tese/);
+      // Escolher a oferta e clicar em "Preparar" não basta (correção de 27/11): nada é gerado.
+      // Com o prompt que lê a proposta, para o modo "ajustar" chegar à barreira.
+      (fake.ai as { proposalAware?: boolean }).proposalAware = true;
+      for (const input of [
+        { companyId: company.id },
+        { companyId: company.id, offerId: second.id },
+        { companyId: company.id, proposalMode: 'custom' as const, families: ['A'] },
+      ]) {
+        const error = await appError(service.prepareApproach(ctx, input));
+        expect(error.reason).toBe('proposal_incoherent');
+        expect(error.fieldErrors?._form?.join(' ')).toMatch(/Ainda não há tese da Found Studio/);
+      }
       expect(fake.calls).not.toContain('approach');
+      expect(await service.listOpportunities(ctx)).toEqual([]);
+
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
+      expect(result.status).toBe('created');
     });
   });
 
@@ -643,17 +700,103 @@ describe('RelationshipService (ADR-0014)', () => {
       expect(first.plan.content.thesisBasis?.choice).toBe('principal');
     });
 
-    it('"sem a tese" não manda ângulo nem grava base de tese', async () => {
+    it('"sem a tese" só vale para abrir conversa: não manda ângulo nem grava base de tese', async () => {
       const { company, claimId, caseId } = await withThesis();
       readThesis(true);
+      // Propor serviço sem ângulo não tem base (correção de 27/11).
+      const blocked = await appError(
+        service.prepareApproach(ctx, { companyId: company.id, thesisAngle: 'none' }),
+      );
+      expect(blocked.reason).toBe('proposal_incoherent');
+      expect(blocked.fieldErrors?._form?.join(' ')).toMatch(/Sem um ângulo da tese/);
+      expect(fake.calls).not.toContain('approach');
+
       fake.next.approach = ok(approachOutput(claimId, caseId));
       const result = await service.prepareApproach(ctx, {
         companyId: company.id,
         thesisAngle: 'none',
+        proposalMode: 'conversation',
       });
       if (result.status !== 'created') throw new Error('abordagem não criada');
       expect(fake.requests.approach.at(-1)!.thesis).toBeNull();
       expect(result.plan.content.thesisBasis).toBeUndefined();
+    });
+
+    it('conversa sem oferta: o ângulo só vai para o prompt que lê a proposta, e sem cases', async () => {
+      const { company, claimId, caseId } = await withThesis();
+      readThesis(true);
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const old = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
+      if (old.status !== 'created') throw new Error('abordagem não criada');
+      // Prompt até a v5: ofereceria os serviços do ângulo; vai só o dossiê.
+      let sent = fake.requests.approach.at(-1)!;
+      expect(sent.thesis).toBeNull();
+      expect(sent.cases).toEqual([]);
+      expect(sent.offerFromStrategy).toBe(false);
+      expect(sent.offer).toMatchObject({
+        name: 'Sem oferta direta: abrir uma conversa',
+        deliverables: [],
+        valueProps: [],
+      });
+      expect(sent.proposal).toMatchObject({ mode: 'conversation', services: [] });
+
+      (fake.ai as { proposalAware?: boolean }).proposalAware = true;
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      sent = fake.requests.approach.at(-1)!;
+      expect(sent.thesis?.choice).toBe('principal');
+      expect(sent.cases).toEqual([]);
+      expect(sent.profile).toMatchObject({ id: 'found-studio', kind: 'services' });
+      expect(result.plan.content.thesisBasis?.choice).toBe('principal');
+      expect(result.plan.content.proposal?.mode).toBe('conversation');
+    });
+
+    it('proposta recomendada pela tese: gravada pelo servidor, sem oferta da Estratégia', async () => {
+      const { company, claimId, caseId } = await withThesis();
+      readThesis(true);
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.proposals[0]).toMatchObject({
+        profileId: 'found-studio',
+        thesis: { recommendation: 'approach' },
+        serviceBlockers: [],
+      });
+      expect(panel.proposals[0]!.angles.map((item) => item.choice)).toEqual([
+        'principal',
+        'alternative_1',
+      ]);
+      // O modelo tenta escolher a própria proposta: o servidor descarta.
+      const output = approachOutput(claimId, caseId);
+      fake.next.approach = ok({
+        ...output,
+        strategy: { ...output.strategy, proposal: { title: 'Inventada pelo modelo' } },
+      });
+      const result = await service.prepareApproach(ctx, { companyId: company.id });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      expect(result.plan.offerId).toBeNull();
+      expect(result.opportunity.offerId).toBeNull();
+      expect(result.plan.content.proposal).toMatchObject({
+        profileId: 'found-studio',
+        mode: 'recommended',
+        title: 'Ângulo principal sintético',
+      });
+      // Cases gerais continuam citáveis quando a abordagem propõe algo.
+      expect(fake.requests.approach.at(-1)!.cases.map((item) => item.id)).toEqual([caseId]);
+      const generated = audit
+        .entries()
+        .find((entry) => entry.action === 'relationship.approach.generated');
+      expect(generated?.diff).toMatchObject({
+        profileId: 'found-studio',
+        proposalMode: 'recommended',
+        families: [],
+        strategyOffer: false,
+      });
     });
 
     it('com prompt que não lê a tese, nada de ângulo: nem na IA, nem gravado como aprovado', async () => {
@@ -676,9 +819,155 @@ describe('RelationshipService (ADR-0014)', () => {
     });
   });
 
+  describe('ajuste de 27/11 — proposta pelo perfil comercial certo', () => {
+    /** Clínica SINTÉTICA ligada ao público da Blummy pela investigação; sem tese da Found Studio. */
+    async function clinic() {
+      const { caseId } = await readyStrategy();
+      const second = await secondActiveOffer();
+      const { company, claimId, otherClaimId } = await companyWithFacts();
+      const investigation = diagnosed(company.id, claimId, second.id, second.current!.id, {
+        summaryClaimId: otherClaimId,
+      });
+      const blummy = buildCommercialThesis({
+        profile: BLUMMY_PROFILE,
+        companyName: 'Clínica Sintética',
+        events: [
+          {
+            claimId,
+            epistemicType: 'fact',
+            event: {
+              type: 'expansion',
+              occurredOn: '2026-10-20',
+              dateBasis: 'published',
+              headline: 'Clínica Sintética abre nova unidade e amplia equipe de terapeutas',
+              url: 'https://jornal.example/clinica-sintetica',
+              host: 'jornal.example',
+              sourceTier: 'recognized_press',
+              republishedBy: [],
+              confirmedBy: [],
+              conflicts: [],
+              pageRead: true,
+              funding: null,
+            },
+          },
+        ],
+        siteSignals: [],
+        contactKnown: true,
+        now,
+      });
+      investigation.diagnosis = { ...investigation.diagnosis!, profileTheses: [blummy] };
+      (fake.ai as { thesisAware?: boolean }).thesisAware = true;
+      (fake.ai as { proposalAware?: boolean }).proposalAware = true;
+      return { company, claimId, caseId, investigation };
+    }
+
+    it('Blummy: a tela oferece o perfil certo e a proposta é o produto, sem nada da agência', async () => {
+      const { company, claimId, caseId } = await clinic();
+      const panel = await service.forCompany(ctx, company.id);
+      expect(panel.proposals.map((item) => item.profileId)).toEqual(['found-studio', 'blummy']);
+      const [studio, product] = panel.proposals;
+      expect(studio!.serviceBlockers.join(' ')).toMatch(/Ainda não há tese da Found Studio/);
+      expect(product).toMatchObject({
+        profileKind: 'product',
+        thesis: { recommendation: 'approach' },
+        serviceBlockers: [],
+      });
+      expect(product!.angles[0]!.recommendation.services).toEqual(['Assinatura da Blummy']);
+      expect(product!.angles[0]!.blockers).toEqual([]);
+
+      // Pela Found Studio, sem tese dela: barrado.
+      const blocked = await appError(service.prepareApproach(ctx, { companyId: company.id }));
+      expect(blocked.reason).toBe('proposal_incoherent');
+
+      fake.next.approach = ok(approachOutput(claimId, caseId));
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        profileId: 'blummy',
+      });
+      if (result.status !== 'created') throw new Error('abordagem não criada');
+      expect(result.plan.content.proposal).toMatchObject({
+        profileId: 'blummy',
+        profileKind: 'product',
+        mode: 'recommended',
+        services: ['Assinatura da Blummy'],
+      });
+      const sent = fake.requests.approach.at(-1)!;
+      expect(sent.profile).toMatchObject({ id: 'blummy', kind: 'product' });
+      expect(sent.thesis?.choice).toBe('principal');
+      expect(sent.offer.deliverables).toEqual(['Assinatura da Blummy']);
+      expect(JSON.stringify(sent.offer)).not.toMatch(/Identidade visual|branding/i);
+      // Os cases são da agência: em nome do produto, nenhum (revisão de conformidade de 27/11).
+      expect(sent.cases).toEqual([]);
+      expect(result.plan.content.caseIds).toEqual([]);
+      const generated = audit
+        .entries()
+        .find((entry) => entry.action === 'relationship.approach.generated');
+      expect(generated?.diff).toMatchObject({ profileId: 'blummy', families: ['G'] });
+
+      // Preparar pode; aprovar, não: a LIA vigente é da prospecção da agência (KI-215).
+      const refused = await appError(
+        service.approveMessage(ctx, {
+          messageId: result.message.id,
+          payloadHash: result.message.payloadHash,
+        }),
+      );
+      expect(refused.reason).toBe('approach_blocked');
+      expect(refused.fieldErrors?._form?.join(' ')).toMatch(/em nome de Blummy.*KI-215/);
+    });
+
+    it('perfil de outro público só com a IA que lê o perfil, e só se a investigação o ligou', async () => {
+      const { company, claimId, caseId, investigation } = await clinic();
+      (fake.ai as { proposalAware?: boolean }).proposalAware = false;
+      const oldPrompt = await appError(
+        service.prepareApproach(ctx, { companyId: company.id, profileId: 'blummy' }),
+      );
+      expect(oldPrompt.reason).toBe('invalid_input');
+      expect(oldPrompt.fieldErrors?.profileId?.join(' ')).toMatch(
+        /ainda não escreve em nome de Blummy/,
+      );
+      expect(fake.calls).not.toContain('approach');
+
+      // Investigação que não ligou a empresa à Blummy: o perfil não é aceito, mesmo pedido à mão.
+      (fake.ai as { proposalAware?: boolean }).proposalAware = true;
+      investigation.diagnosis = { ...investigation.diagnosis!, profileTheses: [] };
+      const notLinked = await appError(
+        service.prepareApproach(ctx, {
+          companyId: company.id,
+          profileId: 'blummy',
+          proposalMode: 'conversation',
+        }),
+      );
+      expect(notLinked.fieldErrors?.profileId).toBeDefined();
+      expect(fake.calls).not.toContain('approach');
+      void claimId;
+      void caseId;
+    });
+
+    it('frentes ajustadas precisam se ligar ao ângulo; perfil desconhecido é recusado', async () => {
+      const { company } = await clinic();
+      const unknown = await appError(
+        service.prepareApproach(ctx, { companyId: company.id, profileId: 'inexistente' }),
+      );
+      expect(unknown.reason).toBe('invalid_input');
+      expect(unknown.fieldErrors?.profileId).toBeDefined();
+      const empty = await appError(
+        service.prepareApproach(ctx, {
+          companyId: company.id,
+          profileId: 'blummy',
+          proposalMode: 'custom',
+          families: [],
+        }),
+      );
+      expect(empty.fieldErrors?._form).toEqual([
+        'Escolha ao menos uma frente do catálogo para propor.',
+      ]);
+      expect(fake.calls).not.toContain('approach');
+    });
+  });
+
   describe('A — abordagem a partir de empresa investigada', () => {
     it('gera estratégia baseada em evidências e salva a mensagem como rascunho', async () => {
-      const { opportunity, plan, message, claimId, caseId } = await prepared();
+      const { opportunity, plan, message, claimId } = await prepared();
       expect(opportunity.stage).toBe('approach_ready');
       expect(plan.basis).toBe('limited');
       // Só o que o dossiê sustenta: id desconhecido sai, ponto sem fonte sai.
@@ -686,7 +975,9 @@ describe('RelationshipService (ADR-0014)', () => {
         { statement: 'Empresa ativa desde 2015.', claimIds: [claimId] },
       ]);
       expect(plan.claimIds).toEqual([claimId]);
-      expect(plan.content.caseIds).toEqual([caseId]);
+      // Conversa sem oferta não cita case: o que o modelo citou sem ter recebido sai.
+      expect(fake.requests.approach.at(-1)!.cases).toEqual([]);
+      expect(plan.content.caseIds).toEqual([]);
       // As lacunas do Prospector vêm antes das do modelo (não somem no corte).
       expect(plan.content.gaps[0]).toBe('Diagnóstico de marca ainda não feito para esta empresa.');
       expect(message).toMatchObject({
@@ -725,7 +1016,10 @@ describe('RelationshipService (ADR-0014)', () => {
           first: { strategy: null },
         },
       };
-      const result = await service.prepareApproach(ctx, { companyId: company.id });
+      const result = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
       if (result.status !== 'created') throw new Error(result.failure.code);
       const expected = { corrected: true, kinds: ['source', 'tone'], adjusted: 1 };
       expect(result.review).toEqual(expected);
@@ -776,13 +1070,19 @@ describe('RelationshipService (ADR-0014)', () => {
     it('falha da IA ou saída fora do formato não grava nada', async () => {
       await readyStrategy();
       const { company } = await companyWithFacts();
-      const failed = await service.prepareApproach(ctx, { companyId: company.id });
+      const failed = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
       expect(failed).toMatchObject({
         status: 'ai_failed',
         failure: { code: 'runtime_unavailable' },
       });
       fake.next.approach = ok({ strategy: { opportunity: 'curto' }, message: {} });
-      const invalid = await service.prepareApproach(ctx, { companyId: company.id });
+      const invalid = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
       expect(invalid).toMatchObject({ status: 'ai_failed', failure: { code: 'invalid_output' } });
       // Pedido que não cabe na janela do modelo: mensagem própria, nada gravado.
       fake.next.approach = {
@@ -792,7 +1092,10 @@ describe('RelationshipService (ADR-0014)', () => {
         model: null,
         usage: null,
       };
-      const tooLarge = await service.prepareApproach(ctx, { companyId: company.id });
+      const tooLarge = await service.prepareApproach(ctx, {
+        companyId: company.id,
+        proposalMode: 'conversation',
+      });
       expect(tooLarge).toMatchObject({
         status: 'ai_failed',
         failure: { code: 'context_too_large', message: expect.stringMatching(/encurte/i) },
