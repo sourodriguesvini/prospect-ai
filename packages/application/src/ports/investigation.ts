@@ -5,7 +5,9 @@ import type {
   BrandCapture,
   BrandCaptureFailure,
   BusinessAnalysisOutput,
+  CaptureExtrasRequest,
   CaptureImage,
+  CaptureKind,
   CaptureViewport,
   Company,
   CompanyInvestigationSummary,
@@ -113,38 +115,82 @@ export type BrandCaptureResult =
   { ok: true; capture: BrandCapture } | { ok: false; failure: BrandCaptureFailure };
 
 /**
- * Captura da página inicial numa janela de computador ou celular: imagem comprimida (JPEG, altura
- * limitada) e medições calculadas pelo navegador. Mesmas proteções do leitor de páginas (SSRF,
- * robots.txt, sites com termos restritivos, sandbox, prazo total). Nunca lança por falha do site.
+ * Captura de uma página numa janela de computador ou celular: imagem comprimida (JPEG, altura
+ * limitada) e medições calculadas pelo navegador. Com `extras`, tenta também o rodapé e o menu
+ * aberto na mesma sessão. Mesmas proteções do leitor de páginas (SSRF, robots.txt, sites com
+ * termos restritivos, sandbox, prazo total). Nunca lança por falha do site.
  */
 export interface BrandCapturer {
   capture(
     url: string,
     viewport: CaptureViewport,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; extras?: CaptureExtrasRequest },
   ): Promise<BrandCaptureResult>;
 }
 
+/** Por que uma imagem não foi gravada (sem caminho de pasta). */
+export type CaptureStoreFailure = 'no_space' | 'no_permission' | 'unavailable' | 'invalid';
+
+export const CAPTURE_STORE_FAILURE_TEXT: Record<CaptureStoreFailure, string> = {
+  no_space: 'o disco da pasta de dados está cheio',
+  no_permission: 'o Prospector não tem permissão de gravar na pasta de dados',
+  unavailable: 'a pasta de dados não respondeu',
+  invalid: 'a imagem veio fora do formato aceito',
+};
+
+/** Erro tipado do armazenamento: o serviço decide se tenta de novo pelo motivo. */
+export class CaptureStoreError extends Error {
+  constructor(
+    readonly reason: CaptureStoreFailure,
+    options?: { cause?: unknown },
+  ) {
+    super(CAPTURE_STORE_FAILURE_TEXT[reason], options);
+    this.name = 'CaptureStoreError';
+  }
+}
+
+/** Estado do armazenamento, para Configurações › Sistema (diretriz, Parte 13.6). */
+export interface CaptureStoreHealth {
+  ok: boolean;
+  /** Pasta usada (local; só aparece na tela do próprio computador). */
+  location: string;
+  /** Motivo, quando não está pronto. */
+  problem: string | null;
+  /** Imagens guardadas e espaço ocupado (aproximado). */
+  files: number;
+  bytes: number;
+}
+
 /**
- * Guarda as imagens das capturas. Hoje uma pasta local fora do disco do sistema
- * (`PROSPECTOR_CAPTURES_DIR`); depois, um bucket privado do Supabase (pendente de aprovação).
- * `storagePath` é relativo e opaco: só o próprio armazenamento o resolve.
+ * Guarda as imagens das capturas numa pasta local de dados (criada sozinha; padrão do app
+ * instalado: `<instalação>-dados\capturas`). `storagePath` é relativo e opaco: só o próprio
+ * armazenamento o resolve. As imagens ficam pelo prazo de retenção da fonte (12 meses), não são
+ * apagadas quando chega uma captura nova (diretriz, Parte 13.2).
  */
 export interface CaptureStore {
+  /** Lança `CaptureStoreError` quando não grava. */
   put(input: {
     companyId: string;
     investigationId: string;
-    viewport: CaptureViewport;
+    kind: CaptureKind;
     image: CaptureImage;
     capturedAt: string;
   }): Promise<StoredCapture>;
   /** null = não existe (ou caminho inválido). */
   get(storagePath: string): Promise<{ bytes: Uint8Array; mime: 'image/jpeg' } | null>;
+  /** A imagem existe e é legível. */
+  has(storagePath: string): Promise<boolean>;
   /**
-   * Apaga a imagem (substituída por uma captura mais nova). Caminho inválido ou arquivo que não
-   * existe não é erro.
+   * Imagem reaproveitada por uma análise nova (mesmo hash): o prazo de retenção recomeça a contar.
+   * Arquivo que não existe não é erro.
    */
+  keep(storagePath: string): Promise<void>;
+  /** Apaga a imagem. Caminho inválido ou arquivo que não existe não é erro. */
   delete(storagePath: string): Promise<void>;
+  /** Apaga as imagens sem uso desde `before` (retenção vencida); devolve quantas saíram. */
+  purgeExpired(before: Date): Promise<number>;
+  /** Cria a pasta se faltar e confere leitura e escrita. */
+  check(): Promise<CaptureStoreHealth>;
 }
 
 // -----------------------------------------------------------------------------

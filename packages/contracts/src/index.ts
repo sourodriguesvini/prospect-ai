@@ -16,3 +16,4 @@ export * from './brand-capture';
 export * from './investigation';
 export * from './monitoring';
 export * from './intelligence';
+export * from './commercial';

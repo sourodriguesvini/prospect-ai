@@ -22,6 +22,9 @@
 | 12 | [11-qualidade-e-testes.md](11-qualidade-e-testes.md) | DoD, testes, avaliações de IA, CI |
 | 13 | [12-seguranca-e-conformidade.md](12-seguranca-e-conformidade.md) | Segurança, LGPD, controles obrigatórios |
 | 14 | [13-auditoria-e-evolucao.md](13-auditoria-e-evolucao.md) | Estado real do código, matriz de maturidade, gap analysis, arquitetura de IA local, plano incremental |
+| 15 | [15-motor-de-inteligencia.md](15-motor-de-inteligencia.md) | Diagnóstico do motor de inteligência comercial e plano por fases (diretriz de 2026-11-26) |
+| 16 | [16-prontidao-operacional.md](16-prontidao-operacional.md) | Inventário de dependências e integrações conferido contra a configuração real; bloqueios |
+| 17 | [17-entrega-motor-de-inteligencia.md](17-entrega-motor-de-inteligencia.md) | Entrega da diretriz de 2026-11-26 ao responsável pelo produto: mapa de capacidades, modelo de compatibilidade, fluxos, testes, limitações e decisões pendentes |
 
 ## Decisões arquiteturais (ADRs)
 
@@ -45,6 +48,7 @@
 | [0016](adr/0016-email-pela-caixa-fila-em-lote-e-mcp.md) | E-mail pela caixa da Found Studio, fila de aprovação em lote e Prospector via MCP | Proposto |
 | [0017](adr/0017-monitoramento-e-inteligencia.md) | Monitoramento e Inteligência sobre os dados que já existem | Proposto |
 | [0018](adr/0018-programa-de-desktop-com-electron.md) | Programa de desktop do Prospector com Electron | Proposto |
+| [0019](adr/0019-motor-de-inteligencia-comercial.md) | Motor de inteligência comercial: perfis, acontecimentos e tese | Aceito |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 

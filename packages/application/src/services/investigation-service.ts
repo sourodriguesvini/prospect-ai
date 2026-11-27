@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  CAPTURE_FILE_PATTERN,
   EMPTY_INVESTIGATION_SNAPSHOT,
   INVESTIGATION_PIPELINE_VERSION,
   INVESTIGATION_STEPS,
@@ -126,9 +127,6 @@ export interface InvestigationService {
   /** Resolve quando a fila deste processo esvazia (testes e encerramento). */
   idle(): Promise<void>;
 }
-
-const CAPTURE_FILE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(desktop|mobile)\.jpg$/;
 
 const ConfirmSiteInput = z.object({
   companyId: Uuid,
@@ -570,9 +568,15 @@ export function createInvestigationService(
 
     async captureImage(_ctx, rawCompanyId, file) {
       const companyId = Uuid.safeParse(rawCompanyId);
-      if (!companyId.success || !CAPTURE_FILE.test(file) || !deps.captureStore) return null;
+      if (!companyId.success || !CAPTURE_FILE_PATTERN.test(file) || !deps.captureStore) {
+        return null;
+      }
       const storagePath = `${companyId.data}/${file}`;
-      const claims = await deps.evidence.claimsFor('company', companyId.data);
+      // Claims substituídos também valem: a imagem de uma análise anterior continua sendo a
+      // evidência dela até o fim da retenção (diretriz de 2026-11-26, Parte 13.2).
+      const claims = await deps.evidence.claimsFor('company', companyId.data, {
+        includeSuperseded: true,
+      });
       const known = claims.some(
         (claim) =>
           claim.key.startsWith('visual.capture.') && claim.value?.storagePath === storagePath,

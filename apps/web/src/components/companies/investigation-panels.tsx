@@ -5,6 +5,7 @@ import {
   INVESTIGATION_KEYS,
   INVESTIGATION_STATUS_LABELS,
   INVESTIGATION_STEP_LABELS,
+  type CaptureKind,
   type Company,
   type FitCheck,
   type Investigation,
@@ -35,6 +36,8 @@ import {
   InvestigationAutoRefresh,
   SiteConfirmForm,
 } from '@/components/companies/investigation-controls';
+import { ThesisSection } from '@/components/companies/thesis-section';
+import { TimelineSection } from '@/components/companies/timeline-section';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import { companyRoutes } from '@/lib/company-routes';
 import { RECOMMENDATION_SHORT } from '@/lib/decision';
@@ -570,6 +573,16 @@ export function DiagnosisPanel({
             aparecer quando a nova análise terminar.
           </Well>
         ) : null}
+        <TimelineSection views={views} />
+        {diagnosis.thesis ? (
+          <ThesisSection thesis={diagnosis.thesis} views={views} />
+        ) : (
+          <Well className="py-4 text-sm text-muted-foreground">
+            Esta análise não tem tese comercial (as feitas antes de 26/11/2026 não têm). Atualize a
+            análise para ver o ângulo de abordagem, o que não oferecer e o que confirmar antes do
+            contato.
+          </Well>
+        )}
         {diagnosis.offers.length > 0 ? (
           <Section title="Serviços">
             <ul className="divide-y">
@@ -630,18 +643,69 @@ export function DiagnosisPanel({
   );
 }
 
-function captureView(views: readonly ClaimView[], kind: 'site_desktop' | 'site_mobile') {
+/** Legenda e texto alternativo de cada imagem da captura (Parte 13.3 da diretriz de 2026-11-26). */
+const CAPTURE_FIGURES: Record<CaptureKind, { caption: string; alt: string }> = {
+  site_desktop: {
+    caption: 'Página inicial · computador',
+    alt: 'Página inicial no computador, como capturada pelo Prospector.',
+  },
+  site_mobile: {
+    caption: 'Página inicial · celular',
+    alt: 'Página inicial no celular, como capturada pelo Prospector.',
+  },
+  site_desktop_footer: {
+    caption: 'Rodapé · computador',
+    alt: 'Rodapé da página inicial no computador, como capturado pelo Prospector.',
+  },
+  site_mobile_footer: {
+    caption: 'Rodapé · celular',
+    alt: 'Rodapé da página inicial no celular, como capturado pelo Prospector.',
+  },
+  site_mobile_menu: {
+    caption: 'Menu aberto · celular',
+    alt: 'Menu de navegação aberto no celular, como capturado pelo Prospector.',
+  },
+  inner_desktop: {
+    caption: 'Página interna · computador',
+    alt: 'Página interna do site no computador, como capturada pelo Prospector.',
+  },
+  inner_mobile: {
+    caption: 'Página interna · celular',
+    alt: 'Página interna do site no celular, como capturada pelo Prospector.',
+  },
+};
+
+const EXTRA_CAPTURE_KINDS: readonly CaptureKind[] = [
+  'site_desktop_footer',
+  'site_mobile_footer',
+  'site_mobile_menu',
+  'inner_desktop',
+  'inner_mobile',
+];
+
+function captureView(views: readonly ClaimView[], kind: CaptureKind) {
   return views.find((view) => view.claim.key === INVESTIGATION_KEYS.capture(kind)) ?? null;
+}
+
+/** Por que não há imagem: pedido do site, pasta indisponível ou gravação que falhou. */
+function notStoredText(value: { noArchive?: unknown; storage?: unknown }): string {
+  if (value.noArchive === true || value.storage === 'no_archive') {
+    return 'Imagem não guardada: o site pede para não guardar cópia. Ela foi usada só durante a análise.';
+  }
+  if (value.storage === 'failed') {
+    return 'Imagem não guardada: a gravação falhou nesta análise. Atualize a análise para tentar de novo.';
+  }
+  return 'Imagem não guardada: a pasta de dados do Prospector não estava disponível nesta análise. Veja Configurações › Sistema e atualize a análise.';
 }
 
 function CaptureFigure({
   company,
   view,
-  label,
+  kind,
 }: {
   company: Company;
   view: ClaimView | null;
-  label: string;
+  kind: CaptureKind;
 }) {
   if (!view) return null;
   const value = view.claim.value as {
@@ -649,6 +713,7 @@ function CaptureFigure({
     width?: unknown;
     height?: unknown;
     noArchive?: unknown;
+    storage?: unknown;
   };
   const src =
     typeof value.storagePath === 'string'
@@ -656,6 +721,7 @@ function CaptureFigure({
       : null;
   const width = typeof value.width === 'number' ? value.width : undefined;
   const height = typeof value.height === 'number' ? value.height : undefined;
+  const figure = CAPTURE_FIGURES[kind];
   return (
     <figure className="min-w-0 space-y-2">
       {src ? (
@@ -666,21 +732,18 @@ function CaptureFigure({
             width={width}
             height={height}
             loading="lazy"
-            alt={`Página inicial no ${label}, como capturada pelo Prospector.`}
+            alt={figure.alt}
             className="h-auto max-h-[28rem] w-full rounded-[var(--radius-tile)] border border-border object-cover object-top"
           />
           <span className="sr-only"> (abre a imagem inteira em nova aba)</span>
         </a>
       ) : (
         <Well className="py-6 text-center text-sm text-muted-foreground">
-          {value.noArchive === true
-            ? 'Imagem não guardada: o site pede para não guardar cópia. Ela foi usada só durante a análise.'
-            : 'Imagem não guardada (pasta das capturas não configurada).'}
+          {notStoredText(value)}
         </Well>
       )}
       <figcaption className="text-xs text-muted-foreground">
-        {label[0]?.toUpperCase()}
-        {label.slice(1)} · {formatDateTime(view.claim.createdAt)}
+        {figure.caption} · {formatDateTime(view.claim.createdAt)}
       </figcaption>
     </figure>
   );
@@ -731,6 +794,10 @@ function Palette({ view }: { view: ClaimView | null }) {
 export function BrandPanel({ company, views }: { company: Company; views: readonly ClaimView[] }) {
   const desktop = captureView(views, 'site_desktop');
   const mobile = captureView(views, 'site_mobile');
+  const extras = EXTRA_CAPTURE_KINDS.flatMap((kind) => {
+    const view = captureView(views, kind);
+    return view ? [{ kind, view }] : [];
+  });
   const audit = claimsWithPrefix(views, 'visual.audit.');
   const positioning = views.filter(
     (view) => view.claim.key === INVESTIGATION_KEYS.visualPositioning,
@@ -749,9 +816,22 @@ export function BrandPanel({ company, views }: { company: Company; views: readon
       <div className="space-y-6">
         {desktop || mobile ? (
           <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-            <CaptureFigure company={company} view={desktop} label="computador" />
-            <CaptureFigure company={company} view={mobile} label="celular" />
+            <CaptureFigure company={company} view={desktop} kind="site_desktop" />
+            <CaptureFigure company={company} view={mobile} kind="site_mobile" />
           </div>
+        ) : null}
+        {extras.length > 0 ? (
+          <details className="text-sm">
+            <summary className="cursor-pointer underline underline-offset-4">
+              Rodapé, menu e página interna ({extras.length}{' '}
+              {extras.length === 1 ? 'imagem' : 'imagens'})
+            </summary>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {extras.map(({ kind, view }) => (
+                <CaptureFigure key={kind} company={company} view={view} kind={kind} />
+              ))}
+            </div>
+          </details>
         ) : null}
         <Palette view={palette} />
         {typography.length > 0 ? (

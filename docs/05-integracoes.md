@@ -82,3 +82,5 @@ Ver síntese em [12-seguranca-e-conformidade.md](12-seguranca-e-conformidade.md)
 ## 5. Checklist ao integrar
 
 Skill [`integracao-externa`](../.claude/skills/integracao-externa/SKILL.md): termos (uso comercial, armazenamento, IA, dados pessoais), custo por unidade, limites, porta + adapter + validação Zod, throttle, `provider_usage`, segredos, testes com respostas reais gravadas, documentação.
+
+**Leitura de matérias de imprensa (ADR-0019).** A investigação lê até 2 matérias por análise (a origem de um investimento, aquisição, liderança etc.) com o leitor do Prospector. Antes de pôr um veículo em `RECOGNIZED_PRESS_HOSTS` ou deixá-lo ser lido, confira: termos de uso do site (coleta automatizada, reprodução de trechos); robots.txt e meta `noai`/`noarchive` (o leitor já respeita); paywall ou login (não contornar: vira hipótese a partir do título); o que se guarda (só título e trechos citados, 12 meses). Veículo cujos termos proíbam a coleta vai para `RESTRICTED_WEB_HOSTS`. Pendente para os veículos da lista atual: KI-213.

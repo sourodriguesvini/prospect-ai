@@ -1,12 +1,18 @@
-import type {
-  CompanyInvestigationSummary,
-  Investigation,
-  InvestigationStatus,
+import {
+  captureFileSuffix,
+  type CompanyInvestigationSummary,
+  type Investigation,
+  type InvestigationStatus,
 } from '@prospector/contracts';
 import { systemClock, type Clock } from '../clock';
 import { AppError } from '../errors';
 import type { AuditRepository, PendingAudit } from '../ports/audit-repository';
-import type { CaptureStore, InvestigationRepository } from '../ports/investigation';
+import {
+  CaptureStoreError,
+  type CaptureStore,
+  type CaptureStoreFailure,
+  type InvestigationRepository,
+} from '../ports/investigation';
 import type { MemoryCompanyHooks } from './company-repository';
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -224,22 +230,61 @@ export function createMemoryInvestigationRepository(options: {
   };
 }
 
-/** Capturas em memória (testes): caminho opaco por investigação e janela. */
-export function createMemoryCaptureStore(): CaptureStore & { size(): number } {
-  const files = new Map<string, Uint8Array>();
+/** Capturas em memória (testes): caminho opaco por investigação e vaga, como o da pasta. */
+export function createMemoryCaptureStore(): CaptureStore & {
+  size(): number;
+  /** Faz as próximas `count` gravações falharem com `reason` (testes de nova tentativa). */
+  failNext(count: number, reason?: CaptureStoreFailure): void;
+  /** Data do último uso de cada imagem (testes de retenção). */
+  touchedAt(storagePath: string): Date | null;
+} {
+  const files = new Map<string, { bytes: Uint8Array; touched: Date }>();
+  let failures = 0;
+  let failureReason: CaptureStoreFailure = 'unavailable';
   return {
-    async put({ companyId, investigationId, viewport, image, capturedAt }) {
-      const storagePath = `${companyId}/${investigationId}-${viewport}.jpg`;
-      files.set(storagePath, new Uint8Array(image.bytes));
+    async put({ companyId, investigationId, kind, image, capturedAt }) {
+      if (failures > 0) {
+        failures -= 1;
+        throw new CaptureStoreError(failureReason);
+      }
+      const storagePath = `${companyId.toLowerCase()}/${investigationId.toLowerCase()}-${captureFileSuffix(kind)}.jpg`;
+      files.set(storagePath, { bytes: new Uint8Array(image.bytes), touched: new Date() });
       return { storagePath, bytes: image.bytes.length, sha256: image.sha256, capturedAt };
     },
     async get(storagePath) {
-      const bytes = files.get(storagePath);
-      return bytes ? { bytes: new Uint8Array(bytes), mime: 'image/jpeg' } : null;
+      const file = files.get(storagePath);
+      return file ? { bytes: new Uint8Array(file.bytes), mime: 'image/jpeg' } : null;
+    },
+    async has(storagePath) {
+      return files.has(storagePath);
+    },
+    async keep(storagePath) {
+      const file = files.get(storagePath);
+      if (file) file.touched = new Date();
     },
     async delete(storagePath) {
       files.delete(storagePath);
     },
+    async purgeExpired(before) {
+      let removed = 0;
+      for (const [path, file] of files) {
+        if (file.touched < before) {
+          files.delete(path);
+          removed += 1;
+        }
+      }
+      return removed;
+    },
+    async check() {
+      let bytes = 0;
+      for (const file of files.values()) bytes += file.bytes.length;
+      return { ok: true, location: 'memória', problem: null, files: files.size, bytes };
+    },
     size: () => files.size,
+    failNext(count, reason = 'unavailable') {
+      failures = count;
+      failureReason = reason;
+    },
+    touchedAt: (storagePath) => files.get(storagePath)?.touched ?? null,
   };
 }

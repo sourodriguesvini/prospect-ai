@@ -8,7 +8,10 @@
  * E-mail (ADR-0016): modelo `email-layout/v1`, imagens da assinatura, portfólio por serviço e
  *   conferência da caixa.
  * Módulo 02: investigação — páginas, medições da marca, verificação, qualificação e mudanças.
+ * Motor comercial (diretriz 2026-11-26): perfis, catálogo, acontecimentos, fontes, linha do tempo
+ *   e tese de compatibilidade.
  */
+export * from './commercial';
 export * from './company/cnpj-in-text';
 export * from './company/registry';
 export * from './evidence';

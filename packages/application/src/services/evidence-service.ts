@@ -11,6 +11,7 @@ import {
   DEFAULT_EVIDENCE_POLICY,
   checkQuotes,
   evaluateClaim,
+  RECOGNIZED_PRESS_HOSTS,
   type AssessedDependency,
   type AssessedSource,
   type EvidencePolicy,
@@ -82,7 +83,9 @@ export type EvidenceClassification = Omit<SourceClassificationContext, 'ownedOri
  */
 export const DEFAULT_EVIDENCE_CLASSIFICATION: EvidenceClassification = Object.freeze({
   officialProviders: Object.freeze([] as string[]),
-  pressHosts: Object.freeze([] as string[]),
+  // Diretriz 2026-11-26, Parte 3.2: imprensa reconhecida vale como `recognized_press` só na
+  // página lida; resultado de busca continua cópia indireta (no máximo agregador).
+  pressHosts: RECOGNIZED_PRESS_HOSTS,
   aggregatorHosts: Object.freeze([] as string[]),
 });
 

@@ -1,4 +1,6 @@
 import {
+  BusinessEvent,
+  CommercialThesis,
   CompanySize,
   RegistryStatus,
   type Claim,
@@ -8,7 +10,14 @@ import {
   type Recommendation,
 } from '@prospector/contracts';
 import {
+  buildCommercialThesis,
+  commercialProfileById,
+  dedupeEventEvidence,
+  DEFAULT_COMMERCIAL_PROFILE_ID,
   detectChanges,
+  detectEventTypes,
+  type EventEvidence,
+  type SiteSignalEvidence,
   knowledgeGaps,
   linkedCnpjFromClaims,
   nextStepFor,
@@ -150,6 +159,102 @@ function idsOf(
   return [...ids].slice(0, max);
 }
 
+// -----------------------------------------------------------------------------
+// Tese comercial (diretriz 2026-11-26, Parte 4)
+// -----------------------------------------------------------------------------
+
+/** Acontecimentos gravados nesta investigação (claims `signal.web.*` com `value.event`). */
+function eventEvidence(run: Run): EventEvidence[] {
+  const fromWeb = claimsWithPrefix(run, 'signal.web.').flatMap((claim) => {
+    const parsed = BusinessEvent.safeParse(claim.value?.event);
+    return parsed.success
+      ? [{ claimId: claim.id, epistemicType: claim.epistemicType, event: parsed.data }]
+      : [];
+  });
+  // O próprio site anunciando vagas, lançamento ou expansão (leitura da IA, `signal.site.*`).
+  // A evidência (trecho conferido de uma página do site) está no claim; o endereço aqui é só o do
+  // site. Sem data, a dimensão Momento fica indeterminada e a tese pede para aprofundar.
+  const domain = run.company.primaryDomain;
+  const fromSite = domain
+    ? claimsWithPrefix(run, 'signal.site.').flatMap((claim) => {
+        const [type] = detectEventTypes(claim.statement);
+        if (!type) return [];
+        const parsed = BusinessEvent.safeParse({
+          type,
+          occurredOn: null,
+          dateBasis: 'unknown',
+          headline: claim.statement.slice(0, 300),
+          url: `https://${domain}/`,
+          host: domain,
+          sourceTier: 'official',
+          republishedBy: [],
+          confirmedBy: [],
+          conflicts: [],
+          pageRead: true,
+          funding: null,
+        });
+        return parsed.success
+          ? [{ claimId: claim.id, epistemicType: claim.epistemicType, event: parsed.data }]
+          : [];
+      })
+    : [];
+  // A mesma rodada gravada em análises diferentes (origem noutro site) conta uma vez.
+  return dedupeEventEvidence([...fromWeb, ...fromSite]);
+}
+
+function num(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/** Medições do site que indicam falhas de leitura ou de uso no celular. */
+function siteSignals(run: Run): SiteSignalEvidence[] {
+  const by = new Map<SiteSignalEvidence['signal'], { claimIds: string[]; details: string[] }>();
+  const add = (signal: SiteSignalEvidence['signal'], claim: Claim) => {
+    const entry = by.get(signal) ?? { claimIds: [], details: [] };
+    entry.claimIds.push(claim.id);
+    entry.details.push(claim.statement.slice(0, 160));
+    by.set(signal, entry);
+  };
+  for (const claim of claimsWithPrefix(run, 'visual.metric.')) {
+    const value = claim.value ?? {};
+    const name = claim.key.slice('visual.metric.'.length);
+    if (name === 'contrast' && num(value.low) > 0) add('site_accessibility', claim);
+    if (name === 'images_alt' && num(value.withoutAlt) > 0) add('site_accessibility', claim);
+    if (name === 'mobile_overflow' && value.overflow === true) add('site_mobile', claim);
+    if (name === 'mobile_tap_targets' && num(value.count) > 0) add('site_mobile', claim);
+    if (name === 'mobile_small_text' && num(value.percent) >= 10) add('site_mobile', claim);
+  }
+  return [...by.entries()].map(([signal, entry]) => ({
+    signal,
+    claimIds: entry.claimIds.slice(0, 8),
+    detail: entry.details.join('; ').slice(0, 300),
+  }));
+}
+
+/**
+ * Tese do perfil comercial da investigação (Found Studio enquanto não há seleção por empresa,
+ * doc 15 §7.1). Regra pura; se algo sair do contrato, a investigação segue sem tese em vez de
+ * falhar (o resto do diagnóstico continua válido).
+ */
+export function commercialThesis(run: Run): CommercialThesis | null {
+  const profile = commercialProfileById(DEFAULT_COMMERCIAL_PROFILE_ID);
+  if (!profile) return null;
+  const thesis = buildCommercialThesis({
+    profile,
+    companyName: run.company.displayName,
+    events: eventEvidence(run),
+    siteSignals: siteSignals(run),
+    contactKnown: accessKnown(run),
+    now: run.deps.clock.now(),
+  });
+  const parsed = CommercialThesis.safeParse(thesis);
+  if (!parsed.success) {
+    console.warn('[investigacao] tese fora do contrato', parsed.error.issues.slice(0, 3));
+    return null;
+  }
+  return parsed.data;
+}
+
 const FACT_PREFIXES = [
   'positioning.',
   'visual.capture.',
@@ -266,6 +371,7 @@ export async function stepQualification(run: Run): Promise<StepOutcome> {
       added: run.verification.added ?? 0,
       reasons: [...run.verification.reasons],
     },
+    thesis: commercialThesis(run),
   };
   run.diagnosis = diagnosis;
   run.changes = detectChanges(run.previous?.snapshot ?? null, run.snapshot).slice(0, 30);

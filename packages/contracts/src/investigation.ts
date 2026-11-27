@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { CaptureKind, CaptureStorageOutcome } from './brand-capture';
+import { CommercialThesis } from './commercial';
 import { Uuid } from './common';
 import { ClaimKey } from './evidence';
 
@@ -100,7 +102,9 @@ export const InvestigationIssueCode = z.enum([
   'search_budget',
   'reader_unavailable',
   'capture_unavailable',
+  'capture_partial',
   'capture_storage_missing',
+  'capture_storage_failed',
   'ai_unavailable',
   'ai_invalid_output',
   'no_competitors',
@@ -125,8 +129,12 @@ export const INVESTIGATION_ISSUE_MESSAGES: Record<InvestigationIssueCode, string
   reader_unavailable: 'O leitor de páginas está desligado ou indisponível.',
   capture_unavailable:
     'A captura de telas não está disponível (navegador não encontrado ou falhou).',
+  capture_partial:
+    'Parte das capturas falhou mesmo depois de uma nova tentativa (o motivo está em cada imagem). A análise visual usou só as imagens que deram certo.',
   capture_storage_missing:
-    'A pasta das capturas não está configurada (PROSPECTOR_CAPTURES_DIR). As imagens foram analisadas nesta investigação, mas não ficaram guardadas: uma nova auditoria precisa capturar de novo.',
+    'A pasta de dados do Prospector não estava disponível: as imagens foram analisadas nesta análise, mas não ficaram guardadas. Veja Configurações › Sistema e atualize a análise para capturar de novo.',
+  capture_storage_failed:
+    'Parte das imagens não foi gravada mesmo depois de três tentativas (o motivo está em cada imagem). A próxima análise tenta de novo.',
   ai_unavailable: 'A IA local não respondeu (Ollama fora do ar, ocupado ou sem memória de vídeo).',
   ai_invalid_output:
     'A IA respondeu fora do formato combinado; nenhuma conclusão dela foi aproveitada nesta etapa.',
@@ -205,6 +213,22 @@ export type InvestigationChange = z.infer<typeof InvestigationChange>;
 
 const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 
+/** Uma imagem (ou tentativa) da etapa de captura. */
+export const CaptureRecord = z.object({
+  kind: CaptureKind,
+  url: z.string().max(2048),
+  /** Janela usada (px CSS). */
+  viewportWidth: z.number().int().min(1).max(10_000),
+  viewportHeight: z.number().int().min(1).max(10_000),
+  /** `captured`: a imagem existe; `failed`: o navegador não conseguiu; `missing`: parte não encontrada. */
+  state: z.enum(['captured', 'failed', 'missing']),
+  storage: CaptureStorageOutcome.nullable(),
+  /** Motivo em linguagem simples (sem caminho de pasta nem detalhe técnico). */
+  detail: z.string().max(240).nullable(),
+  attempts: z.number().int().min(0).max(5),
+});
+export type CaptureRecord = z.infer<typeof CaptureRecord>;
+
 /**
  * Retrato compacto do que a coleta encontrou (sem conclusões): base da comparação com a próxima
  * investigação. Rótulos e domínios, nunca texto de página inteiro.
@@ -228,6 +252,12 @@ export const InvestigationSnapshot = z.object({
   fonts: z.array(z.string().max(120)).max(5),
   colors: z.array(z.string().regex(/^#[0-9A-F]{6}$/)).max(12),
   captureHashes: z.object({ desktop: Sha256.nullable(), mobile: Sha256.nullable() }),
+  /**
+   * Resultado de cada imagem desta coleta (diretriz de 2026-11-26, Parte 13.4): o que foi
+   * capturado, em que janela, se ficou guardado e, se não, por quê. Opcional: análises antigas não
+   * têm.
+   */
+  captures: z.array(CaptureRecord).max(16).optional(),
   signals: z.array(z.string().max(120)).max(10),
   competitors: z.array(z.string().max(253)).max(10),
   /**
@@ -382,6 +412,11 @@ export const Diagnosis = z.object({
       reasons: z.array(z.string().min(1).max(160)).max(10),
     })
     .default({ discarded: 0, reasons: [] }),
+  /**
+   * Tese comercial (diretriz 2026-11-26, Parte 4): ângulo principal, alternativas, seis dimensões,
+   * o que não oferecer e o que confirmar. Ausente nas investigações anteriores ao motor.
+   */
+  thesis: CommercialThesis.nullable().optional(),
 });
 export type Diagnosis = z.infer<typeof Diagnosis>;
 
@@ -457,7 +492,7 @@ export function keySlug(text: string, max = 40): string {
 
 export const INVESTIGATION_KEYS = {
   officialSiteCandidate: 'digital_presence.official_site_candidate',
-  capture: (kind: 'site_desktop' | 'site_mobile') => `visual.capture.${kind}`,
+  capture: (kind: CaptureKind) => `visual.capture.${kind}`,
   metric: (name: string) => `visual.metric.${keySlug(name)}`,
   palette: 'visual.identity.palette',
   typography: 'visual.identity.typography',

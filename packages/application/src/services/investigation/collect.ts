@@ -1,19 +1,45 @@
 import {
   CAPTURE_VIEWPORT_LABELS,
+  CAPTURE_VIEWPORTS,
   COMPETITOR_KIND_LABELS,
+  BUSINESS_EVENT_LABELS,
+  CLAIM_EVIDENCE_LIMIT,
   INVESTIGATION_KEYS,
+  captureKindOf,
+  captureSlotOf,
   keySlug,
+  type BrandCapture,
+  type BrandCaptureFailure,
+  BusinessEvent,
+  type BusinessEventType,
+  type CaptureExtrasRequest,
+  type CaptureImage,
+  type CaptureKind,
+  type CaptureMissingPart,
+  type CaptureRecord,
+  type CaptureStorageOutcome,
   type CaptureViewport,
   type CompetitorKind,
+  type FundingDetails,
   type SourceInputDraft,
   type WebSearchOutcome,
 } from '@prospector/contracts';
 import {
+  bareHost,
+  brazilianPartialDate,
   captureExcerpt,
   competitorSearchQueries,
+  DEEP_READ_EVENTS,
+  detectEventTypes,
+  eventLeadQuote,
+  extractCompanyFunding,
+  formatBrlAmount,
+  fundingQuotes,
+  groupEventReports,
   dominantColors,
   filterCompetitorCandidates,
   isNotCompetitorDomain,
+  looksLikeInjection,
   metricFacts,
   recordDiscard,
   segmentFromTitle,
@@ -35,9 +61,17 @@ import {
   recordStep,
   retention,
   type ClaimDraftItem,
+  type PageMemo,
   type Run,
   type StepOutcome,
 } from './run';
+import {
+  CAPTURE_STORE_FAILURE_TEXT,
+  CaptureStoreError,
+  type BrandCaptureResult,
+  type BrandCapturer,
+  type CaptureStoreFailure,
+} from '../../ports/investigation';
 import { guardTriageInput, guardTriageOutput, recordGuardLog } from './guards';
 
 /**
@@ -315,140 +349,565 @@ export async function ensurePages(run: Run): Promise<void> {
 }
 
 // -----------------------------------------------------------------------------
-// capture: computador e celular, com medições
+// capture: página inicial (primeiras telas, rodapé e menu aberto) e uma página interna
 // -----------------------------------------------------------------------------
 
-export async function stepCapture(run: Run): Promise<StepOutcome> {
-  if (!run.siteUrl) return { state: 'skipped', issue: 'no_site' };
-  if (run.snapshot.siteReachable === false) return { state: 'skipped', issue: 'site_unreachable' };
-  const capturer = run.deps.capturer;
-  if (!capturer) return { state: 'skipped', issue: 'capture_unavailable' };
-  const target = run.pages[0]?.url ?? run.siteUrl;
-  const failures: string[] = [];
-  let stored = 0;
-  let recorded = 0;
+/** Página interna capturada: a primeira lida nesta ordem (produtos, serviços, institucional). */
+const INNER_PAGE_ORDER: readonly string[] = ['products', 'services', 'about'];
+const INNER_PAGE_LABELS: Record<string, string> = {
+  products: 'de produtos',
+  services: 'de serviços',
+  about: 'institucional',
+};
+/** Gravação de cada imagem: até 3 tentativas, com espera crescente entre elas (ms). */
+const STORE_BACKOFF_MS: readonly number[] = [0, 250, 750];
+/** Espera antes de tentar a captura de novo quando o site ou o navegador falhou (ms). */
+const CAPTURE_RETRY_DELAY_MS = 500;
 
-  for (const viewport of VIEWPORTS) {
-    run.signal.throwIfAborted();
-    const result = await capturer.capture(target, viewport, { signal: run.signal });
-    if (!result.ok) {
-      failures.push(result.failure);
-      continue;
-    }
-    const { capture } = result;
-    // O site pediu para não guardar cópia (na captura ou na leitura da mesma página): a imagem
-    // vai à IA local nesta execução, mas não é guardada, e os textos da página (H1, botões) ficam
-    // fora das evidências; fica o endereço, o título e as medições (ADR-0012 §2).
-    const noArchive = capture.noArchive === true || run.pages[0]?.noArchive === true;
-    const textOptions = { pageText: !noArchive };
-    run.usage.captures += 1;
-    run.usage.captureBytes += capture.image.bytes.length;
-    run.images[viewport] = capture.image.bytes;
-    run.snapshot.captureHashes[viewport] = capture.image.sha256;
-    if (viewport === 'desktop') {
-      run.snapshot.fonts = capture.metrics.fonts.slice(0, 5);
-      run.snapshot.colors = dominantColors(capture.metrics);
-    }
+const CAPTURE_FAILURE_TEXT: Record<BrandCaptureFailure, string> = {
+  disabled: 'A captura de telas está desligada nesta instalação.',
+  blocked_address: 'Endereço não permitido para captura.',
+  robots_disallowed: 'O site não permite acesso automático a esta página (robots.txt).',
+  access_denied: 'O site recusou o acesso ou pediu para não ser usado por IA.',
+  restricted_site: 'Site com termos que não permitem captura automática.',
+  not_found: 'A página não foi encontrada.',
+  unsupported_content: 'O endereço não é uma página da web.',
+  unavailable: 'O site não respondeu a tempo ou o navegador não conseguiu abrir a página.',
+  browser_missing: 'O navegador das capturas não está instalado (veja Configurações › Sistema).',
+};
 
-    let storagePath: string | null = null;
-    if (run.deps.captureStore && !noArchive) {
-      try {
-        const saved = await run.deps.captureStore.put({
-          companyId: run.company.id,
-          investigationId: run.id,
-          viewport,
-          image: capture.image,
-          capturedAt: capture.capturedAt,
-        });
-        storagePath = saved.storagePath;
-        stored += 1;
-      } catch {
-        run.deps.log('[investigação] não foi possível guardar a captura');
-      }
-    }
+const MISSING_TEXT: Record<
+  CaptureMissingPart['region'],
+  Record<CaptureMissingPart['reason'], string>
+> = {
+  footer: {
+    inside_top: 'O rodapé já aparece nas primeiras telas.',
+    not_found: 'A página não tem rodapé reconhecível.',
+    failed: 'O navegador não conseguiu fazer a imagem do rodapé.',
+  },
+  menu: {
+    inside_top: 'O menu já aparece aberto nas primeiras telas.',
+    not_found: 'Nenhum menu de navegação abriu ao tocar no botão do celular.',
+    failed: 'O navegador não conseguiu abrir o menu do celular.',
+  },
+};
 
-    const sourceId = run.deps.newId();
-    const excerpt = captureExcerpt(capture.metrics, capture.url, capture.capturedAt, textOptions);
-    const header = excerpt.split('\n')[0] ?? excerpt;
-    const locator = {
-      bbox: [0, 0, capture.image.width, capture.image.height] as [number, number, number, number],
+const NO_ARCHIVE_TEXT = 'O site pede para não guardar cópia: a imagem foi analisada e descartada.';
+const NOT_CONFIGURED_TEXT = 'A pasta de dados do Prospector não estava disponível.';
+
+interface StoredImage {
+  storagePath: string | null;
+  storage: CaptureStorageOutcome;
+  detail: string | null;
+}
+
+interface CaptureTally {
+  stored: number;
+  reused: number;
+  notStored: number;
+  claims: number;
+}
+
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
     };
-    const where = CAPTURE_VIEWPORT_LABELS[viewport];
-    const captureKey = INVESTIGATION_KEYS.capture(
-      viewport === 'desktop' ? 'site_desktop' : 'site_mobile',
-    );
-    const captureClaim: ClaimDraftItem = {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/** Captura com uma nova tentativa quando a falha é passageira (site lento, navegador ocupado). */
+async function captureWithRetry(
+  run: Run,
+  capturer: BrandCapturer,
+  url: string,
+  viewport: CaptureViewport,
+  extras: CaptureExtrasRequest | null,
+): Promise<{ result: BrandCaptureResult; attempts: number }> {
+  const options = { signal: run.signal, ...(extras ? { extras } : {}) };
+  const first = await capturer.capture(url, viewport, options);
+  if (first.ok || first.failure !== 'unavailable') return { result: first, attempts: 1 };
+  run.signal.throwIfAborted();
+  await pause(CAPTURE_RETRY_DELAY_MS, run.signal);
+  return { result: await capturer.capture(url, viewport, options), attempts: 2 };
+}
+
+/**
+ * Guarda uma imagem. A mesma imagem (mesmo hash) de uma análise anterior reaproveita o arquivo
+ * e renova o prazo dele; senão, grava com até 3 tentativas. Nunca apaga imagens anteriores: elas
+ * continuam sendo a evidência dos claims substituídos até o fim da retenção (Parte 13.2).
+ */
+async function storeImage(
+  run: Run,
+  kind: CaptureKind,
+  image: CaptureImage,
+  capturedAt: string,
+  noArchive: boolean,
+): Promise<StoredImage> {
+  if (noArchive) {
+    await dropStoredImages(run, kind);
+    return { storagePath: null, storage: 'no_archive', detail: NO_ARCHIVE_TEXT };
+  }
+  const store = run.deps.captureStore;
+  if (!store) return { storagePath: null, storage: 'not_configured', detail: NOT_CONFIGURED_TEXT };
+  const previous = run.inForce.get(INVESTIGATION_KEYS.capture(kind));
+  const previousPath = previous?.value?.storagePath;
+  if (typeof previousPath === 'string' && previous?.value?.sha256 === image.sha256) {
+    try {
+      if (await store.has(previousPath)) {
+        await store.keep(previousPath);
+        return { storagePath: previousPath, storage: 'reused', detail: null };
+      }
+    } catch {
+      // Arquivo anterior ilegível: grava de novo abaixo.
+    }
+  }
+  let reason: CaptureStoreFailure = 'unavailable';
+  for (const delay of STORE_BACKOFF_MS) {
+    run.signal.throwIfAborted();
+    if (delay > 0) await pause(delay, run.signal);
+    try {
+      const saved = await store.put({
+        companyId: run.company.id,
+        investigationId: run.id,
+        kind,
+        image,
+        capturedAt,
+      });
+      return { storagePath: saved.storagePath, storage: 'stored', detail: null };
+    } catch (error) {
+      reason = error instanceof CaptureStoreError ? error.reason : 'unavailable';
+      // Disco cheio, sem permissão ou imagem inválida não melhoram em um segundo: só a falha
+      // passageira tenta de novo.
+      if (reason !== 'unavailable') break;
+    }
+  }
+  run.deps.log(`[investigação] captura não guardada (${reason})`);
+  return { storagePath: null, storage: 'failed', detail: CAPTURE_STORE_FAILURE_TEXT[reason] };
+}
+
+/**
+ * O site passou a pedir para não guardar cópia: as imagens desta parte guardadas em análises
+ * anteriores também saem (ADR-0012 §2). Claims e fontes continuam no ledger, com o hash; só o
+ * arquivo sai. Falha ao apagar não derruba a investigação: fica no log, sem caminho.
+ */
+async function dropStoredImages(run: Run, kind: CaptureKind): Promise<void> {
+  const store = run.deps.captureStore;
+  if (!store) return;
+  const key = INVESTIGATION_KEYS.capture(kind);
+  const claims = await run.deps.evidence.claimsFor('company', run.company.id, {
+    includeSuperseded: true,
+  });
+  const paths = new Set<string>();
+  for (const claim of claims) {
+    const path = claim.key === key ? claim.value?.storagePath : null;
+    if (typeof path === 'string') paths.add(path);
+  }
+  for (const path of paths) {
+    try {
+      await store.delete(path);
+    } catch {
+      run.deps.log('[investigação] não foi possível apagar uma captura anterior');
+    }
+  }
+}
+
+function tallyStorage(tally: CaptureTally, stored: StoredImage): void {
+  if (stored.storage === 'stored') tally.stored += 1;
+  else if (stored.storage === 'reused') tally.reused += 1;
+  else if (stored.storage === 'failed') tally.notStored += 1;
+}
+
+function screenshotSource(
+  run: Run,
+  input: {
+    url: string;
+    capturedAt: string;
+    image: CaptureImage;
+    storagePath: string | null;
+    title: string | null;
+    excerpt: string;
+    noArchive: boolean;
+  },
+): SourceInputDraft {
+  return {
+    schemaVersion: 1,
+    kind: 'screenshot',
+    url: input.url,
+    provider: 'prospector',
+    capturedAt: input.capturedAt,
+    contentHash: input.image.sha256,
+    storagePath: input.storagePath,
+    mime: input.image.mime,
+    title: input.title ? cut(input.title, 300) : null,
+    excerptText: input.excerpt,
+    licenseNote: input.noArchive
+      ? 'Captura automática da página pública (robots.txt respeitado). O site pede para não guardar cópia: a imagem foi analisada e descartada; ficam o endereço, o título e as medições.'
+      : 'Captura automática da página pública pelo navegador do Prospector (robots.txt respeitado), guardada só como evidência.',
+    retentionUntil: retention(input.capturedAt),
+    isDemo: run.company.isDemo,
+  };
+}
+
+function captureRecord(
+  kind: CaptureKind,
+  url: string,
+  viewport: CaptureViewport,
+  fields: Pick<CaptureRecord, 'state' | 'storage' | 'detail' | 'attempts'>,
+): CaptureRecord {
+  const size = CAPTURE_VIEWPORTS[viewport];
+  return {
+    kind,
+    url: cut(url, 2048),
+    viewportWidth: size.width,
+    viewportHeight: size.height,
+    ...fields,
+    detail: fields.detail ? cut(fields.detail, 240) : null,
+  };
+}
+
+/** Uma imagem extra (rodapé, menu ou página interna): fonte própria e um fato que a descreve. */
+async function extraImageItems(
+  run: Run,
+  input: {
+    kind: CaptureKind;
+    viewport: CaptureViewport;
+    url: string;
+    capturedAt: string;
+    image: CaptureImage;
+    title: string | null;
+    noArchive: boolean;
+    statement: string;
+    partLabel: string;
+  },
+): Promise<{
+  stored: StoredImage;
+  source: { id: string; source: SourceInputDraft };
+  claim: ClaimDraftItem;
+}> {
+  const stored = await storeImage(run, input.kind, input.image, input.capturedAt, input.noArchive);
+  const where = CAPTURE_VIEWPORT_LABELS[input.viewport];
+  const slot = captureSlotOf(input.kind);
+  const excerpt = `Captura ${input.partLabel} de ${input.url} no ${where} (${input.image.width}×${input.image.height} px) em ${brazilianDay(input.capturedAt)}.`;
+  const sourceId = run.deps.newId();
+  return {
+    stored,
+    source: {
+      id: sourceId,
+      source: screenshotSource(run, {
+        url: input.url,
+        capturedAt: input.capturedAt,
+        image: input.image,
+        storagePath: stored.storagePath,
+        title: input.title,
+        excerpt,
+        noArchive: input.noArchive,
+      }),
+    },
+    claim: {
       id: run.deps.newId(),
       claim: {
         schemaVersion: 1,
         subjectType: 'company',
         subjectId: run.company.id,
         domain: 'visual',
-        key: captureKey,
-        statement: `A página inicial de ${hostOf(capture.url)} foi capturada no ${where} em ${brazilianDay(capture.capturedAt)}.`,
+        key: INVESTIGATION_KEYS.capture(input.kind),
+        statement: input.statement,
         value: {
-          viewport,
-          url: capture.url,
-          width: capture.image.width,
-          height: capture.image.height,
-          storagePath,
-          sha256: capture.image.sha256,
-          // A tela explica por que não há imagem: pedido do site, não pasta ausente.
-          noArchive,
+          viewport: input.viewport,
+          page: slot.page,
+          region: slot.region,
+          url: input.url,
+          width: input.image.width,
+          height: input.image.height,
+          storagePath: stored.storagePath,
+          sha256: input.image.sha256,
+          noArchive: input.noArchive,
+          storage: stored.storage,
         },
         epistemicType: 'fact',
-        evidence: [{ sourceId, quote: header, locator }],
+        evidence: [
+          {
+            sourceId,
+            quote: excerpt,
+            locator: { bbox: [0, 0, input.image.width, input.image.height] },
+          },
+        ],
         isDemo: run.company.isDemo,
       },
-    };
-    const metricClaims: ClaimDraftItem[] = metricFacts(capture.metrics, textOptions).map(
-      (fact) => ({
-        id: run.deps.newId(),
-        claim: {
-          schemaVersion: 1,
-          subjectType: 'company',
-          subjectId: run.company.id,
-          domain: fact.domain,
-          key: fact.key,
-          statement: fact.statement,
-          value: { ...fact.value, viewport },
-          epistemicType: 'fact',
-          evidence: [{ sourceId, quote: fact.quote, locator }],
-          isDemo: run.company.isDemo,
-        },
+    },
+  };
+}
+
+/** Página inicial numa janela: primeiras telas com medições, mais rodapé e menu aberto. */
+async function recordHomeCapture(
+  run: Run,
+  capture: BrandCapture,
+  attempts: number,
+  records: CaptureRecord[],
+  tally: CaptureTally,
+): Promise<void> {
+  const { viewport } = capture;
+  // O site pediu para não guardar cópia (na captura ou na leitura da mesma página): a imagem
+  // vai à IA local nesta execução, mas não é guardada, e os textos da página (H1, botões) ficam
+  // fora das evidências; fica o endereço, o título e as medições (ADR-0012 §2).
+  const noArchive = capture.noArchive === true || run.pages[0]?.noArchive === true;
+  const textOptions = { pageText: !noArchive };
+  const kind: CaptureKind = viewport === 'desktop' ? 'site_desktop' : 'site_mobile';
+  run.usage.captures += 1;
+  run.usage.captureBytes += capture.image.bytes.length;
+  run.images[viewport] = capture.image.bytes;
+  run.snapshot.captureHashes[viewport] = capture.image.sha256;
+  if (viewport === 'desktop') {
+    run.snapshot.fonts = capture.metrics.fonts.slice(0, 5);
+    run.snapshot.colors = dominantColors(capture.metrics);
+  }
+
+  const stored = await storeImage(run, kind, capture.image, capture.capturedAt, noArchive);
+  tallyStorage(tally, stored);
+  records.push(
+    captureRecord(kind, capture.url, viewport, {
+      state: 'captured',
+      storage: stored.storage,
+      detail: stored.detail,
+      attempts,
+    }),
+  );
+
+  const sourceId = run.deps.newId();
+  const excerpt = captureExcerpt(capture.metrics, capture.url, capture.capturedAt, textOptions);
+  const header = excerpt.split('\n')[0] ?? excerpt;
+  const locator = {
+    bbox: [0, 0, capture.image.width, capture.image.height] as [number, number, number, number],
+  };
+  const where = CAPTURE_VIEWPORT_LABELS[viewport];
+  const host = hostOf(capture.url);
+  const day = brazilianDay(capture.capturedAt);
+  const captureClaim: ClaimDraftItem = {
+    id: run.deps.newId(),
+    claim: {
+      schemaVersion: 1,
+      subjectType: 'company',
+      subjectId: run.company.id,
+      domain: 'visual',
+      key: INVESTIGATION_KEYS.capture(kind),
+      statement: `A página inicial de ${host} foi capturada no ${where} em ${day}.`,
+      value: {
+        viewport,
+        page: 'home',
+        region: 'top',
+        url: capture.url,
+        width: capture.image.width,
+        height: capture.image.height,
+        storagePath: stored.storagePath,
+        sha256: capture.image.sha256,
+        // A tela explica por que não há imagem: pedido do site, pasta ausente ou falha.
+        noArchive,
+        storage: stored.storage,
+      },
+      epistemicType: 'fact',
+      evidence: [{ sourceId, quote: header, locator }],
+      isDemo: run.company.isDemo,
+    },
+  };
+  const metricClaims: ClaimDraftItem[] = metricFacts(capture.metrics, textOptions).map((fact) => ({
+    id: run.deps.newId(),
+    claim: {
+      schemaVersion: 1,
+      subjectType: 'company',
+      subjectId: run.company.id,
+      domain: fact.domain,
+      key: fact.key,
+      statement: fact.statement,
+      value: { ...fact.value, viewport },
+      epistemicType: 'fact',
+      evidence: [{ sourceId, quote: fact.quote, locator }],
+      isDemo: run.company.isDemo,
+    },
+  }));
+
+  const sources: Array<{ id: string; source: SourceInputDraft }> = [
+    {
+      id: sourceId,
+      source: screenshotSource(run, {
+        url: capture.url,
+        capturedAt: capture.capturedAt,
+        image: capture.image,
+        storagePath: stored.storagePath,
+        title: capture.metrics.title,
+        excerpt,
+        noArchive,
+      }),
+    },
+  ];
+  const extraClaims: ClaimDraftItem[] = [];
+  for (const extra of capture.extras ?? []) {
+    const extraKind = captureKindOf({ page: 'home', viewport, region: extra.region });
+    if (!extraKind) continue;
+    run.usage.captureBytes += extra.image.bytes.length;
+    const item = await extraImageItems(run, {
+      kind: extraKind,
+      viewport,
+      url: capture.url,
+      capturedAt: capture.capturedAt,
+      image: extra.image,
+      title: capture.metrics.title,
+      noArchive,
+      statement:
+        extra.region === 'footer'
+          ? `O rodapé da página inicial de ${host} foi capturado no ${where} em ${day}.`
+          : `O menu de navegação de ${host} foi capturado aberto no ${where} em ${day}.`,
+      partLabel: extra.region === 'footer' ? 'do rodapé' : 'do menu de navegação aberto',
+    });
+    tallyStorage(tally, item.stored);
+    records.push(
+      captureRecord(extraKind, capture.url, viewport, {
+        state: 'captured',
+        storage: item.stored.storage,
+        detail: item.stored.detail,
+        attempts,
       }),
     );
-    const accepted = await recordStep(run, {
-      action: 'company.investigation.capture',
-      sources: [
-        {
-          id: sourceId,
-          source: {
-            schemaVersion: 1,
-            kind: 'screenshot',
-            url: capture.url,
-            provider: 'prospector',
-            capturedAt: capture.capturedAt,
-            contentHash: capture.image.sha256,
-            storagePath,
-            mime: capture.image.mime,
-            title: capture.metrics.title ? cut(capture.metrics.title, 300) : null,
-            excerptText: excerpt,
-            licenseNote: noArchive
-              ? 'Captura automática da página pública (robots.txt respeitado). O site pede para não guardar cópia: a imagem foi analisada e descartada; ficam o endereço, o título e as medições.'
-              : 'Captura automática da página pública pelo navegador do Prospector (robots.txt respeitado), guardada só como evidência.',
-            retentionUntil: retention(capture.capturedAt),
-            isDemo: run.company.isDemo,
-          },
-        },
-      ],
-      claims: [captureClaim, ...metricClaims],
-    });
-    recorded += accepted.size;
-    // Uma imagem por janela e por empresa: as anteriores, substituídas por esta captura, são
-    // apagadas (o que mudou entre elas fica pelos hashes). Só depois de a nova entrar no ledger.
-    if (accepted.has(captureClaim.id)) await dropOlderCaptures(run, captureKey, storagePath);
+    sources.push(item.source);
+    extraClaims.push(item.claim);
   }
+  for (const part of capture.missing ?? []) {
+    const missingKind = captureKindOf({ page: 'home', viewport, region: part.region });
+    if (!missingKind) continue;
+    records.push(
+      captureRecord(missingKind, capture.url, viewport, {
+        state: part.reason === 'failed' ? 'failed' : 'missing',
+        storage: null,
+        detail: MISSING_TEXT[part.region][part.reason],
+        attempts,
+      }),
+    );
+  }
+
+  const accepted = await recordStep(run, {
+    action: 'company.investigation.capture',
+    sources,
+    claims: [captureClaim, ...extraClaims, ...metricClaims],
+  });
+  tally.claims += accepted.size;
+}
+
+/** Página interna relevante numa janela: só as primeiras telas, sem medições (são da inicial). */
+async function recordInnerCapture(
+  run: Run,
+  capture: BrandCapture,
+  page: PageMemo,
+  attempts: number,
+  records: CaptureRecord[],
+  tally: CaptureTally,
+): Promise<void> {
+  const { viewport } = capture;
+  const kind: CaptureKind = viewport === 'desktop' ? 'inner_desktop' : 'inner_mobile';
+  const noArchive = capture.noArchive === true || page.noArchive;
+  run.usage.captures += 1;
+  run.usage.captureBytes += capture.image.bytes.length;
+  const label = INNER_PAGE_LABELS[page.category] ?? 'interna';
+  const where = CAPTURE_VIEWPORT_LABELS[viewport];
+  const item = await extraImageItems(run, {
+    kind,
+    viewport,
+    url: capture.url,
+    capturedAt: capture.capturedAt,
+    image: capture.image,
+    title: capture.metrics.title,
+    noArchive,
+    statement: `A página ${label} de ${hostOf(capture.url)} foi capturada no ${where} em ${brazilianDay(capture.capturedAt)}.`,
+    partLabel: `da página ${label}`,
+  });
+  tallyStorage(tally, item.stored);
+  records.push(
+    captureRecord(kind, capture.url, viewport, {
+      state: 'captured',
+      storage: item.stored.storage,
+      detail: item.stored.detail,
+      attempts,
+    }),
+  );
+  const accepted = await recordStep(run, {
+    action: 'company.investigation.capture',
+    sources: [item.source],
+    claims: [item.claim],
+  });
+  tally.claims += accepted.size;
+}
+
+export async function stepCapture(run: Run): Promise<StepOutcome> {
+  if (!run.siteUrl) return { state: 'skipped', issue: 'no_site' };
+  if (run.snapshot.siteReachable === false) return { state: 'skipped', issue: 'site_unreachable' };
+  const capturer = run.deps.capturer;
+  if (!capturer) return { state: 'skipped', issue: 'capture_unavailable' };
+  const home = run.pages[0]?.url ?? run.siteUrl;
+  const homeHost = hostOf(home);
+  // Página interna do mesmo endereço do site primeiro (suporte e blog em subdomínio são outro site).
+  const innerCandidates = (sameHost: boolean) =>
+    INNER_PAGE_ORDER.map((category) =>
+      run.pages.find(
+        (page) =>
+          page.category === category &&
+          page.url !== home &&
+          (hostOf(page.url) === homeHost) === sameHost,
+      ),
+    ).find((page): page is PageMemo => page !== undefined);
+  const inner = innerCandidates(true) ?? innerCandidates(false) ?? null;
+  const failures: BrandCaptureFailure[] = [];
+  const records: CaptureRecord[] = [];
+  const tally: CaptureTally = { stored: 0, reused: 0, notStored: 0, claims: 0 };
+
+  for (const viewport of VIEWPORTS) {
+    run.signal.throwIfAborted();
+    const extras: CaptureExtrasRequest = { footer: true, menu: viewport === 'mobile' };
+    const { result, attempts } = await captureWithRetry(run, capturer, home, viewport, extras);
+    if (!result.ok) {
+      failures.push(result.failure);
+      records.push(
+        captureRecord(viewport === 'desktop' ? 'site_desktop' : 'site_mobile', home, viewport, {
+          state: 'failed',
+          storage: null,
+          detail: CAPTURE_FAILURE_TEXT[result.failure],
+          attempts,
+        }),
+      );
+      continue;
+    }
+    await recordHomeCapture(run, result.capture, attempts, records, tally);
+  }
+
+  // A página interna só vale a tentativa se a inicial abriu (site bloqueado bloqueia as duas).
+  if (inner && run.usage.captures > 0) {
+    for (const viewport of VIEWPORTS) {
+      run.signal.throwIfAborted();
+      const { result, attempts } = await captureWithRetry(run, capturer, inner.url, viewport, null);
+      if (!result.ok) {
+        const kind: CaptureKind = viewport === 'desktop' ? 'inner_desktop' : 'inner_mobile';
+        records.push(
+          captureRecord(kind, inner.url, viewport, {
+            state: 'failed',
+            storage: null,
+            detail: CAPTURE_FAILURE_TEXT[result.failure],
+            attempts,
+          }),
+        );
+        continue;
+      }
+      await recordInnerCapture(run, result.capture, inner, attempts, records, tally);
+    }
+  }
+  run.snapshot.captures = records.slice(0, 16);
 
   if (run.usage.captures === 0) {
     const blocked = failures.some((failure) =>
@@ -463,86 +922,175 @@ export async function stepCapture(run: Run): Promise<StepOutcome> {
       counts: { captures: 0 },
     };
   }
+  const issue = !run.deps.captureStore
+    ? 'capture_storage_missing'
+    : tally.notStored > 0
+      ? 'capture_storage_failed'
+      : records.some((record) => record.state === 'failed')
+        ? 'capture_partial'
+        : null;
   return {
     state: 'done',
-    issue: run.deps.captureStore ? null : 'capture_storage_missing',
-    counts: { captures: run.usage.captures, stored, claims: recorded },
+    issue,
+    counts: {
+      captures: run.usage.captures,
+      images: records.filter((record) => record.state === 'captured').length,
+      stored: tally.stored,
+      reused: tally.reused,
+      notStored: tally.notStored,
+      claims: tally.claims,
+    },
   };
 }
 
+// -----------------------------------------------------------------------------
+// signals: acontecimentos da empresa na internet (diretriz 2026-11-26, Parte 2.3)
+// -----------------------------------------------------------------------------
+
 /**
- * Apaga as imagens das capturas anteriores desta janela (claims em vigor, substituídos ou
- * vencidos). O claim e a fonte continuam no ledger, com o hash; só o arquivo sai. Falha ao apagar
- * não derruba a investigação: fica no log, sem caminho.
+ * Matérias lidas por investigação, no máximo. O leitor é do Prospector (sem crédito de busca),
+ * mas cada leitura leva alguns segundos: só os acontecimentos que mudam a leitura comercial
+ * (`DEEP_READ_EVENTS`) são lidos; os demais ficam como hipótese a partir do título.
  */
-async function dropOlderCaptures(run: Run, key: string, keep: string | null): Promise<void> {
-  const store = run.deps.captureStore;
-  if (!store) return;
-  const claims = await run.deps.evidence.claimsFor('company', run.company.id, {
-    includeSuperseded: true,
-  });
-  const older = new Set<string>();
-  for (const claim of claims) {
-    const path = claim.key === key ? claim.value?.storagePath : null;
-    if (typeof path === 'string' && path !== keep) older.add(path);
-  }
-  for (const path of older) {
-    try {
-      await store.delete(path);
-    } catch {
-      run.deps.log('[investigação] não foi possível apagar uma captura anterior');
-    }
-  }
+const MAX_EVENT_PAGES = 2;
+/** Acontecimentos distintos gravados por investigação. */
+const MAX_EVENTS = 6;
+
+/** Tipos de acontecimento que o texto (título e trecho de um resultado de busca) menciona. */
+export function signalCodes(text: string): string[] {
+  return detectEventTypes(text);
 }
 
-// -----------------------------------------------------------------------------
-// signals: menções recentes da empresa (hipóteses a conferir)
-// -----------------------------------------------------------------------------
+/** Por que a matéria de origem não foi usada: muda o que se guarda e o que se explica. */
+type EventPageRefusal = 'unavailable' | 'no_archive' | 'off_topic';
 
-const SIGNAL_PATTERNS: ReadonlyArray<{ code: string; label: string; pattern: RegExp }> = [
-  {
-    code: 'brand_change',
-    label: 'mudança de marca',
-    pattern: /\b(nova marca|nova identidade|rebranding|novo logo|repaginad|nova logomarca)/,
-  },
-  {
-    code: 'expansion',
-    label: 'expansão ou nova unidade',
-    pattern:
-      /\b(inaugur|nova unidade|nova loja|nova filial|nova clinica|expans|abre as portas|abertura d)/,
-  },
-  {
-    code: 'launch',
-    label: 'lançamento',
-    pattern: /\b(lanca|lancamento|novo produto|nova linha|novo servico)/,
-  },
-  {
-    code: 'move',
-    label: 'mudança de endereço ou reforma',
-    pattern: /\b(novo endereco|mudou[- ]se|nova sede|reforma)/,
-  },
-  { code: 'hiring', label: 'contratação', pattern: /\b(vagas?|contratando|processo seletivo)\b/ },
-  {
-    code: 'award',
-    label: 'prêmio ou certificação',
-    // "premi" sozinho pegaria "premium" (nome de linha de produto).
-    pattern: /\b(premio|premios|premiad|premiacao|certificad|certificacao)/,
-  },
-  {
-    code: 'anniversary',
-    label: 'aniversário da empresa',
-    // Só idade da empresa: "45 anos de idade" de uma pessoa não é sinal (e é dado pessoal).
-    pattern:
-      /\b(\d{1,3} anos de (historia|mercado|tradicao|atuacao|experiencia|fundacao)|aniversario da (empresa|loja|marca|clinica))/,
-  },
-];
+const REFUSAL_NOTE: Readonly<Record<EventPageRefusal, string>> = {
+  unavailable:
+    'A página não pôde ser lida (fora do ar, bloqueio a robôs ou tela anti-robô): fica o título do resultado de busca.',
+  no_archive:
+    'A página pede para não guardar cópia (noarchive): guardado só o título do resultado de busca.',
+  off_topic: 'A página lida não cita a empresa junto com o acontecimento.',
+};
 
-/** Códigos de sinal que o texto (título e trecho de um resultado de busca) menciona. */
-export function signalCodes(text: string): string[] {
-  const folded = fold(text);
-  return SIGNAL_PATTERNS.filter((signal) => signal.pattern.test(folded)).map(
-    (signal) => signal.code,
-  );
+interface EventPageRead {
+  readonly ok: true;
+  readonly source: SourceInputDraft;
+  /** Título da página lida (está na fonte), no lugar do título do resultado de busca. */
+  readonly title: string | null;
+  /**
+   * Trecho da evidência: o ledger aceita uma evidência por fonte, então vai o mais forte (o do
+   * valor, quando há; senão a frase que cita a empresa). Todos os trechos ficam na fonte, ao lado
+   * do campo que sustentam no valor do acontecimento.
+   */
+  readonly quote: string;
+  readonly funding: FundingDetails | null;
+}
+
+type EventPageOutcome = EventPageRead | { readonly ok: false; readonly reason: EventPageRefusal };
+
+/**
+ * Lê a matéria de origem e devolve só o que tem trecho literal: a frase que cita a empresa e o
+ * acontecimento e, num investimento, valor, rodada, investidores, finalidade e contexto, lidos só
+ * das frases que falam da empresa (`extractCompanyFunding`), nunca do menu ou de outra matéria da
+ * mesma página. A fonte guarda o título e esses trechos (não a matéria inteira, ADR-0012). Página fora
+ * do ar ou com tela anti-robô, página que pede para não guardar cópia e matéria que não cita a
+ * empresa voltam com o motivo.
+ */
+async function readEventPage(
+  run: Run,
+  url: string,
+  tokens: readonly string[],
+  type: BusinessEventType,
+): Promise<EventPageOutcome> {
+  const web = run.deps.webResearch;
+  if (!web) return { ok: false, reason: 'unavailable' };
+  const read = await web.readPage(run.ctx, { url });
+  if (!read.ok) return { ok: false, reason: 'unavailable' };
+  if (read.page.noArchive) return { ok: false, reason: 'no_archive' };
+  if (!read.page.text.trim()) return { ok: false, reason: 'unavailable' };
+  run.usage.pagesRead += 1;
+  const page = read.page;
+  const title = page.title ? cut(page.title, 300) : null;
+  const body = [title, page.text].filter(Boolean).join('\n');
+  const lead = eventLeadQuote(body, tokens, type);
+  if (!lead) return { ok: false, reason: 'off_topic' };
+  const funding = type === 'funding' ? extractCompanyFunding(title, page.text, tokens) : null;
+  const quotes = [...new Set([lead, ...(funding ? fundingQuotes(funding) : [])])];
+  const quote = funding?.amount?.quote ?? funding?.round?.quote ?? lead;
+  const excerpt = [title, ...quotes.filter((item) => item !== title)]
+    .filter((part): part is string => Boolean(part))
+    .join('\n[…]\n');
+  return {
+    ok: true,
+    source: {
+      schemaVersion: 1,
+      kind: 'web_page',
+      url: page.url,
+      provider: 'prospector',
+      capturedAt: page.fetchedAt,
+      contentHash: page.contentHash,
+      mime: page.contentType,
+      httpStatus: page.httpStatus,
+      title,
+      excerptText: excerpt,
+      licenseNote:
+        'Matéria pública lida pelo leitor do Prospector; guardados só o título e os trechos citados, como evidência (ADR-0012).',
+      retentionUntil: retention(page.fetchedAt),
+      isDemo: run.company.isDemo,
+    },
+    title,
+    quote,
+    funding,
+  };
+}
+
+/** Enunciado do fato: o que a fonte informa, sem interpretação. */
+function eventStatement(event: BusinessEvent, label: string): string {
+  const when = event.occurredOn ? ` (${brazilianPartialDate(event.occurredOn)})` : '';
+  const funding = event.funding;
+  if (event.type === 'funding' && funding && (funding.amount || funding.round)) {
+    const what = [
+      funding.round?.text,
+      funding.amountCents !== null ? formatBrlAmount(funding.amountCents) : funding.amount?.text,
+    ]
+      .filter(Boolean)
+      .join(' de ');
+    const investors =
+      funding.investors.length > 0
+        ? `, com ${funding.investors.map((investor) => investor.text).join(' e ')}`
+        : '';
+    const purpose =
+      funding.purpose.status === 'declared'
+        ? ` Finalidade declarada: ${funding.purpose.value.text}.`
+        : ' A fonte não informa a finalidade dos recursos.';
+    return cut(`Matéria em ${event.host}${when} informa ${what}${investors}.${purpose}`, 480);
+  }
+  return cut(`Matéria em ${event.host}${when} informa ${label}: "${event.headline}".`, 480);
+}
+
+/**
+ * O enunciado de um fato chega às capacidades de IA (mensagem, Copiloto). Título, investidores e
+ * finalidade vêm da matéria: se o texto se dirige a máquinas ("ignore as instruções…"), o
+ * enunciado fica só com o que o sistema escreve, e o texto externo fica na fonte e no valor.
+ */
+function factStatement(event: BusinessEvent, label: string): { text: string; guarded: boolean } {
+  const statement = eventStatement(event, label);
+  if (!looksLikeInjection(statement)) return { text: statement, guarded: false };
+  const when = event.occurredOn ? ` (${brazilianPartialDate(event.occurredOn)})` : '';
+  return { text: `Matéria em ${event.host}${when} informa ${label}.`, guarded: true };
+}
+
+function corroboration(event: BusinessEvent): string {
+  const parts = [
+    event.confirmedBy.length > 0
+      ? `Confirmado por fonte independente: ${event.confirmedBy.join(', ')}.`
+      : 'Sem confirmação independente.',
+    event.republishedBy.length > 0
+      ? `Republicações (${event.republishedBy.join(', ')}) não contam como confirmação.`
+      : '',
+    ...event.conflicts,
+  ];
+  return parts.filter(Boolean).join(' ');
 }
 
 export async function stepSignals(run: Run): Promise<StepOutcome> {
@@ -565,50 +1113,152 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
   markSearched(run, 'signals', run.deps.clock.now().toISOString());
 
   const tokens = nameTokens(run.company.displayName).slice(0, 2);
-  const found = new Map<string, { result: (typeof outcome.results)[number]; label: string }>();
-  for (const result of outcome.results) {
+  const mentions = outcome.results.filter((result) => {
     const text = fold(`${result.title} ${result.snippet}`);
-    if (tokens.length > 0 && !tokens.every((token) => text.includes(token))) continue;
-    for (const signal of SIGNAL_PATTERNS) {
-      if (found.has(signal.code) || !signal.pattern.test(text)) continue;
-      found.set(signal.code, { result, label: signal.label });
-      break;
-    }
-  }
-  const sources: Array<{ id: string; source: ReturnType<typeof searchSource> }> = [];
+    return tokens.length === 0 || tokens.every((token) => text.includes(token));
+  });
+  // Parte 3.3: mesma notícia em vários sites vira um acontecimento só, com a origem na frente.
+  const groups = groupEventReports(mentions, run.company.primaryDomain).slice(0, MAX_EVENTS);
+  const sources: Array<{ id: string; source: SourceInputDraft }> = [];
   const claims: ClaimDraftItem[] = [];
-  for (const [code, { result, label }] of found) {
+  const labels: string[] = [];
+  let reads = 0;
+  for (const group of groups) {
+    run.signal.throwIfAborted();
+    const result = group.origin;
+    const label = BUSINESS_EVENT_LABELS[group.type];
+    let page: EventPageOutcome | null = null;
+    if (DEEP_READ_EVENTS.has(group.type) && reads < MAX_EVENT_PAGES) {
+      reads += 1;
+      page = await readEventPage(run, result.url, tokens, group.type);
+    }
+    const read = page?.ok ? page : null;
+    const occurredOn = result.publishedAt ? result.publishedAt.slice(0, 10) : null;
+    const draft: BusinessEvent = {
+      type: group.type,
+      occurredOn,
+      dateBasis: occurredOn ? 'published' : 'unknown',
+      // Página lida: o título é o dela (está na fonte); senão, o do resultado de busca.
+      headline: read?.title ?? (cut(result.title, 300) || label),
+      url: result.url,
+      host: hostOf(result.url),
+      sourceTier: group.originTier,
+      republishedBy: group.republishedBy,
+      confirmedBy: group.confirmedBy,
+      conflicts: group.conflicts,
+      pageRead: read !== null,
+      funding: read?.funding ?? null,
+    };
+    // O valor guardado passa pelo contrato: fora dele, o sinal é gravado sem o acontecimento
+    // estruturado (e fica fora da tese), com aviso no log em vez de sumir em silêncio.
+    const checked = BusinessEvent.safeParse(draft);
+    if (!checked.success) {
+      console.warn(
+        '[investigacao] acontecimento fora do contrato',
+        checked.error.issues.slice(0, 3).map((issue) => issue.path.join('.')),
+      );
+    }
+    const event = checked.success ? checked.data : draft;
+    const value = {
+      code: group.type,
+      label,
+      url: result.url,
+      publishedAt: result.publishedAt,
+      ...(checked.success ? { event: checked.data } : {}),
+    };
+    // Tipo, site e começo do título do resultado: duas notícias do mesmo tipo no mesmo site não
+    // se sobrepõem, e a mesma matéria numa análise seguinte substitui a versão anterior.
+    const key = INVESTIGATION_KEYS.webSignal(`${group.type} ${event.host} ${result.title}`);
+    // Parte 3.3: cada site com apuração própria entra como evidência do mesmo claim (uma fonte por
+    // evidência; republicação não entra). Assim a confiança calculada no servidor os considera.
+    const confirmations: Array<{ id: string; source: SourceInputDraft & { title: string } }> = [];
+    for (const host of group.confirmedBy) {
+      if (confirmations.length + 1 >= CLAIM_EVIDENCE_LIMIT) break;
+      const member = group.members.find((item) => bareHost(item.url) === host);
+      if (!member) continue;
+      const source = searchSource(run, member, outcome);
+      if (!source.title) continue;
+      confirmations.push({ id: run.deps.newId(), source });
+    }
+    sources.push(...confirmations);
+    const confirmationEvidence = confirmations.map(({ id, source }) => ({
+      sourceId: id,
+      quote: source.title,
+    }));
     const sourceId = run.deps.newId();
-    const source = searchSource(run, result, outcome);
-    const host = hostOf(result.url);
-    sources.push({ id: sourceId, source });
-    claims.push({
-      id: run.deps.newId(),
-      claim: {
-        schemaVersion: 1,
-        subjectType: 'company',
-        subjectId: run.company.id,
-        domain: 'signal',
-        key: INVESTIGATION_KEYS.webSignal(`${code} ${host}`),
-        statement: `Resultado de pesquisa em ${host}${
-          result.publishedAt ? ` (${brazilianDay(result.publishedAt)})` : ''
-        } pode indicar ${label} — a conferir.`,
-        value: { code, label, url: result.url, publishedAt: result.publishedAt },
-        epistemicType: 'hypothesis',
-        evidence: [{ sourceId, quote: source.title }],
-        reasoning: `O título ou o trecho do resultado cita a empresa junto com termos de ${label}. A página e a data não foram conferidas.`,
-        isDemo: run.company.isDemo,
-      },
-    });
+    if (read) {
+      const statement = factStatement(event, label);
+      sources.push({ id: sourceId, source: read.source });
+      claims.push({
+        id: run.deps.newId(),
+        claim: {
+          schemaVersion: 1,
+          subjectType: 'company',
+          subjectId: run.company.id,
+          domain: 'signal',
+          key,
+          statement: statement.text,
+          value,
+          // O fato é o que a fonte informa; o que isso significa para a empresa é interpretação
+          // do motor de compatibilidade, e a oportunidade, hipótese (Parte 3.1).
+          epistemicType: 'fact',
+          evidence: [{ sourceId, quote: read.quote }, ...confirmationEvidence],
+          reasoning: cut(
+            [
+              'Matéria lida pelo leitor do Prospector; o trecho cita a empresa e o acontecimento.',
+              corroboration(event),
+              statement.guarded
+                ? 'O texto da matéria trazia frases dirigidas a sistemas automatizados: ficou só na fonte, fora do enunciado.'
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' '),
+            800,
+          ),
+          isDemo: run.company.isDemo,
+        },
+      });
+    } else {
+      const found = searchSource(run, result, outcome);
+      const refusal = page && !page.ok ? page.reason : null;
+      const source = refusal === 'no_archive' ? { ...found, excerptText: found.title } : found;
+      sources.push({ id: sourceId, source });
+      claims.push({
+        id: run.deps.newId(),
+        claim: {
+          schemaVersion: 1,
+          subjectType: 'company',
+          subjectId: run.company.id,
+          domain: 'signal',
+          key,
+          statement: `Resultado de pesquisa em ${event.host}${
+            result.publishedAt ? ` (${brazilianDay(result.publishedAt)})` : ''
+          } pode indicar ${label} — a conferir.`,
+          value,
+          epistemicType: 'hypothesis',
+          evidence: [{ sourceId, quote: source.title }, ...confirmationEvidence],
+          reasoning: cut(
+            [
+              `O título ou o trecho do resultado cita a empresa junto com termos de ${label}.`,
+              refusal ? REFUSAL_NOTE[refusal] : 'A página não foi lida.',
+              corroboration(event),
+            ].join(' '),
+            800,
+          ),
+          isDemo: run.company.isDemo,
+        },
+      });
+    }
+    labels.push(label);
   }
-  run.snapshot.signals = [...found.values()].map((item) => item.label);
+  run.snapshot.signals = [...new Set(labels)].slice(0, 10);
   if (claims.length === 0) return { state: 'done', counts: { found: 0 } };
   const accepted = await recordStep(run, {
     action: 'company.investigation.signals',
     sources,
     claims,
   });
-  return { state: 'done', counts: { found: accepted.size } };
+  return { state: 'done', counts: { found: accepted.size, read: reads } };
 }
 
 // -----------------------------------------------------------------------------
