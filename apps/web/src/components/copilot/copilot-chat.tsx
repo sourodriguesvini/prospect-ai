@@ -1,7 +1,7 @@
 'use client';
 
 import type { AiErrorCode, CopilotTurnRequestInput } from '@prospector/contracts';
-import { Alert, Button, Label, NativeSelect, Well } from '@prospector/ui';
+import { Alert, Button, cn, Label, NativeSelect, Well } from '@prospector/ui';
 import { ArrowUp, RotateCcw, Square } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -336,7 +336,9 @@ export function CopilotChat({
         {announcement}
       </p>
       {turns.length === 0 ? (
-        <Well className="flex min-h-48 flex-1 flex-col justify-end gap-4 p-5 sm:min-h-72">
+        // Encostado embaixo pela margem automática do primeiro item, não por justify-end: com
+        // justify-end, o que passa da altura sobra para cima e não dá para rolar até lá.
+        <Well className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 [&>:first-child]:mt-auto">
           {unavailable ? (
             <Alert tone="warning" role="note">
               {unavailable}
@@ -378,7 +380,9 @@ export function CopilotChat({
             const el = event.currentTarget;
             stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
           }}
-          className="max-h-[62svh] min-h-48 flex-1 overflow-y-auto rounded-[var(--radius-tile)] bg-muted p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-72 sm:p-4"
+          // `relative`: os rótulos só para leitor de tela (sr-only, posição absoluta) ficam presos
+          // ao histórico; sem isso escapam da rolagem dele e esticam a página inteira.
+          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[var(--radius-tile)] bg-muted p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-4"
         >
           <ol className="space-y-4">
             {turns.map((turn) =>
@@ -444,7 +448,8 @@ export function CopilotChat({
         </div>
       )}
 
-      <form ref={formRef} onSubmit={onSubmit} className="mt-4 space-y-3">
+      {/* Composição fixa embaixo: o histórico encolhe, o campo de mensagem nunca sai da tela. */}
+      <form ref={formRef} onSubmit={onSubmit} className="mt-4 shrink-0 space-y-3">
         <Label htmlFor={inputId} className="sr-only">
           Mensagem para o Copiloto
         </Label>
@@ -454,14 +459,17 @@ export function CopilotChat({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
-          rows={3}
+          rows={2}
           maxLength={MAX_CHARS}
           placeholder="Escreva sua pergunta"
           aria-describedby={draft.length >= COUNTER_FROM ? `${hintId} ${counterId}` : hintId}
-          className="block w-full resize-y rounded-[var(--radius-tile)] border border-input bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+          className="block max-h-[30dvh] min-h-16 w-full resize-y rounded-[var(--radius-tile)] border border-input bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         />
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <p id={hintId}>Enter envia; Shift+Enter quebra a linha; Esc interrompe a resposta.</p>
+          {/* Atalhos de teclado: fora da tela estreita (toque), mas ainda lidos pelo leitor de tela. */}
+          <p id={hintId} className="max-sm:sr-only">
+            Enter envia; Shift+Enter quebra a linha; Esc interrompe a resposta.
+          </p>
           <p id={counterId} aria-live="polite">
             {draft.length >= COUNTER_FROM
               ? `${integer.format(draft.length)} de ${integer.format(MAX_CHARS)} caracteres`
@@ -528,7 +536,8 @@ export function CopilotChat({
             )}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
+        {/* No celular some só a explicação de rotina; "conversa não é salva" é estado e fica. */}
+        <p className={cn('text-xs text-muted-foreground', persistent && 'max-sm:hidden')}>
           {persistent
             ? webSearch
               ? 'A conversa fica salva no banco do Prospector e aparece na lista de conversas. O Copiloto só lê: não altera nada e não envia mensagens. Nas pesquisas, o texto da busca vai para o buscador (Tavily) e as páginas são abertas deste computador.'

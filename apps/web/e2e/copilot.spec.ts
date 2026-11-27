@@ -121,6 +121,69 @@ test.describe('Copiloto no celular e no tema escuro', () => {
     await expectNoA11yViolations(page);
   });
 
+  // Diretriz 2026-11-26, Parte 6.1: o documento não rola; só o histórico rola e o campo fica à vista.
+  for (const size of [
+    { name: 'computador', width: 1280, height: 800 },
+    // Entre `sm` e `md` a moldura tem bordas maiores e o topo fixo: a conta da altura é outra.
+    { name: 'tela média', width: 700, height: 800 },
+    { name: 'celular', width: 375, height: 812 },
+  ]) {
+    test(`tela de chat (${size.name}): só o histórico rola e o campo de mensagem não some`, async ({
+      page,
+    }) => {
+      test.skip(withDatabase, SAVES_TO_DATABASE);
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await page.goto('/copiloto');
+      const input = page.getByRole('textbox', { name: 'Mensagem para o Copiloto' });
+      const log = page.getByRole('log', { name: 'Conversa com o Copiloto' });
+      for (let turn = 1; turn <= 6; turn++) {
+        await input.fill(
+          `Pergunta ${turn}: ${'texto longo para ocupar espaço na conversa. '.repeat(6)}`,
+        );
+        await input.press('Enter');
+        await expect(log.getByRole('alert')).toHaveCount(turn);
+      }
+      const layout = await page.evaluate(() => {
+        const history = document.querySelector('[role="log"]');
+        const field = document.querySelector('textarea')?.getBoundingClientRect();
+        return {
+          documentScrolls: document.documentElement.scrollHeight > window.innerHeight + 1,
+          historyScrolls: history ? history.scrollHeight > history.clientHeight : false,
+          fieldVisible: field ? field.top >= 0 && field.bottom <= window.innerHeight : false,
+        };
+      });
+      expect(layout).toEqual({ documentScrolls: false, historyScrolls: true, fieldVisible: true });
+    });
+  }
+
+  test('celular: conversas salvas e IA local abrem por cima da conversa e fecham', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/copiloto');
+    const toggle = page.getByRole('button', { name: 'Conversas salvas e IA local' });
+    await expect(page.getByText('Ollama fora do ar')).toBeHidden();
+    await toggle.click();
+    await expect(page.getByText('Ollama fora do ar')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Voltar à conversa' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    // A conversa coberta sai do alcance do teclado e do leitor de tela.
+    expect(
+      await page.evaluate(() => document.querySelector('textarea')?.closest('[inert]') != null),
+    ).toBe(true);
+    await expectNoA11yViolations(page);
+    await page.getByRole('button', { name: 'Voltar à conversa' }).click();
+    await expect(page.getByRole('textbox', { name: 'Mensagem para o Copiloto' })).toBeVisible();
+    // Esc fecha mesmo com o foco no botão e devolve o foco a ele.
+    await toggle.click();
+    await expect(page.getByText('Ollama fora do ar')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Ollama fora do ar')).toBeHidden();
+    await expect(toggle).toBeFocused();
+  });
+
   test('tema escuro passa na acessibilidade', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/copiloto');

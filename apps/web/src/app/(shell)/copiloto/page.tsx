@@ -4,6 +4,7 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CopilotChat } from '@/components/copilot/copilot-chat';
 import { LocalAiStatus } from '@/components/copilot/local-ai-status';
+import { CopilotLayout } from '@/components/copilot/side-column';
 import { ThreadList } from '@/components/copilot/thread-list';
 import {
   chatModelOptions,
@@ -76,9 +77,29 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
       : null;
   const ok = conversations.kind === 'ok' ? conversations : null;
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-      <Panel aria-labelledby="conversa" className="flex min-w-0 flex-col lg:col-span-8">
+    // Conversas salvas à esquerda da conversa (menus à esquerda); em tela estreita, atrás de um botão.
+    <CopilotLayout
+      side={
+        <>
+          {ok ? (
+            <Panel aria-labelledby="conversas" className="shrink-0">
+              <PanelHeader titleId="conversas" title="Conversas" />
+              <ThreadList
+                threads={ok.threads}
+                archived={ok.archived}
+                currentId={ok.opened?.id ?? null}
+              />
+            </Panel>
+          ) : null}
+          <Panel aria-labelledby="ia-local" className="min-w-0 shrink-0">
+            <LocalAiStatus status={status} now={new Date()} titleId="ia-local" />
+          </Panel>
+        </>
+      }
+    >
+      <Panel aria-labelledby="conversa" className="flex min-h-0 min-w-0 flex-1 flex-col">
         <PanelHeader
+          className="mb-4 shrink-0"
           titleId="conversa"
           title={ok?.opened?.title ?? 'Nova conversa'}
           description={
@@ -88,13 +109,13 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
           }
         />
         {ok?.missing ? (
-          <Alert tone="warning" role="note" className="mb-3">
+          <Alert tone="warning" role="note" className="mb-3 shrink-0">
             Essa conversa não existe mais ou o endereço está errado. Escreva abaixo para começar uma
             nova.
           </Alert>
         ) : null}
         {conversations.kind === 'error' ? (
-          <Alert tone="warning" role="note" className="mb-3">
+          <Alert tone="warning" role="note" className="mb-3 shrink-0">
             {conversations.message}
           </Alert>
         ) : null}
@@ -112,32 +133,25 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
           webSearch={ok?.webSearch ?? false}
         />
       </Panel>
-      {/* Conversas salvas à esquerda da conversa (menus à esquerda); no celular, abaixo dela. */}
-      <div className="flex min-w-0 flex-col gap-4 lg:order-first lg:col-span-4">
-        {ok ? (
-          <Panel aria-labelledby="conversas">
-            <PanelHeader titleId="conversas" title="Conversas" />
-            <ThreadList
-              threads={ok.threads}
-              archived={ok.archived}
-              currentId={ok.opened?.id ?? null}
-            />
-          </Panel>
-        ) : null}
-        <Panel aria-labelledby="ia-local" className="min-w-0">
-          <LocalAiStatus status={status} now={new Date()} titleId="ia-local" />
-        </Panel>
-      </div>
-    </div>
+    </CopilotLayout>
   );
 }
 
+/**
+ * Tela de chat (diretriz 2026-11-26, Parte 6.1): a página ocupa só a altura da área do app (a
+ * mesma conta do menu lateral: 100dvh menos as margens da moldura), o documento não rola, só o
+ * histórico de mensagens rola, e o campo de mensagem fica sempre embaixo. Abaixo de 28rem de
+ * altura a página volta a rolar inteira, para nada ficar espremido.
+ *
+ * Margens da moldura (`app-shell.tsx`): no celular 6rem (bordas, topo fixo de 2,5rem e o espaço
+ * abaixo dele); de `sm` a `md`, com bordas maiores, 7rem; a partir de `md`, sem o topo, 3,5rem.
+ */
 export default function CopilotPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-4xl tracking-[-0.03em]">Copiloto</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="flex h-[calc(100dvh-6rem)] min-h-[28rem] flex-col gap-4 sm:h-[calc(100dvh-7rem)] md:h-[calc(100dvh-3.5rem)]">
+      <div className="shrink-0 space-y-1">
+        <h1 className="text-3xl tracking-[-0.03em] lg:text-4xl">Copiloto</h1>
+        <p className="hidden text-sm text-muted-foreground md:block">
           Conversa com o modelo local deste computador. Ele consulta o que está salvo no Prospector
           e, com a pesquisa na internet ligada, páginas públicas; guarda as conversas, não altera
           dados e não envia mensagens.
@@ -145,13 +159,16 @@ export default function CopilotPage({ searchParams }: { searchParams: SearchPara
       </div>
       <Suspense
         fallback={
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-            <Panel aria-label="Conversa" className="min-w-0 lg:col-span-8">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+            <Panel aria-label="Conversa" className="min-h-0 min-w-0 flex-1">
               <Well role="status" className="py-16 text-center text-sm text-muted-foreground">
                 Verificando a IA local…
               </Well>
             </Panel>
-            <Panel aria-label="IA local" className="min-w-0 lg:order-first lg:col-span-4">
+            <Panel
+              aria-label="IA local"
+              className="hidden min-w-0 lg:order-first lg:block lg:w-[min(24rem,33%)]"
+            >
               <Well className="py-16 text-center text-sm text-muted-foreground">
                 Lendo Ollama e GPU…
               </Well>
