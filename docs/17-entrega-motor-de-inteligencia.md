@@ -221,7 +221,7 @@ Casos da Parte 8 cobertos (dados sintéticos, marcados como tal):
 - **KI-230:** demanda declarada só por regra em português e só em páginas que citam a empresa; sem busca própria em portais de compras.
 - **KI-231:** revisão humana das doze métricas com instrumento pronto, mas ainda não feita; só casos sintéticos na página.
 - **Parte 13:** capturas ainda não chegaram ao app instalado (KI-205); o banco não tem backup.
-- **KI-233 a KI-241:** achados da validação da Flash e das revisões de 27/11 (§11a).
+- **KI-233 a KI-242:** achados da validação da Flash e das revisões de 27/11 (§11a).
 
 ## 11a. Validação real da Flash (2026-11-26, 23:06) e o que mudou
 
@@ -229,7 +229,7 @@ Primeira análise de ponta a ponta com Ollama, Tavily e o banco `prospector-dev`
 
 | O que apareceu | O que mudou (27/11) | Estado |
 |---|---|---|
-| A matéria da Série D, já no ledger desde a Descoberta, não virou acontecimento; a busca de sinais fez uma consulta só e a tese saiu "Não priorizar agora" com momento indeterminado | As matérias dos sinais da Descoberta entram como candidatas e são lidas; sem acontecimento na primeira consulta, vem uma segunda voltada a acontecimentos (dentro do teto de 3 buscas); "levantar/levantará/levantando" reconhecidos (método de sinais 3). Na nova análise no app instalado (27/11, 01:30) a Série D virou fato e a tese passou a "Vale aprofundar", com o ângulo de produto digital; o acontecimento saiu sem data, corrigido em seguida (métodos 4 e 5: a menção, o sinal e o resultado de busca da mesma matéria ficam com a data de publicação do sinal, 19/08/2026) | KI-233: validado no app |
+| A matéria da Série D, já no ledger desde a Descoberta, não virou acontecimento; a busca de sinais fez uma consulta só e a tese saiu "Não priorizar agora" com momento indeterminado | As matérias dos sinais da Descoberta entram como candidatas e são lidas; sem acontecimento na primeira consulta, vem uma segunda voltada a acontecimentos (dentro do teto de 3 buscas); "levantar/levantará/levantando" reconhecidos (método de sinais 3). Na nova análise no app instalado (27/11, 01:30) a Série D virou fato e a tese passou a "Vale aprofundar", com o ângulo de produto digital; o acontecimento saiu sem data, corrigido em seguida (métodos 4 e 5: a menção, o sinal e o resultado de busca da mesma matéria ficam com a data de publicação do sinal, 19/08/2026) | KI-233: resolvido e validado no app (01:48: fato de 19/08/2026, "Vale preparar a abordagem", momento alto) |
 | Topo "Vale abordar" e tese "Não priorizar agora" | A tese aparece como ressalva logo abaixo do título, com o motivo; "O que mudou" diz quando o veredito ou a tese mudam | KI-234: qual regra manda no título é decisão do usuário |
 | "Site institucional" na oferta, "Site" na tese | — | KI-235 |
 | alertalicitacao.com.br como concorrente | — | KI-236 |
@@ -237,6 +237,8 @@ Primeira análise de ponta a ponta com Ollama, Tavily e o banco `prospector-dev`
 | O Copiloto inventou uma tese e disse que conferiu o dossiê sem chamar ferramenta | A ferramenta da empresa entrega a tese gravada | KI-238: o resto pede prompt novo com `pnpm evals` (`copilot/v3` mantido) |
 | Histórico do Copiloto com 40 px na janela mínima | Altura mínima com rolagem da página | KI-239: falta conferir na janela do app |
 | dc.com e imdb.com em "A confirmar" com o site já confirmado | Candidatos fora das hipóteses quando há site confirmado | KI-240 |
+| Na rodada final: um executivo ("a startup liderada por") virou investidor; a tese disse que a finalidade não estava documentada, e a NeoFeed a trazia | Corrigidos (método de sinais 6) | KI-242 |
+| Na rodada final: "Flash investe R$ 400 mi" lido como rodada; a mesma Série D em dois veículos não vira um acontecimento só | — | KI-242 |
 | Textos que confundiam ("Por regra", "não é levantado", plurais) | Reescritos; o resumo marca o que é inferência | — |
 
 As quatro revisões independentes (arquitetura, segurança, conformidade e UX) sobre a Parte 7, os casos 2 e 5 e essas correções foram aplicadas no que bloqueava ou era importante; o que ficou para depois está no KI-241. Entre o que entrou: a demanda declarada só aceita e-mail do domínio da empresa como canal e exige o tipo de fornecedor depois de "concorrência/seleção/edital"; texto de página dirigido a máquinas tira a demanda e o investimento do acontecimento antes da tese e da mensagem; demanda sem data conferida não leva a "abordar"; pedido de não contato aparece na tese e em "Estrutura organizacional".

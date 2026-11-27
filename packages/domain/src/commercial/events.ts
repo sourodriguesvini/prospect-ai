@@ -207,11 +207,19 @@ const INVESTOR_LEAD =
 const INVESTOR_END =
   /[.;:()]|\s(para|que|em|no|na|nos|nas|com o objetivo|e conta|e teve|segundo)\s/;
 const INVESTOR_SPLIT = /,\s*|\s+e\s+(?:(?:por|pel[ao]s?|d[aoe]s?)\s+)?/;
+/**
+ * "a startup liderada por Fulano" fala de quem dirige a empresa, não de quem investiu (validação
+ * da Flash, 27/11: um executivo virou investidor).
+ */
+const LED_COMPANY =
+  /\b(?:startup|empresa|companhia|fintech|healthtech|edtech|scale-?up|plataforma|marca|equipe|time|gestao)\s*,?\s*$/;
 
 function extractInvestors(text: string, base: FoldedText): QuotedValue[] {
   const out: QuotedValue[] = [];
   const seen = new Set<string>();
   for (const lead of base.folded.matchAll(INVESTOR_LEAD)) {
+    const before = base.folded.slice(Math.max(0, (lead.index ?? 0) - 30), lead.index ?? 0);
+    if (LED_COMPANY.test(before)) continue;
     const from = (lead.index ?? 0) + lead[0].length;
     const rest = base.folded.slice(from, from + 160);
     const stop = rest.search(INVESTOR_END);

@@ -160,6 +160,49 @@ describe('tese comercial (Parte 4) nos cenários da Parte 8', () => {
     expect(thesis.recommendation).toBe('approach');
   });
 
+  it('a finalidade declarada numa matéria vale para a tese mesmo com outra matéria sem ela', () => {
+    // Validação real da Flash (27/11): a NeoFeed trazia a finalidade e a tese dizia que não.
+    const declared = extractFunding(
+      'A Flash levantou R$ 150 milhões em rodada Série D liderada pela Battery Ventures para acelerar o desenvolvimento de produtos.',
+    );
+    const silent = extractFunding('A Flash fecha Série D de R$ 150 milhões.');
+    expect(declared.purpose.status).toBe('declared');
+    expect(silent.purpose.status).not.toBe('declared');
+    const thesis = buildCommercialThesis({
+      profile: FOUND_STUDIO_PROFILE,
+      companyName: 'Flash',
+      events: [
+        {
+          claimId: id(1),
+          epistemicType: 'hypothesis',
+          event: event({
+            type: 'funding',
+            headline: 'Flash fecha Série D de R$ 150 milhões',
+            url: 'https://startups.test/flash',
+            host: 'startups.test',
+            funding: silent,
+          }),
+        },
+        {
+          claimId: id(2),
+          epistemicType: 'fact',
+          event: event({
+            type: 'funding',
+            headline: 'A Flash levantou R$ 150 milhões',
+            funding: declared,
+          }),
+        },
+      ],
+      siteSignals: [],
+      contactKnown: false,
+      now: NOW,
+    });
+    expect(
+      thesis.doNotOffer.find((item) => item.item.startsWith('Tratar o investimento'))?.reason,
+    ).toContain('A finalidade declarada é');
+    expect(thesis.toConfirm).not.toContain('Para que serão usados os recursos do investimento');
+  });
+
   it('Caso 3 — startup contratando produto e tecnologia: oportunidade de produto, sem prometer o que não é comprovado', () => {
     const thesis = buildCommercialThesis({
       profile: FOUND_STUDIO_PROFILE,

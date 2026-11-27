@@ -583,9 +583,18 @@ function executionViability(input: ThesisInput, principal: RankedProblem | null)
 // Tese
 // -----------------------------------------------------------------------------
 
+/** Algum acontecimento de investimento traz a finalidade declarada (validação da Flash, 27/11). */
+function declaredFunding(input: ThesisInput): EventEvidence | undefined {
+  return input.events.find(
+    (item) => item.event.type === 'funding' && item.event.funding?.purpose.status === 'declared',
+  );
+}
+
 function doNotOffer(input: ThesisInput, principal: RankedProblem | null) {
   const out: Array<{ item: string; reason: string }> = [];
-  const funding = input.events.find((item) => item.event.type === 'funding');
+  // A finalidade declarada vale para a tese mesmo que outra matéria da mesma rodada não a traga.
+  const funding =
+    declaredFunding(input) ?? input.events.find((item) => item.event.type === 'funding');
   if (funding) {
     const details = funding.event.funding;
     out.push({
@@ -630,14 +639,15 @@ function doNotOffer(input: ThesisInput, principal: RankedProblem | null) {
 
 function toConfirm(input: ThesisInput, principal: RankedProblem | null): string[] {
   const out: string[] = [...(principal?.problem.toConfirm ?? [])];
-  for (const item of input.events) {
-    const { event } = item;
-    if (event.type === 'funding' && event.funding?.purpose.status !== 'declared') {
-      out.push('Para que serão usados os recursos do investimento');
-    }
-    if (event.type === 'funding' && event.funding?.modality === 'unknown') {
-      out.push('A modalidade do investimento (participação, dívida ou crédito)');
-    }
+  const fundings = input.events.filter((item) => item.event.type === 'funding');
+  if (fundings.length > 0 && !declaredFunding(input)) {
+    out.push('Para que serão usados os recursos do investimento');
+  }
+  if (
+    fundings.length > 0 &&
+    fundings.every((item) => (item.event.funding?.modality ?? 'unknown') === 'unknown')
+  ) {
+    out.push('A modalidade do investimento (participação, dívida ou crédito)');
   }
   const lead = principal?.supports.find((support) => support.event !== null)?.event ?? null;
   if (lead?.event.type === 'explicit_demand') {

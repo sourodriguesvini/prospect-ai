@@ -1136,8 +1136,9 @@ function corroboration(event: BusinessEvent): string {
  * data de publicação do sinal.
  * 5 (2026-11-27): a busca que traz de novo a matéria de um sinal guardado, sem data, fica com a
  * data do sinal.
+ * 6 (2026-11-27): "a startup liderada por" não lista investidores (a leitura das matérias é refeita).
  */
-export const SIGNALS_METHOD = 5;
+export const SIGNALS_METHOD = 6;
 
 /** ADR-0015: uma investigação gasta de 1 a 3 buscas (site, sinais, concorrentes). */
 const MAX_SEARCHES_PER_RUN = 3;

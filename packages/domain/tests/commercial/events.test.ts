@@ -59,6 +59,14 @@ describe('extractFunding (caso Flash)', () => {
     expect(details.modality).toBe('equity');
   });
 
+  it('quem dirige a empresa não vira investidor ("a startup liderada por")', () => {
+    // Validação real da Flash (27/11), texto SINTÉTICO no mesmo formato.
+    const led = extractFunding(
+      'Em uma fase de maturidade operacional, a startup liderada por Fulano Exemplo e pelos irmãos Beltrano mira a liderança do setor. A rodada foi liderada pela Fundo Exemplo Ventures.',
+    );
+    expect(led.investors.map((item) => item.text)).toEqual(['Fundo Exemplo Ventures']);
+  });
+
   it('sem finalidade declarada, a destinação fica desconhecida (investimento não é orçamento)', () => {
     expect(details.purpose).toEqual({ status: 'unknown' });
   });
