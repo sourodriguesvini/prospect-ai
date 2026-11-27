@@ -1222,6 +1222,25 @@ describe('InvestigationService (ADR-0015)', () => {
         ],
         claims: [
           {
+            // A mesma matéria também guardada como menção, sem data (como na Flash): a data do
+            // sinal da Descoberta não pode se perder.
+            id: crypto.randomUUID(),
+            claim: {
+              schemaVersion: 1,
+              subjectType: 'company',
+              subjectId: company.id,
+              domain: 'digital_presence',
+              key: 'digital_presence.web_mention',
+              statement:
+                'Uma página de neofeed.com.br citou esta empresa numa pesquisa da Descoberta.',
+              value: { url },
+              epistemicType: 'hypothesis',
+              evidence: [{ sourceId, quote: 'Rodada Série B.' }],
+              reasoning:
+                'Resultado de busca ligado à empresa pela Descoberta. Ler a página antes de usar.',
+            },
+          },
+          {
             id: crypto.randomUUID(),
             claim: {
               schemaVersion: 1,
@@ -1258,6 +1277,8 @@ describe('InvestigationService (ADR-0015)', () => {
     expect(funding).toHaveLength(1);
     expect(funding[0]?.epistemicType).toBe('fact');
     expect(funding[0]?.statement).toContain('R$ 40 milhões');
+    const event = (funding[0]?.value as { event?: { occurredOn: string | null } }).event;
+    expect(event?.occurredOn).toBe('2026-11-01');
     expect(investigation.diagnosis?.thesis?.principal?.context).toContain('R$ 40 milhões');
     // O Copiloto recebe a tese gravada (antes inventava uma que a contradizia).
     const view = await callTool(svc, 'get_company_investigation', { empresa: company.id });

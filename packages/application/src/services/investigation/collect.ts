@@ -1132,8 +1132,10 @@ function corroboration(event: BusinessEvent): string {
  * investigar os acontecimentos: suba o número, para a busca da análise anterior não ser reaproveitada.
  * 3 (2026-11-27): lê as matérias dos sinais já gravados pela Descoberta e faz a consulta voltada a
  * acontecimentos quando a primeira não acha nenhum.
+ * 4 (2026-11-27): a mesma matéria guardada duas vezes (menção e sinal) vira um candidato só, com a
+ * data de publicação do sinal.
  */
-export const SIGNALS_METHOD = 3;
+export const SIGNALS_METHOD = 4;
 
 /** ADR-0015: uma investigação gasta de 1 a 3 buscas (site, sinais, concorrentes). */
 const MAX_SEARCHES_PER_RUN = 3;
@@ -1166,17 +1168,31 @@ async function storedEventCandidates(run: Run): Promise<EventCandidate[]> {
     const item = evidence.find((entry) => entry.claimId === claim.id);
     const source = item ? byId.get(item.sourceId) : undefined;
     const url = source?.url ?? (typeof claim.value?.url === 'string' ? claim.value.url : null);
-    if (!url || candidates.some((candidate) => candidate.url === url)) continue;
+    if (!url) continue;
     const publishedAt =
       typeof claim.value?.publishedAt === 'string' ? claim.value.publishedAt : null;
-    candidates.push({
+    const candidate: EventCandidate = {
       url,
       title: source?.title ?? '',
       // O trecho citado da fonte, não o resumo da IA da Descoberta.
       snippet: item?.quote ?? '',
       publishedAt,
       stored: true,
-    });
+    };
+    // A mesma matéria pode estar guardada duas vezes (menção sem data e sinal da Descoberta com
+    // a data de publicação; validação da Flash, 27/11): junta as duas, sem perder data nem trecho.
+    const same = candidates.findIndex((entry) => sameUrl(entry.url, url));
+    if (same === -1) {
+      candidates.push(candidate);
+      continue;
+    }
+    const kept = candidates[same]!;
+    candidates[same] = {
+      ...kept,
+      title: kept.title || candidate.title,
+      snippet: kept.snippet || candidate.snippet,
+      publishedAt: kept.publishedAt ?? candidate.publishedAt,
+    };
   }
   return candidates;
 }
