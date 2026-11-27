@@ -6,7 +6,12 @@ import type {
   StrategySnapshot,
 } from '@prospector/contracts';
 import { describe, expect, it } from 'vitest';
-import { approachClearance, assessReadiness, discoveryClearance } from '../../src';
+import {
+  approachClearance,
+  assessApproachWithoutOffer,
+  assessReadiness,
+  discoveryClearance,
+} from '../../src';
 
 const TODAY = '2026-11-09';
 const OFFER_ID = '11111111-1111-4111-8111-111111111111';
@@ -359,6 +364,28 @@ describe('prontidão', () => {
         icpId: ICP_ID,
         icpVersionId: '44444444-4444-4444-8444-444444444444',
       });
+    });
+
+    it('sem oferta da Estratégia (ADR-0021): só voz, opt-out e LIA; oferta, rubrica e score null', () => {
+      // Nenhuma oferta cadastrada: a abordagem sem oferta continua liberada pela conformidade.
+      const s = ready({ offers: [] });
+      expect(assessApproachWithoutOffer(s, TODAY)).toMatchObject({ ready: true, offerId: null });
+      expect(approachClearance(s, TODAY, { offerId: null })).toEqual({
+        offerId: null,
+        offerVersionId: null,
+        rubricVersionId: null,
+        scoringModelVersionId: null,
+        icpVersionId: null,
+        voiceGuideVersionId: '99999999-9999-4999-8999-999999999999',
+        contactPolicyVersionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        liaVersionId: '55555555-5555-4555-8555-555555555555',
+      });
+      const noLia = ready({ offers: [], liaVersions: [] });
+      expect(missing(assessApproachWithoutOffer(noLia, TODAY))).toEqual(['lia_approved']);
+      expect(approachClearance(noLia, TODAY, { offerId: null })).toBeNull();
+      expect(missing(assessApproachWithoutOffer(s, TODAY, { ephemeralStorage: true }))).toEqual([
+        'persistent_storage',
+      ]);
     });
 
     it('armazenamento que some (modo memória) bloqueia a abordagem, não a descoberta', () => {

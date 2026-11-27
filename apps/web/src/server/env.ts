@@ -1,6 +1,8 @@
 import 'server-only';
+import { randomBytes } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
-import { ModelName } from '@prospector/contracts';
+import { ModelName, WEB_RESEARCH_ENV_FORMATS, WebResearchEnv } from '@prospector/contracts';
 
 const DatabaseEnv = z.object({
   SUPABASE_URL: z.url({ protocol: /^https?$/ }),
@@ -29,6 +31,95 @@ export function storageMode(): StorageMode {
   if (value === undefined || value === 'supabase') return 'supabase';
   if (value === 'memory') return 'memory';
   throw new Error('PROSPECTOR_STORAGE inválida: use "memory" ou deixe vazia.');
+}
+
+export type CnpjLookupMode = 'on' | 'off' | 'fixture';
+
+/**
+ * Consulta de CNPJ na internet (OpenCNPJ, com a Minha Receita de reserva; M2). Ligada por padrão,
+ * sem chave. `PROSPECTOR_CNPJ_LOOKUP=off` desliga (uso sem internet); `fixture` usa registros
+ * SINTÉTICOS, só no modo memória (testes de ponta a ponta).
+ */
+export function cnpjLookupMode(): CnpjLookupMode {
+  const value = readVar('PROSPECTOR_CNPJ_LOOKUP');
+  if (value === undefined || value === 'on') return 'on';
+  if (value === 'off' || value === 'fixture') return value;
+  throw new Error('PROSPECTOR_CNPJ_LOOKUP inválida: use "on", "off", "fixture" ou deixe vazia.');
+}
+
+export type RelationshipAiMode = 'ollama' | 'fixture';
+
+/**
+ * IA do Relacionamento (ADR-0014): o Ollama local por padrão. `PROSPECTOR_RELATIONSHIP_AI=fixture`
+ * usa textos SINTÉTICOS, só no modo memória (testes de ponta a ponta, sem GPU).
+ */
+export function relationshipAiMode(): RelationshipAiMode {
+  const value = readVar('PROSPECTOR_RELATIONSHIP_AI');
+  if (value === undefined || value === 'ollama') return 'ollama';
+  if (value === 'fixture') return value;
+  throw new Error('PROSPECTOR_RELATIONSHIP_AI inválida: use "ollama", "fixture" ou deixe vazia.');
+}
+
+export type EmailMode = 'on' | 'fixture';
+
+/**
+ * E-mail (ADR-0016): conecta de verdade na caixa cadastrada por padrão. `PROSPECTOR_EMAIL=fixture`
+ * usa uma caixa SIMULADA (sem conexão, sem envio), só no modo memória (testes de ponta a ponta).
+ */
+export function emailMode(): EmailMode {
+  const value = readVar('PROSPECTOR_EMAIL');
+  if (value === undefined || value === 'on') return 'on';
+  if (value === 'fixture') return value;
+  throw new Error('PROSPECTOR_EMAIL inválida: use "on", "fixture" ou deixe vazia.');
+}
+
+export function cnpjLookupEnabled(): boolean {
+  return cnpjLookupMode() !== 'off';
+}
+
+export type DiscoveryMode = 'on' | 'off' | 'fixture';
+
+/**
+ * Descoberta (ADR-0013). Ligada por padrão (usa a pesquisa na internet e a IA local);
+ * `PROSPECTOR_DISCOVERY=off` desliga o módulo e o trabalhador da fila; `fixture` usa buscador e
+ * IA SINTÉTICOS, só no modo memória (demonstração e testes de ponta a ponta, tudo com selo DEMO).
+ */
+export function discoveryMode(): DiscoveryMode {
+  const value = readVar('PROSPECTOR_DISCOVERY');
+  if (value === undefined || value === 'on') return 'on';
+  if (value === 'off' || value === 'fixture') return value;
+  throw new Error('PROSPECTOR_DISCOVERY inválida: use "on", "off", "fixture" ou deixe vazia.');
+}
+
+/**
+ * Trabalhador da fila (ADR-0011) neste processo: ligado por padrão. `PROSPECTOR_JOB_WORKER=off`
+ * deixa as telas funcionando sem pegar tarefas nem rodar monitoramentos: para servidores de teste
+ * apontados para o banco real e para ter um só trabalhador por banco (pnpm dev × app instalado).
+ */
+export function jobWorkerEnabled(): boolean {
+  const value = readVar('PROSPECTOR_JOB_WORKER');
+  if (value === undefined || value === 'on') return true;
+  if (value === 'off') return false;
+  throw new Error('PROSPECTOR_JOB_WORKER inválida: use "on", "off" ou deixe vazia.');
+}
+
+/** Padrão do teto diário de créditos dos monitoramentos (pesquisas automáticas). */
+export const DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT = 12;
+
+/**
+ * Teto de créditos da Tavily por dia para pesquisas que rodam sozinhas (monitoramentos), de 0 a
+ * 200 (`DISCOVERY_DAILY_AUTO_CREDITS`; 0 = monitoramentos não rodam sozinhos). Valor inválido usa
+ * o padrão e avisa no log (só o nome da variável).
+ */
+export function discoveryDailyAutoCredits(): number {
+  const value = readVar('DISCOVERY_DAILY_AUTO_CREDITS');
+  if (value === undefined) return DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT;
+  const parsed = Number(value);
+  if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 200) return parsed;
+  console.error(
+    `[descoberta] DISCOVERY_DAILY_AUTO_CREDITS inválida (inteiro de 0 a 200); usando ${DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT}.`,
+  );
+  return DISCOVERY_DAILY_AUTO_CREDITS_DEFAULT;
 }
 
 /** Alguma variável do banco definida (sem ler nem validar o valor). */
@@ -143,4 +234,258 @@ export function localAiEnv(): LocalAiSettings {
     maxQueue: env.AI_MAX_QUEUE,
     vramReserveMiB: env.AI_VRAM_RESERVE_MIB,
   };
+}
+
+/** Configuração da pesquisa na internet (ADR-0012). A chave só existe no servidor. */
+export interface WebResearchSettings extends WebResearchEnv {
+  /** Chave da Tavily; null = não configurada. Nunca vai para log, tela ou trace. */
+  tavilyApiKey: string | null;
+  searchEnabled: boolean;
+  pageReaderEnabled: boolean;
+}
+
+/** Variável da pesquisa na internet inválida. Leva só os nomes e o formato, nunca os valores. */
+export class WebResearchConfigError extends Error {
+  constructor(variables: string[]) {
+    const expected = variables.map((name) => {
+      const format = WEB_RESEARCH_ENV_FORMATS[name as keyof WebResearchEnv];
+      return format ? `${name} (${format})` : name;
+    });
+    super(
+      `Pesquisa na internet desligada: variáveis inválidas: ${expected.join('; ')}. Corrija em apps/web/.env.local (veja docs/adr/0012-busca-web-tavily-playwright.md) e reinicie o app.`,
+    );
+    this.name = 'WebResearchConfigError';
+  }
+}
+
+/**
+ * Pesquisa na internet (ADR-0012). Sem TAVILY_API_KEY a busca responde "não configurada";
+ * PROSPECTOR_WEB_SEARCH=off desliga mesmo com chave (padrão: ligada). O teto mensal de créditos
+ * nunca passa da cota gratuita (D-AI-4).
+ */
+export function webResearchEnv(): WebResearchSettings {
+  const raw = Object.fromEntries(
+    Object.keys(WebResearchEnv.shape).map((name) => [name, readVar(name)]),
+  );
+  const parsed = WebResearchEnv.safeParse(raw);
+  if (!parsed.success) {
+    throw new WebResearchConfigError([
+      ...new Set(parsed.error.issues.map((issue) => issue.path.join('.'))),
+    ]);
+  }
+  return {
+    ...parsed.data,
+    tavilyApiKey: readVar('TAVILY_API_KEY') ?? null,
+    searchEnabled: parsed.data.PROSPECTOR_WEB_SEARCH !== 'off',
+    pageReaderEnabled: parsed.data.PROSPECTOR_PAGE_READER !== 'off',
+  };
+}
+
+/**
+ * Investigação de empresas (ADR-0015, emenda de 2026-11-26). A pasta das capturas de marca sai,
+ * nesta ordem, de: `PROSPECTOR_CAPTURES_DIR`; `PROSPECTOR_DATA_DIR\capturas` (o programa do
+ * Prospector define a pasta de dados ao abrir o servidor); o registro da instalação
+ * (`%LOCALAPPDATA%\Prospector\instalacao.json`, gravado por `pnpm app:install`), para o `pnpm dev`
+ * usar a mesma pasta do app instalado, que lê o mesmo banco. Sempre fora do disco do sistema
+ * (C: quase cheio, KI-017), fora de rede e de pasta sincronizada. Sem pasta válida, as imagens são
+ * analisadas, mas não ficam guardadas, e a tela diz por quê. `PROSPECTOR_BRAND_CAPTURE=off`
+ * desliga a captura de tela (padrão: ligada).
+ */
+export interface InvestigationSettings {
+  capturesDir: string | null;
+  captureEnabled: boolean;
+  /** Motivo de a pasta ter sido ignorada (texto para o log e a tela, sem o valor). */
+  capturesDirProblem: string | null;
+  /** De onde veio a pasta (para o painel Sistema); null = nenhuma. */
+  capturesDirSource: 'captures_dir' | 'data_dir' | 'installation' | null;
+}
+
+/** Problema de uma pasta de dados local; null = aceita. Nunca repete o valor na mensagem. */
+function dataDirProblem(name: string, dir: string): string | null {
+  const windowsAbsolute = /^[A-Za-z]:[\\/]/.test(dir);
+  const posixAbsolute = /^\/(?![\\/])/.test(dir);
+  if (/^[\\/]{2}/.test(dir)) {
+    // Compartilhamento de rede (\\servidor\pasta ou //servidor): a imagem sairia do computador.
+    return `${name} não pode ser uma pasta de rede: as capturas ficam neste computador`;
+  }
+  if (!windowsAbsolute && !posixAbsolute) {
+    return `${name} precisa ser um caminho absoluto com letra de unidade (ex.: D:\\Prospector-dados)`;
+  }
+  if (/^[Cc]:/.test(dir)) return `${name} não pode ficar no disco C: (quase cheio, KI-017)`;
+  if (/(^|[\\/])\.\.([\\/]|$)/.test(dir)) return `${name} não pode ter ".." no caminho`;
+  if (/onedrive|dropbox|google ?drive|icloud ?drive|meu drive|my drive/i.test(dir)) {
+    // Pasta sincronizada copia as imagens para a nuvem (ADR-0015 §8, R-OPS-1).
+    return `${name} não pode ficar numa pasta sincronizada com a nuvem (OneDrive, Dropbox, Google Drive, iCloud)`;
+  }
+  return null;
+}
+
+function joinDir(dir: string, child: string): string {
+  const separator = dir.includes('\\') || /^[A-Za-z]:/.test(dir) ? '\\' : '/';
+  return `${dir.replace(/[\\/]+$/, '')}${separator}${child}`;
+}
+
+const InstallationPointer = z.object({ dados: z.string().min(3).max(260) });
+
+/** Pasta de dados registrada pela instalação do app (`pnpm app:install`); null se não houver. */
+function installationDataDir(): string | null {
+  const local = readVar('LOCALAPPDATA');
+  if (!local) return null;
+  try {
+    const file = joinDir(joinDir(local, 'Prospector'), 'instalacao.json');
+    const text = readFileSync(file, 'utf8');
+    if (text.length > 4096) return null;
+    const parsed = InstallationPointer.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data.dados.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function investigationEnv(): InvestigationSettings {
+  const captureEnabled = readVar('PROSPECTOR_BRAND_CAPTURE') !== 'off';
+  const candidates: Array<{
+    name: string;
+    dir: string | null | undefined;
+    source: NonNullable<InvestigationSettings['capturesDirSource']>;
+  }> = [
+    {
+      name: 'PROSPECTOR_CAPTURES_DIR',
+      dir: readVar('PROSPECTOR_CAPTURES_DIR'),
+      source: 'captures_dir',
+    },
+    {
+      name: 'PROSPECTOR_DATA_DIR',
+      dir: readVar('PROSPECTOR_DATA_DIR'),
+      source: 'data_dir',
+    },
+  ];
+  // Dados só na memória (testes de tela) não usam a pasta do app instalado: as imagens ficariam
+  // sem nenhum claim apontando para elas quando o servidor reinicia.
+  if (readVar('PROSPECTOR_STORAGE') !== 'memory') {
+    candidates.push({
+      name: 'A pasta de dados da instalação',
+      dir: installationDataDir(),
+      source: 'installation',
+    });
+  }
+  let firstProblem: string | null = null;
+  for (const candidate of candidates) {
+    if (!candidate.dir) continue;
+    const problem = dataDirProblem(candidate.name, candidate.dir);
+    if (problem) {
+      firstProblem ??= problem;
+      continue;
+    }
+    return {
+      capturesDir:
+        candidate.source === 'captures_dir' ? candidate.dir : joinDir(candidate.dir, 'capturas'),
+      captureEnabled,
+      capturesDirProblem: firstProblem,
+      capturesDirSource: candidate.source,
+    };
+  }
+  return {
+    capturesDir: null,
+    captureEnabled,
+    capturesDirProblem: firstProblem,
+    capturesDirSource: null,
+  };
+}
+
+/**
+ * Segredo do HMAC das pessoas (KI-222, ADR-0006): a chave de deduplicação e a supressão de uma
+ * pessoa são o HMAC da identidade com este segredo, então ele precisa ser o mesmo no `pnpm dev` e
+ * no app instalado (os dois usam o mesmo banco) e sobreviver a reinstalações. Ordem:
+ * `PROSPECTOR_PEOPLE_KEY` (32+ caracteres); o arquivo `chaves\pessoas.key` na pasta de dados
+ * (`PROSPECTOR_DATA_DIR` ou a da instalação), criado na primeira vez; no modo memória, um segredo
+ * do processo (os dados somem ao reiniciar). Sem nenhum: pessoas achadas são só contadas, nunca
+ * guardadas. O valor nunca vai para log nem para a tela. Perder o arquivo faz a supressão de quem
+ * pediu opt-out deixar de casar: ele entra no backup junto com a pasta de dados.
+ */
+export interface PeopleKeySettings {
+  key: string | null;
+  source: 'env' | 'data_dir' | 'installation' | 'ephemeral' | null;
+  /** Motivo de não haver chave (texto para o log e a tela, sem valores). */
+  problem: string | null;
+}
+
+const PEOPLE_KEY_FILE = /^[a-f0-9]{64}$/;
+
+function peopleKeyFromDir(dir: string): string {
+  const keysDir = joinDir(dir, 'chaves');
+  const file = joinDir(keysDir, 'pessoas.key');
+  try {
+    const existing = readFileSync(file, 'utf8').trim();
+    if (PEOPLE_KEY_FILE.test(existing)) return existing;
+    throw new Error('O arquivo da chave das pessoas está em formato inesperado.');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  mkdirSync(keysDir, { recursive: true });
+  const created = randomBytes(32).toString('hex');
+  // `wx`: nunca sobrescreve uma chave que outro processo acabou de criar.
+  try {
+    writeFileSync(file, `${created}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    return created;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    const existing = readFileSync(file, 'utf8').trim();
+    if (!PEOPLE_KEY_FILE.test(existing)) {
+      throw new Error('O arquivo da chave das pessoas está em formato inesperado.', {
+        cause: error,
+      });
+    }
+    return existing;
+  }
+}
+
+export function peopleKeyEnv(): PeopleKeySettings {
+  const fromEnv = readVar('PROSPECTOR_PEOPLE_KEY');
+  if (fromEnv) {
+    return fromEnv.length >= 32
+      ? { key: fromEnv, source: 'env', problem: null }
+      : {
+          key: null,
+          source: null,
+          problem: 'PROSPECTOR_PEOPLE_KEY precisa ter pelo menos 32 caracteres.',
+        };
+  }
+  if (readVar('PROSPECTOR_STORAGE') === 'memory') {
+    const holder = globalThis as { __prospectorEphemeralPeopleKey?: string };
+    holder.__prospectorEphemeralPeopleKey ??= randomBytes(32).toString('hex');
+    return { key: holder.__prospectorEphemeralPeopleKey, source: 'ephemeral', problem: null };
+  }
+  const candidates: Array<{
+    name: string;
+    dir: string | null | undefined;
+    source: 'data_dir' | 'installation';
+  }> = [
+    { name: 'PROSPECTOR_DATA_DIR', dir: readVar('PROSPECTOR_DATA_DIR'), source: 'data_dir' },
+    { name: 'A pasta de dados da instalação', dir: installationDataDir(), source: 'installation' },
+  ];
+  // Só a primeira pasta configurada vale: cair para outra criaria uma chave diferente e a
+  // supressão de quem pediu opt-out deixaria de casar (o banco também confere a impressão).
+  const candidate = candidates.find((entry) => entry.dir);
+  if (!candidate?.dir) {
+    return {
+      key: null,
+      source: null,
+      problem:
+        'Sem pasta de dados nem PROSPECTOR_PEOPLE_KEY: a pesquisa conta as pessoas achadas, mas não as guarda.',
+    };
+  }
+  const problem = dataDirProblem(candidate.name, candidate.dir);
+  if (problem) return { key: null, source: null, problem };
+  try {
+    return { key: peopleKeyFromDir(candidate.dir), source: candidate.source, problem: null };
+  } catch (error) {
+    return {
+      key: null,
+      source: null,
+      problem: `Não deu para ler nem criar a chave das pessoas na pasta de dados (${
+        error instanceof Error ? error.message : 'erro desconhecido'
+      }).`,
+    };
+  }
 }

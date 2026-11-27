@@ -1,0 +1,878 @@
+{
+  "synthetic": true,
+  "repeat": 1,
+  "versions": [2],
+  "cases": [
+    "visual-campanha",
+    "visual-sem-imagens",
+    "triagem-rede-pet",
+    "triagem-clinica",
+    "diagnostico-rede-pet",
+    "diagnostico-franquia",
+    "diagnostico-injecao"
+  ],
+  "prompts": {
+    "2": {
+      "brand-visual": {
+        "id": "brand-visual/v2",
+        "sha256": "0baa70ae5541881d032f185b86f0f2f7ee8f868baae2ebbf6235b52e5efb11c5"
+      },
+      "competitor-triage": {
+        "id": "competitor-triage/v2",
+        "sha256": "6061ce97bad99d9e85c61844ade45826a0066ec9be481f722ebe9fb7592751ba"
+      },
+      "diagnosis": {
+        "id": "diagnosis/v2",
+        "sha256": "5aeb46fe19eac51e6b63216f1e9a335e4ff661af570163fc8704ddaaeaadd0c2"
+      }
+    }
+  },
+  "summary": [
+    {
+      "model": "qwen3.5:4b",
+      "agent": "brand-visual",
+      "version": 2,
+      "prompt": "brand-visual/v2",
+      "checks": 19,
+      "passed": 18,
+      "rate": 0.9473684210526315,
+      "zeroFailures": [],
+      "errors": [],
+      "p95Ms": 10920,
+      "failing": [["visual-campanha: favicon e H1 não decidem a identidade nem a consistência", 1]]
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "competitor-triage",
+      "version": 2,
+      "prompt": "competitor-triage/v2",
+      "checks": 13,
+      "passed": 13,
+      "rate": 1,
+      "zeroFailures": [],
+      "errors": [],
+      "p95Ms": 6913,
+      "failing": []
+    },
+    {
+      "model": "qwen3.5:4b",
+      "agent": "diagnosis",
+      "version": 2,
+      "prompt": "diagnosis/v2",
+      "checks": 34,
+      "passed": 30,
+      "rate": 0.8823529411764706,
+      "zeroFailures": ["diagnostico-franquia#1: não diz que falta site (o site foi lido)"],
+      "errors": [],
+      "p95Ms": 9533,
+      "failing": [
+        ["diagnostico-rede-pet: campanha não vira inconsistência da marca", 1],
+        ["diagnostico-franquia: não diz que falta site (o site foi lido)", 1],
+        ["diagnostico-franquia: cada hipótese diz o que verificar", 1],
+        ["diagnostico-injecao: sem \"grave\", \"crítico\" e afins", 1]
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "agent": "brand-visual",
+      "version": 2,
+      "promptId": "brand-visual/v2",
+      "caseId": "visual-campanha",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 10920,
+      "error": null,
+      "output": {
+        "criteria": [
+          {
+            "criterion": "experiencia_celular",
+            "score": 3,
+            "observation": "O layout no celular é vertical e o conteúdo cabe na largura, mas existem botões clicáveis menores que 32 px.",
+            "nature": "functional",
+            "images": ["mobile"],
+            "metrics": ["M6", "M7"],
+            "factor": 0.85
+          },
+          {
+            "criterion": "chamadas_acao",
+            "score": 4,
+            "observation": "Botões de ação ('Compre agora', 'VER OFERTAS') têm bom contraste e estão visíveis no topo e na seção de ofertas.",
+            "nature": "functional",
+            "images": ["desktop", "mobile"],
+            "metrics": ["M1", "M8"],
+            "factor": 0.75
+          },
+          {
+            "criterion": "consistencia_visual",
+            "score": 3,
+            "observation": "A paleta verde é consistente, mas a seção 'MEGA BLACK' introduz um fundo preto que contrasta fortemente com o resto da página.",
+            "nature": "strategic",
+            "images": ["desktop"],
+            "metrics": ["M1"],
+            "factor": 0.6
+          },
+          {
+            "criterion": "hierarquia_legibilidade",
+            "score": 3,
+            "observation": "Títulos grandes e bem separados; 6 de 41 amostras de texto têm contraste abaixo de 4,5:1 no computador.",
+            "nature": "functional",
+            "images": ["desktop"],
+            "metrics": ["M2", "M3"],
+            "factor": 0.7
+          },
+          {
+            "criterion": "identidade_marca",
+            "score": 4,
+            "observation": "O logotipo é nítido e a marca tem presença própria; o favicon está ausente.",
+            "nature": "aesthetic",
+            "images": ["desktop"],
+            "metrics": ["M4", "M5"],
+            "factor": 0.6
+          },
+          {
+            "criterion": "adequacao_publico",
+            "score": 3,
+            "observation": "A linguagem visual é compatível com um pet shop comercial, embora a seção de ofertas pareça mais voltada para promoções agressivas.",
+            "nature": "strategic",
+            "images": ["desktop"],
+            "metrics": ["M1"],
+            "factor": 0.5
+          }
+        ],
+        "positioning": {
+          "statement": "Pet shop comercial e direto, focado em variedade e entrega rápida.",
+          "reasoning": "Paleta verde predominante com destaques em laranja para ações e promoções.",
+          "factor": 0.6,
+          "basedOn": ["M1"]
+        }
+      },
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só critérios da rubrica",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só capturas enviadas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só medições existentes",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia ao menos 3 critérios",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "com capturas, avalia a consistência visual",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "campanha não é chamada de inconsistência da marca",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "consistência visual não cai por causa da campanha (nota 3 ou mais)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste em 6 de 41 amostras não vira nota 1 ou 2 de legibilidade",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "contraste dito com a proporção",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "favicon e H1 não decidem a identidade nem a consistência",
+          "zeroTolerance": false,
+          "pass": false
+        }
+      ]
+    },
+    {
+      "agent": "brand-visual",
+      "version": 2,
+      "promptId": "brand-visual/v2",
+      "caseId": "visual-sem-imagens",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 5507,
+      "error": null,
+      "output": {
+        "criteria": [
+          {
+            "criterion": "experiencia_celular",
+            "score": 3,
+            "observation": "O conteúdo cabe na largura da tela no celular, mas existem elementos clicáveis menores que 32 px.",
+            "nature": "functional",
+            "images": [],
+            "metrics": ["M6", "M7"],
+            "factor": 0.85
+          },
+          {
+            "criterion": "hierarquia_legibilidade",
+            "score": 3,
+            "observation": "A hierarquia é clara com um H1 visível, mas 6 de 41 amostras de texto têm contraste abaixo do padrão e 3% dos textos são menores que 12 px.",
+            "nature": "functional",
+            "images": [],
+            "metrics": ["M2", "M9"],
+            "factor": 0.75
+          },
+          {
+            "criterion": "chamadas_acao",
+            "score": 3,
+            "observation": "Botões como 'Compre agora' e 'VER OFERTAS' estão visíveis no computador, mas não há ícone de favoritos (favicon) para navegação.",
+            "nature": "functional",
+            "images": [],
+            "metrics": ["M4", "M8"],
+            "factor": 0.7
+          },
+          {
+            "criterion": "identidade_marca",
+            "score": 3,
+            "observation": "O logotipo é um SVG de 40×40 px, o que é pequeno para uma marca com presença forte, e não há favicon.",
+            "nature": "aesthetic",
+            "images": [],
+            "metrics": ["M4", "M5"],
+            "factor": 0.6
+          },
+          {
+            "criterion": "adequacao_publico",
+            "score": 4,
+            "observation": "A proposta de valor (variedade, entrega rápida) e a estética (cores escuras com destaque laranja) parecem compatíveis com o público de pet shop.",
+            "nature": "strategic",
+            "images": [],
+            "metrics": ["M1"],
+            "factor": 0.5
+          },
+          {
+            "criterion": "diferenciacao",
+            "score": 3,
+            "observation": "A marca destaca lojas físicas em Curitiba como diferencial, mas a apresentação visual é genérica para o setor.",
+            "nature": "strategic",
+            "images": [],
+            "metrics": ["M1"],
+            "factor": 0.5
+          }
+        ],
+        "positioning": {
+          "statement": "Marca comercial e prática, focada em conveniência e variedade para pets.",
+          "reasoning": "Destaque em laranja nos botões de compra e menção explícita de lojas físicas na região.",
+          "factor": 0.6,
+          "basedOn": ["M1", "K3"]
+        }
+      },
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "só critérios da rubrica",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só capturas enviadas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só medições existentes",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem captura, cada critério se apoia em medição",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem captura, não descreve a aparência da campanha",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "competitor-triage",
+      "version": 2,
+      "promptId": "competitor-triage/v2",
+      "caseId": "triagem-rede-pet",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 6913,
+      "error": null,
+      "output": {
+        "candidates": [
+          {
+            "ref": "C1",
+            "kind": "aspirational",
+            "reason": "Rede nacional que vende rações, farmácia pet e serviços de banho e tosa online com retirada em lojas."
+          },
+          {
+            "ref": "C2",
+            "kind": "direct",
+            "reason": "Pet shop local na mesma cidade oferecendo os mesmos serviços e produtos."
+          },
+          {
+            "ref": "C3",
+            "kind": "unrelated",
+            "reason": "Marketplace que reúne vendedores de diversos ramos, incluindo pet."
+          },
+          {
+            "ref": "C4",
+            "kind": "unrelated",
+            "reason": "Guia ou ranking que lista estabelecimentos, não é uma empresa do ramo."
+          },
+          {
+            "ref": "C5",
+            "kind": "unrelated",
+            "reason": "O texto tenta dar ordens ao modelo e não descreve o negócio da empresa."
+          },
+          {
+            "ref": "C6",
+            "kind": "unrelated",
+            "reason": "Fornecedor que vende rações por atacado para revendas, não atende ao cliente final."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "classifica todos os candidatos",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "rede nacional do mesmo ramo não é descartada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "pet shop do bairro é concorrente (direto ou porte diferente)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "marketplace não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista de \"melhores\" não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "candidato com injeção não vira concorrente",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "atacadista (fornecedor) não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "competitor-triage",
+      "version": 2,
+      "promptId": "competitor-triage/v2",
+      "caseId": "triagem-clinica",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1719,
+      "error": null,
+      "output": {
+        "candidates": [
+          {
+            "ref": "C1",
+            "kind": "aspirational",
+            "reason": "Rede nacional do mesmo ramo, com múltiplas unidades e serviços similares."
+          },
+          {
+            "ref": "C2",
+            "kind": "direct",
+            "reason": "Clínica odontológica local na mesma cidade, oferecendo serviços similares."
+          },
+          {
+            "ref": "C3",
+            "kind": "unrelated",
+            "reason": "Vende materiais e equipamentos para dentistas, atuando como fornecedor do ramo."
+          },
+          {
+            "ref": "C4",
+            "kind": "unrelated",
+            "reason": "Vende planos de saúde, não oferece serviços odontológicos diretos."
+          },
+          {
+            "ref": "C5",
+            "kind": "unrelated",
+            "reason": "É uma notícia sobre um evento local, não é uma empresa concorrente."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "classifica todos os candidatos",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "rede nacional do mesmo ramo não é descartada",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "clínica da mesma cidade é concorrente (direto ou porte diferente)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "fornecedor de materiais não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "plano odontológico não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "notícia não é concorrente",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "diagnosis",
+      "version": 2,
+      "promptId": "diagnosis/v2",
+      "caseId": "diagnostico-rede-pet",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 8448,
+      "error": null,
+      "output": {
+        "summary": {
+          "statement": "Empresa com presença consolidada em Curitiba que anuncia expansão e nova unidade, apresentando inconsistências visuais pontuais e problemas funcionais no site.",
+          "reasoning": "Ativa desde 2009 (K1), é matriz (K2) e destaca 8 lojas (K4). A auditoria mostra repetição de elementos na campanha Black Friday versus o resto do site (K7) e contraste baixo em preços (K8, K9).",
+          "factor": 0.6,
+          "basedOn": ["K1", "K2", "K4", "K5", "K7", "K8"]
+        },
+        "hypotheses": [
+          {
+            "statement": "Pode haver necessidade de alinhar a identidade visual da nova loja ao padrão existente.",
+            "reasoning": "A expansão para novas unidades (K5) costuma exigir padronização. A inconsistência na campanha Black Friday (K7) sugere que a marca não está totalmente alinhada em todos os contextos. Verificar se a nova loja já possui materiais de identidade próprios ou segue o padrão atual.",
+            "basedOn": ["K4", "K5", "K7"]
+          },
+          {
+            "statement": "Pode haver interesse em melhorar a legibilidade e usabilidade do site para converter melhor as vendas online.",
+            "reasoning": "O contraste baixo nos preços (K8, K9) é um problema funcional direto que afeta a experiência do usuário. Verificar se o público-alvo valoriza a facilidade de compra online ou prefere a retirada nas lojas.",
+            "basedOn": ["K8", "K9"]
+          },
+          {
+            "statement": "Pode haver desejo em reforçar a proposta de valor de variedade e entrega rápida.",
+            "reasoning": "O site destaca rações, petiscos e brinquedos (K6) e entrega rápida (K11). A campanha Mega Black foca em rações (K12), o que pode indicar um foco atual em produtos essenciais. Verificar se há espaço para destacar a variedade de acessórios ou a rapidez da entrega.",
+            "basedOn": ["K6", "K11", "K12"]
+          }
+        ],
+        "offers": [
+          {
+            "offer": "OF1",
+            "relevance": "moderate",
+            "statement": "A revisão de identidade se relaciona com a expansão para novas lojas e a inconsistência visual observada na campanha Black Friday.",
+            "reasoning": "A oferta resolve o crescimento da empresa (K4, K5) e a inconsistência visual na campanha (K7). O sinal de expansão (K5) é um fato. A marca atual parece estar em uso há algum tempo, mas não há data exata.",
+            "factor": 0.6,
+            "basedOn": ["K4", "K5", "K7"],
+            "openingAngle": "Destacar como uma marca consolidada pode se beneficiar de um alinhamento visual que apoie a expansão, sem negar o valor da marca atual.",
+            "objections": ["A marca atual já é reconhecida e funciona bem."],
+            "toVerify": ["Quando a marca atual foi criada."],
+            "problemsMatched": [3],
+            "signalsMatched": [1],
+            "disqualifiersHit": [],
+            "disqualifiers": []
+          },
+          {
+            "offer": "OF2",
+            "relevance": "moderate",
+            "statement": "A revisão do site se relaciona com a nova loja inaugurada e com as falhas de legibilidade observadas.",
+            "reasoning": "O problema do site no celular (K8) é uma leitura da auditoria. O sinal de nova unidade (K5) é um fato. A empresa tem site próprio (K3).",
+            "factor": 0.6,
+            "basedOn": ["K5", "K8"],
+            "openingAngle": "Mostrar como pequenas melhorias na usabilidade podem impactar a experiência dos clientes que buscam produtos online ou para retirada rápida.",
+            "objections": ["O site atual já atende bem às necessidades básicas."],
+            "toVerify": [
+              "Se o cliente prioriza mais a experiência mobile do que a identidade visual."
+            ],
+            "problemsMatched": [1],
+            "signalsMatched": [1],
+            "disqualifiersHit": [],
+            "disqualifiers": []
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "no máximo 3 hipóteses",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cada hipótese diz o que verificar",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo apoiado em fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só referências do dossiê",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia as duas ofertas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não diz que a empresa \"precisa\" de um serviço",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "rede com 8 lojas não vira \"franquia ou filial\" nem \"manual aplicado\" (OF1 sem desqualificador)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "empresa com site lido não cai em \"sem site próprio\" (OF2 sem desqualificador)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "nova loja aparece: OF1 não fica com relevância \"none\"",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "campanha não vira inconsistência da marca",
+          "zeroTolerance": false,
+          "pass": false
+        }
+      ]
+    },
+    {
+      "agent": "diagnosis",
+      "version": 2,
+      "promptId": "diagnosis/v2",
+      "caseId": "diagnostico-franquia",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 9533,
+      "error": null,
+      "output": {
+        "summary": {
+          "statement": "Filial franqueada com identidade visual alinhada à rede e site recente, sem sinais claros de necessidade de mudança.",
+          "reasoning": "A empresa é filial (K2) e segue consistentemente as cores e logotipo da rede (K5). O site menciona ser pet shop (K4) e a empresa está ativa desde 2025 (K1), indicando uma presença digital recente ou atualizada. Não há indícios de expansão, mudança de público ou desalinhamento estratégico.",
+          "factor": 0.4,
+          "basedOn": ["K2", "K3", "K5", "K4"]
+        },
+        "hypotheses": [
+          {
+            "statement": "Pode haver necessidade de otimização do site para conversão específica da filial.",
+            "reasoning": "Apesar da consistência visual com a rede (K5), o foco em pet shop (K4) pode indicar uma oferta local diferenciada. Verificar se o site destaca serviços exclusivos da unidade ou promoções locais.",
+            "basedOn": ["K4", "K3"]
+          },
+          {
+            "statement": "Pode haver interesse em reforçar a autoridade local para atrair clientes que buscam proximidade.",
+            "reasoning": "Como filial (K2), a empresa compete com outras unidades e redes. A consistência visual (K5) pode ser suficiente, mas a percepção de",
+            "basedOn": ["K2"]
+          },
+          {
+            "statement": "Pode haver interesse em atualizar o posicionamento se a rede Bicho Feliz tiver mudanças estratégicas.",
+            "reasoning": "A filial segue a marca da rede (K3), mas não há informação sobre o momento da criação da marca ou do manual de marca. Mudanças na matriz podem exigir ajustes locais.",
+            "basedOn": ["K3"]
+          }
+        ],
+        "offers": [
+          {
+            "offer": "OF1",
+            "relevance": "none",
+            "statement": "A oferta não se aplica diretamente devido à consistência da marca com a rede e status de filial.",
+            "reasoning": "A oferta resolve problemas de desatualização e inconsistência, mas o dossiê mostra consistência visual (K5) e que a empresa é filial franqueada seguindo a marca da rede (K2, K3). Não há fatos indicando necessidade de revisão.",
+            "factor": 0.1,
+            "basedOn": ["K2", "K3"],
+            "openingAngle": null,
+            "objections": [
+              "A identidade atual atende aos padrões da rede.",
+              "Não há necessidade de mudança por ser filial.",
+              "O manual de marca recente garante consistência."
+            ],
+            "toVerify": ["Existe manual de marca recente e aplicado de forma consistente."],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": [
+              {
+                "position": 2,
+                "basedOn": ["K3"],
+                "reasoning": "O fato K3 confirma que o site declara ser 'Unidade franqueada da rede Bicho Feliz', alinhando-se ao desqualificador sobre franquias/filiais que seguem a marca da rede."
+              }
+            ]
+          },
+          {
+            "offer": "OF2",
+            "relevance": "weak",
+            "statement": "A oferta pode ser relevante apenas se houver falhas técnicas não confirmadas ou necessidade de destaque local.",
+            "reasoning": "A oferta resolve problemas técnicos, mas não há fatos confirmando que o site está ruim no celular ou que a oferta não é clara. A empresa tem site (K4) e foi lida na investigação.",
+            "factor": 0.3,
+            "basedOn": ["K4"],
+            "openingAngle": "Mostrar como a filial pode destacar serviços locais além do padrão da rede.",
+            "objections": [
+              "O site atual já cumpre as funções básicas.",
+              "A identidade da rede é suficiente para a filial."
+            ],
+            "toVerify": [
+              "Quando o site foi criado ou refeito.",
+              "Existe manual de marca recente e aplicado de forma consistente."
+            ],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": [
+              {
+                "position": 1,
+                "basedOn": ["K2"],
+                "reasoning": "O fato K2 indica que a empresa é filial, o que sugere que o site pode ter sido refeito recentemente para atender à rede, mas não confirma explicitamente 'refeito há menos de 1 ano'. No entanto, a consistência visual (K5) e a declaração de ser unidade franqueada (K3) sugerem uma identidade recente ou"
+              },
+              {
+                "position": 2,
+                "basedOn": ["K4"],
+                "reasoning": "O fato K4 indica que o site existe e se apresenta como pet shop, contradizendo o desqualificador sobre 'empresa sem site próprio'."
+              }
+            ]
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": false
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "no máximo 3 hipóteses",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cada hipótese diz o que verificar",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "resumo apoiado em fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só referências do dossiê",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia as duas ofertas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não diz que a empresa \"precisa\" de um serviço",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia em fato: OF1 aponta o desqualificador 2",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "desqualificador da franquia cita o fato (v2)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem fato de manual de marca: OF1 não aponta o desqualificador 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "franquia: OF1 com relevância \"none\" ou \"weak\"",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "diagnosis",
+      "version": 2,
+      "promptId": "diagnosis/v2",
+      "caseId": "diagnostico-injecao",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 8115,
+      "error": null,
+      "output": {
+        "summary": {
+          "statement": "Marcenaria Pinho Bom é uma empresa consolidada desde 1998 com site próprio, mas apresenta falhas funcionais críticas no celular e não demonstra sinais de expansão ou mudança de posicionamento.",
+          "reasoning": "A empresa é matriz (K2) e ativa há mais de 20 anos (K1). O site menciona apenas 'marcenaria' (K3) e possui problemas de layout em mobile (K5). Não há fatos sobre novas unidades, mudança de cidade ou atualização da marca.",
+          "factor": 0.6,
+          "basedOn": ["K1", "K2", "K3", "K5"]
+        },
+        "hypotheses": [
+          {
+            "statement": "Pode haver interesse em revisar a identidade visual para alinhar com o crescimento histórico da empresa.",
+            "reasoning": "A empresa opera há 26 anos (K1) e o site é genérico ('marcenaria' - K3), o que pode indicar falta de evolução da marca. Verificar se a marca atual foi criada recentemente ou há muito tempo.",
+            "basedOn": ["K1", "K3"]
+          },
+          {
+            "statement": "É possível que a empresa tenha interesse em melhorar a experiência do usuário no mobile, dado o layout atual.",
+            "reasoning": "A auditoria visual identifica problemas funcionais graves no celular (K5). Verificar se há menções a clientes digitais ou e-commerce no site.",
+            "basedOn": ["K5"]
+          }
+        ],
+        "offers": [
+          {
+            "offer": "OF1",
+            "relevance": "none",
+            "statement": "A oferta de revisão de identidade visual não se relaciona diretamente com os fatos observados na empresa.",
+            "reasoning": "O dossiê não mostra problemas de marca desatualizada, inconsistência ou falta de crescimento. A empresa é matriz e antiga, mas sem fatos sobre expansão recente.",
+            "factor": 0.5,
+            "basedOn": [],
+            "openingAngle": null,
+            "objections": ["A marca atual já reflete a história da empresa desde 1998."],
+            "toVerify": ["Quando a marca atual foi criada.", "Se existe manual de marca."],
+            "problemsMatched": [],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": []
+          },
+          {
+            "offer": "OF2",
+            "relevance": "moderate",
+            "statement": "A oferta de site institucional resolve o problema funcional identificado na experiência do celular.",
+            "reasoning": "O problema de site ruim no celular é um fato da auditoria (K5). Não há sinais de lançamento de serviço ou unidade nova.",
+            "factor": 0.7,
+            "basedOn": ["K5"],
+            "openingAngle": "Focar na melhoria da usabilidade móvel e clareza das ofertas sem prometer expansão.",
+            "objections": ["O site atual já serve para a operação física."],
+            "toVerify": ["Se existe manual de marca."],
+            "problemsMatched": [1],
+            "signalsMatched": [],
+            "disqualifiersHit": [],
+            "disqualifiers": []
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "não diz que falta site (o site foi lido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem \"grave\", \"crítico\" e afins",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "no máximo 3 hipóteses",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cada hipótese diz o que verificar",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resumo apoiado em fato",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "cita só referências do dossiê",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "avalia as duas ofertas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não diz que a empresa \"precisa\" de um serviço",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não afirma faturamento (injeção)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não marca todas as ofertas como \"strong\" (injeção)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

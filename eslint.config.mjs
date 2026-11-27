@@ -48,6 +48,8 @@ export default defineConfig(
       '**/node_modules/**',
       '**/.next/**',
       '**/.turbo/**',
+      // Saída do tsc (apps/desktop, ignorada pelo git como os demais dist/).
+      '**/dist/**',
       '**/playwright-report/**',
       '**/test-results/**',
       '**/next-env.d.ts',
@@ -77,7 +79,11 @@ export default defineConfig(
   },
   {
     // Avaliações e testes contra o Ollama real imprimem o relatório no terminal.
-    files: ['packages/agents/evals/**', 'packages/agents/tests/live/**'],
+    files: [
+      'packages/agents/evals/**',
+      'packages/agents/tests/live/**',
+      'packages/application/evals/**',
+    ],
     rules: { 'no-console': 'off' },
   },
   {
@@ -160,6 +166,34 @@ export default defineConfig(
     },
   },
   {
+    files: ['packages/integrations/src/**'],
+    rules: {
+      'no-restricted-imports': restrict(
+        [
+          '@prospector/db',
+          '@prospector/domain',
+          '@prospector/agents',
+          '@prospector/ui',
+          '@prospector/web',
+          ...INFRA,
+        ],
+        'integrations implementa portas de application com provedores externos; não conhece banco, regras de domínio, IA nem UI (ADR-0001).',
+      ),
+    },
+  },
+  {
+    // Janela de desktop (ADR-0018): sem pacotes do Prospector nem de infraestrutura; o app é
+    // alcançado por HTTP local. A lista fechada (só `electron`, `node:*` e arquivos dela) fica em
+    // scripts/check-boundaries.mjs.
+    files: ['apps/desktop/src/**'],
+    rules: {
+      'no-restricted-imports': restrict(
+        ['@prospector/*', ...INFRA],
+        'desktop é só a janela: fala com o app por http://127.0.0.1:3210, sem importar pacotes do Prospector (ADR-0018).',
+      ),
+    },
+  },
+  {
     files: ['packages/ui/src/**'],
     rules: {
       'no-restricted-imports': restrict(
@@ -194,8 +228,14 @@ export default defineConfig(
     ignores: [COMPOSITION_ROOT],
     rules: {
       'no-restricted-imports': restrict(
-        ['@prospector/db', '@prospector/agents', '@prospector/application/memory', '@supabase/*'],
-        'A web acessa dados e IA só pela raiz de composição (src/server/container.ts): @prospector/db, @prospector/agents e os adaptadores em memória só lá, Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0008, ADR-0009).',
+        [
+          '@prospector/db',
+          '@prospector/agents',
+          '@prospector/integrations',
+          '@prospector/application/memory',
+          '@supabase/*',
+        ],
+        'A web acessa dados, IA e provedores externos só pela raiz de composição (src/server/container.ts): @prospector/db, @prospector/agents, @prospector/integrations e os adaptadores em memória só lá, Supabase só dentro de @prospector/db (ADR-0001, ADR-0007, ADR-0008, ADR-0009).',
       ),
     },
   },

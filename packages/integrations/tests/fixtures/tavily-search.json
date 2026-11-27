@@ -1,0 +1,46 @@
+{
+  "_synthetic": true,
+  "_note": "Estrutura da resposta real de POST /search (conferida em 2026-11-10); valores inventados, domínios reservados example.*.",
+  "query": "ceramica exemplo interior paulista",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "url": "https://www.ceramica-exemplo.example.com/",
+      "title": "Cerâmica Exemplo — revestimentos",
+      "content": "A Cerâmica Exemplo fabrica revestimentos desde 1990. Atendimento comercial: (20) 9 9876-5432 ou contato@ceramica-exemplo.example.com.",
+      "score": 0.91,
+      "raw_content": null,
+      "id": "00000000-0000-4000-8000-000000000001"
+    },
+    {
+      "url": "https://www.instagram.com/perfil.example/",
+      "title": "Perfil Example (@perfil.example)",
+      "content": "Perfil com fotos de obras e lançamentos.",
+      "score": 0.72,
+      "raw_content": null,
+      "id": "00000000-0000-4000-8000-000000000002"
+    },
+    {
+      "url": "javascript:alert(1)",
+      "title": "Endereço inválido",
+      "content": "Este item deve ser descartado.",
+      "score": 0.5,
+      "raw_content": null,
+      "id": "00000000-0000-4000-8000-000000000003"
+    },
+    {
+      "url": "https://noticias.example.org/industria/ceramica-exemplo-amplia-fabrica",
+      "title": "",
+      "content": "LONGO",
+      "score": 1.7,
+      "published_date": "Mon, 03 Nov 2026 12:00:00 GMT",
+      "raw_content": null,
+      "id": "00000000-0000-4000-8000-000000000004"
+    }
+  ],
+  "response_time": 0.84,
+  "request_id": "00000000-0000-4000-8000-0000000000aa",
+  "auth_mode": "exemplo"
+}

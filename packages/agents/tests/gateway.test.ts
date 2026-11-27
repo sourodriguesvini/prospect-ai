@@ -245,6 +245,39 @@ describe('LocalAiGateway.chat', () => {
     await next.return(undefined);
   });
 
+  it('repassa o esquema de saída (format) só quando pedido', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] };
+    await collect(gw.chat('copilot', { ...ask, think: false, format: schema }));
+    await collect(gw.chat('copilot', { ...ask, think: false }));
+    expect(requests[0]?.format).toEqual(schema);
+    expect(requests[1]).not.toHaveProperty('format');
+  });
+
+  it('aceita teto de geração pedido pela capacidade, até o dobro do da tarefa', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    await collect(gw.chat('copilot', { ...ask, maxOutputTokens: 1536 }));
+    await collect(gw.chat('copilot', { ...ask, maxOutputTokens: 1_000_000 }));
+    expect(requests[0]?.options.num_predict).toBe(1536);
+    expect(requests[1]?.options.num_predict).toBe(DEFAULT_POLICY.copilot.maxOutputTokens * 2);
+  });
+
+  it('não manda o esquema de saída junto com ferramentas', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'] };
+    const tool = {
+      name: 'list_offers',
+      title: 'Consultando ofertas',
+      description: 'Ferramenta de teste.',
+      parameters: { type: 'object', properties: {} },
+    };
+    await collect(gw.chat('copilot', { ...ask, think: false, format: schema, tools: [tool] }));
+    expect(requests[0]).not.toHaveProperty('format');
+  });
+
   it('neutraliza marcas de papel do modelo no texto do usuário e limita os tokens gerados', async () => {
     const requests: OllamaChatRequest[] = [];
     const gw = gateway(fakeClient({ requests }));
@@ -546,7 +579,8 @@ describe('LocalAiGateway.chat: admissão por VRAM', () => {
   });
 
   it('modelo já carregado com o mesmo contexto não passa pela conta de novo', async () => {
-    const client = fakeClient({ running: [running('qwen3.5:4b', 3_245_510_490)] });
+    // O Copiloto pede 16 mil tokens de contexto (pesquisa na internet, 2026-11-10).
+    const client = fakeClient({ running: [running('qwen3.5:4b', 3_245_510_490, 16_384)] });
     const events = await collect(gateway(client, { gpu: gpuWithFree(500) }).chat('copilot', ask));
     expect(events[0]).toEqual({ type: 'start', model: 'qwen3.5:4b' });
     expect(events.some((event) => event.type === 'notice')).toBe(false);
@@ -662,7 +696,8 @@ describe('LocalAiGateway.chat: capacidades e contexto', () => {
 
   it('corta o histórico que não cabe em num_ctx e avisa quantas falas ficaram de fora', async () => {
     const requests: OllamaChatRequest[] = [];
-    const long = 'x'.repeat(7000);
+    // Cada fala ocupa ~4,7 mil tokens: três cabem nos 16 mil do Copiloto, quatro não.
+    const long = 'x'.repeat(14000);
     const messages = [
       { role: 'system' as const, content: 'regras' },
       { role: 'user' as const, content: `antiga ${long}` },
@@ -774,5 +809,20 @@ describe('LocalAiGateway.unload', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('saída estruturada (Descoberta)', () => {
+  it('manda o esquema ao Ollama e limita o teto de tokens pedido ao dobro do da tarefa', async () => {
+    const requests: OllamaChatRequest[] = [];
+    const gw = gateway(fakeClient({ requests }));
+    const schema = { type: 'object', properties: {}, required: [], additionalProperties: false };
+    await collect(gw.chat('reasoning', { ...ask, format: schema, maxOutputTokens: 1_000_000 }));
+    expect(requests[0]?.format).toEqual(schema);
+    expect(requests[0]?.options.num_predict).toBeLessThanOrEqual(
+      DEFAULT_POLICY.reasoning.maxOutputTokens * 2,
+    );
+    await collect(gw.chat('reasoning', ask));
+    expect(requests[1]?.format).toBeUndefined();
   });
 });

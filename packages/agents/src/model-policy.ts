@@ -55,21 +55,32 @@ const BASE = {
  * injeção, trocou o nome do produto e o cartão declara suporte só a inglês. Continua escolhível
  * à mão em Modelo (pedido explícito), mas nunca é usado sozinho; sem o qwen3.5:4b instalado, o
  * Copiloto pede para instalá-lo (`model_not_installed`).
- * `vision` e `embedding` ainda não têm consumidor (chegam nas fatias IA-4 e IA-5).
+ * `vision` atende a auditoria visual da investigação (ADR-0015); `embedding` ainda não tem
+ * consumidor (fatia IA-5).
  */
 export const DEFAULT_POLICY: ModelPolicy = {
-  copilot: { ...BASE, requires: ['completion'], models: ['qwen3.5:4b'] },
+  // 16 mil tokens no Copiloto (2026-11-10): prompt, fatos e as definições das ferramentas já
+  // ocupam perto de 5,5 mil, e a pesquisa na internet traz trechos e páginas na mesma resposta.
+  // Com 8 mil, duas páginas lidas já não cabiam. No qwen3.5:4b, o dobro de contexto custa
+  // cerca de 1 a 2 GB a mais de VRAM, dentro da folga desta máquina; `AI_NUM_CTX` sobrepõe.
+  copilot: { ...BASE, numCtx: 16_384, requires: ['completion'], models: ['qwen3.5:4b'] },
   reasoning: {
     ...BASE,
     temperature: 0.2,
     requires: ['completion', 'thinking'],
     models: ['qwen3.5:4b'],
   },
+  // Auditoria visual da investigação (ADR-0015): duas capturas (computador e celular) ocupam
+  // até cerca de 3,5 mil tokens; com rubrica, medições e resposta, 8 mil não bastam. Modelo de
+  // visão não fica parado na memória: `keep_alive` curto (recursos do usuário). Só o qwen3.5:4b:
+  // o qwen3-vl:8b (candidato, doc 13 §2) não foi avaliado e não entra sozinho como reserva.
   vision: {
     ...BASE,
+    numCtx: 12_288,
+    keepAlive: '2m',
     temperature: 0.2,
     requires: ['completion', 'vision'],
-    models: ['qwen3.5:4b', 'qwen3-vl:8b'],
+    models: ['qwen3.5:4b'],
   },
   embedding: {
     ...BASE,

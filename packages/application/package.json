@@ -9,7 +9,8 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "review:quality": "vitest run --config vitest.evals.config.ts"
   },
   "dependencies": {
     "@prospector/contracts": "workspace:*",

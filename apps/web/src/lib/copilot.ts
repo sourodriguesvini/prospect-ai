@@ -1,17 +1,29 @@
 import {
   AI_ERROR_MESSAGES,
-  COPILOT_HISTORY_LIMIT,
+  AiErrorCode,
   CopilotEvent,
   MODEL_CAPABILITY_LABELS,
   formatMiBAsGB,
-  type AiErrorCode,
-  type ChatMessage,
+  type CopilotStoredMessage,
   type GenerationUsage,
+  type InternalLink,
   type LocalModel,
   type ModelCapability,
+  type ToolStatus,
 } from '@prospector/contracts';
 
-/** Uma fala da conversa como a tela guarda (só no navegador; nada é salvo). */
+/** Consulta feita pelo Copiloto durante a resposta (IA-2). */
+export interface ToolActivity {
+  id: string;
+  name: string;
+  title: string;
+  /** Ausente enquanto a ferramenta roda. */
+  status?: ToolStatus;
+  summary?: string;
+  links?: InternalLink[];
+}
+
+/** Uma fala da conversa como a tela mostra (a conversa fica salva no servidor, IA-2). */
 export interface Turn {
   id: string;
   role: 'user' | 'assistant';
@@ -21,42 +33,60 @@ export interface Turn {
   usage?: GenerationUsage;
   doneReason?: string | null;
   notices?: string[];
+  tools?: ToolActivity[];
   error?: { code: AiErrorCode; message: string };
 }
 
-/**
- * Orçamento de histórico em caracteres. A política usa 8.192 tokens de contexto; ~16 mil
- * caracteres em português (~4,5 mil tokens) deixam espaço para o prompt do sistema e a resposta.
- */
-export const HISTORY_CHAR_BUDGET = 16_000;
-const MESSAGE_MAX_CHARS = 8000;
-
-/**
- * Monta o histórico enviado ao servidor: só falas com conteúdo, das mais recentes para trás,
- * até o limite de mensagens e de caracteres. A última fala (do usuário) sempre entra.
- */
-export function buildHistory(turns: readonly Turn[]): ChatMessage[] {
-  const usable = turns.filter((turn) => turn.content.trim().length > 0);
-  const picked: ChatMessage[] = [];
-  let used = 0;
-  for (let index = usable.length - 1; index >= 0; index -= 1) {
-    const turn = usable[index];
-    if (!turn) continue;
-    let content = turn.content.trim();
-    if (content.length > MESSAGE_MAX_CHARS)
-      content = `${content.slice(0, MESSAGE_MAX_CHARS - 4)} […]`;
-    if (picked.length > 0 && used + content.length > HISTORY_CHAR_BUDGET) break;
-    picked.unshift({ role: turn.role, content });
-    used += content.length;
-    if (picked.length === COPILOT_HISTORY_LIMIT) break;
-  }
-  return picked;
+/** Rótulo de uma ferramenta em conversas antigas (o título vem da lista atual de ferramentas). */
+function toolTitle(name: string, titles: Readonly<Record<string, string>>): string {
+  return titles[name] ?? `Consulta (${name})`;
 }
 
-/** A conversa tem falas que já não entram no histórico enviado ao modelo. */
-export function historyIsTrimmed(turns: readonly Turn[]): boolean {
-  const usable = turns.filter((turn) => turn.content.trim().length > 0).length;
-  return usable > 0 && buildHistory(turns).length < usable;
+/**
+ * Remonta a conversa salva para a tela: resultados de ferramenta entram na resposta seguinte do
+ * Copiloto, como na hora em que aconteceram. Resposta interrompida ou com falha mostra o motivo.
+ */
+export function turnsFromMessages(
+  messages: readonly CopilotStoredMessage[],
+  titles: Readonly<Record<string, string>> = {},
+): Turn[] {
+  const turns: Turn[] = [];
+  let pendingTools: ToolActivity[] = [];
+  for (const message of messages) {
+    if (message.role === 'user') {
+      turns.push({ id: message.id, role: 'user', content: message.content });
+      continue;
+    }
+    if (message.role === 'tool') {
+      const name = message.toolName ?? 'ferramenta';
+      pendingTools.push({
+        id: message.toolCallId ?? message.id,
+        name,
+        title: toolTitle(name, titles),
+        status: message.toolStatus ?? 'ok',
+        summary: message.content,
+      });
+      continue;
+    }
+    const code = AiErrorCode.safeParse(message.errorCode);
+    const turn: Turn = {
+      id: message.id,
+      role: 'assistant',
+      content: message.content,
+      ...(message.model ? { model: message.model } : {}),
+      ...(message.usage ? { usage: message.usage } : {}),
+      ...(pendingTools.length ? { tools: pendingTools } : {}),
+    };
+    if (message.status === 'interrupted') {
+      turn.error = { code: 'cancelled', message: 'Resposta interrompida.' };
+    } else if (message.status === 'failed') {
+      const failure: AiErrorCode = code.success ? code.data : 'provider_error';
+      turn.error = { code: failure, message: AI_ERROR_MESSAGES[failure] };
+    }
+    turns.push(turn);
+    pendingTools = [];
+  }
+  return turns;
 }
 
 /**
@@ -116,6 +146,22 @@ export function applyEvent(turn: Turn, event: CopilotEvent): Turn {
       return { ...turn, model: event.model, usage: event.usage, doneReason: event.doneReason };
     case 'error':
       return { ...turn, error: { code: event.code, message: event.message } };
+    case 'thread':
+      return turn;
+    case 'tool_call':
+      return {
+        ...turn,
+        tools: [...(turn.tools ?? []), { id: event.id, name: event.name, title: event.title }],
+      };
+    case 'tool_result':
+      return {
+        ...turn,
+        tools: (turn.tools ?? []).map((tool) =>
+          tool.id === event.id
+            ? { ...tool, status: event.status, summary: event.summary, links: event.links }
+            : tool,
+        ),
+      };
   }
 }
 

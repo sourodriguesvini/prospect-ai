@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rota Sul | Oficina mecânica e auto center em Maringá</title>
+    <!-- Página SINTÉTICA da avaliação da auditoria visual (synthetic: true). Empresa inventada. -->
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: Verdana, Geneva, sans-serif;
+        color: #263238;
+        background: #fff;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 40px;
+        background: #0d47a1;
+        color: #fff;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 24px;
+        letter-spacing: 1px;
+      }
+      .logo svg {
+        width: 36px;
+        height: 36px;
+      }
+      nav {
+        display: flex;
+        gap: 22px;
+        font-size: 14px;
+      }
+      .phone {
+        background: #fff;
+        color: #0d47a1;
+        border-radius: 4px;
+        padding: 8px 14px;
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .hero {
+        display: flex;
+        gap: 32px;
+        align-items: center;
+        padding: 48px 40px;
+        background: #e3f2fd;
+      }
+      .hero h1 {
+        font-size: 36px;
+        color: #0d47a1;
+        margin-bottom: 12px;
+      }
+      .hero p {
+        font-size: 17px;
+        margin-bottom: 20px;
+        max-width: 520px;
+      }
+      .cta {
+        display: inline-block;
+        background: #1565c0;
+        color: #fff;
+        padding: 14px 26px;
+        border-radius: 4px;
+        font-weight: 700;
+      }
+      .photo {
+        flex: 1;
+        min-height: 220px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #90a4ae, #546e7a);
+        display: flex;
+        align-items: flex-end;
+        padding: 14px;
+        color: #eceff1;
+        font-size: 13px;
+      }
+      .feirao {
+        background: #c62828;
+        color: #ffd600;
+        padding: 30px 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      .feirao strong {
+        font-size: 34px;
+        font-style: italic;
+        letter-spacing: 2px;
+      }
+      .feirao span {
+        color: #fff;
+        font-size: 18px;
+      }
+      .feirao a {
+        background: #ffd600;
+        color: #c62828;
+        padding: 12px 20px;
+        font-weight: 800;
+        border-radius: 30px;
+      }
+      .services {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+        padding: 36px 40px;
+      }
+      .card {
+        background: #f5f5f5;
+        border-top: 4px solid #1565c0;
+        padding: 18px;
+        border-radius: 4px;
+      }
+      .card h3 {
+        color: #0d47a1;
+        font-size: 17px;
+        margin-bottom: 8px;
+      }
+      .card p {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
+      .card small {
+        color: #a8a8a8;
+        font-size: 12px;
+      }
+      footer {
+        background: #0d47a1;
+        color: #fff;
+        padding: 24px 40px;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+      }
+      @media (max-width: 600px) {
+        header {
+          padding: 12px 16px;
+        }
+        nav {
+          display: none;
+        }
+        .hero {
+          flex-direction: column;
+          padding: 28px 16px;
+        }
+        .hero h1 {
+          font-size: 26px;
+        }
+        .photo {
+          width: 100%;
+        }
+        .feirao {
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 24px 16px;
+        }
+        .feirao strong {
+          font-size: 26px;
+        }
+        .services {
+          grid-template-columns: 1fr;
+          padding: 24px 16px;
+        }
+        footer {
+          flex-direction: column;
+          gap: 8px;
+          padding: 20px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="18" fill="none" stroke="#fff" stroke-width="4" />
+          <path d="M8 26 L20 10 L32 26" fill="none" stroke="#fff" stroke-width="4" />
+        </svg>
+        ROTA SUL
+      </div>
+      <nav><span>Serviços</span><span>Unidades</span><span>Sobre</span><span>Contato</span></nav>
+      <div class="phone">(44) 3000-0000</div>
+    </header>
+    <section class="hero">
+      <div>
+        <h1>Oficina mecânica e auto center em Maringá</h1>
+        <p>Revisão, freios, suspensão, alinhamento e balanceamento com orçamento na hora.</p>
+        <span class="cta">Agende sua revisão</span>
+      </div>
+      <div class="photo">Foto: mecânico atendendo cliente na recepção da oficina</div>
+    </section>
+    <section class="feirao">
+      <strong>FEIRÃO DE INVERNO</strong>
+      <span>Troca de óleo com 15% de desconto até 31 de julho</span>
+      <a>QUERO O DESCONTO</a>
+    </section>
+    <section class="services">
+      <div class="card">
+        <h3>Revisão completa</h3>
+        <p>Checklist de 40 itens.</p>
+        <small>Consulte condições</small>
+      </div>
+      <div class="card">
+        <h3>Freios</h3>
+        <p>Pastilhas, discos e fluido.</p>
+        <small>Peças com garantia</small>
+      </div>
+      <div class="card">
+        <h3>Suspensão</h3>
+        <p>Amortecedores e molas.</p>
+        <small>Avaliação gratuita</small>
+      </div>
+      <div class="card">
+        <h3>Alinhamento</h3>
+        <p>Alinhamento e balanceamento 3D.</p>
+        <small>Com hora marcada</small>
+      </div>
+    </section>
+    <footer>
+      <span>Rota Sul Auto Center · Av. Exemplo, 100 · Maringá/PR</span>
+      <span>Segunda a sábado, das 8h às 18h</span>
+    </footer>
+  </body>
+</html>

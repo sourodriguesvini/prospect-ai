@@ -17,8 +17,14 @@ import { errorsFor, type FormState } from '@/lib/form-state';
  * O nome do campo é o caminho no contrato; os erros do servidor caem no campo pelo nome.
  */
 
-export function fieldId(name: string): string {
-  return `campo-${name.replace(/[^a-zA-Z0-9]+/g, '-')}`;
+/**
+ * Id do campo. `scope` separa formulários com os mesmos campos na mesma página (ex.: dois
+ * formulários com "offerId" no mesmo painel): sem ele, os ids se repetem e o rótulo de um campo
+ * aponta para o outro.
+ */
+export function fieldId(name: string, scope?: string): string {
+  const base = scope ? `${scope}-${name}` : name;
+  return `campo-${base.replace(/[^a-zA-Z0-9]+/g, '-')}`;
 }
 
 interface FieldBase {
@@ -29,6 +35,8 @@ interface FieldBase {
   values: FormValues;
   required?: boolean;
   className?: string;
+  /** Prefixo dos ids (ver `fieldId`); use `useId()` quando a página repete o formulário. */
+  idScope?: string;
 }
 
 function describedBy(id: string, hint: boolean, errors: boolean): string | undefined {
@@ -84,9 +92,10 @@ export function TextField({
   values,
   required,
   className,
+  idScope,
   ...input
 }: FieldBase & Omit<ComponentProps<'input'>, 'name' | 'defaultValue' | 'required'>) {
-  const id = fieldId(name);
+  const id = fieldId(name, idScope);
   const errors = errorsFor(state, name);
   return (
     <FieldShell {...{ id, label, hint, required, errors, className }}>
@@ -112,9 +121,10 @@ export function TextAreaField({
   values,
   required,
   className,
+  idScope,
   rows = 3,
 }: FieldBase & { rows?: number }) {
-  const id = fieldId(name);
+  const id = fieldId(name, idScope);
   const errors = errorsFor(state, name);
   return (
     <FieldShell {...{ id, label, hint, required, errors, className }}>
@@ -156,16 +166,22 @@ export function SelectField({
   values,
   required,
   className,
+  idScope,
   options,
 }: FieldBase & { options: readonly { value: string; label: string }[] }) {
-  const id = fieldId(name);
+  const id = fieldId(name, idScope);
   const errors = errorsFor(state, name);
+  const selected = text(values, name);
   return (
     <FieldShell {...{ id, label, hint, required, errors, className }}>
       <NativeSelect
+        // O React não reaplica `defaultValue` num <select> já montado, e ao fim da ação o
+        // formulário volta à opção da primeira renderização: depois de um erro, a escolha da
+        // pessoa sumiria. A chave remonta o campo com o valor devolvido pela ação.
+        key={selected}
         id={id}
         name={name}
-        defaultValue={text(values, name)}
+        defaultValue={selected}
         aria-invalid={errors ? true : undefined}
         aria-describedby={describedBy(id, Boolean(hint), Boolean(errors))}
       >
@@ -188,13 +204,14 @@ export function CheckboxGroup({
   values,
   required,
   className,
+  idScope,
   options,
   columns = 'sm:grid-cols-2',
 }: FieldBase & {
   options: readonly { value: string; label: ReactNode }[];
   columns?: string;
 }) {
-  const id = fieldId(name);
+  const id = fieldId(name, idScope);
   const errors = errorsFor(state, name);
   const selected = new Set(all(values, name));
   return (
@@ -239,8 +256,9 @@ export function CheckboxField({
   state,
   values,
   className,
+  idScope,
 }: Omit<FieldBase, 'required'>) {
-  const id = fieldId(name);
+  const id = fieldId(name, idScope);
   const errors = errorsFor(state, name);
   return (
     <div className={cn('space-y-1', className)}>

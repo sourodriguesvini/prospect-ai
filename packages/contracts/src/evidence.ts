@@ -377,6 +377,7 @@ export const ClaimIssueCode = z.enum([
   'evidence_region_missing',
   'evidence_duplicate_source',
   'evidence_captured_in_future',
+  'evidence_quote_not_found',
   'dependency_not_found',
   'dependency_duplicate',
   'dependency_not_active',
@@ -403,6 +404,7 @@ export const CLAIM_ISSUE_MESSAGES: Record<ClaimIssueCode, string> = {
   evidence_duplicate_source:
     'A mesma fonte aparece duas vezes: use uma evidência por fonte, com o trecho mais forte.',
   evidence_captured_in_future: 'A data de coleta da fonte está no futuro.',
+  evidence_quote_not_found: 'O trecho citado não aparece no conteúdo guardado da fonte.',
   dependency_not_found: 'O claim citado como dependência não existe.',
   dependency_duplicate: 'Dependência repetida.',
   dependency_not_active:

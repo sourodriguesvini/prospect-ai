@@ -24,7 +24,7 @@ import { COMPLIANCE_NOTICES, complianceNotice } from './notices';
 
 export const metadata: Metadata = { title: 'Conformidade' };
 
-const TRAIL = [{ href: '/configuracoes', label: 'Configuração' }];
+const TRAIL = [{ href: '/configuracoes', label: 'Configurações' }];
 
 type Props = PageProps<'/configuracoes/conformidade'>;
 
@@ -242,7 +242,7 @@ async function Compliance() {
         <PanelHeader
           titleId="opt-out"
           title="Identificação e opt-out"
-          description="Toda primeira mensagem diz quem é a agência, de onde veio o contato e como deixar de receber."
+          description="Até a empresa responder, toda mensagem diz quem é a agência e como deixar de receber. De onde veio o contato entra quando a fonte mostra (o sistema ainda não confere isso sozinho)."
           actions={
             <Button asChild size="sm" variant={policy ? 'secondary' : 'primary'}>
               <Link href={strategyRoutes.contactPolicy}>

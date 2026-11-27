@@ -1,8 +1,11 @@
 'use server';
 
-import { ModelName } from '@prospector/contracts';
+import { isAppError } from '@prospector/application';
+import { ModelName, Uuid } from '@prospector/contracts';
 import { revalidatePath } from 'next/cache';
-import { getLocalAi } from '@/server/container';
+import { redirect } from 'next/navigation';
+import { getLocalAi, getServices } from '@/server/container';
+import { userContext } from '@/server/context';
 
 export interface UnloadState {
   error: string | null;
@@ -56,4 +59,54 @@ export async function unloadModel(
   }
   revalidatePath('/copiloto');
   return { error: null, message, at };
+}
+
+export interface ThreadActionState {
+  error: string | null;
+  /** Marca de cada resposta, para a mesma mensagem ser anunciada de novo. */
+  at: number;
+}
+
+function threadError(error: unknown): ThreadActionState {
+  if (isAppError(error)) {
+    const message =
+      error.code === 'validation'
+        ? (Object.values(error.fieldErrors ?? {})[0]?.[0] ?? error.message)
+        : error.message;
+    return { error: message, at: Date.now() };
+  }
+  throw error;
+}
+
+/** Renomeia uma conversa do Copiloto (auditado: copilot.thread.rename). */
+export async function renameThread(
+  _previous: ThreadActionState,
+  formData: FormData,
+): Promise<ThreadActionState> {
+  const { copilot } = getServices();
+  if (!copilot) return { error: 'O banco não está configurado.', at: Date.now() };
+  try {
+    await copilot.rename(userContext(), {
+      threadId: formData.get('threadId'),
+      title: formData.get('title'),
+    });
+  } catch (error) {
+    return threadError(error);
+  }
+  revalidatePath('/copiloto');
+  return { error: null, at: Date.now() };
+}
+
+/**
+ * Arquiva ou restaura uma conversa (nada é apagado). Arquivar a conversa aberta volta para uma
+ * conversa nova.
+ */
+export async function setThreadArchived(formData: FormData): Promise<void> {
+  const { copilot } = getServices();
+  const id = Uuid.safeParse(formData.get('threadId'));
+  if (!copilot || !id.success) return;
+  const archived = formData.get('archived') === '1';
+  await copilot.setArchived(userContext(), id.data, archived);
+  revalidatePath('/copiloto');
+  if (archived && formData.get('current') === '1') redirect('/copiloto');
 }

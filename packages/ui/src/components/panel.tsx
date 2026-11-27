@@ -1,12 +1,17 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/cn';
 
-/** Painel branco muito arredondado sobre a moldura cinza: a unidade de layout das telas. */
+/**
+ * Painel branco muito arredondado sobre a moldura cinza: a unidade de layout das telas.
+ * Entra com um deslize curto (painéis irmãos em cascata, tokens.css); sem movimento quando o
+ * sistema pede "reduzir movimento".
+ */
 export function Panel({ className, ...props }: ComponentProps<'section'>) {
   return (
     <section
+      data-panel=""
       className={cn(
-        'rounded-[var(--radius-panel)] bg-surface p-5 shadow-[var(--shadow-panel)] sm:p-6',
+        'rounded-[var(--radius-panel)] bg-surface p-5 shadow-[var(--shadow-panel)] motion-safe:animate-panel-in sm:p-6',
         className,
       )}
       {...props}
@@ -30,8 +35,9 @@ export function PanelHeader({
 }) {
   return (
     <div className={cn('mb-5 flex flex-wrap items-start justify-between gap-3', className)}>
-      <div className="space-y-1">
-        <h2 id={titleId} className="text-balance text-lg">
+      {/* min-w-0 e quebra de palavra: um título sem espaço (uma URL colada) não alarga a página. */}
+      <div className="min-w-0 space-y-1">
+        <h2 id={titleId} className="text-balance break-words text-lg">
           {title}
         </h2>
         {description ? (

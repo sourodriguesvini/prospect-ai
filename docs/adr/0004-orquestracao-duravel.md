@@ -42,3 +42,7 @@ Regras:
 | Supabase Queues (pgmq) + worker | Estágio "Public Alpha" segundo a pesquisa; worker e orquestração ficariam por nossa conta. |
 | pg-boss + container | Barato, mas tudo de orquestração (espera humana, fan-out, painel) seria construído por nós. |
 | Temporal | Poderoso e pesado demais para o estágio. |
+
+## Nota (2026-11-11)
+
+Para o uso local (ADR-0007), a orquestração durável é a fila no Postgres com trabalhador dentro do app, do [ADR-0011](0011-fila-duravel-no-postgres.md). Este ADR continua como referência se o produto sair do computador do usuário.

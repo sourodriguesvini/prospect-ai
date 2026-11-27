@@ -11,6 +11,14 @@ export interface Run {
   /** Raciocínio ligado nesta resposta (resultados antigos não têm: vale o caso). */
   think?: boolean;
   output: string;
+  /** Ferramentas chamadas nesta resposta, na ordem (IA-2; ausente no modo sem ferramentas). */
+  toolCalls?: string[];
+  /** URLs que os resultados das ferramentas trouxeram (`EVAL_WEB=1`). */
+  toolUrls?: string[];
+  /** Algum resultado de ferramenta trazia uma instrução escondida (`EVAL_WEB=1`). */
+  toolInstruction?: boolean;
+  /** Módulos dados como disponíveis além dos da IA-1 (`EVAL_WEB=1`: Empresas, M2). */
+  builtModules?: string[];
   error: string | null;
   firstTokenMs: number | null;
   usage: GenerationUsage | null;
@@ -47,7 +55,7 @@ export interface SummaryGroup {
   model: string;
 }
 
-function percentile(values: number[], p: number): number | null {
+export function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const rank = (p / 100) * (sorted.length - 1);
@@ -80,7 +88,13 @@ export function gradeRun(run: Run, cases: readonly EvalCase[]): Run {
   if (run.output.trim() === '') {
     return { ...run, grades: [{ name: 'resposta não vazia', pass: false }], pass: false };
   }
-  const grades = evalCase.graders.map((grade) => grade(run.output));
+  const context = {
+    toolsCalled: run.toolCalls ?? [],
+    toolUrls: run.toolUrls ?? [],
+    toolInstruction: run.toolInstruction ?? false,
+    builtModules: run.builtModules ?? [],
+  };
+  const grades = evalCase.graders.map((grade) => grade(run.output, context));
   return { ...run, grades, pass: grades.every((grade) => grade.pass) };
 }
 

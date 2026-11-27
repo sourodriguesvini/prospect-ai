@@ -384,14 +384,33 @@ export type ProofAsset = z.infer<typeof ProofAsset>;
 
 /** Campos pessoais permitidos (lista fechada de minimização, docs/12 §4). Sem CPF. */
 export const LiaDataCategory = z.enum(
-  ['name', 'role_title', 'work_email', 'work_phone', 'professional_profile_url'],
+  [
+    'name',
+    'role_title',
+    'work_email',
+    'work_phone',
+    'professional_profile_url',
+    // Pessoas profissionais públicas (diretriz 2026-11-26, Parte 6.5): contexto profissional.
+    'profession',
+    'organization',
+    'location',
+  ],
   { error: 'Categoria fora da lista de minimização.' },
 );
 export type LiaDataCategory = z.infer<typeof LiaDataCategory>;
 
-export const LiaDataSource = z.enum(['registry_qsa', 'company_website', 'user_input'], {
-  error: 'Origem desconhecida.',
-});
+export const LiaDataSource = z.enum(
+  [
+    'registry_qsa',
+    'company_website',
+    'user_input',
+    // Pesquisa de pessoas do Copiloto (só trecho da busca; o leitor de páginas não abre diretórios).
+    'search_result',
+    'professional_directory',
+    'press',
+  ],
+  { error: 'Origem desconhecida.' },
+);
 export type LiaDataSource = z.infer<typeof LiaDataSource>;
 
 export const LiaContent = z.object({
@@ -404,8 +423,8 @@ export const LiaContent = z.object({
   dataCategories: z
     .array(LiaDataCategory)
     .min(1, { error: 'Marque ao menos uma categoria.' })
-    .max(5),
-  dataSources: z.array(LiaDataSource).min(1, { error: 'Marque ao menos uma origem.' }).max(3),
+    .max(8),
+  dataSources: z.array(LiaDataSource).min(1, { error: 'Marque ao menos uma origem.' }).max(6),
   /** 3. Balanceamento: legítima expectativa do titular. */
   expectations: requiredText(2000),
   /** 3. Balanceamento: riscos e impactos para o titular. */
@@ -567,9 +586,11 @@ export type Readiness = z.infer<typeof Readiness>;
 
 /**
  * Escopo das barreiras: a oferta da abordagem (F10), com o ICP que qualificou o prospect quando
- * houver, ou o ICP da descoberta (F4).
+ * houver, ou o ICP da descoberta (F4). Abordagem sem oferta da Estratégia (`offerId: null`,
+ * ADR-0021): a proposta sai da tese e do catálogo do perfil, e a barreira confere só voz, opt-out
+ * e LIA.
  */
-export const ApproachScope = z.object({ offerId: Uuid, icpId: Uuid.optional() });
+export const ApproachScope = z.object({ offerId: Uuid.nullable(), icpId: Uuid.optional() });
 export type ApproachScope = z.infer<typeof ApproachScope>;
 export const DiscoveryScope = z.object({ icpId: Uuid });
 export type DiscoveryScope = z.infer<typeof DiscoveryScope>;
@@ -577,12 +598,13 @@ export type DiscoveryScope = z.infer<typeof DiscoveryScope>;
 /**
  * Versões que a barreira de abordagem conferiu. A ação de abordagem (F10) grava esses ids para
  * provar com que oferta, LIA, opt-out e voz ela foi liberada (versões nunca mudam: ADR-0009).
+ * Sem oferta da Estratégia (ADR-0021), oferta, rubrica e score ficam null.
  */
 export const ApproachClearance = z.object({
-  offerId: Uuid,
-  offerVersionId: Uuid,
-  rubricVersionId: Uuid,
-  scoringModelVersionId: Uuid,
+  offerId: Uuid.nullable(),
+  offerVersionId: Uuid.nullable(),
+  rubricVersionId: Uuid.nullable(),
+  scoringModelVersionId: Uuid.nullable(),
   /** Versão do ICP pedido no escopo (null quando a abordagem não informou ICP). */
   icpVersionId: Uuid.nullable(),
   voiceGuideVersionId: Uuid,

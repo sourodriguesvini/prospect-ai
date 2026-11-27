@@ -178,6 +178,12 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 3. Estimativa de custo exibida antes de rodar; custo real registrado depois.
 4. Nenhuma chamada ao Claude fora do gateway (verificado por lint/teste).
 
+**Estado (2026-11-11, M3 — Módulo 01, ADR-0013):** implementada como pesquisa em linguagem natural pela internet (Tavily, ADR-0012) com a IA local, em vez da base CNPJ por filtros (fora do escopo: precisa de fonte autorizada de dados em massa). Fila durável com trabalhador local (ADR-0011). Migração aplicada no `prospector-dev` em 2026-11-11; primeira pesquisa real feita ("Encontre 15 clínicas de saúde em Ribeirão Preto e região.", profundidade rápida: 1 crédito, 6 empresas reais com fonte, persistidas depois de reiniciar o app; achados no KI-117).
+1. **Atendido em memória e PGlite:** cada pesquisa guarda o pedido, a interpretação, o plano e cada busca com os resultados (`discovery_run_queries`); empresas deduplicadas pelo CNPJ do site, pelo domínio ou pelo nome com cidade; a mesma empresa em outra pesquisa é atualizada. Testes: `packages/application/tests/discovery-service.test.ts`, `packages/domain/tests/discovery/`, `packages/db/tests/db/discovery.test.ts`; e2e `apps/web/e2e/discovery.spec.ts` (buscador e IA sintéticos).
+2. **Parcial:** cada empresa tem prioridade por regras com motivos e fontes (rubrica `discovery-triage/v1`), e a IA tem avaliação própria (`packages/agents/evals/discovery`: intérprete v1 90 de 90, extrator v2 89 de 90, sem falha de tolerância zero), mas sobre casos SINTÉTICOS, não sobre um conjunto real anotado; o `avaliador-ia` achou falhas que os corretores não medem (setor estreitado e UF inventada pelo intérprete, data de hoje em texto sem data), corrigidas no servidor e registradas nos KI-115 e KI-119.
+3. **Atendido:** o gasto máximo aparece antes de rodar (profundidade com o número de buscas, rascunho do Copiloto com o teto) e os créditos de cada busca aparecem depois. Custo da IA local é zero em dinheiro.
+4. **Atendido:** a IA da Descoberta passa pelo gateway de `packages/agents` (`pnpm lint` com `check-boundaries`).
+
 ### F5 — Investigação L1 (G)
 - Trigger.dev configurado (ADR-0004); workflow `investigate` com passos idempotentes, timeouts e progresso via Realtime.
 - Resolução de presença digital, captura de site (desktop/mobile/logo), `site_extractor`.
@@ -191,6 +197,16 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 4. Orçamento excedido interrompe com resultado parcial salvo e aviso.
 5. Avaliação do investigador no conjunto inicial: claims sem suporte ≤ 2%.
 
+**Status em 2026-11-11: versão local feita no Módulo 02, sem commit; aceite parcial.** Implementada na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), registro em [doc 14 §M4](14-execucao-e-conclusao.md)). A migração `20261111150000` não está aplicada no banco do usuário e os prompts das análises são v1, sem avaliação. No lugar do Trigger.dev há uma fila em processo com retomada e cancelamento (ADR-0015 §5), até a migração para `ai_jobs` (ADR-0011, outra frente).
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. ≤ 5 min p90 com progresso | Parcial | Progresso por etapa na tela; duas empresas reais terminaram em poucos minutos no modo memória; p90 não medido |
+| 2. Claims com evidência; trecho inexistente rejeitado | Parcial | Conclusões só pelo `EvidenceService`, com fonte; afirmação da IA sem base ou com referência inventada é descartada (`packages/domain/tests/investigation/qualification.test.ts`); teste com caso real gravado ainda não existe |
+| 3. Reexecutar não duplica claims nem custos | Atendido (memória) | Teste "cenário H" em `packages/application/tests/investigation-service.test.ts`: segunda rodada sem crédito nem GPU |
+| 4. Orçamento excedido interrompe com parcial | Parcial | Limite de buscas da Tavily (ADR-0012) vira lacuna `search_budget` e a investigação termina "com lacunas"; não há orçamento por investigação em tempo de GPU |
+| 5. Avaliação do investigador | Não feito | Sem conjunto de avaliação para as análises (KI-131) |
+
 ### F6 — Auditoria visual (M)
 - `brand_assets`, extração de paleta, capacidade `visual_auditor` com rubrica da oferta.
 - Aba **Marca**: capturas lado a lado com achados sobrepostos às regiões.
@@ -199,6 +215,14 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 1. Todo achado aponta para pelo menos um asset; achados sem asset são descartados.
 2. Empresa sem site recebe auditoria `partial` explícita, nunca nota zero.
 3. Concordância com o diretor de criação ≥ 75% (±1 ponto) no conjunto de 30 marcas.
+
+**Status em 2026-11-11: versão local feita no Módulo 02, sem commit; aceite parcial.** Implementada na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), registro em [doc 14 §M4](14-execucao-e-conclusao.md)). A migração `20261111150000` não está aplicada no banco do usuário e os prompts das análises são v1, sem avaliação. Capturas em JPEG fora do C: (ADR-0015 §6), sem `brand_assets` nem achados sobrepostos às regiões.
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. Todo achado aponta para um asset | Parcial | Achados da IA ligados às medições e às capturas da execução; referência inventada é descartada; sem marcação de região na imagem |
+| 2. Empresa sem site: `partial` explícita | Atendido | Etapas de site, captura e marca ficam "puladas" com o motivo `no_site` e o próximo passo pede para confirmar o site; nenhuma nota zero |
+| 3. Concordância com o diretor de criação | Não feito | Sem conjunto de 30 marcas (KI-131) |
 
 ### F7 — Qualificação (M)
 - Motor de score no `domain` (dimensões, gates, confiança, acesso), `need_assessor`, recomendação e "o que mudaria a decisão".
@@ -210,6 +234,15 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 2. Toda recomendação traz 1–5 motivos, cada um com claims.
 3. Concordância com decisões humanas ≥ 80% em 40 empresas reais.
 4. Necessidade sustentada só por hipóteses nunca resulta em `pursue` (teste).
+
+**Status em 2026-11-11: versão local feita no Módulo 02, sem commit; aceite parcial.** Implementada na worktree `claude/empresas-brand-714583` ([ADR-0015](adr/0015-investigacao-de-empresas-e-brand-intelligence.md), registro em [doc 14 §M4](14-execucao-e-conclusao.md)). A migração `20261111150000` não está aplicada no banco do usuário e os prompts das análises são v1, sem avaliação. Fit, Oportunidade e Confiança separados por oferta ativa, no domínio puro; sem feedback concordo/discordo na tela.
+
+| Critério | Situação | Evidência |
+|---|---|---|
+| 1. Gates antes do score, com motivo codificado | Atendido | `packages/domain/tests/investigation/qualification.test.ts` (situação inativa, exclusão do ICP, filial, rebranding recente; desqualificador apontado só pela IA pede no máximo "Acompanhar", KI-133) |
+| 2. Recomendação com 1–5 motivos ligados a claims | Parcial | Motivos e lacunas em texto do sistema, com a leitura por oferta como claim (`readingClaimId`); Fit 100 com um critério conhecido ainda aparece (KI-132) |
+| 3. Concordância com decisões humanas | Não feito | Duas empresas reais avaliadas; sem as 40 |
+| 4. Necessidade só por hipóteses nunca é `pursue` | Atendido | "necessidade sem claim que sustente não passa de 30" e "bom Fit sem necessidade observada: acompanhar" |
 
 ### F8 — Copiloto v1 (M)
 - Thread com streaming; painel contextual (`⌘K`) nas telas; ferramentas de leitura (buscar, dossiê, explicar avaliação, métricas básicas) e de disparo (descoberta, investigação) com estimativa e confirmação.
@@ -242,6 +275,23 @@ Verificação local (2026-11-09): `pnpm typecheck`, `pnpm lint`, `pnpm format:ch
 4. 30 mensagens reais revisadas com taxa de edição estrutural < 20%.
 
 **Marco M2.**
+
+### Relacionamento (módulo 03, 2026-11-11) — adiantamento de F9, F10 e F12, sem envio
+
+Decisão no [ADR-0014](adr/0014-relacionamento-abordagens-conversas-pipeline.md). O módulo **Relacionamento** junta três abas: Abordagens, Conversas e Pipeline. Tem ainda o detalhe da oportunidade, a fila **Aprovações** e o painel no dossiê. O app não envia nada: aprovar libera o texto para uso, a pessoa envia por fora e registra.
+
+| Critério das fatias | Situação | Evidência |
+|---|---|---|
+| F9.2 Suprimir CNPJ ou domínio bloqueia o contato | **Atendido para empresa, raiz de CNPJ e domínio** (sem e-mail ou pessoa, porque `contacts` não existe ainda) | `packages/application/tests/relationship-service.test.ts`, `packages/db/tests/db/relationship.test.ts`, e2e "pedido para parar" |
+| F9.1 e F9.3 Canal com base legal; exclusão a pedido do titular | **Não começado** (sem pessoas nem canais cadastrados) | — |
+| F10 Planejador com base em evidências, fila de Aprovações com `payload_hash` e expiração | **Atendido sem o verificador** | Abordagem cita só claims do dossiê, com base "limitada" e lacunas à mostra; aprovação de 72 horas, para um contato só, ligada ao hash; editar cria uma versão nova e invalida a aprovação (testes do serviço e do banco) |
+| F10.1, F10.2 e F10.4 Abstenção, `message_verifier`, 30 mensagens reais | **Pendente** | Sem verificador automático; sem conjunto de avaliação (KI-124) |
+| F10.3 Editar mensagem aprovada invalida a aprovação | **Atendido** | Testes do serviço e PGlite (versão nova, aprovação antiga deixa de valer) |
+| F11.3 Pedido de descadastro → supressão e cancelamento de pendentes | **Atendido para respostas registradas à mão** (regra e IA; follow-ups cancelados na mesma transação) | Serviço, PGlite e e2e |
+| F11 envio, caixas, limites | **Fora** (sem envio pelo app) | — |
+| F12 Pipeline e linha do tempo | **Parcial**: etapas fixas (não configuráveis), quadro e lista, histórico de etapas, motivo de perda, linha do tempo da oportunidade; sem `outcome_events` nem briefing de reunião | e2e cenários C a F |
+
+Pendências: migração não aplicada ao `prospector-dev` (KI-120); ferramentas do Copiloto atrás de um `copilot-tools/v4` (KI-121); expurgo do texto recebido (KI-122); conjunto de avaliação dos três prompts antes do uso real (KI-124); origem do contato e pedidos de titular (KI-126); gravação em passos da abordagem (KI-127); ajustes de tela depois do merge com a branch de UI (KI-125, KI-128).
 
 ### F11 — Envio autorizado e conversas (G)
 - Conexão OAuth de caixa (provedor conforme D-CHAN-1; escopo mínimo `gmail.send` ou `Mail.Send`), checagem de SPF/DKIM/DMARC do domínio remetente, envio via workflow com espera de aprovação, supressão no envio, limites diários e disjuntores de reputação, idempotência; sync de respostas conforme D-CHAN-2 (app interno no Workspace da agência, `Mail.Read` no Microsoft 365 ou marcação manual); `reply_classifier`; opt-out automático; tarefas assistidas para LinkedIn. Regras em [12 §5](12-seguranca-e-conformidade.md).

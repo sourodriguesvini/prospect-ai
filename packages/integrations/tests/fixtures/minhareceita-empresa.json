@@ -1,0 +1,38 @@
+{
+  "_synthetic": true,
+  "uf": "MG",
+  "cep": "30000000",
+  "qsa": [
+    {
+      "nome_socio": "SOCIO EXEMPLO PEREIRA",
+      "cnpj_cpf_do_socio": "***000000**",
+      "qualificacao_socio": "Sócio"
+    }
+  ],
+  "cnpj": "77888999000181",
+  "email": "financeiro@exemplo.invalid",
+  "porte": "MICRO EMPRESA",
+  "bairro": "SAVASSI",
+  "numero": "10",
+  "municipio": "BELO HORIZONTE",
+  "logradouro": "EXEMPLO",
+  "cnae_fiscal": 8630504,
+  "razao_social": "CLINICA EXEMPLO ODONTOLOGIA LTDA",
+  "nome_fantasia": "SORRISO EXEMPLO",
+  "capital_social": 50000.5,
+  "ddd_telefone_1": "3100000000",
+  "opcao_pelo_mei": false,
+  "cnaes_secundarios": [
+    { "codigo": 0, "descricao": "" },
+    { "codigo": 8630506, "descricao": "Serviços de vacinação" }
+  ],
+  "natureza_juridica": "Sociedade Empresária Limitada",
+  "opcao_pelo_simples": true,
+  "situacao_cadastral": 2,
+  "cnae_fiscal_descricao": "Atividade odontológica",
+  "codigo_municipio_ibge": 3106200,
+  "data_inicio_atividade": "2019-02-01",
+  "data_situacao_cadastral": "2019-02-01",
+  "identificador_matriz_filial": 1,
+  "descricao_situacao_cadastral": "ATIVA"
+}

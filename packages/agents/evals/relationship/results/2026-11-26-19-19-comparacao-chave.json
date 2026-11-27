@@ -1,0 +1,98 @@
+{
+  "synthetic": true,
+  "A": "2026-11-25-12-23-a1-m1.json · qwen3.5:4b",
+  "B": "2026-11-25-12-52-a3-m3.json · qwen3.5:4b",
+  "seed": 1,
+  "key": [
+    {
+      "item": 1,
+      "caseId": "approach:canal-email-sem-historia",
+      "first": "A",
+      "second": "B"
+    },
+    {
+      "item": 2,
+      "caseId": "message:rodape-sem-descadastro",
+      "first": "B",
+      "second": "A"
+    },
+    {
+      "item": 3,
+      "caseId": "message:fora-reescrita-encurta",
+      "first": "A",
+      "second": "B"
+    },
+    {
+      "item": 4,
+      "caseId": "message:reescrita-mais-curta",
+      "first": "A",
+      "second": "B"
+    },
+    {
+      "item": 5,
+      "caseId": "message:fora-diagnostico-exagerado",
+      "first": "A",
+      "second": "B"
+    },
+    {
+      "item": 6,
+      "caseId": "message:mensagem-nova-fonte-e-proporcao",
+      "first": "B",
+      "second": "A"
+    },
+    {
+      "item": 7,
+      "caseId": "message:empresa-individual",
+      "first": "B",
+      "second": "A"
+    },
+    {
+      "item": 8,
+      "caseId": "message:follow-up-sem-culpa",
+      "first": "A",
+      "second": "B"
+    },
+    {
+      "item": 9,
+      "caseId": "approach:proporcao-contraste",
+      "first": "A",
+      "second": "B"
+    },
+    {
+      "item": 10,
+      "caseId": "message:reescrita-tom-formal",
+      "first": "B",
+      "second": "A"
+    },
+    {
+      "item": 11,
+      "caseId": "approach:pedido-sem-fonte",
+      "first": "B",
+      "second": "A"
+    },
+    {
+      "item": 12,
+      "caseId": "message:reescrita-acrescenta-loja",
+      "first": "A",
+      "second": "B"
+    },
+    {
+      "item": 13,
+      "caseId": "approach:fora-pedido-unidade",
+      "first": "B",
+      "second": "A"
+    },
+    {
+      "item": 14,
+      "caseId": "approach:base-limitada",
+      "first": "B",
+      "second": "A"
+    },
+    {
+      "item": 15,
+      "caseId": "message:agencia-sem-nome",
+      "first": "B",
+      "second": "A"
+    }
+  ]
+}

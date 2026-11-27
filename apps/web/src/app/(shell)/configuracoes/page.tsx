@@ -1,48 +1,27 @@
-import { Panel, PanelHeader } from '@prospector/ui';
-import { ArrowUpRight, FileCheck2, ScrollText, Target } from 'lucide-react';
+import { Panel, PanelHeader, Well } from '@prospector/ui';
+import { ArrowUpRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { strategyRoutes } from '@/lib/strategy-routes';
+import { Suspense } from 'react';
+import {
+  DatabaseStatusValue,
+  DemoDataValue,
+  safeguards,
+} from '@/components/system/database-status';
+import { CaptureStorageValue } from '@/components/system/capture-storage-status';
+import { SETTINGS_SECTIONS } from '@/lib/navigation';
 
-export const metadata: Metadata = { title: 'Configuração' };
-
-const AVAILABLE = [
-  {
-    href: strategyRoutes.overview,
-    icon: Target,
-    title: 'Estratégia',
-    detail: 'Ofertas, rubricas, modelo de score, ICP, voz da agência e cases.',
-  },
-  {
-    href: strategyRoutes.compliance,
-    icon: FileCheck2,
-    title: 'Conformidade',
-    detail: 'LIA e texto de opt-out, condições para abordar pessoas.',
-  },
-  {
-    href: '/configuracoes/auditoria',
-    icon: ScrollText,
-    title: 'Auditoria',
-    detail: 'Registro imutável do que você, os agentes e o sistema fizeram.',
-  },
-];
-
-const PLANNED = [
-  { label: 'Integrações', slice: 'F4' },
-  { label: 'Agentes (modelos, versões de prompt, avaliações)', slice: 'F5' },
-  { label: 'Supressão e pedidos de titulares', slice: 'F9' },
-  { label: 'Uso e orçamento', slice: 'F13' },
-];
+export const metadata: Metadata = { title: 'Configurações' };
 
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-4xl tracking-[-0.03em]">Configuração</h1>
+      <h1 className="text-4xl tracking-[-0.03em]">Configurações</h1>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel aria-labelledby="disponivel">
-          <PanelHeader titleId="disponivel" title="Disponível" />
+          <PanelHeader titleId="disponivel" title="Ajustes" />
           <ul className="space-y-3">
-            {AVAILABLE.map((item) => {
+            {SETTINGS_SECTIONS.map((item) => {
               const Icon = item.icon;
               return (
                 <li key={item.href}>
@@ -57,7 +36,7 @@ export default function SettingsPage() {
                       <Icon className="size-4" />
                     </span>
                     <span className="flex-1">
-                      <span className="block font-medium">{item.title}</span>
+                      <span className="block font-medium">{item.label}</span>
                       <span className="block text-sm text-muted-foreground">{item.detail}</span>
                     </span>
                     <ArrowUpRight aria-hidden="true" className="size-4 text-muted-foreground" />
@@ -67,18 +46,45 @@ export default function SettingsPage() {
             })}
           </ul>
         </Panel>
-        <Panel aria-labelledby="em-breve">
-          <PanelHeader titleId="em-breve" title="Em breve" />
-          <ul className="divide-y">
-            {PLANNED.map((item) => (
-              <li key={item.label} className="flex items-center justify-between gap-4 py-3 text-sm">
-                <span>{item.label}</span>
-                <span className="min-w-10 shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-center text-xs text-muted-foreground">
-                  {item.slice}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <Panel aria-labelledby="sistema">
+          <PanelHeader
+            titleId="sistema"
+            title="Sistema"
+            description="Banco de dados, pasta das capturas e proteções desta instalação."
+          />
+          <Suspense
+            fallback={
+              <p role="status" className="text-2xl tracking-[-0.03em] text-muted-foreground">
+                Verificando…
+              </p>
+            }
+          >
+            <DatabaseStatusValue />
+          </Suspense>
+          <Well className="@container mt-5 p-3">
+            {/* Subgrade: rótulo, valor e nota ficam na mesma linha em todos os cartões. */}
+            <ul className="grid grid-cols-1 gap-y-2 @md:grid-cols-3 @md:gap-x-2 @md:gap-y-0">
+              {safeguards(
+                <Suspense fallback={<span role="status">Contando…</span>}>
+                  <DemoDataValue />
+                </Suspense>,
+              ).map((item) => (
+                <li
+                  key={item.label}
+                  className="row-span-3 grid grid-rows-subgrid gap-y-1 rounded-xl bg-surface p-2.5"
+                >
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p className="text-sm font-medium">{item.value}</p>
+                  <p className="text-xs text-muted-foreground">{item.note}</p>
+                </li>
+              ))}
+            </ul>
+          </Well>
+          <div className="mt-5">
+            <Suspense fallback={<p role="status">Conferindo a pasta das capturas…</p>}>
+              <CaptureStorageValue />
+            </Suspense>
+          </div>
         </Panel>
       </div>
     </div>

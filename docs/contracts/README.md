@@ -23,6 +23,20 @@
 
 Mudanças em relação ao esboço anterior desta seção: a evidência cita `sourceId` (a fonte é gravada antes pelo sistema), não uma URL solta; não existe `confidenceHint` (a única estimativa aceita do modelo é o `reasoningFactor` da inferência); o sujeito é plano (`subjectType`, `subjectId`), como no banco; as regras "fato exige evidência" e "inferência exige dependências" saíram do `superRefine` e viraram regras de domínio com código. `ClaimRef` nasce com o primeiro consumidor (F7).
 
+### 1.1 Empresas e consulta de CNPJ (M2, 2026-11-10)
+
+Implementado em `packages/contracts/src/company.ts`, com testes em `packages/contracts/tests/company.test.ts`.
+
+| Contrato | Conteúdo |
+|---|---|
+| `Cnpj`, `normalizeCnpj`, `isValidCnpj`, `formatCnpj`, `cnpjRecordUrl` | CNPJ numérico e alfanumérico (jul/2026), dígitos verificadores conferidos, sequências repetidas recusadas; endereço do registro sempre no host do provedor |
+| `CompanyInput`, `Company`, `CompanyIdentifier`, `CompanyListFilter`, `ChangeLifecycleInput` | cadastro manual (nome obrigatório; CNPJ, site, cidade e UF opcionais), empresa gravada, chaves de deduplicação (`strong`/`weak`, conferida ou não), filtro da lista com limites |
+| `CompanyLifecycle`, `COMPANY_LIFECYCLE_LABELS` | etapa no funil (`candidate` … `archived`), só mudada pelo usuário |
+| `CnpjRegistryRecord` | registro **minimizado** da Receita: sem sócios, e-mail, telefone nem endereço de rua; CPF no nome empresarial ou fantasia é recusado; `legalNatureCode` (4 dígitos) para reconhecer empresa individual |
+| `CnpjLookupFailure`, `CNPJ_LOOKUP_MESSAGES`, `CNPJ_REFRESH_MESSAGES` | `not_found`, `rate_limited`, `unavailable`, `invalid_response`, `anonymized`, com mensagens pt-BR para o cadastro e para a nova consulta |
+
+Os fatos do registro usam chaves `registry.*` (catálogo em `packages/domain/src/company/registry.ts`). As ferramentas do Copiloto `list_companies` e `get_company_dossier` são só leitura e gravam na telemetria apenas o tipo da referência e contagens.
+
 ## 2. Eventos de domínio (workflow engine)
 
 Nome `dominio.entidade.verbo`, payload mínimo (IDs), sempre com `orgId` e `idempotencyKey`.

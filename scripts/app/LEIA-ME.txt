@@ -1,0 +1,51 @@
+PROSPECTOR — programa instalado neste computador
+
+Abrir
+  Atalho "Prospector" na Área de Trabalho ou no Menu Iniciar (dá para fixar na barra de tarefas).
+  Abre a janela do Prospector (programa\Prospector.exe), sem navegador.
+  Na primeira vez do dia o servidor leva alguns segundos para subir; a janela mostra "Abrindo o
+  Prospector" enquanto isso. Abrir de novo com a janela aberta só traz a janela para a frente.
+  O app roda em http://127.0.0.1:3210 e só atende este computador (sem login, sem acesso pela rede).
+  Se o Ollama estiver fechado, o Prospector abre o Ollama também (para o Copiloto).
+
+Fechar
+  Fechar a janela fecha o Prospector e desliga o servidor dele. Com isso param também o que roda
+  por trás: análises e pesquisas em andamento, a fila de tarefas e o monitoramento. Deixe a janela
+  aberta (pode minimizar) enquanto uma análise não terminar.
+  Se a janela travar: Menu Iniciar > Prospector > "Parar Prospector".
+
+Janela
+  Links de sites abrem no navegador do sistema, nunca dentro da janela.
+  A tecla Alt mostra o menu: Recarregar (Ctrl+R ou F5), zoom (Ctrl + e Ctrl -), tela cheia (F11),
+  Ajuda > Abrir a pasta de registros.
+
+Dados
+  Os dados ficam no banco Supabase configurado em app\apps\web\.env.local (cópia do
+  C:\dev\prospector\apps\web\.env.local feita na instalação). Não compartilhe essa pasta.
+  Por isso a pasta do Prospector só é acessível pela sua conta do Windows, pelo sistema e pelos
+  administradores (o instalador ajusta isso a cada atualização).
+  dados-da-janela é o perfil do navegador interno da janela: cookies, armazenamento das páginas,
+  cache, além do tamanho da janela e do zoom. Apagar essa pasta com o Prospector fechado só faz a
+  janela voltar ao tamanho padrão.
+  As imagens das capturas de marca ficam na pasta ao lado desta, com o mesmo nome e "-dados" no
+  fim (ex.: D:\Prospector-dados\capturas), com o mesmo acesso restrito. Atualizar ou desinstalar
+  o programa não apaga essa pasta. Cada imagem fica 12 meses depois do último uso e depois é
+  apagada sozinha. O estado dela aparece em Configurações > Sistema.
+
+Atualizar depois de mudar o código
+  Em C:\dev\prospector, rode:  pnpm app:install
+  O instalador gera o build e monta a versão nova com o Prospector ainda aberto; só no fim fecha o
+  Prospector, troca as pastas e recria os atalhos. Se a troca falhar (algum arquivo em uso), a
+  versão anterior continua no lugar.
+
+Problemas
+  Registros: pasta logs (janela.log, servidor.log e servidor-erros.log).
+  Porta 3210 ocupada: a janela mostra qual programa a usa; feche-o e clique em "Tentar de novo".
+  Versão instalada: versao.txt (ou Ajuda > Sobre o Prospector).
+
+Desinstalar
+  Menu Iniciar > Prospector > "Desinstalar Prospector", ou Configurações > Aplicativos >
+  Aplicativos instalados > Prospector. Remove esta pasta, os atalhos e o registro do programa;
+  os dados no Supabase, as capturas na pasta "-dados" e o código em C:\dev\prospector não são
+  tocados. Se você fixou o
+  Prospector na barra de tarefas, desafixe à mão (o Windows não deixa programas mexerem nisso).

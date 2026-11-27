@@ -83,3 +83,15 @@ O status deste ADR passa a "Aceito" quando o CI rodar pela primeira vez com esta
 
 1. **web → domain** permitido só para valores e funções puras de apresentação: rascunhos sugeridos (`DRAFT_*`), formatação de data civil (`formatCalendarDate`) e tipos de status para rótulos. Toda decisão (prontidão, barreiras, aprovação da LIA, validação) continua passando pelos serviços de `application`; a web não chama regra do domínio para decidir nada. `scripts/check-boundaries.mjs` registra a dependência.
 2. **Adaptadores em memória** (`@prospector/application/memory`) seguem a mesma regra do item 1 da emenda F1: na web, só a raiz de composição (`apps/web/src/server/container.ts`) pode importá-los (ESLint `no-restricted-imports` e `check-boundaries.mjs`).
+
+## Emenda — M2: pacote `integrations` (2026-11-10)
+
+1. `packages/integrations` existe e implementa portas de `application` com provedores externos (hoje a consulta de CNPJ: OpenCNPJ, com a Minha Receita de reserva). Depende só de `@prospector/application`, `@prospector/contracts` e `zod` (`scripts/check-boundaries.mjs`); o ESLint proíbe nele `db`, `domain`, `agents`, `ui`, `web`, Supabase, Next e React. Biblioteca externa nova (ex.: Playwright, M3/F5) entra em `ALLOWED_EXTERNAL` por decisão registrada.
+2. **web → integrations** só pela raiz de composição (`apps/web/src/server/container.ts`), como `db` e `agents`. Ligar, desligar ou trocar o adaptador por variável é decidido ali (`PROSPECTOR_CNPJ_LOOKUP`: `on`, `off` ou `fixture`; o `fixture` sintético só vale no modo memória).
+3. Todo pedido HTTP passa pelo cliente do pacote (`src/http.ts`): só HTTPS para hosts fixos do provedor, tempo limite, limite de tamanho do corpo, tipo de conteúdo conferido e resposta validada com Zod antes de chegar à aplicação. O adaptador devolve o registro já minimizado (sem sócios, contato nem endereço de rua) e sempre do identificador pedido.
+
+## Emenda — `apps/desktop` (2026-11-26, [ADR-0018](0018-programa-de-desktop-com-electron.md))
+
+1. `apps/desktop` (`@prospector/desktop`) é a janela de desktop do app instalado (Electron). Não depende de nenhum pacote do workspace (`ALLOWED_INTERNAL` vazio) nem tem dependência de runtime (`ALLOWED_EXTERNAL` vazio): o Electron é o próprio runtime, baixado pelo instalador, e entra só como devDependency (tipos e SHA-256), junto com `resedit` e `@electron/fuses`, usados para montar o executável. O ESLint proíbe em `apps/desktop/src` os pacotes `@prospector/*`, Supabase, Next e React; a janela fala com o app só por HTTP em `127.0.0.1:3210`.
+2. Regra 7 de `scripts/check-boundaries.mjs`: a janela testa se a porta do Ollama aceita conexão, para abrir o programa do Ollama como o antigo `iniciar.ps1`; não escreve o endereço da API nem chama o modelo, que continua só no gateway de `packages/agents`.
+3. Regra 8 de `scripts/check-boundaries.mjs`: o código de `apps/desktop/src` só importa `electron`, módulos `node:*` e os próprios arquivos. A janela roda com a conta do usuário; biblioteca nova nela passa pelo ADR-0018 antes.

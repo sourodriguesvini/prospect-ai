@@ -1,8 +1,9 @@
 'use client';
 
-import type { AiErrorCode, CopilotRequestInput } from '@prospector/contracts';
-import { Alert, Button, Label, NativeSelect, Well } from '@prospector/ui';
+import type { AiErrorCode, CopilotTurnRequestInput } from '@prospector/contracts';
+import { Alert, Button, cn, Label, NativeSelect, Well } from '@prospector/ui';
 import { ArrowUp, RotateCcw, Square } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useEffect,
@@ -15,11 +16,10 @@ import {
 } from 'react';
 import {
   applyEvent,
-  buildHistory,
   createEventDecoder,
   describeUsage,
-  historyIsTrimmed,
   httpFailure,
+  type ToolActivity,
   type Turn,
 } from '@/lib/copilot';
 import { RichText } from './rich-text';
@@ -34,8 +34,8 @@ type Phase =
 const FREEING_TEXT = 'Liberando memória da placa de vídeo…';
 
 const SUGGESTIONS = [
-  'O que o Prospector já faz hoje?',
-  'Como descrever o cliente ideal de uma agência de branding?',
+  'O que falta para eu começar a prospectar?',
+  'Quais ofertas eu tenho e em que estado estão?',
   'Revise este texto de abordagem e aponte o que soa genérico:\n\n',
 ];
 
@@ -59,14 +59,20 @@ const RETRYABLE = new Set<AiErrorCode>([
 const integer = new Intl.NumberFormat('pt-BR');
 
 /**
- * Conversa com a IA local (ADR-0008). A resposta chega em streaming de `/api/copiloto`; a
- * conversa vive só nesta aba. Ao terminar, a página atualiza o painel de estado da IA local.
+ * Conversa com a IA local (ADR-0008). A resposta chega em streaming de `/api/copiloto`, que
+ * guarda a conversa no banco (IA-2): a tela manda só a pergunta e o id da conversa. Ao terminar,
+ * a página atualiza a lista de conversas e o painel de estado da IA local.
  */
 export function CopilotChat({
   models,
   noThinking = [],
   defaultModel,
   unavailable,
+  initialThreadId = null,
+  initialTurns = [],
+  persistent = true,
+  toolsEnabled = false,
+  webSearch = false,
 }: {
   models: readonly string[];
   /** Modelos que o Ollama diz não terem modo de raciocínio (marcados no seletor, KI-067). */
@@ -74,9 +80,31 @@ export function CopilotChat({
   defaultModel: string | null;
   /** Aviso mostrado antes da primeira pergunta quando o servidor já sabe que não vai responder. */
   unavailable: string | null;
+  /** Conversa aberta pela URL (`?conversa=`) e suas falas salvas. */
+  initialThreadId?: string | null;
+  initialTurns?: readonly Turn[];
+  /** false = banco não configurado: nada é salvo. */
+  persistent?: boolean;
+  /** O Copiloto consulta os dados salvos pelas ferramentas de leitura. */
+  toolsEnabled?: boolean;
+  /** Entre as ferramentas, há busca e leitura de páginas da internet (ADR-0012). */
+  webSearch?: boolean;
 }) {
   const router = useRouter();
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<Turn[]>(() => [...initialTurns]);
+  const [threadId, setThreadId] = useState<string | null>(initialThreadId);
+  // Outra conversa aberta pela lista (ou "Nova conversa"): a tela troca de falas. Só reage quando
+  // a conversa vinda do servidor muda; a conversa que esta própria tela acabou de criar chega com
+  // o mesmo id de `threadId` e não reinicia nada (as falas ao vivo têm links e avisos que o banco
+  // não guarda).
+  const [serverThreadId, setServerThreadId] = useState<string | null>(initialThreadId);
+  if (initialThreadId !== serverThreadId) {
+    setServerThreadId(initialThreadId);
+    if (initialThreadId !== threadId) {
+      setThreadId(initialThreadId);
+      setTurns([...initialTurns]);
+    }
+  }
   const [draft, setDraft] = useState('');
   const [model, setModel] = useState('');
   const [think, setThink] = useState(false);
@@ -122,9 +150,10 @@ export function CopilotChat({
     if (!content || busy) return;
     const user: Turn = { id: crypto.randomUUID(), role: 'user', content };
     const assistantId = crypto.randomUUID();
-    const body: CopilotRequestInput = {
-      schemaVersion: 1,
-      messages: buildHistory([...base, user]),
+    const body: CopilotTurnRequestInput = {
+      schemaVersion: 2,
+      threadId,
+      message: content,
       think: thinkOn,
       ...(selectedModel ? { model: selectedModel } : {}),
     };
@@ -171,6 +200,14 @@ export function CopilotChat({
         const { value, done } = await reader.read();
         const events = done ? decoder.flush() : decoder.push(value);
         for (const event of events) {
+          if (event.type === 'thread') {
+            setThreadId(event.threadId);
+            if (event.created) {
+              // Conversa nova: a URL passa a apontar para ela (recarregar a página a reabre).
+              window.history.replaceState(null, '', `/copiloto?conversa=${event.threadId}`);
+            }
+          }
+          if (event.type === 'tool_call') setAnnouncement(`${event.title}…`);
           if (event.type === 'queued') {
             setPhase({ kind: 'queued', position: event.position });
             setAnnouncement(`Na fila, posição ${event.position}.`);
@@ -274,7 +311,9 @@ export function CopilotChat({
 
   function startOver() {
     setTurns([]);
-    setAnnouncement('Conversa apagada.');
+    setThreadId(null);
+    setAnnouncement('Nova conversa.');
+    router.push('/copiloto');
     inputRef.current?.focus();
   }
 
@@ -288,7 +327,6 @@ export function CopilotChat({
   }
 
   const last = turns.at(-1);
-  const trimmed = historyIsTrimmed(turns);
   const modelLabel = (name: string) =>
     noThinking.includes(name) ? `${name} · sem raciocínio` : name;
 
@@ -298,7 +336,9 @@ export function CopilotChat({
         {announcement}
       </p>
       {turns.length === 0 ? (
-        <Well className="flex min-h-48 flex-1 flex-col justify-end gap-4 p-5 sm:min-h-72">
+        // Encostado embaixo pela margem automática do primeiro item, não por justify-end: com
+        // justify-end, o que passa da altura sobra para cima e não dá para rolar até lá.
+        <Well className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 [&>:first-child]:mt-auto">
           {unavailable ? (
             <Alert tone="warning" role="note">
               {unavailable}
@@ -307,8 +347,11 @@ export function CopilotChat({
           <div className="space-y-1">
             <p className="text-lg">Pergunte em português, do jeito que você falaria.</p>
             <p className="text-pretty text-sm text-muted-foreground">
-              O modelo roda nesta máquina. Ele conhece o estado do Prospector, mas ainda não lê
-              empresas, dossiês nem a internet: quando não souber, deve dizer que não sabe.
+              {toolsEnabled && webSearch
+                ? 'O modelo roda nesta máquina, consulta o que está salvo no Prospector (ofertas, ICPs, cases, empresas, prontidão, conformidade e auditoria) e pesquisa na internet quando você pede. O que vem da internet não é gravado nem confirmado: confira os links. Ele não envia mensagens; quando não souber, deve dizer que não sabe.'
+                : toolsEnabled
+                  ? 'O modelo roda nesta máquina e consulta o que está salvo no Prospector (ofertas, ICPs, cases, empresas, prontidão, conformidade e auditoria). Ele não lê a internet e não envia nada; quando não souber, deve dizer que não sabe.'
+                  : 'O modelo roda nesta máquina. Sem o banco configurado, ele não lê os dados do Prospector nem a internet: quando não souber, deve dizer que não sabe.'}
             </p>
           </div>
           <ul className="flex flex-wrap gap-2" aria-label="Sugestões de pergunta">
@@ -337,14 +380,10 @@ export function CopilotChat({
             const el = event.currentTarget;
             stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
           }}
-          className="max-h-[62svh] min-h-48 flex-1 overflow-y-auto rounded-[var(--radius-tile)] bg-muted p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-72 sm:p-4"
+          // `relative`: os rótulos só para leitor de tela (sr-only, posição absoluta) ficam presos
+          // ao histórico; sem isso escapam da rolagem dele e esticam a página inteira.
+          className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[var(--radius-tile)] bg-muted p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-4"
         >
-          {trimmed ? (
-            <p className="mb-4 px-1 text-xs text-muted-foreground">
-              A conversa passou do limite desta tela: as mensagens mais antigas já não são enviadas
-              ao modelo.
-            </p>
-          ) : null}
           <ol className="space-y-4">
             {turns.map((turn) =>
               turn.role === 'user' ? (
@@ -372,6 +411,7 @@ export function CopilotChat({
                       </p>
                     </details>
                   ) : null}
+                  {turn.tools?.length ? <ToolActivities tools={turn.tools} /> : null}
                   {turn.content ? (
                     <div className="whitespace-pre-wrap rounded-[var(--radius-tile)] bg-surface px-4 py-3 text-sm leading-relaxed [overflow-wrap:anywhere]">
                       <RichText text={turn.content} />
@@ -408,7 +448,8 @@ export function CopilotChat({
         </div>
       )}
 
-      <form ref={formRef} onSubmit={onSubmit} className="mt-4 space-y-3">
+      {/* Composição fixa embaixo: o histórico encolhe, o campo de mensagem nunca sai da tela. */}
+      <form ref={formRef} onSubmit={onSubmit} className="mt-4 shrink-0 space-y-3">
         <Label htmlFor={inputId} className="sr-only">
           Mensagem para o Copiloto
         </Label>
@@ -418,14 +459,17 @@ export function CopilotChat({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
-          rows={3}
+          rows={2}
           maxLength={MAX_CHARS}
           placeholder="Escreva sua pergunta"
           aria-describedby={draft.length >= COUNTER_FROM ? `${hintId} ${counterId}` : hintId}
-          className="block w-full resize-y rounded-[var(--radius-tile)] border border-input bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+          className="block max-h-[30dvh] min-h-16 w-full resize-y rounded-[var(--radius-tile)] border border-input bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         />
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <p id={hintId}>Enter envia; Shift+Enter quebra a linha; Esc interrompe a resposta.</p>
+          {/* Atalhos de teclado: fora da tela estreita (toque), mas ainda lidos pelo leitor de tela. */}
+          <p id={hintId} className="max-sm:sr-only">
+            Enter envia; Shift+Enter quebra a linha; Esc interrompe a resposta.
+          </p>
           <p id={counterId} aria-live="polite">
             {draft.length >= COUNTER_FROM
               ? `${integer.format(draft.length)} de ${integer.format(MAX_CHARS)} caracteres`
@@ -492,12 +536,67 @@ export function CopilotChat({
             )}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          A conversa fica só nesta aba: não é salva e some ao recarregar. Nesta versão o Copiloto
-          não lê seus dados salvos nem a internet e não envia nada.
+        {/* No celular some só a explicação de rotina; "conversa não é salva" é estado e fica. */}
+        <p className={cn('text-xs text-muted-foreground', persistent && 'max-sm:hidden')}>
+          {persistent
+            ? webSearch
+              ? 'A conversa fica salva no banco do Prospector e aparece na lista de conversas. O Copiloto só lê: não altera nada e não envia mensagens. Nas pesquisas, o texto da busca vai para o buscador (Tavily) e as páginas são abertas deste computador.'
+              : 'A conversa fica salva no banco do Prospector e aparece na lista de conversas. O Copiloto só lê seus dados; não altera nada e não envia nada.'
+            : 'Sem banco configurado: a conversa não é salva e cada pergunta é respondida sem as anteriores.'}
         </p>
       </form>
     </div>
+  );
+}
+
+const TOOL_STATUS_TEXT: Record<NonNullable<ToolActivity['status']>, string> = {
+  ok: 'consultado',
+  error: 'falhou',
+  denied: 'bloqueado',
+};
+
+/** Consultas feitas pelo Copiloto nesta resposta: o que foi lido, o resultado e as telas. */
+function ToolActivities({ tools }: { tools: readonly ToolActivity[] }) {
+  return (
+    <ul className="space-y-1.5" aria-label="Consultas feitas pelo Copiloto">
+      {tools.map((tool) => (
+        <li
+          key={tool.id}
+          className="rounded-[var(--radius-tile)] border border-border bg-surface px-3 py-2 text-xs"
+        >
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span
+              aria-hidden="true"
+              className={
+                tool.status === undefined
+                  ? 'size-1.5 rounded-full bg-accent motion-safe:animate-pulse'
+                  : tool.status === 'ok'
+                    ? 'size-1.5 rounded-full bg-success'
+                    : 'size-1.5 rounded-full bg-danger'
+              }
+            />
+            <span className="font-medium">{tool.title}</span>
+            <span className="text-muted-foreground">
+              {tool.status === undefined ? 'consultando…' : TOOL_STATUS_TEXT[tool.status]}
+            </span>
+          </p>
+          {tool.summary ? <p className="mt-0.5 text-muted-foreground">{tool.summary}</p> : null}
+          {tool.links?.length ? (
+            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              {tool.links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-foreground underline underline-offset-2 hover:no-underline"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </p>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -507,6 +606,8 @@ function Progress({ phase, turn }: { phase: Phase; turn: Turn }) {
     text = `Na fila (posição ${phase.position}). Outro pedido está sendo atendido.`;
   } else if (phase.kind === 'freeing') {
     text = `${FREEING_TEXT} Outros modelos ociosos saem da memória para este caber.`;
+  } else if (turn.tools?.some((tool) => tool.status === undefined)) {
+    text = 'Consultando os dados do Prospector…';
   } else if (turn.content) {
     text = 'Escrevendo…';
   } else if (turn.thinking) {

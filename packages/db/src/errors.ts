@@ -13,6 +13,23 @@ const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
   lia_decision_locked: 'conflict',
   lia_not_latest: 'conflict',
   review_date_out_of_range: 'validation',
+  // M2: claim substituído por outra atualização ao mesmo tempo; CNPJ ou domínio já cadastrado.
+  concurrent_change: 'conflict',
+  company_duplicate: 'conflict',
+  // M3: oportunidade aberta repetida, encerrada, empresa suprimida, aprovação que não vale mais.
+  opportunity_open_exists: 'conflict',
+  opportunity_closed: 'conflict',
+  company_suppressed: 'conflict',
+  approval_invalid: 'conflict',
+  approval_used: 'conflict',
+  suppression_locked: 'conflict',
+  // Módulo 02: estado final não volta; segunda investigação ativa da mesma empresa.
+  investigation_not_resumable: 'conflict',
+  investigation_running: 'conflict',
+  // Pessoas: LIA que não cobre a linha, opt-out final, identidade suprimida.
+  person_lia_not_covering: 'conflict',
+  person_opted_out: 'conflict',
+  person_suppressed: 'conflict',
 };
 
 interface DbErrorLike {

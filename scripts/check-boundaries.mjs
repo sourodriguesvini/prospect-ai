@@ -4,12 +4,18 @@
  *  1. dependências declaradas entre pacotes do workspace (package.json);
  *  2. dependências externas proibidas em pacotes puros;
  *  3. imports relativos que escapam da pasta do pacote (atalho para burlar as regras acima);
- *  4. `@prospector/db` e `@prospector/agents` na web só na raiz de composição;
+ *  4. `@prospector/db`, `@prospector/agents` e `@prospector/integrations` na web só na raiz de
+ *     composição;
  *  5. nenhum `@supabase/*` na web (nem no package.json nem em imports): o Supabase fica dentro
  *     de @prospector/db (ADR-0007);
  *  6. credenciais do banco (`process.env.SUPABASE_*`) só são lidas em src/server/env.ts, e a web não usa
  *     variáveis `NEXT_PUBLIC_*` (nada do servidor vai para o navegador).
  *  7. chamadas a modelos locais (API do Ollama, porta 11434) só em packages/agents (ADR-0008).
+ *     A janela de desktop (apps/desktop) só testa se a porta aceita conexão para abrir o programa
+ *     do Ollama e não escreve o endereço da API (ADR-0018).
+ *  8. o código da janela de desktop (apps/desktop/src) só importa `electron`, módulos `node:*` e
+ *     arquivos dele mesmo: ela roda com a conta do usuário, então biblioteca nova passa por aqui
+ *     (e pelo ADR-0018) antes de entrar.
  * Sai com código 1 e lista as violações.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -25,8 +31,12 @@ const ALLOWED_INTERNAL = {
   '@prospector/application': ['@prospector/domain', '@prospector/contracts'],
   '@prospector/db': ['@prospector/application', '@prospector/contracts'],
   '@prospector/agents': ['@prospector/application', '@prospector/contracts'],
+  // Adaptadores de serviços externos (CNPJ, captura, busca): implementam portas da aplicação.
+  '@prospector/integrations': ['@prospector/application', '@prospector/contracts'],
   '@prospector/ui': [],
   '@prospector/config': [],
+  // Janela de desktop (Electron, ADR-0018): fala com o app só por HTTP em 127.0.0.1:3210.
+  '@prospector/desktop': [],
   '@prospector/web': [
     '@prospector/application',
     '@prospector/contracts',
@@ -34,6 +44,7 @@ const ALLOWED_INTERNAL = {
     '@prospector/ui',
     '@prospector/db',
     '@prospector/agents',
+    '@prospector/integrations',
   ],
 };
 
@@ -44,12 +55,22 @@ const ALLOWED_EXTERNAL = {
   '@prospector/application': ['zod'],
   // IA local sem SDK (ADR-0008): fala com o Ollama por `fetch`. SDK de IA novo passa por aqui.
   '@prospector/agents': ['zod'],
+  // Integrações por `fetch` nativo; SDK de terceiro novo passa por aqui (skill integracao-externa).
+  // playwright-core: leitor de páginas da pesquisa na internet (ADR-0012), sem baixar navegador.
+  // nodemailer (MIT-0) e imapflow (MIT): SMTP e IMAP da caixa do próprio usuário (ADR-0016).
+  '@prospector/integrations': ['zod', 'playwright-core', 'nodemailer', 'imapflow'],
+  // O Electron é o próprio runtime (baixado pelo instalador) e entra só como devDependency
+  // (tipos e SHA-256), junto com resedit e @electron/fuses, usados ao montar o executável.
+  '@prospector/desktop': [],
 };
 
 const WEB_SRC = join('apps', 'web', 'src');
 const COMPOSITION_ROOT = join(WEB_SRC, 'server', 'container.ts');
 const SECRET_READER = join(WEB_SRC, 'server', 'env.ts');
 const AGENTS_DIR = join('packages', 'agents');
+const DESKTOP_SRC = join('apps', 'desktop', 'src');
+/** O que o código da janela de desktop pode importar, além dos próprios arquivos. */
+const DESKTOP_IMPORT_OK = /^(electron|node:[a-z_/]+)$/;
 const IMPORT_RE =
   /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g;
 
@@ -151,7 +172,7 @@ for (const dir of workspaceDirs()) {
       }
       if (
         name === '@prospector/web' &&
-        /^@prospector\/(db|agents)(\/|$)/.test(spec) &&
+        /^@prospector\/(db|agents|integrations)(\/|$)/.test(spec) &&
         fileRel !== COMPOSITION_ROOT
       ) {
         violations.push(`${fileRel}: ${spec} só pode ser importado em ${COMPOSITION_ROOT}.`);
@@ -167,6 +188,15 @@ for (const dir of workspaceDirs()) {
       }
       if (name === '@prospector/web' && spec.startsWith('@supabase/')) {
         violations.push(`${fileRel}: Supabase não entra na web; use os serviços de application.`);
+      }
+      if (
+        fileRel.startsWith(DESKTOP_SRC + sep) &&
+        !spec.startsWith('.') &&
+        !DESKTOP_IMPORT_OK.test(spec)
+      ) {
+        violations.push(
+          `${fileRel}: a janela de desktop só importa electron e node:* (ADR-0018); "${spec}" não.`,
+        );
       }
     }
   }

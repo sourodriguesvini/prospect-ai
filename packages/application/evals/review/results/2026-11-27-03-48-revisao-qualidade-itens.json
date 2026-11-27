@@ -1,0 +1,335 @@
+{
+  "synthetic": true,
+  "items": [
+    {
+      "id": "caso-1-investimento",
+      "title": "Caso 1 — empresa que recebeu investimento (inspirado na Flash)",
+      "synthetic": true,
+      "producedBy": "regra compatibility/v1 (perfil Found Studio), sem modelo",
+      "recommendation": {
+        "key": "approach",
+        "label": "Vale preparar a abordagem",
+        "reason": "Há acontecimento com fonte e uma solução compatível: vale preparar a abordagem, confirmando os pontos abertos."
+      },
+      "summary": [
+        {
+          "question": "Quem é a empresa?",
+          "text": "Plataforma de benefícios e gestão de pessoas para empresas."
+        },
+        {
+          "question": "O que está acontecendo?",
+          "text": "19/08/2026: A Fintech Exemplo não precisava de dinheiro, mas levantou R$ 150 milhões (fato, imprensa.test). 02/10/2026: Fintech Exemplo lança nova plataforma de contratação com IA (fato, fintech-exemplo.test)."
+        },
+        {
+          "question": "Por que ela merece atenção?",
+          "text": "Hipótese a confirmar: Produto digital em fase de crescimento, que pode precisar de discovery, roadmap, experiência e design system para evoluir sem perder consistência. O acontecimento é recente (19/08/2026): é a fase em que a empresa decide o que muda."
+        },
+        {
+          "question": "Onde podemos contribuir?",
+          "text": "Estruturação e evolução do produto digital: Diagnóstico de produto, Product Discovery, Estruturação de roadmap, UX/UI, Design System, Direção de implementação."
+        },
+        {
+          "question": "Qual é a melhor abordagem?",
+          "text": "Vale preparar a abordagem. Com quem falar: liderança de produto ou tecnologia (CPO, head de produto, CTO). Para abrir: investimento ou rodada, anúncio de 19/08/2026, e o que isso muda em produto e time na Fintech Exemplo."
+        }
+      ],
+      "principal": {
+        "title": "Estruturação e evolução do produto digital",
+        "problem": "Hipótese a confirmar: Produto digital em fase de crescimento, que pode precisar de discovery, roadmap, experiência e design system para evoluir sem perder consistência.",
+        "whyNow": "O acontecimento é recente (19/08/2026): é a fase em que a empresa decide o que muda.",
+        "offer": [
+          "Diagnóstico de produto",
+          "Product Discovery",
+          "Estruturação de roadmap",
+          "UX/UI",
+          "Design System",
+          "Direção de implementação"
+        ],
+        "approachRole": "Liderança de produto ou tecnologia (CPO, head de produto, CTO)",
+        "openingTopic": "Investimento ou rodada, anúncio de 19/08/2026, e o que isso muda em produto e time na Fintech Exemplo."
+      },
+      "doNotOffer": [
+        "Tratar o investimento como orçamento para serviços: A destinação dos recursos não está documentada.",
+        "Abrir pela auditoria do site (contraste, toque, rolagem): É detalhe técnico; o momento da empresa é outro.",
+        "O portfólio inteiro: Um ângulo principal por abordagem, no máximo duas alternativas."
+      ],
+      "toConfirm": [
+        "Se a empresa tem produto digital próprio e quem lidera essa área",
+        "Se há time interno de produto e design e o que ele já cobre",
+        "Para que serão usados os recursos do investimento",
+        "Quem decide sobre o tema (Liderança de produto ou tecnologia (CPO, head de produto, CTO)) e um canal profissional público"
+      ],
+      "sources": [
+        {
+          "label": "A Fintech Exemplo não precisava de dinheiro, mas levantou R$ 150 milhões",
+          "url": "https://imprensa.test/materia"
+        },
+        {
+          "label": "Fintech Exemplo lança nova plataforma de contratação com IA",
+          "url": "https://fintech-exemplo.test/novidades"
+        }
+      ],
+      "message": null,
+      "durationMs": 4.36,
+      "durationNote": "só a regra da tese e do resumo, sem busca na internet nem modelo"
+    },
+    {
+      "id": "caso-3-contratando",
+      "title": "Caso 3 — startup contratando produto e tecnologia",
+      "synthetic": true,
+      "producedBy": "regra compatibility/v1 (perfil Found Studio), sem modelo",
+      "recommendation": {
+        "key": "approach",
+        "label": "Vale preparar a abordagem",
+        "reason": "Há acontecimento com fonte e uma solução compatível: vale preparar a abordagem, confirmando os pontos abertos."
+      },
+      "summary": [
+        {
+          "question": "Quem é a empresa?",
+          "text": "Ainda não sabemos: o site não foi lido e o CNPJ não foi consultado."
+        },
+        {
+          "question": "O que está acontecendo?",
+          "text": "01/11/2026: Acme abre vagas de Product Manager e engenharia (fato, acme.test). 15/09/2026: Acme anuncia nova CPO (fato, imprensa.test)."
+        },
+        {
+          "question": "Por que ela merece atenção?",
+          "text": "Hipótese a confirmar: Produto digital em fase de crescimento, que pode precisar de discovery, roadmap, experiência e design system para evoluir sem perder consistência. O acontecimento é recente (15/09/2026): é a fase em que a empresa decide o que muda."
+        },
+        {
+          "question": "Onde podemos contribuir?",
+          "text": "Estruturação e evolução do produto digital: Diagnóstico de produto, Product Discovery, Estruturação de roadmap, UX/UI, Design System, Direção de implementação."
+        },
+        {
+          "question": "Qual é a melhor abordagem?",
+          "text": "Vale preparar a abordagem. Com quem falar: liderança de produto ou tecnologia (CPO, head de produto, CTO). Para abrir: mudança de liderança, anúncio de 15/09/2026, e o que isso muda em produto e time na Acme."
+        }
+      ],
+      "principal": {
+        "title": "Estruturação e evolução do produto digital",
+        "problem": "Hipótese a confirmar: Produto digital em fase de crescimento, que pode precisar de discovery, roadmap, experiência e design system para evoluir sem perder consistência.",
+        "whyNow": "O acontecimento é recente (15/09/2026): é a fase em que a empresa decide o que muda.",
+        "offer": [
+          "Diagnóstico de produto",
+          "Product Discovery",
+          "Estruturação de roadmap",
+          "UX/UI",
+          "Design System",
+          "Direção de implementação"
+        ],
+        "approachRole": "Liderança de produto ou tecnologia (CPO, head de produto, CTO)",
+        "openingTopic": "Mudança de liderança, anúncio de 15/09/2026, e o que isso muda em produto e time na Acme."
+      },
+      "doNotOffer": [
+        "O portfólio inteiro: Um ângulo principal por abordagem, no máximo duas alternativas."
+      ],
+      "toConfirm": [
+        "Se a empresa tem produto digital próprio e quem lidera essa área",
+        "Se há time interno de produto e design e o que ele já cobre",
+        "Outra fonte independente para: Acme anuncia nova CPO",
+        "Quem decide sobre o tema (Liderança de produto ou tecnologia (CPO, head de produto, CTO)) e um canal profissional público"
+      ],
+      "sources": [
+        {
+          "label": "Acme abre vagas de Product Manager e engenharia",
+          "url": "https://acme.test/carreiras"
+        },
+        {
+          "label": "Acme anuncia nova CPO",
+          "url": "https://imprensa.test/materia"
+        }
+      ],
+      "message": null,
+      "durationMs": 0.99,
+      "durationNote": "só a regra da tese e do resumo, sem busca na internet nem modelo"
+    },
+    {
+      "id": "caso-4-so-site",
+      "title": "Caso 4 — só problema de site",
+      "synthetic": true,
+      "producedBy": "regra compatibility/v1 (perfil Found Studio), sem modelo",
+      "recommendation": {
+        "key": "deprioritize",
+        "label": "Não priorizar agora",
+        "reason": "Só há detalhes técnicos do site: não justificam uma abordagem estratégica agora."
+      },
+      "summary": [
+        {
+          "question": "Quem é a empresa?",
+          "text": "Ainda não sabemos: o site não foi lido e o CNPJ não foi consultado."
+        },
+        {
+          "question": "O que está acontecendo?",
+          "text": "Nenhum acontecimento recente apareceu nas fontes consultadas."
+        },
+        {
+          "question": "Por que ela merece atenção?",
+          "text": "Hipótese a confirmar: Site com falhas de leitura ou de uso no celular, que podem atrapalhar quem visita. Medições do site não indicam momento: não há urgência a partir delas."
+        },
+        {
+          "question": "Onde podemos contribuir?",
+          "text": "Ajustes de experiência no site: Site."
+        },
+        {
+          "question": "Qual é a melhor abordagem?",
+          "text": "Não priorizar agora: só há detalhes técnicos do site: não justificam uma abordagem estratégica agora."
+        }
+      ],
+      "principal": {
+        "title": "Ajustes de experiência no site",
+        "problem": "Hipótese a confirmar: Site com falhas de leitura ou de uso no celular, que podem atrapalhar quem visita.",
+        "whyNow": "Medições do site não indicam momento: não há urgência a partir delas.",
+        "offer": [
+          "Site"
+        ],
+        "approachRole": "Responsável pelo site ou pelo marketing digital",
+        "openingTopic": "Uma observação concreta do site, como pergunta, sem tratar como projeto grande."
+      },
+      "doNotOffer": [
+        "O portfólio inteiro: Um ângulo principal por abordagem, no máximo duas alternativas."
+      ],
+      "toConfirm": [
+        "Se o site é prioridade para a empresa agora",
+        "Quem cuida do site (time interno ou fornecedor)",
+        "Quem decide sobre o tema (Responsável pelo site ou pelo marketing digital) e um canal profissional público"
+      ],
+      "sources": [],
+      "message": null,
+      "durationMs": 0.27,
+      "durationNote": "só a regra da tese e do resumo, sem busca na internet nem modelo"
+    },
+    {
+      "id": "caso-5-demanda",
+      "title": "Caso 5 — demanda declarada pela empresa",
+      "synthetic": true,
+      "producedBy": "regra compatibility/v1 (perfil Found Studio), sem modelo",
+      "recommendation": {
+        "key": "approach",
+        "label": "Vale preparar a abordagem",
+        "reason": "A empresa publicou o que procura e o pedido cabe no catálogo: vale preparar a resposta, conferindo prazo e escopo."
+      },
+      "summary": [
+        {
+          "question": "Quem é a empresa?",
+          "text": "Ainda não sabemos: o site não foi lido e o CNPJ não foi consultado."
+        },
+        {
+          "question": "O que está acontecendo?",
+          "text": "20/11/2026: A Casa Aurora procura um estúdio para refazer a identidade visual (fato, casaaurora.test)."
+        },
+        {
+          "question": "Por que ela merece atenção?",
+          "text": "Demanda declarada pela empresa: estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis. A empresa publicou que procura estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis e o prazo é 15/12/2026 (faltam 18 dias)."
+        },
+        {
+          "question": "Onde podemos contribuir?",
+          "text": "Marca para a nova estrutura da empresa: Estratégia e arquitetura de marca, Identidade visual ou rebranding."
+        },
+        {
+          "question": "Qual é a melhor abordagem?",
+          "text": "Vale preparar a abordagem. Com quem falar: quem responde pela publicação (compras@casaaurora.test). Para abrir: resposta ao pedido publicado: estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis (prazo: até 15/12) pelo canal que ela indicou (compras@casaaurora.test), com o que a Found Studio entrega para isso."
+        }
+      ],
+      "principal": {
+        "title": "Marca para a nova estrutura da empresa",
+        "problem": "Demanda declarada pela empresa: estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis.",
+        "whyNow": "A empresa publicou que procura estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis e o prazo é 15/12/2026 (faltam 18 dias).",
+        "offer": [
+          "Estratégia e arquitetura de marca",
+          "Identidade visual ou rebranding"
+        ],
+        "approachRole": "Quem responde pela publicação (compras@casaaurora.test)",
+        "openingTopic": "Resposta ao pedido publicado: estúdio para refazer a identidade visual antes do lançamento da nova linha de móveis (prazo: até 15/12) pelo canal que ela indicou (compras@casaaurora.test), com o que a Found Studio entrega para isso."
+      },
+      "doNotOffer": [
+        "Abrir pela auditoria do site (contraste, toque, rolagem): É detalhe técnico; o momento da empresa é outro.",
+        "O portfólio inteiro: Um ângulo principal por abordagem, no máximo duas alternativas."
+      ],
+      "toConfirm": [
+        "Se a procura continua aberta e o que a resposta precisa trazer (escopo, formato)",
+        "Se a empresa vê a marca atual como um problema",
+        "Quando foi a última revisão da marca",
+        "Outra fonte independente para: A Casa Aurora procura um estúdio para refazer a identidade visual",
+        "Quem decide sobre o tema (Marketing ou marca (CMO, head de marca) ou fundadores) e um canal profissional público"
+      ],
+      "sources": [
+        {
+          "label": "A Casa Aurora procura um estúdio para refazer a identidade visual",
+          "url": "https://casaaurora.test/novidades/estudio"
+        }
+      ],
+      "message": null,
+      "durationMs": 0.85,
+      "durationNote": "só a regra da tese e do resumo, sem busca na internet nem modelo"
+    },
+    {
+      "id": "caso-6-divergencia",
+      "title": "Caso 6 — fontes contraditórias",
+      "synthetic": true,
+      "producedBy": "regra compatibility/v1 (perfil Found Studio), sem modelo",
+      "recommendation": {
+        "key": "deepen_research",
+        "label": "Vale aprofundar a pesquisa antes",
+        "reason": "As fontes divergem sobre o acontecimento: confirmar a versão correta antes de abordar."
+      },
+      "summary": [
+        {
+          "question": "Quem é a empresa?",
+          "text": "Ainda não sabemos: o site não foi lido e o CNPJ não foi consultado."
+        },
+        {
+          "question": "O que está acontecendo?",
+          "text": "19/08/2026: Beta recebe aporte para expandir (fato, imprensa.test)."
+        },
+        {
+          "question": "Por que ela merece atenção?",
+          "text": "Hipótese a confirmar: Produto digital em fase de crescimento, que pode precisar de discovery, roadmap, experiência e design system para evoluir sem perder consistência. O acontecimento é recente (19/08/2026): é a fase em que a empresa decide o que muda."
+        },
+        {
+          "question": "Onde podemos contribuir?",
+          "text": "Estruturação e evolução do produto digital: Diagnóstico de produto, Product Discovery, Estruturação de roadmap, UX/UI, Design System, Direção de implementação."
+        },
+        {
+          "question": "Qual é a melhor abordagem?",
+          "text": "Vale aprofundar a pesquisa antes. Com quem falar: liderança de produto ou tecnologia (CPO, head de produto, CTO). Para abrir: investimento ou rodada, anúncio de 19/08/2026, e o que isso muda em produto e time na Beta."
+        }
+      ],
+      "principal": {
+        "title": "Estruturação e evolução do produto digital",
+        "problem": "Hipótese a confirmar: Produto digital em fase de crescimento, que pode precisar de discovery, roadmap, experiência e design system para evoluir sem perder consistência.",
+        "whyNow": "O acontecimento é recente (19/08/2026): é a fase em que a empresa decide o que muda.",
+        "offer": [
+          "Diagnóstico de produto",
+          "Product Discovery",
+          "Estruturação de roadmap",
+          "UX/UI",
+          "Design System",
+          "Direção de implementação"
+        ],
+        "approachRole": "Liderança de produto ou tecnologia (CPO, head de produto, CTO)",
+        "openingTopic": "Investimento ou rodada, anúncio de 19/08/2026, e o que isso muda em produto e time na Beta."
+      },
+      "doNotOffer": [
+        "Tratar o investimento como orçamento para serviços: A destinação dos recursos não está documentada.",
+        "O portfólio inteiro: Um ângulo principal por abordagem, no máximo duas alternativas."
+      ],
+      "toConfirm": [
+        "Se a empresa tem produto digital próprio e quem lidera essa área",
+        "Se há time interno de produto e design e o que ele já cobre",
+        "Para que serão usados os recursos do investimento",
+        "Qual versão está certa. Valores diferentes entre as fontes: R$ 150 milhões (imprensa.test) e R$ 120 milhões (outra.test).",
+        "Outra fonte independente para: Beta recebe aporte para expandir",
+        "Quem decide sobre o tema (Liderança de produto ou tecnologia (CPO, head de produto, CTO)) e um canal profissional público"
+      ],
+      "sources": [
+        {
+          "label": "Beta recebe aporte para expandir",
+          "url": "https://imprensa.test/materia"
+        }
+      ],
+      "message": null,
+      "durationMs": 0.46,
+      "durationNote": "só a regra da tese e do resumo, sem busca na internet nem modelo"
+    }
+  ]
+}

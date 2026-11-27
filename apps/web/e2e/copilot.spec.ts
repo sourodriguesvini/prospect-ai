@@ -2,7 +2,15 @@ import { expect, test } from '@playwright/test';
 import { expectNoA11yViolations } from './support';
 
 const withOllama = process.env.E2E_OLLAMA === '1';
-const ask = { schemaVersion: 1, messages: [{ role: 'user', content: 'oi' }] };
+/**
+ * Com E2E_SUPABASE=1 o servidor principal salva cada pergunta no banco. Os testes que mandam
+ * pergunta ficam no servidor sem banco (e as conversas salvas, em copilot-history.spec.ts, no
+ * modo memória): teste que grava dados não grava no banco real.
+ */
+const withDatabase = process.env.E2E_SUPABASE === '1';
+const SAVES_TO_DATABASE =
+  'com E2E_SUPABASE=1 a pergunta seria salva no banco (ver copilot-history.spec.ts)';
+const ask = { schemaVersion: 2, threadId: null, message: 'oi' };
 
 test.describe('Copiloto: rota protegida', () => {
   test('recusa pedido vindo de outro site (CSRF)', async ({ request }) => {
@@ -26,14 +34,18 @@ test.describe('Copiloto: rota protegida', () => {
       data: 'oi',
     });
     expect(text.status()).toBe(415);
+    // O formato antigo (histórico vindo do navegador) não é mais aceito (KI-032).
+    const old = await request.post('/api/copiloto', {
+      headers,
+      data: { schemaVersion: 1, messages: [{ role: 'user', content: 'oi' }] },
+    });
+    expect(old.status()).toBe(400);
     const invalid = await request.post('/api/copiloto', {
       headers,
-      data: { schemaVersion: 1, messages: [{ role: 'assistant', content: 'oi' }] },
+      data: { schemaVersion: 2, threadId: 'abc', message: 'oi' },
     });
     expect(invalid.status()).toBe(400);
-    expect((await invalid.json()) as unknown).toEqual({
-      error: 'A última mensagem precisa ser do usuário.',
-    });
+    expect((await invalid.json()) as { error: string }).toEqual({ error: expect.any(String) });
   });
 });
 
@@ -51,6 +63,7 @@ test.describe('Copiloto sem Ollama', () => {
   });
 
   test('a rota responde em NDJSON com erro tratado', async ({ request, baseURL }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     const response = await request.post('/api/copiloto', {
       data: ask,
       headers: { origin: baseURL!, 'sec-fetch-site': 'same-origin' },
@@ -61,12 +74,15 @@ test.describe('Copiloto sem Ollama', () => {
       .trim()
       .split('\n')
       .map((line) => JSON.parse(line) as { type: string; code?: string });
+    // Sem banco: avisa que a conversa não fica salva e responde com o erro tratado.
     expect(events).toEqual([
+      expect.objectContaining({ type: 'notice' }),
       expect.objectContaining({ type: 'error', code: 'runtime_unavailable' }),
     ]);
   });
 
   test('enviar uma pergunta mostra o erro na conversa, sem travar a tela', async ({ page }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     await page.goto('/copiloto');
     const input = page.getByRole('textbox', { name: 'Mensagem para o Copiloto' });
     await input.fill('Que dia é hoje?');
@@ -85,6 +101,7 @@ test.describe('Copiloto no celular e no tema escuro', () => {
   test('no celular nada transborda e a pergunta volta para o campo depois do erro', async ({
     page,
   }) => {
+    test.skip(withDatabase, SAVES_TO_DATABASE);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/copiloto');
     await expect(page.getByRole('heading', { level: 1, name: 'Copiloto' })).toBeVisible();
@@ -102,6 +119,69 @@ test.describe('Copiloto no celular e no tema escuro', () => {
     );
     expect(overflow).toBeLessThanOrEqual(0);
     await expectNoA11yViolations(page);
+  });
+
+  // Diretriz 2026-11-26, Parte 6.1: o documento não rola; só o histórico rola e o campo fica à vista.
+  for (const size of [
+    { name: 'computador', width: 1280, height: 800 },
+    // Entre `sm` e `md` a moldura tem bordas maiores e o topo fixo: a conta da altura é outra.
+    { name: 'tela média', width: 700, height: 800 },
+    { name: 'celular', width: 375, height: 812 },
+  ]) {
+    test(`tela de chat (${size.name}): só o histórico rola e o campo de mensagem não some`, async ({
+      page,
+    }) => {
+      test.skip(withDatabase, SAVES_TO_DATABASE);
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await page.goto('/copiloto');
+      const input = page.getByRole('textbox', { name: 'Mensagem para o Copiloto' });
+      const log = page.getByRole('log', { name: 'Conversa com o Copiloto' });
+      for (let turn = 1; turn <= 6; turn++) {
+        await input.fill(
+          `Pergunta ${turn}: ${'texto longo para ocupar espaço na conversa. '.repeat(6)}`,
+        );
+        await input.press('Enter');
+        await expect(log.getByRole('alert')).toHaveCount(turn);
+      }
+      const layout = await page.evaluate(() => {
+        const history = document.querySelector('[role="log"]');
+        const field = document.querySelector('textarea')?.getBoundingClientRect();
+        return {
+          documentScrolls: document.documentElement.scrollHeight > window.innerHeight + 1,
+          historyScrolls: history ? history.scrollHeight > history.clientHeight : false,
+          fieldVisible: field ? field.top >= 0 && field.bottom <= window.innerHeight : false,
+        };
+      });
+      expect(layout).toEqual({ documentScrolls: false, historyScrolls: true, fieldVisible: true });
+    });
+  }
+
+  test('celular: conversas salvas e IA local abrem por cima da conversa e fecham', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/copiloto');
+    const toggle = page.getByRole('button', { name: 'Conversas, pesquisas e IA local' });
+    await expect(page.getByText('Ollama fora do ar')).toBeHidden();
+    await toggle.click();
+    await expect(page.getByText('Ollama fora do ar')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Voltar à conversa' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    // A conversa coberta sai do alcance do teclado e do leitor de tela.
+    expect(
+      await page.evaluate(() => document.querySelector('textarea')?.closest('[inert]') != null),
+    ).toBe(true);
+    await expectNoA11yViolations(page);
+    await page.getByRole('button', { name: 'Voltar à conversa' }).click();
+    await expect(page.getByRole('textbox', { name: 'Mensagem para o Copiloto' })).toBeVisible();
+    // Esc fecha mesmo com o foco no botão e devolve o foco a ele.
+    await toggle.click();
+    await expect(page.getByText('Ollama fora do ar')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Ollama fora do ar')).toBeHidden();
+    await expect(toggle).toBeFocused();
   });
 
   test('tema escuro passa na acessibilidade', async ({ page }) => {

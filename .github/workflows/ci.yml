@@ -34,7 +34,13 @@ jobs:
       - run: pnpm format:check
       - run: pnpm test
       - run: pnpm test:db
-      - run: pnpm --filter @prospector/web exec playwright install --with-deps chromium
+      # A imagem do runner já traz as bibliotecas do Chromium; o --with-deps só baixa fontes
+      # opcionais do espelho do Ubuntu. Se o espelho estiver fora do alcance (KI-102), segue
+      # com o navegador sem essas fontes em vez de derrubar o CI.
+      - name: Instalar o Chromium do Playwright
+        run: >-
+          pnpm --filter @prospector/web exec playwright install --with-deps chromium ||
+          pnpm --filter @prospector/web exec playwright install chromium
       - run: pnpm test:e2e
       - if: failure()
         uses: actions/upload-artifact@v4
@@ -70,7 +76,13 @@ jobs:
             echo "TEST_DATABASE_URL=$(jq -r '.DB_URL' "$RUNNER_TEMP/supabase.json")"
           } >> "$GITHUB_ENV"
       - run: pnpm test:db
-      - run: pnpm --filter @prospector/web exec playwright install --with-deps chromium
+      # A imagem do runner já traz as bibliotecas do Chromium; o --with-deps só baixa fontes
+      # opcionais do espelho do Ubuntu. Se o espelho estiver fora do alcance (KI-102), segue
+      # com o navegador sem essas fontes em vez de derrubar o CI.
+      - name: Instalar o Chromium do Playwright
+        run: >-
+          pnpm --filter @prospector/web exec playwright install --with-deps chromium ||
+          pnpm --filter @prospector/web exec playwright install chromium
       - run: pnpm test:e2e
         env:
           E2E_SUPABASE: '1'

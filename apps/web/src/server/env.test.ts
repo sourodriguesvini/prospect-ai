@@ -1,8 +1,12 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { LOCAL_AI_ENV_FORMATS, LocalAiConfigError, localAiEnv } = await import('./env');
+const { LOCAL_AI_ENV_FORMATS, LocalAiConfigError, investigationEnv, localAiEnv, jobWorkerEnabled } =
+  await import('./env');
 const { getLocalAi } = await import('./container');
 
 const AI_VARS = [
@@ -138,5 +142,126 @@ describe('getLocalAi com configuração inválida', () => {
       state: 'offline',
       code: 'runtime_unavailable',
     });
+  });
+});
+
+describe('trabalhador da fila (PROSPECTOR_JOB_WORKER)', () => {
+  it('ligado por padrão; off desliga; valor estranho é erro', () => {
+    vi.stubEnv('PROSPECTOR_JOB_WORKER', undefined);
+    expect(jobWorkerEnabled()).toBe(true);
+    vi.stubEnv('PROSPECTOR_JOB_WORKER', 'off');
+    expect(jobWorkerEnabled()).toBe(false);
+    vi.stubEnv('PROSPECTOR_JOB_WORKER', 'talvez');
+    expect(() => jobWorkerEnabled()).toThrow('PROSPECTOR_JOB_WORKER');
+  });
+});
+
+describe('investigationEnv (pasta das capturas, ADR-0015)', () => {
+  let localAppData = '';
+  beforeEach(() => {
+    vi.stubEnv('PROSPECTOR_CAPTURES_DIR', undefined);
+    vi.stubEnv('PROSPECTOR_DATA_DIR', undefined);
+    vi.stubEnv('PROSPECTOR_BRAND_CAPTURE', undefined);
+    vi.stubEnv('PROSPECTOR_STORAGE', undefined);
+    // Registro da instalação numa pasta temporária: nunca o do computador de quem roda o teste.
+    localAppData = mkdtempSync(join(tmpdir(), 'prospector-localappdata-'));
+    vi.stubEnv('LOCALAPPDATA', localAppData);
+  });
+  afterEach(() => {
+    rmSync(localAppData, { recursive: true, force: true });
+  });
+
+  function writePointer(content: unknown) {
+    mkdirSync(join(localAppData, 'Prospector'), { recursive: true });
+    writeFileSync(
+      join(localAppData, 'Prospector', 'instalacao.json'),
+      typeof content === 'string' ? content : JSON.stringify(content),
+    );
+  }
+
+  it('sem pasta: captura ligada, imagens não guardadas', () => {
+    expect(investigationEnv()).toEqual({
+      capturesDir: null,
+      captureEnabled: true,
+      capturesDirProblem: null,
+      capturesDirSource: null,
+    });
+  });
+
+  it('aceita pasta absoluta fora do C:', () => {
+    const dir = String.raw`D:\Prospector-dados\capturas`;
+    vi.stubEnv('PROSPECTOR_CAPTURES_DIR', dir);
+    vi.stubEnv('PROSPECTOR_BRAND_CAPTURE', 'off');
+    expect(investigationEnv()).toEqual({
+      capturesDir: dir,
+      captureEnabled: false,
+      capturesDirProblem: null,
+      capturesDirSource: 'captures_dir',
+    });
+  });
+
+  it('pasta de dados do programa: as capturas ficam em <dados>\\capturas', () => {
+    // Barra no fim não duplica o separador.
+    vi.stubEnv('PROSPECTOR_DATA_DIR', 'D:\\Prospector-dados\\');
+    expect(investigationEnv()).toMatchObject({
+      capturesDir: String.raw`D:\Prospector-dados\capturas`,
+      capturesDirSource: 'data_dir',
+    });
+    // A pasta explícita das capturas vale mais que a pasta de dados.
+    vi.stubEnv('PROSPECTOR_CAPTURES_DIR', String.raw`E:\imagens`);
+    expect(investigationEnv()).toMatchObject({
+      capturesDir: String.raw`E:\imagens`,
+      capturesDirSource: 'captures_dir',
+    });
+  });
+
+  it('sem variável: usa a pasta registrada pela instalação (mesmo banco do app instalado)', () => {
+    writePointer({ raiz: String.raw`D:\Prospector`, dados: String.raw`D:\Prospector-dados` });
+    expect(investigationEnv()).toMatchObject({
+      capturesDir: String.raw`D:\Prospector-dados\capturas`,
+      capturesDirSource: 'installation',
+      capturesDirProblem: null,
+    });
+    // Dados só na memória não gravam imagens na pasta real.
+    vi.stubEnv('PROSPECTOR_STORAGE', 'memory');
+    expect(investigationEnv()).toMatchObject({ capturesDir: null, capturesDirSource: null });
+  });
+
+  it('registro da instalação inválido ou no disco C: é ignorado', () => {
+    writePointer('não é json');
+    expect(investigationEnv().capturesDir).toBeNull();
+    writePointer({ dados: 42 });
+    expect(investigationEnv().capturesDir).toBeNull();
+    writePointer({ dados: String.raw`C:\Prospector-dados` });
+    const settings = investigationEnv();
+    expect(settings.capturesDir).toBeNull();
+    expect(settings.capturesDirProblem).toContain('disco C:');
+  });
+
+  it('variável recusada não esconde a pasta seguinte; o motivo continua visível', () => {
+    vi.stubEnv('PROSPECTOR_CAPTURES_DIR', String.raw`C:\imagens`);
+    vi.stubEnv('PROSPECTOR_DATA_DIR', String.raw`D:\Prospector-dados`);
+    const settings = investigationEnv();
+    expect(settings.capturesDir).toBe(String.raw`D:\Prospector-dados\capturas`);
+    expect(settings.capturesDirSource).toBe('data_dir');
+    expect(settings.capturesDirProblem).toContain('PROSPECTOR_CAPTURES_DIR');
+  });
+
+  it.each([
+    ['pasta-relativa', 'absoluto'],
+    ['D:pasta-relativa', 'absoluto'],
+    [String.raw`C:\Prospector\imagens`, 'disco C:'],
+    [String.raw`\\servidor\imagens`, 'rede'],
+    ['//servidor/imagens', 'rede'],
+    [String.raw`D:\dados\..\..\Windows`, '..'],
+    [String.raw`D:\OneDrive\imagens`, 'nuvem'],
+    [String.raw`E:\Dropbox\Prospector`, 'nuvem'],
+    [String.raw`G:\Meu Drive\imagens`, 'nuvem'],
+  ])('recusa %s (%s), sem pôr o valor na mensagem', (value, reason) => {
+    vi.stubEnv('PROSPECTOR_CAPTURES_DIR', value);
+    const settings = investigationEnv();
+    expect(settings.capturesDir).toBeNull();
+    expect(settings.capturesDirProblem).toContain(reason);
+    expect(settings.capturesDirProblem).not.toContain(value);
   });
 });

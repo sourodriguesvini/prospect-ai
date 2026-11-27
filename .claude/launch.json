@@ -4,17 +4,67 @@
     {
       "name": "dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000,
       "url": "http://127.0.0.1:3000"
     },
     {
       "name": "dev-memoria",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["run", "dev"],
-      "env": { "PROSPECTOR_STORAGE": "memory" },
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "env": {
+        "PROSPECTOR_STORAGE": "memory"
+      },
       "port": 3000,
       "url": "http://127.0.0.1:3000"
+    },
+    {
+      "name": "dev-email-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "env": {
+        "PROSPECTOR_STORAGE": "memory",
+        "PROSPECTOR_EMAIL": "fixture"
+      },
+      "port": 3000,
+      "url": "http://127.0.0.1:3000"
+    },
+    {
+      "name": "dev-demonstracao",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@prospector/web",
+        "exec",
+        "next",
+        "dev",
+        "--hostname",
+        "127.0.0.1",
+        "--port",
+        "3140"
+      ],
+      "env": {
+        "NEXT_TELEMETRY_DISABLED": "1",
+        "PROSPECTOR_STORAGE": "memory",
+        "PROSPECTOR_DISCOVERY": "fixture",
+        "PROSPECTOR_EMAIL": "fixture",
+        "PROSPECTOR_CNPJ_LOOKUP": "fixture",
+        "PROSPECTOR_RELATIONSHIP_AI": "fixture",
+        "SUPABASE_URL": "",
+        "SUPABASE_SECRET_KEY": "",
+        "OLLAMA_BASE_URL": "http://127.0.0.1:9"
+      },
+      "port": 3140,
+      "url": "http://127.0.0.1:3140"
     }
   ]
 }

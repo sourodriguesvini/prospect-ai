@@ -53,7 +53,7 @@ const TRANSITIONS: Record<
 };
 
 const TRAIL = [
-  { href: '/configuracoes', label: 'Configuração' },
+  { href: '/configuracoes', label: 'Configurações' },
   { href: strategyRoutes.overview, label: 'Estratégia' },
 ];
 

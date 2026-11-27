@@ -1,6 +1,11 @@
 import type { AiErrorCode } from '@prospector/contracts';
 import { DEFAULT_VRAM_RESERVE_MIB } from './admission';
-import { COPILOT_PROMPT_VERSION, createCopilot, type Copilot } from './copilot/copilot';
+import {
+  COPILOT_PROMPT_VERSION,
+  COPILOT_TOOLS_PROMPT_VERSION,
+  createCopilot,
+  type Copilot,
+} from './copilot/copilot';
 import { AiError } from './errors';
 import { createLocalAiGateway, type LocalAiGateway } from './gateway';
 import { createNvidiaSmiProbe, type GpuProbe } from './gpu';
@@ -51,7 +56,9 @@ export function createLocalAiRuntime(
     policy,
     copilot: createCopilot({
       gateway,
+      limits: policy.copilot,
       prompt: () => loadPrompt('copilot', COPILOT_PROMPT_VERSION),
+      toolsPrompt: () => loadPrompt('copilot-tools', COPILOT_TOOLS_PROMPT_VERSION),
     }),
   };
 }

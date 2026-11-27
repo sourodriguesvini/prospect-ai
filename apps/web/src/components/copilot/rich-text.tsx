@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react';
+import { normalizeListMarkers } from '@/lib/rich-text';
 
 /**
  * Mostra a resposta do modelo como texto, com uma única formatação: `**negrito**` vira <strong>.
- * Nada é interpretado como HTML (o React escapa tudo); o resto, inclusive listas com hífen, fica
- * como o modelo escreveu, com as quebras de linha preservadas pelo `whitespace-pre-wrap` de quem usa.
+ * Nada é interpretado como HTML (o React escapa tudo); listas com asterisco viram listas com hífen
+ * e o resto fica como o modelo escreveu, com as quebras de linha preservadas pelo
+ * `whitespace-pre-wrap` de quem usa.
  */
-export function RichText({ text }: { text: string }) {
+export function RichText({ text: raw }: { text: string }) {
+  const text = normalizeListMarkers(raw);
   const parts: ReactNode[] = [];
   const bold = /\*\*([^*\n]+?)\*\*/g;
   let last = 0;

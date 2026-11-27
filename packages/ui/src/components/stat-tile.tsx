@@ -43,7 +43,8 @@ export interface StatTileProps extends VariantProps<typeof tileVariants> {
 
 /**
  * Cartão de métrica com número grande em grotesca leve. O ícone é decorativo: some quando o
- * conteúdo do cartão tem menos de 8rem, para o rótulo não empurrá-lo para fora (container query).
+ * conteúdo do cartão tem menos de 10rem (container query). Com o ícone, sobram cerca de 7rem para
+ * o rótulo, o bastante para "Oportunidades" sem partir a palavra (KI-154).
  */
 export function StatTile({ label, value, note, icon, tone, className }: StatTileProps) {
   const toneKey = tone ?? 'plain';
@@ -54,7 +55,7 @@ export function StatTile({ label, value, note, icon, tone, className }: StatTile
         <p
           className={cn(
             'min-w-0 text-balance break-words text-sm font-medium',
-            icon ? '@min-[8rem]:pt-1.5' : null,
+            icon ? '@min-[10rem]:pt-1.5' : null,
           )}
         >
           {label}
@@ -63,7 +64,7 @@ export function StatTile({ label, value, note, icon, tone, className }: StatTile
           <span
             aria-hidden="true"
             className={cn(
-              'hidden size-8 shrink-0 place-items-center rounded-full @min-[8rem]:grid',
+              'hidden size-8 shrink-0 place-items-center rounded-full @min-[10rem]:grid',
               toneKey === 'plain' ? 'bg-surface' : 'bg-white/20',
             )}
           >

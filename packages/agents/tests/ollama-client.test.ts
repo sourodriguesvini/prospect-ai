@@ -175,6 +175,28 @@ describe('createOllamaClient', () => {
     });
   });
 
+  it('envia o esquema de saída como format quando pedido', async () => {
+    const { fetch, calls } = fakeFetch({
+      'POST /api/chat': () => new Response(streamOf(ndjson([DONE])), { status: 200 }),
+    });
+    const client = createOllamaClient({ baseUrl: base, fetch });
+    const format = { type: 'object', properties: { a: { type: 'string' } } };
+    await collect(
+      client.chat(
+        {
+          model: 'qwen3.5:4b',
+          messages: [{ role: 'user', content: 'oi' }],
+          think: false,
+          keepAlive: '5m',
+          format,
+          options: { num_ctx: 8192, temperature: 0.4, num_predict: 1024 },
+        },
+        new AbortController().signal,
+      ),
+    );
+    expect((calls[0]?.body as { format?: unknown }).format).toEqual(format);
+  });
+
   it('modelo ausente (404) vira model_not_installed; erro no meio do stream vira provider_error', async () => {
     const missing = fakeFetch({
       'POST /api/chat': () => json({ error: "model 'x:1b' not found" }, 404),

@@ -1,5 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { expectNoA11yViolations } from './support';
 
 /**
  * F2 — Estratégia e barreira das abordagens, de ponta a ponta, no servidor em modo memória
@@ -13,16 +13,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 test.describe.configure({ mode: 'serial' });
 
-const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-
-async function expectNoA11yViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  const summary = results.violations.map(
-    (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
-  );
-  expect(summary).toEqual([]);
-}
-
 const OFFER_NAME = 'Oferta E2E de rebranding';
 let offerPath = '';
 
@@ -30,7 +20,7 @@ function readinessItem(page: Page, code: string) {
   return page.locator(`[data-readiness="${code}"]`).first();
 }
 
-/** Códigos dos itens obrigatórios pendentes do checklist de /abordagens (case citável é só recomendado). */
+/** Códigos dos itens obrigatórios pendentes do checklist da aba Para enviar (/relacionamento) (case citável é só recomendado). */
 async function missingApproachItems(page: Page): Promise<string[]> {
   const missing = page.locator(
     '[data-gate-ready] [data-readiness][data-ok="false"][data-blocking="true"]',
@@ -41,8 +31,14 @@ async function missingApproachItems(page: Page): Promise<string[]> {
 }
 
 test('abordagens começam bloqueadas, com a explicação do que falta', async ({ page }) => {
+  // O endereço antigo leva à aba Para enviar das Conversas (ADR-0014; nomes da proposta de 26/11).
   await page.goto('/abordagens');
-  await expect(page.getByRole('heading', { level: 1, name: 'Abordagens' })).toBeVisible();
+  await expect(page).toHaveURL(/\/relacionamento$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Conversas' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Para enviar', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(page.getByRole('alert').filter({ hasText: 'Modo memória' })).toHaveCount(0);
   const gate = page.locator('[data-gate-ready]');
   await expect(gate).toHaveAttribute('data-gate-ready', 'false');
@@ -61,9 +57,13 @@ test('abordagens começam bloqueadas, com a explicação do que falta', async ({
 
 test('configura oferta, rubrica, score e ICP; pesos inválidos são recusados', async ({ page }) => {
   await page.goto('/configuracoes');
-  await page.getByRole('link', { name: /Estratégia/ }).click();
+  // O cartão da tela (o menu lateral também tem Estratégia, no submenu das Configurações).
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: /Estratégia/ })
+    .click();
   await expect(page.getByRole('heading', { level: 1, name: 'Estratégia' })).toBeVisible();
-  await expect(page.getByRole('note').filter({ hasText: 'Modo memória' })).toBeVisible();
+  await expect(page.getByRole('note').filter({ hasText: 'Modo de teste' })).toBeVisible();
   await expect(page.getByText('Nenhuma oferta ainda.')).toBeVisible();
   await expectNoA11yViolations(page);
 
@@ -185,7 +185,7 @@ test('com LIA aprovada só falta o banco persistente; revogar bloqueia de novo',
   await expect(page.locator('[data-aviso="opt-out-salvo"]')).toBeVisible();
 
   // Ainda bloqueado: falta a LIA.
-  await page.goto('/abordagens');
+  await page.goto('/relacionamento');
   await expect(page.locator('[data-gate-ready]')).toHaveAttribute('data-gate-ready', 'false');
   await expect(readinessItem(page, 'voice_guide')).toHaveAttribute('data-ok', 'true');
   await expect(readinessItem(page, 'contact_policy')).toHaveAttribute('data-ok', 'true');
@@ -217,7 +217,7 @@ test('com LIA aprovada só falta o banco persistente; revogar bloqueia de novo',
   await expect(page.locator('[data-lia-status]')).toHaveAttribute('data-lia-status', 'approved');
 
   // Com LIA aprovada, só falta o banco persistente (modo memória nunca libera).
-  await page.goto('/abordagens');
+  await page.goto('/relacionamento');
   await expect(readinessItem(page, 'lia_approved')).toHaveAttribute('data-ok', 'true');
   expect(await missingApproachItems(page)).toEqual(['persistent_storage']);
   await expect(page.locator('[data-gate-ready]')).toHaveAttribute('data-gate-ready', 'false');
@@ -235,7 +235,7 @@ test('com LIA aprovada só falta o banco persistente; revogar bloqueia de novo',
   await page.getByRole('button', { name: 'Revogar LIA v1' }).click();
   await expect(page.locator('[data-aviso="lia-revogada"]')).toBeVisible();
   await expect(page.locator('[data-lia-status]')).toHaveAttribute('data-lia-status', 'revoked');
-  await page.goto('/abordagens');
+  await page.goto('/relacionamento');
   await expect(readinessItem(page, 'lia_approved')).toHaveAttribute('data-ok', 'false');
   await expect(readinessItem(page, 'lia_approved')).toContainText('revogada');
   expect(await missingApproachItems(page)).toEqual(['lia_approved', 'persistent_storage']);
@@ -252,7 +252,7 @@ test('depois de revogar, a mesma LIA pode ser renovada como nova versão', async
   await page.getByRole('button', { name: 'Aprovar LIA v2' }).click();
   await expect(page.locator('[data-lia-status]')).toHaveAttribute('data-lia-status', 'approved');
 
-  await page.goto('/abordagens');
+  await page.goto('/relacionamento');
   expect(await missingApproachItems(page)).toEqual(['persistent_storage']);
 });
 
@@ -262,7 +262,7 @@ test('voltar a oferta para rascunho bloqueia descoberta e abordagem', async ({ p
   await page.getByRole('button', { name: 'Voltar para rascunho' }).click();
   await expect(page.getByRole('button', { name: 'Ativar oferta' })).toBeVisible();
 
-  await page.goto('/abordagens');
+  await page.goto('/relacionamento');
   await expect(readinessItem(page, 'offer_active')).toHaveAttribute('data-ok', 'false');
   expect(await missingApproachItems(page)).toContain('offer_active');
 

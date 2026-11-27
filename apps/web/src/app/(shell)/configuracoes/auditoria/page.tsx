@@ -8,7 +8,7 @@ import { AuditTable } from '@/components/audit-table';
 import { StorageNotice } from '@/components/strategy/page-parts';
 import { loadRecentAudit } from '@/server/audit-entries';
 
-export const metadata: Metadata = { title: 'Auditoria' };
+export const metadata: Metadata = { title: 'Histórico de ações' };
 
 async function AuditEntries() {
   await connection();
@@ -42,9 +42,9 @@ export default function AuditPage() {
           href="/configuracoes"
           className="text-sm text-muted-foreground underline underline-offset-4"
         >
-          Configuração
+          Configurações
         </Link>
-        <h1 className="text-4xl tracking-[-0.03em]">Auditoria</h1>
+        <h1 className="text-4xl tracking-[-0.03em]">Histórico de ações</h1>
       </div>
       <Panel aria-labelledby="registros">
         <PanelHeader

@@ -54,9 +54,12 @@ export function StorageNotice({ storage }: { storage: StorageMode }) {
   if (storage !== 'memory') return null;
   return (
     <Alert tone="warning" role="note">
-      <strong>Modo memória.</strong> Os dados ficam só na memória do servidor e somem quando o app
-      reinicia. Use para testar as telas; para trabalho real, configure o banco
-      (docs/runbooks/ambiente-local.md).
+      <strong>Modo de teste.</strong> Os dados ficam só na memória e somem quando o app reinicia.
+      Para trabalho real, veja{' '}
+      <Link href="/configuracoes#sistema" className="underline underline-offset-4">
+        Configurações › Sistema
+      </Link>
+      .
     </Alert>
   );
 }
@@ -105,10 +108,13 @@ function ReadinessRow({
   item,
   code,
   href,
+  advisory = false,
 }: {
   item: Pick<ReadinessItem, 'label' | 'ok' | 'blocking' | 'detail'>;
   code: string;
   href: string | null;
+  /** Lista que só orienta: o que falta não "bloqueia" nada. */
+  advisory?: boolean;
 }) {
   const kind = item.ok ? 'ok' : item.blocking ? 'blocking' : 'optional';
   const Icon = ITEM_ICON[kind];
@@ -133,7 +139,9 @@ function ReadinessRow({
         <p className="text-sm font-medium">
           {item.label}
           {item.ok || item.blocking ? (
-            <span className="sr-only">{item.ok ? ': atendido' : ': falta (bloqueia)'}</span>
+            <span className="sr-only">
+              {item.ok ? ': atendido' : advisory ? ': falta' : ': falta (bloqueia)'}
+            </span>
           ) : (
             <span className="ml-2 text-xs font-normal text-muted-foreground">
               <span className="sr-only">: </span>recomendado
@@ -163,6 +171,7 @@ export function ReadinessChecklist({
   headingLevel = 'h3',
   offerName,
   summarize,
+  advisory = false,
 }: {
   gate: ReadinessGate;
   title: string;
@@ -175,6 +184,11 @@ export function ReadinessChecklist({
   offerName?: string | null;
   /** Resume itens já listados em outro checklist numa linha só (ex.: os de descoberta). */
   summarize?: { codes: readonly ReadinessCode[]; label: string };
+  /**
+   * Só orienta, não bloqueia nada (a Descoberta roda sem oferta nem perfil ativos): o selo diz
+   * "Completo" ou "Incompleto" em vez de "Liberado" ou "Bloqueado".
+   */
+  advisory?: boolean;
 }) {
   const Heading = headingLevel;
   const missing = gate.items.filter((i) => !i.ok && i.blocking).length;
@@ -187,9 +201,13 @@ export function ReadinessChecklist({
         <Heading id={titleId} className="text-base font-semibold">
           {title}
         </Heading>
-        <Badge variant={gate.ready ? 'success' : 'warning'}>
-          <StatusDot tone={gate.ready ? 'success' : 'warning'}>
-            {gate.ready ? 'Liberado' : `Bloqueado · ${missingText(missing)}`}
+        <Badge variant={gate.ready ? 'success' : advisory ? 'neutral' : 'warning'}>
+          <StatusDot tone={gate.ready ? 'success' : advisory ? 'neutral' : 'warning'}>
+            {gate.ready
+              ? advisory
+                ? 'Completo'
+                : 'Liberado'
+              : `${advisory ? 'Incompleto' : 'Bloqueado'} · ${missingText(missing)}`}
           </StatusDot>
         </Badge>
       </div>
@@ -204,6 +222,7 @@ export function ReadinessChecklist({
           <ReadinessRow
             code="summary"
             href={null}
+            advisory={advisory}
             item={{
               label: summarize.label,
               ok: summarizedMissing === 0,
@@ -219,6 +238,7 @@ export function ReadinessChecklist({
           <ReadinessRow
             key={item.code}
             code={item.code}
+            advisory={advisory}
             item={item}
             href={fixHref(item.code, gate.offerId)}
           />

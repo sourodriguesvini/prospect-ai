@@ -12,3 +12,9 @@ supabase/migrations
 docs/
 .claude/
 CLAUDE.md
+
+# prompts versionados: o sha256 avaliado não pode mudar (ADR-0008 §6)
+packages/agents/prompts/
+
+# páginas e itens gerados pela revisão humana (pnpm review:quality)
+packages/application/evals/review/results/

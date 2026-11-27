@@ -10,6 +10,16 @@ export const INTERNAL_DB_ERROR_KEYS: readonly string[] = [
   // KI-041: o app sempre manda o registro de auditoria junto; sem ele, a escrita é recusada.
   'audit_missing',
   'audit_invalid',
+  // IA-2 em diante: registros de execução (mensagens, llm_calls, tool_calls) são só inclusão.
+  'append_only',
+  // M2: o app só substitui claims em vigor; o trigger impede reabrir um substituído ou rejeitado.
+  'claim_final_status',
+  // F4: argumentos inválidos nas funções da fila (só o trabalhador do app as chama).
+  'invalid_job_claim',
+  'invalid_job_heartbeat',
+  'invalid_job_status',
+  // Módulo 02: o resultado de uma investigação encerrada não é reescrito.
+  'investigation_finished',
 ];
 
 /** Códigos de "tabela não existe": PostgREST (cache de esquema) e Postgres. */

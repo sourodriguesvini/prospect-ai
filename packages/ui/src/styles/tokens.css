@@ -47,6 +47,10 @@
   --tile-paper: #ffffff;
 
   --shadow-panel: 0 1px 2px rgb(20 20 22 / 0.04);
+  /* Camadas que flutuam sobre a página (menu no celular, paleta de comandos, dica). */
+  --overlay: rgb(20 20 22 / 0.32);
+  --scroll-shade: rgb(20 20 22 / 0.14);
+  --shadow-float: 0 12px 32px -8px rgb(20 20 22 / 0.18), 0 2px 6px rgb(20 20 22 / 0.06);
 }
 
 :root[data-theme='dark'] {
@@ -76,6 +80,9 @@
   --tile-graphite: linear-gradient(160deg, #2e2e34 0%, #222226 100%);
   --tile-paper: #f4f4f5;
   --shadow-panel: none;
+  --overlay: rgb(0 0 0 / 0.6);
+  --scroll-shade: rgb(0 0 0 / 0.55);
+  --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.7), 0 0 0 1px var(--input);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -106,6 +113,9 @@
     --tile-graphite: linear-gradient(160deg, #2e2e34 0%, #222226 100%);
     --tile-paper: #f4f4f5;
     --shadow-panel: none;
+    --overlay: rgb(0 0 0 / 0.6);
+    --scroll-shade: rgb(0 0 0 / 0.55);
+    --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.7), 0 0 0 1px var(--input);
   }
 }
 
@@ -137,6 +147,36 @@
   --radius-panel: 1.5rem;
   --radius-tile: 1.125rem;
   --shadow-panel: var(--shadow-panel);
+  --shadow-float: var(--shadow-float);
+  --color-overlay: var(--overlay);
+
+  /*
+   * Movimento: curto e funcional (docs/07 §5). Curva de saída suave para entrar, sem quique.
+   * Com "reduzir movimento" no sistema, nada anima (regra global no fim deste arquivo).
+   */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-panel-in: panel-in 420ms var(--ease-out-soft) both;
+  --animate-float-in: float-in 160ms var(--ease-out-soft) both;
+  --animate-fade-in: fade-in 160ms ease-out both;
+
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      translate: 0 8px;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes float-in {
+    from {
+      opacity: 0;
+      scale: 0.97;
+      translate: 0 -4px;
+    }
+  }
 }
 
 @layer base {
@@ -161,5 +201,49 @@
   table,
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+ * Sombra nas bordas de uma área que rola (só aparece quando há mais conteúdo daquele lado):
+ * as camadas `local` andam com o conteúdo e cobrem as sombras `scroll` nas pontas.
+ */
+@utility scroll-shadow {
+  background:
+    linear-gradient(var(--surface) 30%, transparent) center top / 100% 2.5rem no-repeat local,
+    linear-gradient(transparent, var(--surface) 70%) center bottom / 100% 2.5rem no-repeat local,
+    radial-gradient(farthest-side at 50% 0, var(--scroll-shade), transparent) center top / 100%
+      0.625rem no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, var(--scroll-shade), transparent) center bottom /
+      100% 0.625rem no-repeat scroll;
+}
+
+/* Painéis irmãos entram em cascata curta (Panel usa `animate-panel-in`). */
+[data-panel]:nth-child(2) {
+  animation-delay: 60ms;
+}
+[data-panel]:nth-child(3) {
+  animation-delay: 120ms;
+}
+[data-panel]:nth-child(n + 4) {
+  animation-delay: 180ms;
+}
+
+/*
+ * "Reduzir movimento" no sistema (WCAG 2.3.3): nenhuma animação nem transição, em nenhum
+ * componente. As mudanças de estado continuam, só que instantâneas. Transição com 0s (e não
+ * 0.01ms): com a propriedade padrão `all`, uma duração mínima faria todo elemento "transicionar"
+ * até a visibilidade herdada, e um botão recém-mostrado ficaria oculto no instante do foco.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
   }
 }

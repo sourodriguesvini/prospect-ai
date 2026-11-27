@@ -14,11 +14,78 @@ export const DATABASE_FACT: Record<DatabaseStatus, string> = {
     'Banco de dados: desligado de propósito (modo memória, para testes); o que for salvo fica só na memória do servidor e some ao reiniciar. O Copiloto não lê esse conteúdo.',
 };
 
+/**
+ * Estado do banco quando o Copiloto tem ferramentas de leitura (IA-2): ele lê o conteúdo pelas
+ * ferramentas, e o texto pede que consulte antes de afirmar.
+ */
+export const DATABASE_FACT_WITH_TOOLS: Record<DatabaseStatus, string> = {
+  ok: 'Banco de dados: conectado. O Copiloto lê o conteúdo pelas ferramentas listadas abaixo; contagens e nomes só valem depois de consultar.',
+  not_configured: DATABASE_FACT.not_configured,
+  schema_missing: DATABASE_FACT.schema_missing,
+  unreachable: DATABASE_FACT.unreachable,
+  memory:
+    'Banco de dados: desligado de propósito (modo memória, para testes); as ferramentas leem o que está só na memória do servidor, que some ao reiniciar.',
+};
+
 export interface CopilotModuleFact {
   label: string;
   /** Fatia do roadmap que entrega o módulo; null = já disponível. */
   plannedSlice: string | null;
   description: string;
+}
+
+/**
+ * Ferramenta como os fatos do sistema a descrevem; `internet` = lê a internet pública; `draft` =
+ * só cria um rascunho no app, que espera a confirmação da pessoa na tela.
+ */
+export interface CopilotToolFact {
+  name: string;
+  title: string;
+  internet?: boolean;
+  draft?: boolean;
+  /** Põe uma tarefa interna na fila do app (ADR-0015); não envia nada. */
+  queue?: boolean;
+}
+
+/**
+ * Frase sobre as ferramentas de rascunho (Descoberta, M3). Sem elas o texto não muda: a avaliação
+ * compara o v3 e o v4 com o mesmo contexto nos casos comuns.
+ */
+function draftFact(tools: readonly CopilotToolFact[]): string {
+  const drafts = tools.filter((tool) => tool.draft === true).map((tool) => tool.name);
+  if (drafts.length === 0) return '';
+  return ` Exceção: ${drafts.join(', ')} cria só um rascunho de pesquisa da Descoberta, que não busca nada nem gasta créditos até a pessoa confirmar na tela.`;
+}
+
+/**
+ * Frase sobre as ferramentas. Sem ferramenta de internet, o texto é o mesmo do `copilot-tools/v2`
+ * (a avaliação compara versões com o mesmo contexto); com ela, diz quais pesquisam na internet e
+ * que nada fica gravado (KI-096).
+ */
+function toolsFact(tools: readonly CopilotToolFact[]): string {
+  if (tools.length === 0) {
+    return 'Nesta versão o Copiloto não tem ferramentas: não consulta o banco, a internet nem envia nada.';
+  }
+  const listed = `Ferramentas de leitura disponíveis nesta conversa: ${tools.map((tool) => `${tool.name} (${tool.title})`).join('; ')}.`;
+  const internet = tools.filter((tool) => tool.internet === true).map((tool) => tool.name);
+  const base =
+    internet.length === 0
+      ? `${listed} Nenhuma altera dados, envia mensagens ou acessa a internet.`
+      : `${listed} Pesquisam na internet pública: ${internet.join(', ')}; o que elas acham não entra no dossiê nem nas evidências, fica só nesta conversa. As demais leem só o que está salvo no Prospector. Nenhuma altera dados nem envia mensagens.`;
+  return `${base}${draftFact(tools)}${queueFact(tools)}`;
+}
+
+/**
+ * Ferramenta que põe tarefa na fila (investigação, ADR-0015; rascunho em `docs/rascunhos/copilot-tools-empresas.md`): uma frase a
+ * mais no fim, dizendo qual é, o que ela faz (lê o site, pesquisa e grava no dossiê), que não
+ * envia nada e que o resultado só existe quando a consulta mostrar o fim. O texto antes dela fica
+ * idêntico ao das versões anteriores: a rodada de 2026-11-11 mostrou que reescrevê-lo enfraquecia
+ * a explicação do limite de envio.
+ */
+function queueFact(tools: readonly CopilotToolFact[]): string {
+  const queued = tools.filter((tool) => tool.queue === true).map((tool) => tool.name);
+  if (queued.length === 0) return '';
+  return ` Exceção: ${queued.join(', ')} põe na fila do Prospector uma tarefa interna que lê o site da empresa, pesquisa na internet e grava o resultado no dossiê, sem enviar nada a ninguém; o resultado só existe quando a consulta da tarefa mostrar que terminou.`;
 }
 
 const TODAY = new Intl.DateTimeFormat('pt-BR', {
@@ -35,6 +102,8 @@ export function buildCopilotSystemFacts(input: {
   now: Date;
   database: DatabaseStatus;
   modules: readonly CopilotModuleFact[];
+  /** Ferramentas de leitura oferecidas nesta conversa (IA-2); vazio ou ausente = sem ferramentas. */
+  tools?: readonly CopilotToolFact[];
 }): string[] {
   const available = input.modules
     .filter((item) => item.plannedSlice === null)
@@ -42,11 +111,12 @@ export function buildCopilotSystemFacts(input: {
   const planned = input.modules
     .filter((item) => item.plannedSlice !== null)
     .map((item) => `${item.label} (${item.plannedSlice}): ${item.description}`);
+  const tools = input.tools ?? [];
   return [
     `Hoje é ${TODAY.format(input.now)} (horário de Brasília).`,
-    DATABASE_FACT[input.database],
+    tools.length > 0 ? DATABASE_FACT_WITH_TOOLS[input.database] : DATABASE_FACT[input.database],
     `Módulos já disponíveis: ${available.join(', ')}.`,
     `Módulos ainda em construção, com a fatia do roadmap que os entrega: ${planned.join('; ')}.`,
-    'Nesta versão o Copiloto não tem ferramentas: não consulta o banco, a internet nem envia nada.',
+    toolsFact(tools),
   ];
 }

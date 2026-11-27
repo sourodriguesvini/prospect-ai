@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"]
@@ -29,7 +29,7 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["PROSPECTOR_STORAGE"]
+      "passThroughEnv": ["PROSPECTOR_STORAGE", "PROSPECTOR_EMAIL"]
     }
   }
 }

@@ -1,0 +1,1360 @@
+{
+  "synthetic": true,
+  "repeat": 3,
+  "prompts": {
+    "approach": {
+      "id": "relationship-approach/v2",
+      "sha256": "c92c9e26f90bde6bc917e69628106a1d66b44909110609ed2b225a6bb8a38bb8"
+    },
+    "message": {
+      "id": "relationship-message/v2",
+      "sha256": "4ad35c7a09800bac6a05d1a5e079f76e355b6bf8e730de82c4f80feeb98c5e6e"
+    }
+  },
+  "summary": [
+    {
+      "model": "qwen3.5:4b",
+      "prompts": ["relationship-approach/v2", "relationship-message/v2"],
+      "approach": {
+        "checks": 63,
+        "passed": 62,
+        "rate": 0.9841269841269841
+      },
+      "message": {
+        "checks": 81,
+        "passed": 81,
+        "rate": 1
+      },
+      "zeroFailures": [],
+      "errors": [],
+      "p95Ms": 6508,
+      "corrections": 1,
+      "checks": {
+        "pedido-sem-fonte: nenhum ponto da estratégia apoia a loja do pedido em evidência": "3/3",
+        "pedido-sem-fonte: não atribui \"Vila Aurora\" a fonte nenhuma (veio só do pedido)": "3/3",
+        "pedido-sem-fonte: cita a loja nova, como o pedido manda": "2/3",
+        "pedido-sem-fonte: sem tentativa ou contato anterior inventado (estratégia e mensagem)": "3/3",
+        "pedido-sem-fonte: sem marcador entre colchetes": "3/3",
+        "pedido-sem-fonte: sem anexo nem link": "3/3",
+        "pedido-sem-fonte: até 130 palavras": "3/3",
+        "pedido-sem-fonte: assunto curto (até 60 caracteres) ou nulo": "3/3",
+        "canal-email-sem-historia: sem tentativa ou contato anterior inventado (motivo do canal)": "3/3",
+        "canal-email-sem-historia: sem tentativa ou contato anterior inventado (estratégia e mensagem)": "3/3",
+        "canal-email-sem-historia: não atribui \"Vila Aurora\" a outra fonte que não o Instagram": "3/3",
+        "canal-email-sem-historia: sem marcador entre colchetes": "3/3",
+        "canal-email-sem-historia: sem anexo nem link": "3/3",
+        "canal-email-sem-historia: até 130 palavras": "3/3",
+        "canal-email-sem-historia: assunto curto (até 60 caracteres) ou nulo": "3/3",
+        "proporcao-contraste: mensagem sem intensificador (grave, sério, crítico...)": "3/3",
+        "proporcao-contraste: estratégia sem intensificador": "3/3",
+        "proporcao-contraste: sem marcador entre colchetes": "3/3",
+        "proporcao-contraste: sem anexo nem link": "3/3",
+        "proporcao-contraste: até 130 palavras": "3/3",
+        "proporcao-contraste: assunto curto (até 60 caracteres) ou nulo": "3/3",
+        "reescrita-mais-curta: não traz de volta a loja que o usuário tirou": "3/3",
+        "reescrita-mais-curta: mantém o ponto principal da versão anterior (o laranja da marca)": "3/3",
+        "reescrita-mais-curta: mais curta que a versão anterior": "3/3",
+        "reescrita-mais-curta: sem marcador entre colchetes": "3/3",
+        "reescrita-mais-curta: sem anexo nem link": "3/3",
+        "reescrita-mais-curta: até 120 palavras": "3/3",
+        "reescrita-mais-curta: assunto curto (até 60 caracteres) ou nulo": "3/3",
+        "reescrita-tom-formal: não traz de volta a loja que o usuário tirou": "3/3",
+        "reescrita-tom-formal: mantém a cor da marca da versão anterior": "3/3",
+        "reescrita-tom-formal: mensagem sem intensificador (grave, sério, crítico...)": "3/3",
+        "reescrita-tom-formal: sem marcador entre colchetes": "3/3",
+        "reescrita-tom-formal: sem anexo nem link": "3/3",
+        "reescrita-tom-formal: até 140 palavras": "3/3",
+        "reescrita-tom-formal: assunto curto (até 60 caracteres) ou nulo": "3/3",
+        "reescrita-acrescenta-loja: acrescenta a loja nova pedida": "3/3",
+        "reescrita-acrescenta-loja: não atribui \"Vila Aurora\" a outra fonte que não o Instagram": "3/3",
+        "reescrita-acrescenta-loja: sem marcador entre colchetes": "3/3",
+        "reescrita-acrescenta-loja: sem anexo nem link": "3/3",
+        "reescrita-acrescenta-loja: até 150 palavras": "3/3",
+        "reescrita-acrescenta-loja: assunto curto (até 60 caracteres) ou nulo": "3/3",
+        "mensagem-nova-fonte-e-proporcao: não atribui \"Vila Aurora\" a outra fonte que não o Instagram": "3/3",
+        "mensagem-nova-fonte-e-proporcao: mensagem sem intensificador (grave, sério, crítico...)": "3/3",
+        "mensagem-nova-fonte-e-proporcao: apresenta a agência pelo nome": "3/3",
+        "mensagem-nova-fonte-e-proporcao: sem marcador entre colchetes": "3/3",
+        "mensagem-nova-fonte-e-proporcao: sem anexo nem link": "3/3",
+        "mensagem-nova-fonte-e-proporcao: até 130 palavras": "3/3",
+        "mensagem-nova-fonte-e-proporcao: assunto curto (até 60 caracteres) ou nulo": "3/3"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "agent": "approach",
+      "caseId": "pedido-sem-fonte",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 10597,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Organização da marca para PetVila",
+          "body": "Olá,\n\nEstou escrevendo porque notei que a PetVila já opera três lojas em Curitiba e o contraste do texto no site está abaixo do padrão recomendado. Também vi uma nova loja na Vila Aurora.\n\nUma identidade visual organizada garante que a marca seja reconhecida igual em todas as lojas e canais, evitando erros de leitura e inconsistências entre o site e as redes sociais.\n\nPodemos agendar uma conversa de 20 minutos para alinhar como podemos organizar a marca para que todos os pontos de contato falem com a mesma voz?\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila já opera três lojas em Curitiba e possui um site ativo, mas o contraste do texto no site está abaixo do padrão recomendado, o que pode dificultar a leitura em diferentes pontos de contato.",
+          "objective": "conversation",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação, canal adequado para este primeiro contato inicial.",
+          "argument": "Vi no site de vocês três lojas em Curitiba. Também notei que o contraste do texto no site está abaixo do recomendado e soube da nova loja na Vila Aurora. Uma identidade visual organizada garante que a marca seja reconhecida igual em todas as lojas e canais, evitando erros de leitura.",
+          "evidence": [
+            {
+              "statement": "A PetVila opera três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            },
+            {
+              "statement": "O contraste do texto no site da empresa está abaixo do mínimo recomendado.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "A empresa é ativa desde 2014 com sede em Curitiba.",
+              "claimIds": ["00000000-0000-4000-8000-000000000005"]
+            },
+            {
+              "statement": "O laranja do logotipo no site parece diferente do usado nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "Uma conversa de 20 minutos para alinhar como podemos organizar a marca para que todas as lojas e canais falem igual.",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "nenhum ponto da estratégia apoia a loja do pedido em evidência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a fonte nenhuma (veio só do pedido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "cita a loja nova, como o pedido manda",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "canal-email-sem-historia",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 5848,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Alinhamento da marca para a PetVila Sintética",
+          "body": "Olá,\n\nEstou escrevendo do Estúdio Faro porque notei inconsistências visuais na PetVila Sintética que podem afetar o reconhecimento da marca.\n\nNo site de vocês, verificamos que 6 de 41 amostras de texto ficam abaixo do contraste recomendado. Além disso, a cor do logotipo parece variar entre o site e o Instagram.\n\nEssas diferenças podem impactar a experiência dos clientes nas lojas do Centro, Água Verde e Jardim Botânico.\n\nOferecemos um sistema que organiza a marca para que lojas, site e redes falem igual, entregando um manual de marca e uma biblioteca de peças para redes sociais.\n\nGostaria de agendar uma conversa rápida de 15 minutos para entender como podemos ajudar.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila Sintética precisa alinhar sua marca entre canais para evitar inconsistências visuais e garantir acessibilidade, conforme o site mostra lojas no Centro, Água Verde e Jardim Botânico com problemas de contraste e cores variando entre o site e o Instagram.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O tipo pedido é um e-mail de apresentação formal para uma empresa EPP com presença física em Curitiba.",
+          "argument": "Vi no site de vocês que o contraste do texto está abaixo do padrão em 6 de 41 amostras, e notei que a cor do logotipo varia entre o site e o Instagram. Isso pode gerar inconsistência na marca para os clientes nas lojas do Centro, Água Verde e Jardim Botânico.",
+          "evidence": [
+            {
+              "statement": "O contraste do texto está abaixo do padrão em 6 de 41 amostras.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "A cor do logotipo varia entre o site e o Instagram.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "agendar uma conversa de 15 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "sem tentativa ou contato anterior inventado (motivo do canal)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "proporcao-contraste",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 5560,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Identidade visual para PetVila Sintética",
+          "body": "Olá,\n\nVi no site da empresa que 6 de 41 amostras de texto ficam abaixo do contraste recomendado, o que pode afetar a leitura. Também notei que o laranja do logotipo varia entre o site e os posts do Instagram.\n\nEssas inconsistências podem deixar a marca reconhecida diferente em cada lugar. A Estúdio Faro organiza a identidade visual para que lojas, site e redes falem igual, entregando manual de marca e biblioteca de peças unificada.\n\nGostaria de saber se vocês têm interesse em alinhar esses elementos e garantir que a comunicação seja coerente em todos os canais. Posso agendar uma conversa de 20 minutos para conversarmos sobre isso?\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila Sintética precisa unificar sua marca entre canais para evitar inconsistências visuais e garantir acessibilidade, como mostram falhas de contraste no site.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O tipo pedido é um e-mail de apresentação.",
+          "argument": "Vi no site da empresa que 6 de 41 amostras de texto ficam abaixo do contraste recomendado, e notei que o laranja do logotipo varia entre o site e os posts do Instagram. Isso pode deixar a marca reconhecida diferente em cada lugar. A oferta da Estúdio Faro organiza a identidade visual para que lojas, site e redes falem igual.",
+          "evidence": [
+            {
+              "statement": "6 de 41 amostras de texto no site ficam abaixo do contraste recomendado.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site é diferente do usado nos posts do Instagram.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "uma conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem intensificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-mais-curta",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1848,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "- Olá, equipe da PetVila!\n\n- Vi no site de vocês as três lojas em Curitiba e notei que o laranja da marca aparece em tons diferentes entre o site e as redes.\n\n- Quando a rede cresce, manter a marca igual ajuda o cliente a reconhecer vocês. Podemos conversar 20 minutos sobre isso?\n\n- Abraço,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta a loja que o usuário tirou",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém o ponto principal da versão anterior (o laranja da marca)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mais curta que a versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 120 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-tom-formal",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1813,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "Olá, equipe da PetVila.\n\nSou do Estúdio Faro, um estúdio de identidade visual. Verifiquei no site de vocês as três lojas em Curitiba (Centro, Água Verde e Jardim Botânico) e notei que o laranja da marca apresenta variações de tom entre o site e as redes sociais.\n\nPara uma rede em expansão, a consistência da marca é fundamental para o reconhecimento do cliente. Podemos agendar uma conversa de 20 minutos para discutir como organizar isso?\n\nAtenciosamente,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta a loja que o usuário tirou",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém a cor da marca da versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 140 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-acrescenta-loja",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1988,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "Olá, equipe da PetVila!\n\nSou do Estúdio Faro, um estúdio de identidade visual. Vi no site de vocês as três lojas em Curitiba, no Centro, no Água Verde e no Jardim Botânico, e reparei que o laranja da marca aparece em tons diferentes entre o site e as redes.\n\nTambém vi a preparação da abertura de uma loja no bairro Vila Aurora. Quando a rede cresce, manter a marca igual em todas as lojas e canais ajuda o cliente a reconhecer vocês de longe.\n\nPodemos conversar 20 minutos sobre como organizar isso?\n\nAbraço,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "acrescenta a loja nova pedida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 150 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "mensagem-nova-fonte-e-proporcao",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 3724,
+      "calls": 2,
+      "error": null,
+      "output": {
+        "subject": "Organização da marca para PetVila Sintética",
+        "body": "Olá, do Estúdio Faro.\n\nVi no site de vocês que a marca tem cores diferentes entre o site e os posts das redes sociais. Também notei falhas de contraste no texto do site, com algumas amostras abaixo do padrão recomendado.\n\nSoube também que estão abrindo uma nova loja no bairro Vila Aurora. Com essa expansão, teríamos como organizar a identidade visual para que todas as lojas e canais falem da mesma forma."
+      },
+      "checks": [
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "apresenta a agência pelo nome",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "pedido-sem-fonte",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 6508,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Identidade visual da PetVila Sintética",
+          "body": "Olá,\n\nVi no site da PetVila que o contraste do texto atende mal às normas de acessibilidade em 6 de 41 amostras. Além disso, notei que a cor do logotipo varia entre o site e as redes sociais.\n\nEssas inconsistências podem gerar uma marca confusa para quem visita online ou passa pelos três pontos de venda atuais, incluindo o novo local em Vila Aurora.\n\nNo Estúdio Faro, organizamos sistemas de identidade visual para garantir que lojas, sites e redes falem igual. Gostaria de agendar uma conversa rápida de 20 minutos para entender como podemos ajudar a regularizar isso.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila já opera três lojas e um novo ponto em Vila Aurora, mas o contraste do texto no site atende mal às normas de acessibilidade. Isso pode criar atrito para clientes com deficiência visual ao acessar a marca online.",
+          "objective": "meeting",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O tipo pedido é um e-mail de apresentação formal, adequado para abordar uma empresa EPP em sua sede.",
+          "argument": "Vi no site da PetVila que o contraste do texto atende mal às normas de acessibilidade em 6 de 41 amostras. Além disso, notei que a cor do logotipo varia entre o site e as redes sociais. Isso pode gerar uma marca inconsistente para quem visita online ou passa por um dos três pontos de venda atuais.",
+          "evidence": [
+            {
+              "statement": "Medição automática do contraste: 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado (WCAG AA).",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "Propor uma conversa de 20 minutos para alinhar a identidade visual entre lojas, site e redes sociais.",
+          "gaps": [
+            "Não sei se a empresa já tentou regularizar o contraste ou a consistência das cores internamente.",
+            "Não tenho certeza sobre o orçamento disponível para reorganizar a marca em todos os canais."
+          ],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "nenhum ponto da estratégia apoia a loja do pedido em evidência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a fonte nenhuma (veio só do pedido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "cita a loja nova, como o pedido manda",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "canal-email-sem-historia",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 6412,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Identidade visual: inconsistências no site e redes sociais",
+          "body": "Olá,\n\nEstou escrevendo do Estúdio Faro porque ao analisar o site da PetVila Sintética, notei que mais da metade das amostras de texto não passam no padrão de acessibilidade recomendado.\n\nAlém disso, observamos que a cor do logotipo parece variar entre as lojas físicas e os posts nas redes sociais. Essas inconsistências podem gerar riscos para a reputação da marca e limitar o alcance em diferentes canais.\n\nPropomos organizar um alinhamento rápido para definir como podemos garantir que a identidade visual seja reconhecida igual em todas as lojas e digitais.\n\nFico no aguardo de sua disponibilidade para conversarmos sobre isso.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila Sintética opera lojas físicas e um site com inconsistências visuais graves: o logotipo muda de cor entre canais e mais da metade das amostras de texto no site não passam no padrão de acessibilidade WCAG AA.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação inicial; o canal escolhido é email para garantir que a mensagem chegue ao destinatário principal sem dependência de conexões profissionais.",
+          "argument": "Identificamos no site de vocês uma inconsistência entre as cores do logotipo nas lojas e nas redes sociais, além de mais de 50% das amostras de texto não cumprirem o padrão de acessibilidade recomendado. Isso pode gerar risco para a reputação da marca e limitar o alcance em canais digitais.",
+          "evidence": [
+            {
+              "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            },
+            {
+              "statement": "Medição automática do contraste mostra que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site parece diferente do laranja usado nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "agendar uma conversa de 20 minutos para alinhar como podemos organizar a identidade visual da PetVila Sintética em todos os canais",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "sem tentativa ou contato anterior inventado (motivo do canal)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "proporcao-contraste",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 5716,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Alinhamento da identidade visual da PetVila Sintética",
+          "body": "Olá,\n\nSou do Estúdio Faro e escrevo porque notei inconsistências na marca de vocês que podem estar impactando a reconhecimento da empresa.\n\nNo site, 6 de 41 amostras de texto não atendem ao padrão mínimo de contraste. Também vi que o laranja do logotipo varia entre o site e os posts recentes do Instagram.\n\nEssas diferenças podem enfraquecer a identidade da marca em todos os pontos de contato. Acreditamos que uma organização clara das peças visuais pode resolver isso, garantindo que a PetVila Sintética seja reconhecida com a mesma qualidade nas lojas e canais digitais.\n\nGostaria de conversar brevemente para entender como podemos ajudar nessa jornada.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila Sintética enfrenta problemas de consistência visual entre seus canais, com cores variando e falhas de acessibilidade no site.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação formal para uma empresa individual registrada como EPP, onde o canal direto é mais adequado para apresentar a solução.",
+          "argument": "Vi no site de vocês que 6 de 41 amostras de texto não atendem ao padrão de contraste recomendado. Também notei que o laranja do logotipo varia entre o site e os posts do Instagram. Isso pode enfraquecer a identidade da marca em todos os pontos de contato.",
+          "evidence": [
+            {
+              "statement": "6 de 41 amostras de texto no site não atendem ao padrão mínimo de contraste.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo varia entre o site e os posts recentes do Instagram.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "Conversar em breve para entender como podemos ajudar a alinhar a identidade visual de todas as suas lojas e canais.",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem intensificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-mais-curta",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1902,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "- Olá, equipe da PetVila!\n- Vi no site de vocês as três lojas em Curitiba e notei que o laranja da marca aparece em tons diferentes entre o site e as redes.\n- Quando a rede cresce, manter a marca igual ajuda o cliente a reconhecer vocês de longe.\n- Podemos conversar 20 minutos sobre como organizar isso?\n\nAbraço,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta a loja que o usuário tirou",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém o ponto principal da versão anterior (o laranja da marca)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mais curta que a versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 120 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-tom-formal",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1726,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "Olá,\n\nSou do Estúdio Faro, um estúdio de identidade visual.\n\nNo site de vocês, notei que o laranja da marca apresenta tons distintos entre o site e as redes sociais. Com a expansão para novas lojas, é fundamental garantir a consistência da marca em todos os pontos de contato para reforçar o reconhecimento da empresa.\n\nPodemos conversar por 20 minutos sobre como organizar essa identidade?\n\nAtenciosamente,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta a loja que o usuário tirou",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém a cor da marca da versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 140 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-acrescenta-loja",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 2219,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "Olá, equipe da PetVila!\n\nSou do Estúdio Faro, um estúdio de identidade visual. Vi no site de vocês as três lojas em Curitiba, no Centro, no Água Verde e no Jardim Botânico, e reparei que o laranja da marca aparece em tons diferentes entre o site e as redes.\n\nAlém disso, tenho conhecimento da preparação para a abertura de uma loja no bairro Vila Aurora.\n\nQuando a rede cresce, manter a marca igual em todas as lojas e canais ajuda o cliente a reconhecer vocês de longe. Podemos conversar 20 minutos sobre como organizar isso?\n\nAbraço,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "acrescenta a loja nova pedida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 150 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "mensagem-nova-fonte-e-proporcao",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 2218,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Identidade visual para PetVila Sintética",
+        "body": "Olá, sou da Estúdio Faro e escrevo porque vi no site de vocês falhas de contraste no texto e o laranja do logotipo diferente entre o site e os posts. A empresa também lista lojas em Curitiba e prepara a abertura de uma nova loja no bairro Vila Aurora. Com mais pontos de venda, uma marca organizada evita que cada canal fale de um jeito. Posso ajudar a alinhar cores e peças para todas as lojas e redes sociais? Podemos conversar na semana que vem?"
+      },
+      "checks": [
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "apresenta a agência pelo nome",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "pedido-sem-fonte",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 6428,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Identidade visual para PetVila Sintética",
+          "body": "Olá,\n\nEstou escrevendo do Estúdio Faro porque notei que o laranja do logotipo varia entre o site e os posts recentes da PetVila.\n\nAlém disso, a medição automática de contraste no site mostrou que 6 de 41 amostras de texto ficam abaixo do padrão recomendado, o que pode dificultar a leitura em diferentes canais.\n\nUma marca consistente garante que seja reconhecida com a mesma clareza em todas as lojas e redes sociais. Gostaria de conversar brevemente sobre como podemos organizar a identidade visual para alinhar site, redes e lojas físicas.\n\nPodemos agendar uma conversa de 20 minutos nos próximos dias?\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila opera lojas físicas e digital, mas o contraste de texto no site está abaixo do padrão recomendado, o que pode dificultar a leitura em redes sociais. O laranja do logotipo também varia entre o site e os posts recentes.",
+          "objective": "conversation",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação inicial, que é o canal adequado para iniciar uma conversa sobre identidade visual.",
+          "argument": "Identidade visual unificada garante que a marca seja reconhecida com a mesma clareza em todas as lojas e canais. A variação do laranja entre o site e os posts recentes pode enfraquecer essa consistência.",
+          "evidence": [
+            {
+              "statement": "O site lista três lojas em Curitiba: Centro, Água Verde e Jardim Botânico.",
+              "claimIds": ["00000000-0000-4000-8000-000000000001"]
+            },
+            {
+              "statement": "Medição automática do contraste revelou que 6 de 41 amostras de texto ficaram abaixo do mínimo recomendado.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site é diferente do laranja usado nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "uma conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "nenhum ponto da estratégia apoia a loja do pedido em evidência",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a fonte nenhuma (veio só do pedido)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "cita a loja nova, como o pedido manda",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "canal-email-sem-historia",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 6122,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Sistema de identidade visual para a PetVila Sintética",
+          "body": "Olá,\n\nSou do Estúdio Faro e escrevo porque notei inconsistências na sua marca que podem afetar o reconhecimento da PetVila Sintética em todos os canais.\n\nNo site, 6 das 41 amostras de texto não passam no contraste recomendado, e as cores do logotipo variam entre o site e o Instagram. Com a nova loja em Vila Aurora chegando, é crucial garantir que a marca seja reconhecida igual em todas as lojas e canais.\n\nNossa especialidade é organizar sistemas de identidade visual para que lojas, sites e redes falem com coerência. Gostaria de agendar uma conversa rápida de 20 minutos para entender como podemos ajudar na sua organização.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila Sintética precisa organizar sua marca para garantir consistência entre as três lojas atuais e a nova loja em Vila Aurora, evitando que cores e logotipos variem por canal.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "o pedido é um e-mail de apresentação inicial e os dados indicam que este canal é adequado para esse tipo de contato.",
+          "argument": "Identifiquei que 6 das 41 amostras de texto no site da PetVila Sintética não passam no contraste recomendado, além de notarmos diferenças nas cores do logotipo entre o site e o Instagram. Criar um sistema de identidade visual unificado permitirá que a marca seja reconhecida igual em todas as lojas e canais, incluindo a nova loja em Vila Aurora.",
+          "evidence": [
+            {
+              "statement": "6 das 41 amostras de texto no site não passam no contraste recomendado.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "As cores do logotipo variam entre o site e os posts do Instagram.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            },
+            {
+              "statement": "A empresa está preparando a abertura de uma loja no bairro Vila Aurora.",
+              "claimIds": ["00000000-0000-4000-8000-000000000003"]
+            }
+          ],
+          "nextStep": "agendar uma conversa de 20 minutos",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "sem tentativa ou contato anterior inventado (motivo do canal)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem tentativa ou contato anterior inventado (estratégia e mensagem)",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "approach",
+      "caseId": "proporcao-contraste",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 5438,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "message": {
+          "subject": "Identidade visual da PetVila Sintética",
+          "body": "Olá,\n\nEstou escrevendo porque notei no site de vocês que 6 de 41 amostras de texto ficam abaixo do mínimo recomendado de contraste. Também observei que o laranja do logotipo no site parece diferente do usado nos posts recentes.\n\nEssas inconsistências podem deixar a marca reconhecida de forma desigual em lojas e canais digitais. A oferta da Estúdio Faro é criar um sistema de identidade visual que organiza a marca e as peças para que tudo fale com a mesma consistência.\n\nGostaria de agendar uma conversa de 20 minutos para entender como sua marca precisa se comportar em cada canal e ver se podemos ajudar.\n\nAtenciosamente,\nEstúdio Faro"
+        },
+        "strategy": {
+          "opportunity": "A PetVila Sintética precisa organizar sua marca para que lojas e canais falem com a mesma consistência visual.",
+          "objective": "introduction",
+          "counterpartRole": "sócios ou direção",
+          "channel": "email",
+          "channelReason": "O pedido é um e-mail de apresentação inicial, o canal padrão para esse tipo de contato.",
+          "argument": "Vi no site de vocês que 6 de 41 amostras de texto ficam abaixo do mínimo recomendado de contraste. Também notei que o laranja do logotipo no site parece diferente do usado nos posts recentes. Isso pode deixar a marca reconhecida de forma inconsistente em diferentes canais, algo que um sistema de identidade visual resolve.",
+          "evidence": [
+            {
+              "statement": "6 de 41 amostras de texto ficam abaixo do mínimo recomendado de contraste.",
+              "claimIds": ["00000000-0000-4000-8000-000000000002"]
+            },
+            {
+              "statement": "O laranja do logotipo no site parece diferente do usado nos posts recentes.",
+              "claimIds": ["00000000-0000-4000-8000-000000000004"]
+            }
+          ],
+          "nextStep": "Conversar por 20 minutos para entender como sua marca precisa se comportar em cada canal.",
+          "gaps": [],
+          "risks": [],
+          "caseIds": []
+        }
+      },
+      "checks": [
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "estratégia sem intensificador",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-mais-curta",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1855,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "- Olá, equipe da PetVila!\n\nVi no site de vocês três lojas em Curitiba e notei que o laranja da marca aparece em tons diferentes entre o site e as redes.\n\nQuando a rede cresce, manter a marca igual ajuda o cliente a reconhecer vocês. Podemos conversar 20 minutos sobre isso?\n\nAbraço,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta a loja que o usuário tirou",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém o ponto principal da versão anterior (o laranja da marca)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mais curta que a versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 120 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-tom-formal",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1652,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Organização da marca PetVila",
+        "body": "Olá, equipe da PetVila.\n\nSou do Estúdio Faro, um estúdio de identidade visual. Verificamos no site de vocês três lojas em Curitiba e notamos que o laranja da marca apresenta variações de tom entre o site e as redes sociais.\n\nPara uma rede em expansão, a consistência visual é fundamental para o reconhecimento da marca. Podemos agendar uma conversa breve para discutir como organizar isso?\n\nAtenciosamente,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "não traz de volta a loja que o usuário tirou",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mantém a cor da marca da versão anterior",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 140 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "reescrita-acrescenta-loja",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2040,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Marca da PetVila nas lojas e redes",
+        "body": "Olá, equipe da PetVila!\n\nSou do Estúdio Faro, um estúdio de identidade visual. Vi no site de vocês as três lojas em Curitiba, no Centro, no Água Verde e no Jardim Botânico, e reparei que o laranja da marca aparece em tons diferentes entre o site e as redes.\n\nTambém vi que a empresa prepara a abertura de uma loja no bairro Vila Aurora. Quando a rede cresce, manter a marca igual em todas as lojas e canais ajuda o cliente a reconhecer vocês de longe.\n\nPodemos conversar 20 minutos sobre como organizar isso?\n\nAbraço,\nEstúdio Faro"
+      },
+      "checks": [
+        {
+          "name": "acrescenta a loja nova pedida",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 150 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "message",
+      "caseId": "mensagem-nova-fonte-e-proporcao",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2013,
+      "calls": 1,
+      "error": null,
+      "output": {
+        "subject": "Organização da marca para PetVila Sintética",
+        "body": "Olá, sou do Estúdio Faro. Notei que o site de vocês tem falhas de contraste em algumas amostras de texto e que a cor laranja do logotipo varia entre o site e os posts recentes. Com a loja nova prevista no bairro Vila Aurora, uma marca organizada evita que cada canal fale de um jeito. Posso ajudar a criar um manual e biblioteca de peças para garantir consistência? Podemos conversar em breve?"
+      },
+      "checks": [
+        {
+          "name": "não atribui \"Vila Aurora\" a outra fonte que não o Instagram",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "mensagem sem intensificador (grave, sério, crítico...)",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "apresenta a agência pelo nome",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sem marcador entre colchetes",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "sem anexo nem link",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "até 130 palavras",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "assunto curto (até 60 caracteres) ou nulo",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

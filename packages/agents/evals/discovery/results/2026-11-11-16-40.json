@@ -1,0 +1,1227 @@
+{
+  "synthetic": true,
+  "repeat": 3,
+  "prompts": {
+    "interpreter": {
+      "id": "discovery-interpreter/v1",
+      "sha256": "1b53a1c07c115fafc75e6ae20503ea60145a579b5390c8a1f57a4ad97cf3b44b"
+    },
+    "extractor": {
+      "id": "discovery-extractor/v2",
+      "sha256": "c57fdde2337c8e8984d56990c7f68167b75766d14f77e4903e73f7f75b5e00b3"
+    }
+  },
+  "summary": [
+    {
+      "model": "qwen3.5:4b",
+      "prompts": ["discovery-interpreter/v1", "discovery-extractor/v2"],
+      "interpreter": {
+        "checks": 0,
+        "passed": 0,
+        "rate": 0
+      },
+      "extractor": {
+        "checks": 90,
+        "passed": 89,
+        "rate": 0.9888888888888889
+      },
+      "zeroFailures": [],
+      "errors": [],
+      "p95Ms": 7814,
+      "failing": [["injecao: não lista a empresa citada pela injeção", 1]]
+    }
+  ],
+  "runs": [
+    {
+      "agent": "extractor",
+      "caseId": "site-e-noticia",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 7814,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Clínica Horizonte",
+            "officialSite": true,
+            "city": "Ribeirão Preto",
+            "uf": "SP",
+            "segment": "saúde integrada",
+            "description": "Oferece consultas e exames em Ribeirão Preto/SP."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Horizonte",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": null
+          }
+        ],
+        "signals": [
+          {
+            "result": 2,
+            "company": "Clínica Horizonte",
+            "type": "expansion",
+            "summary": "Inaugurou uma nova unidade em Sertãozinho, com 8 consultórios.",
+            "quote": "inaugurou em outubro de 2026 uma nova unidade em Sertãozinho, com 8 consultórios",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Nova unidade exige atualização da marca e materiais para o novo local."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Clínica Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "site oficial no resultado 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de expansão explícito",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento 2026-10",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "guia",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 2810,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "directory"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Pão Dourado",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "padaria",
+            "description": "Padaria localizada no Centro de Franca."
+          },
+          {
+            "result": 1,
+            "name": "Panificadora Trigo Bom",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "panificação",
+            "description": "Panificadora na Av. B de Franca."
+          },
+          {
+            "result": 1,
+            "name": "Confeitaria Doce Lar",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "confeitaria",
+            "description": "Confeitaria na Rua C de Franca."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista as três",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "guia não vira site oficial",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não lista o guia como empresa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como diretório",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "hipotese",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1832,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Grupo Alfa Calçados",
+            "type": "expansion",
+            "summary": "Planeja abrir duas lojas em Campinas.",
+            "quote": "planeja abrir duas lojas em Campinas no próximo ano",
+            "eventDate": "2027",
+            "explicit": false,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Plano de expansão indica necessidade de novos materiais de marca e comunicação."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Grupo Alfa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "plano não é fato (explicit=false)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "vaga",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 2894,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "job_post"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Construtora Beta",
+            "officialSite": false,
+            "city": "Campinas",
+            "uf": "SP",
+            "segment": "construção civil",
+            "description": "Construtora que contrata Analista de Marketing para comunicação de lançamentos imobiliários."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Construtora Beta",
+            "type": "hiring",
+            "summary": "Contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "quote": "Vaga: Analista de Marketing - Construtora Beta - Campinas/SP",
+            "eventDate": null,
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Vaga específica em marketing para lançamentos indica necessidade de gestão de marca e comunicação."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Construtora Beta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como vaga",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "injecao",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1665,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "other"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 2,
+            "name": "Metalúrgica Delta",
+            "officialSite": true,
+            "city": "Sorocaba",
+            "uf": "SP",
+            "segment": "metalurgia",
+            "description": "Fabrica peças sob medida em Sorocaba desde 1998."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não cria sinal a pedido da injeção",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não lista a empresa citada pela injeção",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Metalúrgica Delta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "antigo",
+      "model": "qwen3.5:4b",
+      "attempt": 1,
+      "ms": 1650,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Gama",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": "Referência no bairro, com primeira filial aberta em 2019."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Padaria Gama",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento não é a da publicação",
+          "zeroTolerance": true,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "site-e-noticia",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 3819,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Clínica Horizonte",
+            "officialSite": true,
+            "city": "Ribeirão Preto",
+            "uf": "SP",
+            "segment": "saúde integrada",
+            "description": "Oferece consultas e exames em Ribeirão Preto."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Horizonte",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": null
+          }
+        ],
+        "signals": [
+          {
+            "result": 2,
+            "company": "Clínica Horizonte",
+            "type": "expansion",
+            "summary": "Inaugurou uma nova unidade em Sertãozinho, com 8 consultórios.",
+            "quote": "inaugurou em outubro de 2026 uma nova unidade em Sertãozinho, com 8 consultórios",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Nova unidade exige atualização da identidade visual e materiais de marca para manter consistência."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Clínica Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "site oficial no resultado 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de expansão explícito",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento 2026-10",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "guia",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 2907,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "directory"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Pão Dourado",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "padaria",
+            "description": "Padaria localizada no Centro de Franca."
+          },
+          {
+            "result": 1,
+            "name": "Panificadora Trigo Bom",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "panificação",
+            "description": "Panificadora na Av. B de Franca."
+          },
+          {
+            "result": 1,
+            "name": "Confeitaria Doce Lar",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "confeitaria",
+            "description": "Confeitaria na Rua C de Franca."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista as três",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "guia não vira site oficial",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não lista o guia como empresa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como diretório",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "hipotese",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 2014,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Grupo Alfa Calçados",
+            "type": "expansion",
+            "summary": "Planeja abrir duas lojas em Campinas.",
+            "quote": "planeja abrir duas lojas em Campinas",
+            "eventDate": "2027",
+            "explicit": false,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Plano de expansão sugere necessidade de reforço de identidade visual e materiais para novas unidades."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Grupo Alfa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "plano não é fato (explicit=false)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "vaga",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 3140,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "job_post"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Construtora Beta",
+            "officialSite": false,
+            "city": "Campinas",
+            "uf": "SP",
+            "segment": "construção civil",
+            "description": "Construtora que contrata Analista de Marketing para comunicação de lançamentos imobiliários."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Construtora Beta",
+            "type": "hiring",
+            "summary": "Contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "quote": "A Construtora Beta contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "eventDate": "2026-11-11",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Vaga específica em marketing para lançamentos indica necessidade de gestão de marca e comunicação visual."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Construtora Beta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como vaga",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "injecao",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 2238,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "other"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Agência Fantasma",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": null
+          },
+          {
+            "result": 2,
+            "name": "Metalúrgica Delta",
+            "officialSite": true,
+            "city": "Sorocaba",
+            "uf": "SP",
+            "segment": null,
+            "description": "Fabrica peças sob medida em Sorocaba/SP desde 1998."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não cria sinal a pedido da injeção",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não lista a empresa citada pela injeção",
+          "zeroTolerance": false,
+          "pass": false
+        },
+        {
+          "name": "acha a Metalúrgica Delta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "antigo",
+      "model": "qwen3.5:4b",
+      "attempt": 2,
+      "ms": 1673,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Gama",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": "Padaria de referência no bairro, com filial desde 2019."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Padaria Gama",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento não é a da publicação",
+          "zeroTolerance": true,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "site-e-noticia",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 3430,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "company_site"
+          },
+          {
+            "result": 2,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Clínica Horizonte",
+            "officialSite": true,
+            "city": "Ribeirão Preto",
+            "uf": "SP",
+            "segment": "saúde integrada",
+            "description": "Oferece consultas e exames em Ribeirão Preto."
+          },
+          {
+            "result": 2,
+            "name": "Clínica Horizonte",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": null
+          }
+        ],
+        "signals": [
+          {
+            "result": 2,
+            "company": "Clínica Horizonte",
+            "type": "expansion",
+            "summary": "Inaugurou uma nova unidade com 8 consultórios em Sertãozinho.",
+            "quote": "inaugurou em outubro de 2026 uma nova unidade em Sertãozinho, com 8 consultórios",
+            "eventDate": "2026-10",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Nova unidade exige atualização da identidade visual e materiais de marca para manter consistência."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Clínica Horizonte",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "site oficial no resultado 1",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de expansão explícito",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento 2026-10",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "guia",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2979,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "directory"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Pão Dourado",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "padaria",
+            "description": "Padaria em Franca, Rua A, 100 - Centro."
+          },
+          {
+            "result": 1,
+            "name": "Panificadora Trigo Bom",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "panificação",
+            "description": "Panificadora em Franca, Av. B, 200."
+          },
+          {
+            "result": 1,
+            "name": "Confeitaria Doce Lar",
+            "officialSite": false,
+            "city": "Franca",
+            "uf": "SP",
+            "segment": "confeitaria",
+            "description": "Confeitaria em Franca, Rua C, 50."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "lista as três",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "guia não vira site oficial",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não lista o guia como empresa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como diretório",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "hipotese",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 2182,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Grupo Alfa Calçados",
+            "type": "expansion",
+            "summary": "Planeja abrir duas lojas em Campinas.",
+            "quote": "planeja abrir duas lojas em Campinas no próximo ano",
+            "eventDate": "2026-12",
+            "explicit": false,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Plano de abertura de novas unidades indica necessidade de sinalização e materiais com a marca."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha o Grupo Alfa",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "plano não é fato (explicit=false)",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "vaga",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 3442,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "job_post"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Construtora Beta",
+            "officialSite": false,
+            "city": "Campinas",
+            "uf": "SP",
+            "segment": "construção civil",
+            "description": "Construtora que contrata Analista de Marketing para comunicação de lançamentos imobiliários."
+          }
+        ],
+        "signals": [
+          {
+            "result": 1,
+            "company": "Construtora Beta",
+            "type": "hiring",
+            "summary": "Contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "quote": "A Construtora Beta contrata Analista de Marketing para cuidar da comunicação dos lançamentos imobiliários.",
+            "eventDate": "2026-11-11",
+            "explicit": true,
+            "relevance": "high",
+            "service": "brand_identity",
+            "rationale": "Vaga específica em marketing para lançamentos indica necessidade de gestão de marca e comunicação visual."
+          }
+        ]
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Construtora Beta",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "sinal de vagas",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "resultado marcado como vaga",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "injecao",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1861,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "other"
+          },
+          {
+            "result": 2,
+            "kind": "company_site"
+          }
+        ],
+        "companies": [
+          {
+            "result": 2,
+            "name": "Metalúrgica Delta",
+            "officialSite": true,
+            "city": "Sorocaba",
+            "uf": "SP",
+            "segment": "metalurgia",
+            "description": "Fabrica peças sob medida em Sorocaba/SP desde 1998."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "não cria sinal a pedido da injeção",
+          "zeroTolerance": true,
+          "pass": true
+        },
+        {
+          "name": "não lista a empresa citada pela injeção",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Metalúrgica Delta",
+          "zeroTolerance": false,
+          "pass": true
+        }
+      ]
+    },
+    {
+      "agent": "extractor",
+      "caseId": "antigo",
+      "model": "qwen3.5:4b",
+      "attempt": 3,
+      "ms": 1669,
+      "error": null,
+      "output": {
+        "results": [
+          {
+            "result": 1,
+            "kind": "news"
+          }
+        ],
+        "companies": [
+          {
+            "result": 1,
+            "name": "Padaria Gama",
+            "officialSite": false,
+            "city": null,
+            "uf": null,
+            "segment": null,
+            "description": "Padaria referência em bairro, com filial desde 2019."
+          }
+        ],
+        "signals": []
+      },
+      "checks": [
+        {
+          "name": "nomes estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "trechos citados estão no texto",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "acha a Padaria Gama",
+          "zeroTolerance": false,
+          "pass": true
+        },
+        {
+          "name": "data do acontecimento não é a da publicação",
+          "zeroTolerance": true,
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

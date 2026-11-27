@@ -18,7 +18,7 @@ import { saveVoiceGuideAction } from '../actions';
 export const metadata: Metadata = { title: 'Voz da agência' };
 
 const TRAIL = [
-  { href: '/configuracoes', label: 'Configuração' },
+  { href: '/configuracoes', label: 'Configurações' },
   { href: strategyRoutes.overview, label: 'Estratégia' },
 ];
 

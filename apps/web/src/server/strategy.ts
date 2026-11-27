@@ -10,6 +10,7 @@ import { notFound, redirect, unstable_rethrow } from 'next/navigation';
 import { cache } from 'react';
 import type { FormValues } from '@/lib/form-data';
 import type { FormState } from '@/lib/form-state';
+import { relationshipRoutes } from '@/lib/relationship-routes';
 import { getServices } from './container';
 import type { StorageMode } from './env';
 import { userContext } from './context';
@@ -111,7 +112,8 @@ export async function runStrategyAction(
     throw error;
   }
   revalidatePath('/configuracoes', 'layout');
-  revalidatePath('/abordagens');
+  revalidatePath(relationshipRoutes.hub, 'layout');
+  revalidatePath(relationshipRoutes.approvals);
   if (typeof outcome === 'string') redirect(outcome);
   return {
     status: outcome?.unchanged ? 'unchanged' : 'saved',

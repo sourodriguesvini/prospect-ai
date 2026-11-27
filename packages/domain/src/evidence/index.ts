@@ -4,5 +4,6 @@
  */
 export * from './confidence';
 export * from './policy';
+export * from './quotes';
 export * from './sources';
 export * from './validation';

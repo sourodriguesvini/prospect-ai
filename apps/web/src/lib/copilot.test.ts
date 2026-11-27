@@ -1,14 +1,7 @@
-import {
-  COPILOT_HISTORY_LIMIT,
-  formatMiBAsGB,
-  type GenerationUsage,
-  type LocalModel,
-} from '@prospector/contracts';
+import { formatMiBAsGB, type GenerationUsage, type LocalModel } from '@prospector/contracts';
 import { describe, expect, it } from 'vitest';
 import {
-  HISTORY_CHAR_BUDGET,
   applyEvent,
-  buildHistory,
   chatModelOptions,
   describeCapabilities,
   createEventDecoder,
@@ -16,9 +9,9 @@ import {
   describeUsage,
   formatGigabytes,
   formatMebibytesAsGigabytes,
-  historyIsTrimmed,
   httpFailure,
   modelsWithoutThinking,
+  turnsFromMessages,
   type Turn,
 } from './copilot';
 
@@ -102,59 +95,101 @@ describe('applyEvent', () => {
   });
 });
 
-describe('buildHistory', () => {
-  it('ignora falas vazias (ex.: resposta que falhou antes do primeiro token)', () => {
-    const history = buildHistory([
-      turn('user', 'Oi'),
-      turn('assistant', ''),
-      turn('user', 'Tem alguém aí?'),
-    ]);
-    expect(history).toEqual([
-      { role: 'user', content: 'Oi' },
-      { role: 'user', content: 'Tem alguém aí?' },
-    ]);
-  });
+describe('turnsFromMessages', () => {
+  const base = {
+    threadId: '11111111-1111-4111-8111-111111111111',
+    status: 'complete' as const,
+    model: null,
+    promptVersion: null,
+    traceId: 't',
+    toolCalls: null,
+    toolCallId: null,
+    toolName: null,
+    toolStatus: null,
+    errorCode: null,
+    usage: null,
+    createdAt: '2026-11-10T12:00:00Z',
+  };
+  const id = () => crypto.randomUUID();
 
-  it('respeita o limite de mensagens do contrato', () => {
-    const turns = Array.from({ length: COPILOT_HISTORY_LIMIT + 10 }, (_, index) =>
-      turn(index % 2 === 0 ? 'user' : 'assistant', `mensagem ${index}`),
+  it('junta resultados de ferramenta à resposta seguinte, com o título atual', () => {
+    const turns = turnsFromMessages(
+      [
+        { ...base, id: id(), role: 'user', content: 'Quais ofertas eu tenho?' },
+        {
+          ...base,
+          id: id(),
+          role: 'tool',
+          content: '1 oferta: 1 ativa.',
+          toolCallId: 'call_1',
+          toolName: 'list_offers',
+          toolStatus: 'ok',
+        },
+        {
+          ...base,
+          id: id(),
+          role: 'assistant',
+          content: 'Você tem 1 oferta.',
+          model: 'qwen3.5:4b',
+        },
+      ],
+      { list_offers: 'Consultando ofertas' },
     );
-    turns.push(turn('user', 'última'));
-    const history = buildHistory(turns);
-    expect(history).toHaveLength(COPILOT_HISTORY_LIMIT);
-    expect(history.at(-1)).toEqual({ role: 'user', content: 'última' });
+    expect(turns).toHaveLength(2);
+    expect(turns[1]).toMatchObject({
+      role: 'assistant',
+      content: 'Você tem 1 oferta.',
+      model: 'qwen3.5:4b',
+      tools: [
+        { id: 'call_1', title: 'Consultando ofertas', status: 'ok', summary: '1 oferta: 1 ativa.' },
+      ],
+    });
   });
 
-  it('corta pelo orçamento de caracteres, mas sempre mantém a última pergunta', () => {
-    const long = 'a'.repeat(Math.floor(HISTORY_CHAR_BUDGET * 0.45));
-    const older = turn('user', `antiga ${long}`);
-    const history = buildHistory([
-      older,
-      turn('user', long),
-      turn('assistant', long),
-      turn('user', 'e agora?'),
+  it('mostra resposta interrompida e falha com o motivo', () => {
+    const turns = turnsFromMessages([
+      { ...base, id: id(), role: 'user', content: 'oi' },
+      { ...base, id: id(), role: 'assistant', content: 'Ol', status: 'interrupted' },
+      { ...base, id: id(), role: 'user', content: 'oi?' },
+      { ...base, id: id(), role: 'assistant', content: '', status: 'failed', errorCode: 'timeout' },
     ]);
-    expect(history.map((message) => message.content)).toEqual([long, long, 'e agora?']);
-
-    const huge = buildHistory([turn('user', 'c'.repeat(HISTORY_CHAR_BUDGET * 2))]);
-    expect(huge).toHaveLength(1);
+    expect(turns[1]?.error).toEqual({ code: 'cancelled', message: 'Resposta interrompida.' });
+    expect(turns[3]?.error?.code).toBe('timeout');
   });
 
-  it('encurta resposta longa demais para o contrato', () => {
-    const history = buildHistory([turn('assistant', 'b'.repeat(9000)), turn('user', 'ok')]);
-    expect(history[0]?.content.length).toBeLessThanOrEqual(8000);
-    expect(history[0]?.content.endsWith('[…]')).toBe(true);
+  it('ferramenta sem título conhecido ganha um rótulo neutro', () => {
+    const turns = turnsFromMessages([
+      { ...base, id: id(), role: 'user', content: 'oi' },
+      { ...base, id: id(), role: 'tool', content: 'x', toolName: 'old_tool', toolStatus: 'error' },
+      { ...base, id: id(), role: 'assistant', content: 'ok' },
+    ]);
+    expect(turns[1]?.tools?.[0]).toMatchObject({ title: 'Consulta (old_tool)', status: 'error' });
   });
 });
 
-describe('historyIsTrimmed', () => {
-  it('avisa só quando falas com conteúdo ficam fora do pedido', () => {
-    expect(historyIsTrimmed([])).toBe(false);
-    expect(historyIsTrimmed([turn('user', 'Oi'), turn('assistant', '')])).toBe(false);
-    const many = Array.from({ length: COPILOT_HISTORY_LIMIT + 2 }, (_, index) =>
-      turn(index % 2 ? 'assistant' : 'user', `fala ${index}`),
+describe('applyEvent com ferramentas', () => {
+  it('acompanha a consulta do pedido ao resultado', () => {
+    let turn: Turn = { id: 'a', role: 'assistant', content: '' };
+    turn = applyEvent(turn, {
+      type: 'tool_call',
+      id: 'c1',
+      name: 'list_offers',
+      title: 'Consultando ofertas',
+    });
+    expect(turn.tools?.[0]?.status).toBeUndefined();
+    turn = applyEvent(turn, {
+      type: 'tool_result',
+      id: 'c1',
+      name: 'list_offers',
+      status: 'ok',
+      summary: '2 ofertas.',
+      links: [{ label: 'Branding', href: '/configuracoes/estrategia/ofertas/x' }],
+    });
+    expect(turn.tools?.[0]).toMatchObject({ status: 'ok', summary: '2 ofertas.' });
+    expect(turn.tools?.[0]?.links).toHaveLength(1);
+    expect(applyEvent(turn, { type: 'thread', threadId: 't', title: 'x', created: true })).toBe(
+      turn,
     );
-    expect(historyIsTrimmed(many)).toBe(true);
   });
 });
 

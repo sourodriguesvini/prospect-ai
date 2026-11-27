@@ -30,7 +30,7 @@ pnpm dev
 - `pnpm dev` abre o app em **http://127.0.0.1:3000** (só este computador). Sem banco configurado, a tela inicial mostra "Banco de dados: Não configurado" e a auditoria avisa o mesmo; nada quebra.
 - O app recusa com 403 qualquer `Host` que não seja `localhost`, `127.0.0.1` ou `[::1]`. Não exponha a porta na rede nem publique o app: não há login (ADR-0007).
 - `pnpm test:db` usa **PGlite** (Postgres 18 em WebAssembly) com um shim dos papéis do Supabase (`packages/db/tests/support/supabase-shim.sql`). Não precisa de Docker. Aplica todas as migrações de `supabase/migrations` e roda os testes de catálogo e do `audit_log`.
-- `pnpm test:e2e` faz `next build` + `next start` em `127.0.0.1:3100` com o banco **desligado de propósito** (variáveis vazias sobrepõem o `.env.local`) e roda o smoke: telas, estados sem banco, recusa de host externo, cabeçalhos e acessibilidade. `e2e/database.spec.ts` é pulado. Em seguida sobe o mesmo build em `127.0.0.1:3110` no **modo memória** e roda `e2e/strategy.spec.ts` (fluxo completo da F2). A porta 3110 precisa estar livre: esse servidor nunca é reaproveitado, para começar sem dados.
+- `pnpm test:e2e` faz `next build` + `next start` em `127.0.0.1:3100` com o banco **desligado de propósito** (variáveis vazias sobrepõem o `.env.local`) e roda o smoke: telas, estados sem banco, recusa de host externo, cabeçalhos e acessibilidade. `e2e/database.spec.ts` é pulado. Em seguida sobe o mesmo build em `127.0.0.1:3110` no **modo memória** e roda `e2e/strategy.spec.ts` (fluxo completo da F2) e, depois dele, `e2e/relationship.spec.ts` (Relacionamento com a IA sintética, `PROSPECTOR_RELATIONSHIP_AI=fixture`). A porta 3110 precisa estar livre: esse servidor nunca é reaproveitado, para começar sem dados.
 
 ### Modo memória (experimentar as telas sem banco)
 
@@ -41,7 +41,8 @@ PROSPECTOR_STORAGE=memory pnpm dev
 No PowerShell: `$env:PROSPECTOR_STORAGE = 'memory'; pnpm dev`. Prefira a variável na linha de comando a gravá-la no `.env.local`: com ela, o app ignora o banco configurado (e avisa no log do servidor).
 
 - Estratégia, conformidade, abordagens e auditoria gravam na memória do servidor. **Tudo some quando o app reinicia.** Cada tela mostra esse aviso, e o estado do banco aparece como "Modo memória".
-- **Abordar fica sempre bloqueado** nesse modo (item "Banco de dados persistente"): uma LIA aprovada que some ao reiniciar não pode liberar contato com pessoas.
+- **Abordar fica sempre bloqueado** nesse modo (item "Banco de dados persistente"): uma LIA aprovada que some ao reiniciar não pode liberar contato com pessoas. No Relacionamento, dá para preparar abordagens, revisar rascunhos e registrar contatos e respostas, mas "Aprovar para uso" fica bloqueado (ADR-0014).
+- `PROSPECTOR_RELATIONSHIP_AI=fixture` troca a IA do Relacionamento (abordagem, mensagens, interpretação de resposta) por respostas SINTÉTICAS marcadas DEMO, sem Ollama. Só funciona junto com `PROSPECTOR_STORAGE=memory` (o app recusa com o banco) e é o que o e2e usa. Sem a variável, ou com `ollama`, usa a IA local.
 - Não há dados de exemplo: o app começa vazio (ADR-0009).
 - Use só para testar telas. Trabalho real precisa do banco (§3 ou §4).
 
@@ -124,6 +125,60 @@ No PowerShell: `$env:PROSPECTOR_STORAGE = 'memory'; pnpm dev`. Prefira a variáv
    No PowerShell: `$env:E2E_OLLAMA = '1'` antes do comando. `pnpm evals` aceita `EVAL_MODELS` (lista separada por vírgula), `EVAL_PROMPTS` (versões do prompt a comparar, ex.: `1,2`; padrão: a versão em uso) e `EVAL_REPEAT` (padrão 2) e grava o resultado em `packages/agents/evals/copilot/results/`. `EVAL_REGRADE=<arquivo>.json` recalcula as notas de um resultado salvo sem usar a GPU. Sem `E2E_OLLAMA`, o e2e aponta o app para um endereço sem Ollama e testa os estados de erro.
 7. Para liberar a GPU na hora (Figma, edição de vídeo): botão **Descarregar** no painel do Copiloto, ou `ollama stop <modelo>`. O app nunca encerra outros programas.
 
+### Investigação de empresas e auditoria visual (ADR-0015)
+
+1. Abra uma empresa em **Empresas** e use **Investigar empresa** no painel Investigação. A investigação entra na fila do app (uma por vez), lê até 4 páginas do site, captura a marca no computador (1280 px) e no celular (390 px), procura sinais e concorrentes (1 a 3 buscas na Tavily, que gastam créditos), analisa com a IA local e monta o diagnóstico com as ofertas **ativas**. A página se atualiza sozinha; pode fechar e voltar. **Cancelar investigação** guarda o que já foi coletado; uma investigação parada por reinício do app aparece como "Interrompida", com **Retomar de onde parou**.
+2. Precisa de: banco com a migração `20261111150000_company_investigations` aplicada (no modo memória funciona, mas sem busca na internet e tudo some ao reiniciar); o Chromium do Playwright (seção 2); o Ollama com `qwen3.5:4b` (seção 5), que também lê as imagens; e ofertas ativas em Estratégia (preço, rubrica e modelo de score preenchidos). Sem site confirmado, a investigação não lê páginas nem captura a marca: confirme o site no próprio painel.
+3. Capturas (ADR-0015 §6 e emenda 6a): o app guarda as imagens na pasta de dados da instalação, `D:\Prospector-dados\capturas`, criada pelo `pnpm app:install` (seção 7). O `pnpm dev` acha a mesma pasta pelo registro que o instalador deixa em `%LOCALAPPDATA%\Prospector\instalacao.json`; sem instalação, defina `PROSPECTOR_CAPTURES_DIR` em `apps/web/.env.local` com uma pasta **absoluta, com letra de unidade e fora do C:** criada antes. O app recusa pasta de rede (`\\servidor\...`), caminho com `..` e pasta sincronizada com a nuvem (OneDrive, Dropbox, Google Drive, iCloud): as imagens podem mostrar rostos e telefones de quem aparece no site e ficam só neste computador. **Configurações › Sistema › Capturas de marca** mostra a pasta em uso, de onde ela veio, quantas imagens há e se o servidor consegue gravar. Sem pasta, as imagens vão à IA local e são descartadas, e o painel da marca diz por quê. Cada análise guarda até 7 imagens: primeiras telas no computador e no celular, rodapé (quando ele não aparece nas primeiras telas), menu aberto no celular e uma página interna nos dois tamanhos. Análise nova não apaga as imagens anteriores; imagem igual é reaproveitada; o que fica 12 meses sem uso é apagado sozinho. Site que pede para não guardar cópia (`noarchive`) não tem imagem guardada, e tela de bloqueio anti-robô não é guardada nem vira evidência. As imagens abrem só pelo app (`/empresas/<id>/capturas/<arquivo>`, só em localhost), nunca por um caminho do disco. `PROSPECTOR_BRAND_CAPTURE=off` desliga a captura de tela.
+4. **Investigar de novo** reaproveita o que ainda vale (páginas iguais, buscas recentes, análises com a mesma entrada) e registra no **Histórico de mudanças** só o que mudou de verdade. **Coletar tudo de novo** refaz buscas e análises (gasta créditos e GPU).
+5. Cada investigação mostra o custo: buscas e créditos, páginas lidas, capturas, análises e segundos de GPU. A IA local roda uma análise por vez e respeita a reserva de memória de vídeo: com jogo ou edição de vídeo aberto, as análises podem ser recusadas ("A IA local não respondeu…"); a investigação termina "Concluída com lacunas" e o diagnóstico anterior é mantido.
+6. Copiloto: as ferramentas da investigação só entram quando for promovida uma versão de `copilot-tools` que as declare em `TOOLS_PROMPT_CAPABILITIES` (`packages/agents/src/copilot/copilot.ts`). Hoje nenhuma declara: o trecho do prompt está em `docs/rascunhos/copilot-tools-empresas.md`, com o modo de repetir a avaliação pequena, e o v4 unificado vem depois da mesclagem (KI-130). `EVAL_INVESTIGATION_TOOLS=off` tira as ferramentas da investigação da lista na avaliação (ablação).
+
+## 5a. Descoberta (pesquisa de empresas, M3)
+
+A Descoberta usa a pesquisa na internet (Tavily, mesma chave e mesmo teto mensal do Copiloto) e a IA local. Precisa do banco com a migração `20261111120000_discovery.sql` (aplicada no `prospector-dev` em 2026-11-11); sem banco, as telas explicam o que falta.
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `PROSPECTOR_DISCOVERY` | `on` | `off` desliga o módulo e o trabalhador; `fixture` usa buscador e IA SINTÉTICOS (só com `PROSPECTOR_STORAGE=memory`, tudo com selo DEMO) |
+| `DISCOVERY_DAILY_AUTO_CREDITS` | `12` | Créditos da Tavily por dia para monitoramentos (0 a 200; 0 = só "Rodar agora") |
+| `PROSPECTOR_JOB_WORKER` | `on` | `off` deixa as telas funcionando sem o trabalhador da fila nem o agendador neste processo |
+
+- **Um trabalhador por banco.** O `pnpm dev` e o app instalado (`D:\Prospector`) apontam para o mesmo banco: se os dois ficarem abertos, os dois pegam pesquisas e disputam a GPU. O agendador não cria a mesma execução duas vezes (ADR-0013 §7), mas para desenvolver com o app instalado aberto use `PROSPECTOR_JOB_WORKER=off` no `pnpm dev`.
+- **Testes de ponta a ponta com o banco real** (`E2E_SUPABASE=1`): o servidor principal do e2e sobe com `PROSPECTOR_JOB_WORKER=off`, para não pegar as pesquisas e os monitoramentos do usuário.
+- Para ver as telas sem internet nem GPU: `PROSPECTOR_STORAGE=memory PROSPECTOR_DISCOVERY=fixture pnpm dev` (dados de demonstração).
+
+## 5b. E-mail (caixa da Hostinger, ADR-0016)
+
+A tela Configuração › E-mail guarda quem assina, a caixa de envio e a senha (no Vault do Supabase), confere o login SMTP/IMAP e o DNS (SPF, DKIM e DMARC) e manda um e-mail de teste só para a própria caixa. Precisa do banco com a migração `20261125120000_email_mailbox.sql` (aplicada no `prospector-dev` em 2026-11-25); num banco sem ela, a tela explica o que falta. A senha é digitada pelo usuário na tela e nunca volta para o formulário.
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `PROSPECTOR_EMAIL` | `on` | `fixture` usa caixa, servidores e DNS SIMULADOS (só com `PROSPECTOR_STORAGE=memory`, com selo DEMO); nada conecta nem envia |
+
+- Para ver a tela sem caixa real: `PROSPECTOR_STORAGE=memory PROSPECTOR_EMAIL=fixture pnpm dev` (configuração `dev-email-demo` do `.claude/launch.json`).
+- O e2e da tela (`e2e/email.spec.ts`) roda no servidor da Descoberta, que sobe com `PROSPECTOR_EMAIL=fixture`.
+- Mudar o servidor de envio ou de entrada ou o usuário pede a senha de novo; o teste vai para o usuário da caixa (o endereço que o login prova), no máximo um por minuto.
+- A prévia abre em `/configuracoes/email/previa`, com política de segurança só dela (aceita as imagens https cadastradas, sem script). O navegador embutido do Claude bloqueia esse quadro (`ERR_BLOCKED_BY_CLIENT`); no Chrome/Edge e no e2e ele aparece.
+- Imagens da assinatura (faixa e ícones) ficam publicadas no site do usuário, que é o repositório privado `sourodriguesvini/portf-lio` publicado na Hostinger: um arquivo em `assets/email/<nome>.png` vira `https://foundstudio.com.br/assets/email/<nome>.png` depois do commit e da publicação. Hoje lá estão `assinatura-banner.jpg` (900×300) e `icone-{instagram,linkedin,github}.png` (40×40). Use PNG ou JPG (nunca SVG nem WebP), faixa com pelo menos 536 px de largura (o ideal é 1072) e ícone quadrado de 40×40. Ao salvar quem assina, o app baixa cada endereço e recusa o que não for imagem, com o motivo no campo; em `PROSPECTOR_EMAIL=fixture` nada é baixado (endereço terminado em `.png`, `.jpg`, `.jpeg` ou `.gif` conta como imagem, os outros como página).
+
+## 5c. Pesquisa extensa do Copiloto (pessoas e organizações, Parte 6)
+
+Um pedido no Copiloto como "Quero encontrar 100 terapeutas ocupacionais no Brasil para apresentar a Blummy." vira uma pesquisa ligada à conversa (`copilot_research`), que roda em lotes na mesma fila da Descoberta e guarda cada achado com a fonte e o trecho. Pedidos seguintes na mesma conversa ("agora priorize SP e MG", "mais 50", "só no Paraná", "pare a pesquisa", "continue a pesquisa") mudam a mesma pesquisa. A revisão fica em **Copiloto › Pesquisas** (`/copiloto/pesquisas`), com exportação em CSV. Nada é enviado a ninguém. Precisa do banco com a migração `20261127120000_copilot_research.sql` e das de perfis e pessoas do mesmo dia (as três aplicadas no `prospector-dev` em 2026-11-27).
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `PROSPECTOR_PEOPLE_KEY` | (vazio) | Segredo do HMAC das pessoas (32+ caracteres). Vazio: o app usa o arquivo `chaves\pessoas.key` da pasta de dados |
+| `PROSPECTOR_DATA_DIR` | pasta da instalação | Onde fica `chaves\pessoas.key` (criado na primeira pesquisa) |
+
+- **Chave das pessoas (KI-222).** A deduplicação e a supressão de pessoas (opt-out) usam o HMAC da identidade com esse segredo. O `pnpm dev` e o app instalado usam o mesmo banco: os dois precisam do **mesmo** segredo. Copie `chaves\pessoas.key` da pasta de dados do app instalado para o `PROSPECTOR_DATA_DIR` do `pnpm dev` (ou ponha o mesmo valor em `PROSPECTOR_PEOPLE_KEY` nos dois). Perder o arquivo faz quem pediu opt-out voltar a entrar em pesquisas: ele entra no backup junto com a pasta de dados. Nunca troque o segredo sem o plano de recálculo do KI-222.
+- **Impressão da chave no banco.** Na primeira pesquisa, o app grava em `people_key_checks` o HMAC de um texto fixo (nunca o segredo). Se outro computador ou outra pasta de dados abrir o mesmo banco com uma chave diferente, a pesquisa **não guarda pessoa nenhuma** e a tela avisa: restaure o `chaves\pessoas.key` original (do app instalado ou do backup da pasta de dados). Com `PROSPECTOR_DATA_DIR` configurado e a pasta com problema, o app não procura outra pasta: avisa e só conta as pessoas.
+- Sem chave nenhuma, a pesquisa só guarda organizações e **conta** as pessoas achadas (a tela avisa).
+- **Opt-out pela tela.** Cada pessoa da tela da pesquisa tem "Registrar opt-out" (com confirmação): o contato some, o trecho fica só com o nome e a identidade entra na supressão. Organização cujo domínio está suprimido no Relacionamento não entra na pesquisa.
+- Sem LIA aprovada que cubra as fontes `search_result`/`professional_directory` e os dados profissão, organização e cidade/UF, as pessoas ficam **só para revisão** por 90 dias (KI-214).
+- A conversa mostra contagens e o link "Ver a pesquisa", nunca a lista de nomes (KI-217).
+- Para ver o fluxo sem internet nem créditos: `PROSPECTOR_STORAGE=memory PROSPECTOR_DISCOVERY=fixture pnpm dev` (configuração `dev-demonstracao`); o buscador sintético (`src/server/research-fixture.ts`) devolve nomes "Demo …" em domínios `.test`, com selo DEMO. O e2e é `e2e/copilot-research.spec.ts`.
+
 ## 6. Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |
@@ -140,4 +195,56 @@ No PowerShell: `$env:PROSPECTOR_STORAGE = 'memory'; pnpm dev`. Prefira a variáv
 | Painel IA local: "Configuração inválida" | Variável `AI_*` ou `OLLAMA_BASE_URL` com valor fora do esperado | Corrija o valor indicado em `apps/web/.env.local` e reinicie o `pnpm dev` |
 | Copiloto: "o modelo escolhido não tem o que esta tarefa precisa" | Modelo escolhido em Modelo não conversa (ex.: embeddings) | Escolha outro ou deixe em Automático |
 | Primeira resposta demora vários segundos | O modelo está sendo carregado do disco para a GPU | Normal na primeira pergunta; a tela mostra o tempo de carga |
+| Investigação: "Concluída com lacunas" | Alguma etapa ficou sem resultado (sem site, sem busca, IA ocupada); cada etapa diz o motivo no painel | Resolva o motivo indicado (confirmar site, liberar a GPU) e use **Investigar de novo** |
+| Investigação: "A pasta das capturas não está configurada" | Nenhuma pasta válida: sem instalação (`pnpm app:install`), sem `PROSPECTOR_CAPTURES_DIR`, ou a pasta indicada é relativa, no C:, de rede ou sincronizada com a nuvem (Configurações › Sistema diz qual; o log do servidor também, sem o caminho) | Rode `pnpm app:install` (cria `D:\Prospector-dados`) ou aponte `PROSPECTOR_CAPTURES_DIR` para uma pasta local fora do C: (subseção da investigação, item 3) |
+| Painel da marca: "Imagem não guardada: a gravação falhou nesta análise" | O servidor não conseguiu gravar a imagem depois de tentar de novo (a etapa "Capturar a marca" diz o motivo: disco cheio, sem permissão ou pasta que não respondeu); a análise seguiu com a imagem só para a IA | Libere espaço no D: ou confira a permissão da pasta em Configurações › Sistema e use **Atualizar a análise** |
+| Leitura ou captura "O site recusou o acesso" num site que abre no navegador | O site mostrou tela anti-robô (Cloudflare, Fastly, Akamai) ou pediu para não ser usado por IA | Nada a fazer pelo app: ele não contorna bloqueio. Use o que o site permite ou registre à mão |
+| Investigação: "Cancelada" com "A empresa foi arquivada…" | A empresa foi arquivada enquanto a investigação esperava na fila | Nada foi coletado; reative a empresa para investigar |
+| Investigação: "Interrompida" | O app foi fechado ou reiniciado no meio | **Retomar de onde parou**: as etapas concluídas não se repetem |
 | Página não reage aos cliques em `127.0.0.1` | Servidor iniciado sem `--hostname 127.0.0.1` (o Next bloqueia recursos de desenvolvimento de outra origem) | Pare o servidor e use `pnpm dev` |
+
+## 7. Programa instalado neste computador (`D:\Prospector`)
+
+Para usar o Prospector no dia a dia, sem terminal: um programa do Windows com janela própria (Electron, [ADR-0018](../adr/0018-programa-de-desktop-com-electron.md)) e um servidor de produção (Next em modo autônomo) instalados no disco D, com atalhos. O código continua em `C:\dev\prospector`; a instalação é uma cópia.
+
+```bash
+pnpm app:install
+```
+
+O instalador (`scripts/app/instalar.mjs`):
+1. fecha a pasta `D:\Prospector` para outras contas: tira a herança de permissões e deixa acesso só para a sua conta, o SYSTEM e os Administradores, e confere antes de seguir (ela guarda a chave do banco e programas que rodam com a sua conta); grava `parar.ps1`, `desinstalar.ps1`, `criar-atalhos.ps1` e `criar-icone.ps1`;
+2. roda `next build` em `apps/web` com `PROSPECTOR_STANDALONE=1` (ver `apps/web/next.config.ts`; sem a variável, `pnpm dev`, `next start` e os e2e não mudam);
+3. monta a janela nova em `D:\Prospector\programa.novo` (`apps/desktop/scripts/empacotar.mjs --sem-trocar`): compila `apps/desktop`, desenha o ícone, baixa o Electron fixado em `apps/desktop/package.json` para `D:\Prospector\cache` (uns 150 MB, só na primeira vez de cada versão; cancela se a rede parar por 60 s), confere o SHA-256 com o `checksums.json` do pacote `electron` e grava `Prospector.exe` com o ícone e o nome do Prospector;
+4. copia para `D:\Prospector\app.novo`:
+   - o servidor (mantendo os links simbólicos relativos do pnpm) e `.next/static`;
+   - `packages/agents/prompts` e `pnpm-workspace.yaml`, que o Copiloto lê do disco (KI-035);
+   - `apps/web/.env.local`, copiado sem ser lido;
+5. só agora fecha o Prospector instalado, se estiver aberto (a janela `programa\Prospector.exe` e o `node` do `server.js` dele; nada de outro programa), e troca `programa` e `app` pelas pastas novas por renomeação. Até aqui o Prospector continuou aberto; se a troca falhar (arquivo em uso), o que foi trocado volta e a versão anterior continua inteira;
+6. grava `LEIA-ME.txt` e `versao.txt` (commit de origem), cria os atalhos e registra o Prospector em Configurações > Aplicativos > Aplicativos instalados (chave do usuário, `HKCU`, sem administrador).
+
+Outra pasta: variável `PROSPECTOR_INSTALL_DIR`. O instalador recusa uma pasta existente que não tenha o arquivo `.prospector-instalacao`. Não rode junto com outro `next build` ou com os e2e no mesmo checkout: eles usam a mesma pasta `apps/web/.next`.
+
+| Atalho | O que faz |
+|---|---|
+| **Prospector** (Área de Trabalho e Menu Iniciar; dá para fixar na barra de tarefas) | Abre a janela do Prospector. Mostra "Abrindo o Prospector", abre o Ollama se ele estiver fechado, sobe o servidor em `http://127.0.0.1:3210` (só este computador) se ainda não estiver no ar e mostra o app. Abrir de novo com a janela aberta só a traz para a frente |
+| **Parar Prospector** (Menu Iniciar) | Fecha a janela e o servidor; se a janela travar, encerra o `Prospector.exe` depois de 15 s. Serve para emergência: fechar a janela já desliga o servidor |
+| **Desinstalar Prospector** (Menu Iniciar ou Aplicativos instalados) | Pede confirmação, fecha o Prospector e remove a pasta, os atalhos e o registro do programa. Não toca no banco nem no código |
+
+- **Fechar a janela desliga o servidor** (o que ela subiu ou reaproveitou, à força: KI-203) e, com ele, a fila de trabalhos, os monitoramentos e o envio agendado de e-mails. Na próxima abertura, a tarefa interrompida volta à fila (ADR-0011).
+- **Janela:** links de sites abrem no navegador do sistema, nunca dentro da janela. A tecla Alt mostra o menu (Recarregar com Ctrl+R ou F5, zoom, tela cheia, Ajuda > Abrir a pasta de registros, Sobre). `D:\Prospector\dados-da-janela` é o perfil do Chromium da janela (cookies, armazenamento das páginas, cache), com o tamanho, a posição e o zoom (nada no C:).
+- **Atualizar:** depois de mudar código, prompts (por exemplo, uma versão nova do Copiloto) ou o `.env.local`, rode `pnpm app:install` de novo. O app instalado não vê nada disso até lá. Para atualizar o Electron, troque a versão em `apps/desktop/package.json` (`pnpm --filter @prospector/desktop add -D --save-exact electron@x.y.z`, com `ELECTRON_SKIP_BINARY_DOWNLOAD=1` para nada ir para o C:) e reinstale.
+- **Registros:** `D:\Prospector\logs\janela.log` (a janela), `servidor.log` e `servidor-erros.log` (o servidor). O PID do servidor fica em `servidor.pid`.
+- **Banco:** o mesmo do `.env.local` (o `prospector-dev`). O app instalado e o `pnpm dev` gravam nos mesmos dados.
+- **Pasta de dados:** `D:\Prospector-dados` (ao lado da instalação, com o sufixo `-dados`), criada pelo instalador com a mesma permissão restrita e a marca `.prospector-dados`; guarda as capturas de marca (`capturas\`). A janela passa o caminho ao servidor (`PROSPECTOR_DATA_DIR`) e o instalador o registra em `%LOCALAPPDATA%\Prospector\instalacao.json` para o `pnpm dev` usar a mesma pasta. O instalador recusa uma pasta com esse nome que já tenha arquivos e não tenha a marca. **O desinstalador não apaga a pasta de dados**: as imagens são evidência de análises gravadas no banco; apague à mão se não precisar mais delas.
+- **Requisitos:** Node 24 no `PATH` (o servidor roda nele) e links simbólicos permitidos no Windows (o build do Next já os cria; se o instalador acusar `EPERM`, ative o Modo de Desenvolvedor). O `Prospector.exe` não tem assinatura digital (é montado neste computador): com o Smart App Control do Windows ligado, ele seria bloqueado.
+
+| Sintoma | O que fazer |
+|---|---|
+| Janela "A porta 3210 está ocupada" | A janela diz qual programa usa a porta. Feche-o e clique em "Tentar de novo". O Prospector não encerra outros programas |
+| Janela "O servidor do Prospector parou ao iniciar" ou "parou" | Veja `logs\servidor-erros.log` (Ajuda > Abrir a pasta de registros); se faltar arquivo, rode `pnpm app:install` |
+| Janela "Node.js não encontrado" ou "desatualizado" | Instale o Node 24 e clique em "Tentar de novo" |
+| Instalador: "Não foi possível trocar ...\programa" (ou `...\app`) | Algum arquivo da instalação continuou em uso depois do fechamento (a janela, o servidor ou uma janela do Explorer aberta na pasta). Feche-o (ou "Parar Prospector") e rode de novo; a versão anterior continua no lugar |
+| Instalador: "A pasta ... não ficou restrita à sua conta" | O Windows não aceitou a permissão nova (pasta de outra conta, disco sem NTFS). Nada foi copiado; confira as permissões da pasta em Propriedades > Segurança |
+| Instalador: "O download do Electron ficou 60 segundos sem receber nada" | Rede parada ou lenta demais; rode de novo |
+| Instalador: "SHA-256 do Electron não confere" | O download veio corrompido ou alterado; nada foi instalado. Rode de novo; se repetir, confira a rede |
+| Copiloto do app instalado: "Pasta packages/agents/prompts não encontrada" | Instalação feita antes da correção de 2026-11-10: rode `pnpm app:install` |

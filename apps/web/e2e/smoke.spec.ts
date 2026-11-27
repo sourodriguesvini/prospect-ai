@@ -25,21 +25,28 @@ const withDatabase = process.env.E2E_SUPABASE === '1';
 const DATABASE_ON = 'com E2E_SUPABASE=1 o banco está ligado (ver database.spec.ts)';
 
 test.describe('telas (sem banco configurado)', () => {
-  test('início mostra o estado do banco e passa na acessibilidade', async ({ page }) => {
+  test('Hoje avisa que o banco não está pronto e as Configurações mostram o estado', async ({
+    page,
+  }) => {
     test.skip(withDatabase, DATABASE_ON);
     await page.goto('/');
     await expect(
-      page.getByRole('heading', { level: 1, name: /^(Bom dia|Boa tarde|Boa noite)$/ }),
+      // O leitor de tela ouve "Hoje: Bom dia" (o nome da tela vem antes da saudação).
+      page.getByRole('heading', { level: 1, name: /^Hoje: (Bom dia|Boa tarde|Boa noite)$/ }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Início' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    await expect(page.getByRole('link', { name: 'Hoje' })).toHaveAttribute('aria-current', 'page');
+    // Hoje só fala do sistema quando ele pede atenção, com o caminho para o detalhe.
+    const notice = page.locator('[data-system="not_configured"]');
+    await expect(notice).toContainText('O banco de dados não está pronto');
+    await expectNoA11yViolations(page);
+    await notice.getByRole('link', { name: 'Ver detalhes em Configurações' }).click();
+    await expect(page).toHaveURL(/\/configuracoes#sistema$/);
     const status = page.locator('[data-status]');
     await expect(status).toHaveAttribute('data-status', 'not_configured');
     await expect(status).toContainText('Não configurado');
     await expect(status).toContainText('SUPABASE_URL');
-    await expectNoA11yViolations(page);
+    // A pasta das capturas tem estado próprio (Parte 13.2): sem pasta de dados, pede ação.
+    await expect(page.locator('[data-capture-status]')).toContainText('Capturas de marca');
   });
 
   test('não há tela de login nem pedido de credenciais', async ({ page }) => {
@@ -49,30 +56,78 @@ test.describe('telas (sem banco configurado)', () => {
     await expect(page.getByRole('button', { name: /^(entrar|sair)$/i })).toHaveCount(0);
   });
 
-  test('módulo planejado mostra "Em breve" sem dados simulados', async ({ page }) => {
+  for (const { name, path, inMenu } of [
+    { name: 'Monitoramento', path: '/monitoramento', inMenu: false },
+    { name: 'Resultados', path: '/inteligencia', inMenu: true },
+  ]) {
+    test(`${name} sem banco explica o estado em vez de mostrar números`, async ({ page }) => {
+      test.skip(withDatabase, DATABASE_ON);
+      if (inMenu) {
+        await page.goto('/');
+        await page
+          .getByRole('navigation', { name: 'Principal' })
+          .getByRole('link', { name, exact: true })
+          .click();
+      } else {
+        // Fora do menu desde a proposta de 26/11: o endereço continua o mesmo.
+        await page.goto(path);
+      }
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+      await expect(
+        page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
+      ).toBeVisible();
+      await expect(page.getByText('Em breve')).toHaveCount(0);
+      // Na navegação pelo cliente, o Next troca o <title> depois do conteúdo: espera antes do axe.
+      await expect(page).toHaveTitle(new RegExp(name));
+      await expectNoA11yViolations(page);
+    });
+  }
+
+  test('Descobrir sem banco explica o estado em vez de pesquisar', async ({ page }) => {
+    test.skip(withDatabase, DATABASE_ON);
     await page.goto('/');
     await page
       .getByRole('navigation', { name: 'Principal' })
-      .getByRole('link', { name: /Empresas/ })
+      .getByRole('link', { name: 'Descobrir', exact: true })
       .click();
-    await expect(page).toHaveURL(/\/empresas$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Empresas' })).toBeVisible();
-    await expect(page.getByText('Em breve.')).toBeVisible();
+    await expect(page).toHaveURL(/\/descoberta$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Descobrir' })).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
+    ).toBeVisible();
     await expectNoA11yViolations(page);
   });
 
-  test('configuração leva à auditoria, que avisa que o banco não está configurado', async ({
+  test('Configurações levam ao histórico de ações, que avisa que o banco não está configurado', async ({
     page,
   }) => {
     test.skip(withDatabase, DATABASE_ON);
     await page.goto('/configuracoes');
-    await expect(page.getByRole('heading', { level: 1, name: 'Configuração' })).toBeVisible();
-    await page.getByRole('link', { name: /Auditoria/ }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Configurações' })).toBeVisible();
+    // O menu lateral também tem o Histórico de ações (submenu): aqui é o cartão da tela.
+    await page
+      .getByRole('main')
+      .getByRole('link', { name: /Histórico de ações/ })
+      .click();
     await expect(page).toHaveURL(/\/configuracoes\/auditoria$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Auditoria' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Histórico de ações' })).toBeVisible();
     await expect(
       page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
     ).toBeVisible();
+    // Na navegação pelo cliente, o Next troca o <title> depois do conteúdo: espera antes do axe.
+    await expect(page).toHaveTitle(/Histórico de ações/);
+    await expectNoA11yViolations(page);
+  });
+
+  test('e-mail sem banco avisa e não mostra formulário', async ({ page }) => {
+    test.skip(withDatabase, DATABASE_ON);
+    await page.goto('/configuracoes/email');
+    await expect(page.getByRole('heading', { level: 1, name: 'E-mail' })).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'O banco de dados ainda não foi configurado' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Salvar identidade' })).toHaveCount(0);
     await expectNoA11yViolations(page);
   });
 
