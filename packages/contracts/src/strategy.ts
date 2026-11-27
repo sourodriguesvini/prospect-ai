@@ -384,14 +384,33 @@ export type ProofAsset = z.infer<typeof ProofAsset>;
 
 /** Campos pessoais permitidos (lista fechada de minimização, docs/12 §4). Sem CPF. */
 export const LiaDataCategory = z.enum(
-  ['name', 'role_title', 'work_email', 'work_phone', 'professional_profile_url'],
+  [
+    'name',
+    'role_title',
+    'work_email',
+    'work_phone',
+    'professional_profile_url',
+    // Pessoas profissionais públicas (diretriz 2026-11-26, Parte 6.5): contexto profissional.
+    'profession',
+    'organization',
+    'location',
+  ],
   { error: 'Categoria fora da lista de minimização.' },
 );
 export type LiaDataCategory = z.infer<typeof LiaDataCategory>;
 
-export const LiaDataSource = z.enum(['registry_qsa', 'company_website', 'user_input'], {
-  error: 'Origem desconhecida.',
-});
+export const LiaDataSource = z.enum(
+  [
+    'registry_qsa',
+    'company_website',
+    'user_input',
+    // Pesquisa de pessoas do Copiloto (só trecho da busca; o leitor de páginas não abre diretórios).
+    'search_result',
+    'professional_directory',
+    'press',
+  ],
+  { error: 'Origem desconhecida.' },
+);
 export type LiaDataSource = z.infer<typeof LiaDataSource>;
 
 export const LiaContent = z.object({
@@ -404,8 +423,8 @@ export const LiaContent = z.object({
   dataCategories: z
     .array(LiaDataCategory)
     .min(1, { error: 'Marque ao menos uma categoria.' })
-    .max(5),
-  dataSources: z.array(LiaDataSource).min(1, { error: 'Marque ao menos uma origem.' }).max(3),
+    .max(8),
+  dataSources: z.array(LiaDataSource).min(1, { error: 'Marque ao menos uma origem.' }).max(6),
   /** 3. Balanceamento: legítima expectativa do titular. */
   expectations: requiredText(2000),
   /** 3. Balanceamento: riscos e impactos para o titular. */

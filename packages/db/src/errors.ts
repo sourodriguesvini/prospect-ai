@@ -26,6 +26,10 @@ const REASON_TO_CODE: Partial<Record<ErrorReason, AppErrorCode>> = {
   // Módulo 02: estado final não volta; segunda investigação ativa da mesma empresa.
   investigation_not_resumable: 'conflict',
   investigation_running: 'conflict',
+  // Pessoas: LIA que não cobre a linha, opt-out final, identidade suprimida.
+  person_lia_not_covering: 'conflict',
+  person_opted_out: 'conflict',
+  person_suppressed: 'conflict',
 };
 
 interface DbErrorLike {

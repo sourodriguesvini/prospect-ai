@@ -151,6 +151,15 @@ Dados abertos da Receita Federal ingeridos mensalmente em **tabelas globais** (s
 | `suppression_entries` | `org_id, kind (email, domain, phone, cnpj, contact), value_hash, reason (opt_out, bounce, complaint, legal_request, manual, customer), source, created_at` | hash com segredo do tenant (HMAC); sobrevive ao expurgo |
 | `data_subject_requests` | `org_id, requester_ref, type (access, deletion, correction, opposition, portability), status, received_at, due_at, handled_by, resolution` | |
 
+> **Pessoas profissionais públicas (2026-11-27, migração `20261127110000_people`, diretriz de 2026-11-26 Partes 6.5 e 7, revisão de conformidade de 2026-11-27).** Tabelas reais, no lugar de `contacts`/`contact_channels` para a pesquisa de pessoas:
+>
+> | Tabela | Colunas principais | Observações |
+> |---|---|---|
+> | `people` | `profile_id → commercial_profiles, full_name, profession, role_title, organization_name, company_id, city, uf, work_email, work_phone, profile_url, audience_role (user, buyer, influencer, unknown), source_url, source_kind (registry_qsa, company_website, professional_directory, press, search_result, user_input), source_quote (≤ 300, contém o nome), verified_at, legal_basis = legitimate_interest, purpose = commercial_prospecting, lia_version, retention_until, opted_out_at, is_demo, dedupe_key` | `lia_version` conferida por gatilho (`app.guard_person_lia`: aprovada, não revogada, revisão em dia e cobrindo `source_kind`). Sem LIA que cubra: guardada, **não abordável**, prazo de até 90 dias; com LIA, até 12 meses da conferência. Opt-out exige apagar e-mail, telefone e perfil, é final e grava a identidade em `person_suppressions`. `dedupe_key` = HMAC da identidade (nome + UF + profissão ou organização), sem o perfil. Nome e chave não mudam (correção = apagar e recriar). Delete auditado, uma linha por vez |
+> | `person_suppressions` | `kind (email, phone, identity), value_hash (HMAC-SHA256), reason (opt_out, erasure_request, manual), created_at` | sem FK para `people`, só inclusão, vale para todos os perfis e sobrevive ao expurgo; o gatilho `app.guard_person_suppressed` recusa gravar de novo uma identidade suprimida |
+>
+> A LIA (`legal_basis_assessments`) passou a aceitar as fontes `search_result`, `professional_directory` e `press` e os dados `profession`, `organization` e `location`; continua uma cadeia única para o app (ver known-issues).
+
 ### 4.8 Qualificação e abordagem [MVP]
 
 | Tabela | Colunas principais | Observações |
@@ -199,6 +208,9 @@ Dados abertos da Receita Federal ingeridos mensalmente em **tabelas globais** (s
 | `usage_budgets` | `org_id, period (month), limit_usd, hard_stop, alert_at_pct` | |
 | `audit_log` | `id bigint identity, actor_type check in (user,agent,system), actor_label, action, entity_type, entity_id, diff jsonb (≤ 64 KB), trace_id uuid, occurred_at` | append-only (trigger bloqueia update/delete/truncate para todos; `service_role` só com select/insert). **F1:** `action` no formato `dominio.entidade.verbo` (check no banco e `AuditAction` em contracts); ator e `trace_id` vêm do `RequestContext` da aplicação; `actor_label` = nome do agente ou componente. **Desde 2026-11-10 ([ADR-0010](adr/0010-auditoria-na-mesma-transacao.md)):** toda escrita pelo PostgREST leva o registro no cabeçalho `x-prospector-audit` e o trigger `app.audit_write` o grava na mesma transação; escrita sem registro, ou com registro de outra tabela, é recusada. Não use `AuditService.record` depois de uma escrita (reabre o KI-041). Produtores: as escritas da F2. Sem `ip`/`user_agent` (uso local).
 | `copilot_threads` / `copilot_messages` | `org_id, user_id, title, entity_ref` / `role, content jsonb, run_id` | IA-2. Sem `org_id`/`user_id` no uso local (ADR-0007); guardar também `model`, `prompt_id` e métricas da resposta |
+| `copilot_research` | `thread_id, profile_id, request, objective, audience, criteria jsonb (≤ 8 KB), requested_count (1–500), found_count, status (queued, running, paused, done, failed, cancelled), stop_reason, plan jsonb (≤ 64 KB), progress jsonb, revisions jsonb, version, credit_cap (1–300), trace_id, is_demo, finished_at, retention_until (≤ 12 meses)` | Pesquisa extensa do Copiloto (diretriz 2026-11-26, 6.3 a 6.5; migração `20261127120000_copilot_research`): contexto persistente da conversa. Consultas por profissão e região, nunca pelo nome de uma pessoa. Apagável (prazo), com os itens |
+| `copilot_research_items` | `research_id (cascade), kind (person, organization), person_id → people (cascade), name, city, uf, website, public_email, public_phone, source_url, source_quote, audience_role, segment, fit_reason, location_basis (quote, query, none), query_index, rank, verified_at, retention_until (≤ 12 meses), dedupe_key` | Item de pessoa: só a referência (nome e contato ficam em `people`, com LIA, prazo e opt-out). Item de organização: nunca um segmento de pessoa. `fit_reason` é da regra do perfil, não do modelo; `rank` é ordem de chegada para a revisão, não nota |
+| `commercial_profiles` | `key (found-studio, blummy), name, kind (services, product), status, is_default` | ADR-0019 (migração `20261127100000_commercial_profiles`): identidade no banco dos perfis cujo catálogo fica no código. `offers.profile_id` e `proof_assets.profile_id` (NOT NULL; sem perfil, o gatilho põe o padrão, a Found Studio) |
 
 > **IA local (2026-11-09, [ADR-0008](adr/0008-ia-local-com-ollama.md)):** nenhuma destas tabelas foi migrada ainda. Ajustes propostos para quando forem: `model_pricing` e `cost_usd` ficam zerados para modelos locais (registrar tempo de GPU e tokens); `llm_calls` ganha `provider` (`ollama`, `anthropic`), `load_ms` e `first_token_ms`; tarefas duráveis locais em `ai_jobs` (`kind, status, idempotency_key, attempts, lease_until, input jsonb, result jsonb, error jsonb, trace_id`) se a decisão D-AI-5 confirmar a fila no Postgres; memória semântica com a extensão `vector` (`qwen3-embedding:0.6b`, até 1024 dimensões, índice HNSW) na IA-5. Ver [13 §6](13-auditoria-e-evolucao.md#6-arquitetura-de-ia-local).
 
@@ -219,6 +231,9 @@ Políticas de Storage espelham o RLS (prefixo `org_id`). Acesso do modelo a imag
 | Contatos sem interação | 12 meses desde a última verificação |
 | Contatos com conversa | enquanto houver relação + 24 meses |
 | Supressão (hash) | indefinida (necessária para honrar a oposição) |
+| Pessoas (`people`) sem LIA que cubra a fonte | até 90 dias da conferência (não abordáveis) |
+| Pessoas (`people`) com LIA | até 12 meses da conferência |
+| Pesquisas do Copiloto e itens | até 12 meses |
 | `audit_log`, `llm_calls` | 24 meses |
 | Traces de LLM com conteúdo | 30–90 dias [DECISÃO] |
 

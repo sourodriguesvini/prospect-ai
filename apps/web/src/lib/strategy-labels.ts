@@ -78,12 +78,18 @@ export const LIA_CATEGORY_LABELS: Record<LiaDataCategory, string> = {
   work_email: 'E-mail corporativo',
   work_phone: 'Telefone corporativo',
   professional_profile_url: 'Endereço de perfil profissional (digitado por você)',
+  profession: 'Profissão',
+  organization: 'Organização onde trabalha',
+  location: 'Cidade e UF de atuação',
 };
 
 export const LIA_SOURCE_LABELS: Record<LiaDataSource, string> = {
   registry_qsa: 'Quadro de sócios (base CNPJ)',
   company_website: 'Site da empresa',
   user_input: 'Informado por você',
+  search_result: 'Trecho de resultado de busca',
+  professional_directory: 'Diretório profissional (só o trecho da busca)',
+  press: 'Notícia ou publicação da imprensa',
 };
 
 export const LIA_STATUS_VIEW: Record<

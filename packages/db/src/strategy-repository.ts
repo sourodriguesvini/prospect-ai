@@ -100,7 +100,13 @@ export type AuditedTable =
   | 'company_investigations'
   // E-mail (ADR-0016)
   | 'sender_identities'
-  | 'mailboxes';
+  | 'mailboxes'
+  // Perfis comerciais, pessoas e pesquisa do Copiloto (ADR-0019, diretriz 2026-11-26)
+  | 'commercial_profiles'
+  | 'people'
+  | 'person_suppressions'
+  | 'copilot_research'
+  | 'copilot_research_items';
 
 /**
  * JSON em base64: cabeçalho HTTP só aceita ASCII. Sem conteúdo da estratégia (KI-015). `table` e

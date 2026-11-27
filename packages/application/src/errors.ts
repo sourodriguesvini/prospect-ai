@@ -71,6 +71,13 @@ export const ERROR_MESSAGES = {
     'A fila de investigações está cheia. Espere algumas terminarem e tente de novo.',
   investigation_not_resumable:
     'Só investigações interrompidas ou com falha podem ser retomadas. Para atualizar, comece uma nova.',
+  // Pessoas profissionais públicas (migração de 2026-11-27, revisão de conformidade)
+  person_lia_not_covering:
+    'A LIA aprovada não cobre esta pessoa (fonte ou dado fora do avaliado, versão substituída, vencida ou revogada). Ela fica guardada sem base para abordagem, por até 90 dias.',
+  person_opted_out:
+    'Esta pessoa pediu para não ser contatada: os meios de contato não voltam e a marca não sai.',
+  person_suppressed:
+    'Esta pessoa pediu para não ser contatada (supressão). Ela não entra de novo em nenhuma lista.',
   // E-mail (ADR-0016)
   sender_identity_missing: 'Salve primeiro quem assina os e-mails (nome, cargo e estúdio).',
   mailbox_missing: 'Salve primeiro a caixa de envio (endereço e servidores).',
