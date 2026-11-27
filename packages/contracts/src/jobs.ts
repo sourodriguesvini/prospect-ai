@@ -10,7 +10,7 @@ import { Uuid } from './common';
 
 const IsoDateTime = z.iso.datetime({ offset: true, error: 'Data e hora inválidas (ISO 8601).' });
 
-export const AiJobKind = z.enum(['discovery_run']);
+export const AiJobKind = z.enum(['discovery_run', 'copilot_research']);
 export type AiJobKind = z.infer<typeof AiJobKind>;
 
 /**
@@ -21,6 +21,14 @@ export const AiJobStatus = z.enum(['queued', 'running', 'succeeded', 'failed', '
 export type AiJobStatus = z.infer<typeof AiJobStatus>;
 
 export const AI_JOB_FINAL_STATUSES: readonly AiJobStatus[] = ['succeeded', 'failed', 'cancelled'];
+
+/** Payload da tarefa `copilot_research` (gatilho `app.enqueue_copilot_research`): um lote. */
+export const CopilotResearchJobPayload = z.object({
+  researchId: Uuid,
+  version: z.number().int().min(1),
+  batch: z.number().int().min(0),
+});
+export type CopilotResearchJobPayload = z.infer<typeof CopilotResearchJobPayload>;
 
 /** Código estável de erro de uma tarefa (mesmo formato do `check` no banco). */
 export const AiJobErrorCode = z.string().regex(/^[a-z][a-z0-9_]{1,59}$/);

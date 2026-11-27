@@ -10,6 +10,7 @@
  * Módulo 02: investigação — páginas, medições da marca, verificação, qualificação e mudanças.
  * Motor comercial (diretriz 2026-11-26): perfis, catálogo, acontecimentos, fontes, linha do tempo
  *   e tese de compatibilidade.
+ * Pesquisa extensa do Copiloto (Partes 6.3 a 6.5): pedido, plano por região e extração literal.
  */
 export * from './commercial';
 export * from './company/cnpj-in-text';
@@ -27,3 +28,4 @@ export * from './strategy/lia';
 export * from './strategy/readiness';
 export * from './strategy/rules';
 export * from './discovery';
+export * from './research';

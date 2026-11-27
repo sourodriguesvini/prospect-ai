@@ -161,7 +161,7 @@ test.describe('Copiloto no celular e no tema escuro', () => {
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/copiloto');
-    const toggle = page.getByRole('button', { name: 'Conversas salvas e IA local' });
+    const toggle = page.getByRole('button', { name: 'Conversas, pesquisas e IA local' });
     await expect(page.getByText('Ollama fora do ar')).toBeHidden();
     await toggle.click();
     await expect(page.getByText('Ollama fora do ar')).toBeVisible();

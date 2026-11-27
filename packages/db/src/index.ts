@@ -6,6 +6,7 @@ export { createSupabaseCopilotRepository } from './copilot-repository';
 export { createSupabaseDatabaseHealth, type DatabaseHealthMemory } from './database-health';
 export { createSupabaseEmailRepository } from './email-repository';
 export { createSupabaseRelationshipRepository } from './relationship-repository';
+export { createSupabaseResearchRepository } from './research-repository';
 export { toAppError } from './errors';
 export {
   createSupabaseInvestigationRepository,

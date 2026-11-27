@@ -259,7 +259,10 @@ describe('perfis comerciais, pessoas e pesquisa do Copiloto no banco', () => {
       ['name', 'profession', 'location'],
     );
     await expectDbError(
-      insertPerson({ lia_version: withoutEmail, retention_until: '2027-11-20T10:00:00Z' }, HASH(33)),
+      insertPerson(
+        { lia_version: withoutEmail, retention_until: '2027-11-20T10:00:00Z' },
+        HASH(33),
+      ),
       { message: /person_lia_not_covering/ },
     );
     const noEmail = await insertPerson(
@@ -280,9 +283,12 @@ describe('perfis comerciais, pessoas e pesquisa do Copiloto no banco', () => {
 
     // Opt-out passa mesmo com a versão da linha substituída (só apaga).
     await asServer(async (q) => {
-      await viaApi(q, 'people', { action: 'person.opt_out', entityType: 'person', entityId: covered }, [
-        'person_suppressions',
-      ]);
+      await viaApi(
+        q,
+        'people',
+        { action: 'person.opt_out', entityType: 'person', entityId: covered },
+        ['person_suppressions'],
+      );
       await q.query(
         `update public.people
            set opted_out_at = now(), work_email = null, work_phone = null, profile_url = null
@@ -297,9 +303,12 @@ describe('perfis comerciais, pessoas e pesquisa do Copiloto no banco', () => {
     // Marcar opt-out mantendo o e-mail (ou o perfil) é recusado.
     await expectDbError(
       asServer(async (q) => {
-        await viaApi(q, 'people', { action: 'person.opt_out', entityType: 'person', entityId: id }, [
-          'person_suppressions',
-        ]);
+        await viaApi(
+          q,
+          'people',
+          { action: 'person.opt_out', entityType: 'person', entityId: id },
+          ['person_suppressions'],
+        );
         await q.query(
           'update public.people set opted_out_at = now(), work_email = null where id = $1',
           [id],
@@ -385,7 +394,11 @@ describe('perfis comerciais, pessoas e pesquisa do Copiloto no banco', () => {
       [[inBlummy, inStudio, other]],
     );
     const byId = new Map(rows.map((row) => [row.id, row]));
-    expect(byId.get(inStudio)).toMatchObject({ opted_out: true, work_email: null, profile_url: null });
+    expect(byId.get(inStudio)).toMatchObject({
+      opted_out: true,
+      work_email: null,
+      profile_url: null,
+    });
     expect(byId.get(inBlummy)).toMatchObject({ opted_out: true, work_email: null });
     // Outra pessoa do mesmo perfil não é tocada.
     expect(byId.get(other)).toMatchObject({ opted_out: false, work_email: 'contato@exemplo.test' });
@@ -538,6 +551,137 @@ describe('perfis comerciais, pessoas e pesquisa do Copiloto no banco', () => {
         ),
       ),
       { code: '23514' },
+    );
+  });
+
+  it('a pesquisa entra na fila ao ser criada, a cada lote, a cada mudança e ao reabrir; cancelar marca as tarefas', async () => {
+    const threadId = await createThread();
+    const researchId = await createResearch(threadId);
+    const jobs = () =>
+      db.query<{ idempotency_key: string; payload: Record<string, unknown>; cancel: boolean }>(
+        `select idempotency_key, payload, cancel_requested_at is not null as cancel
+           from public.ai_jobs
+          where kind = 'copilot_research' and payload ->> 'researchId' = $1
+          order by created_at, idempotency_key`,
+        [researchId],
+      );
+    const update = (sql: string, params: unknown[] = []) =>
+      asServer(async (q) => {
+        await viaApi(q, 'copilot_research', {
+          action: 'copilot.research.update',
+          entityId: researchId,
+        });
+        await q.query(sql, [researchId, ...params]);
+      });
+
+    expect((await jobs()).map((job) => job.idempotency_key)).toEqual([
+      `copilot_research:${researchId}:1:0`,
+    ]);
+    expect((await jobs())[0]!.payload).toEqual({ researchId, version: 1, batch: 0 });
+
+    // Lote concluído: o seguinte entra na fila.
+    await update(
+      `update public.copilot_research
+          set status = 'running', progress = '{"batches": 1}', found_count = 10
+        where id = $1`,
+    );
+    // Gravação que não conclui lote nem muda a pesquisa: nada novo.
+    await update('update public.copilot_research set found_count = 11 where id = $1');
+    // Mudança pedida pela pessoa (versão sobe), com a quantidade nova.
+    await update(
+      'update public.copilot_research set version = 2, requested_count = 150 where id = $1',
+    );
+    expect((await jobs()).map((job) => job.idempotency_key)).toEqual([
+      `copilot_research:${researchId}:1:0`,
+      `copilot_research:${researchId}:1:1`,
+      `copilot_research:${researchId}:2:1`,
+    ]);
+
+    // Concluída e depois reaberta ("mais 50"): volta à fila.
+    await update(
+      "update public.copilot_research set status = 'done', finished_at = now() where id = $1",
+    );
+    expect(await jobs()).toHaveLength(3);
+    await update(
+      `update public.copilot_research
+          set status = 'queued', finished_at = null, version = 3
+        where id = $1`,
+    );
+    expect((await jobs()).map((job) => job.idempotency_key)).toContain(
+      `copilot_research:${researchId}:3:1`,
+    );
+
+    // Cancelada: as tarefas abertas ficam marcadas (quem roda para na renovação do lease).
+    await update(
+      "update public.copilot_research set status = 'cancelled', finished_at = now() where id = $1",
+    );
+    const after = await jobs();
+    expect(after.every((job) => job.cancel)).toBe(true);
+  });
+
+  it('toda gravação na pesquisa sobe `row_version` (concorrência otimista entre lote e mudança)', async () => {
+    const threadId = await createThread();
+    const researchId = await createResearch(threadId);
+    const rowVersion = async () =>
+      (
+        await db.query<{ row_version: number }>(
+          'select row_version from public.copilot_research where id = $1',
+          [researchId],
+        )
+      )[0]!.row_version;
+    expect(await rowVersion()).toBe(1);
+    const write = (sql: string) =>
+      asServer(async (q) => {
+        await viaApi(q, 'copilot_research', {
+          action: 'copilot.research.update',
+          entityId: researchId,
+        });
+        await q.query(sql, [researchId]);
+      });
+    await write('update public.copilot_research set found_count = 3 where id = $1');
+    await write('update public.copilot_research set found_count = 4 where id = $1');
+    expect(await rowVersion()).toBe(3);
+    // Só o gatilho mexe nela: o servidor do app não consegue "voltar" a versão da linha.
+    await expectDbError(write('update public.copilot_research set row_version = 1 where id = $1'), {
+      code: '42501',
+    });
+    expect(await rowVersion()).toBe(3);
+  });
+
+  it('impressão da chave das pessoas: uma linha, a primeira fica e não muda', async () => {
+    await asServer((q) =>
+      q.query(
+        'insert into public.people_key_checks (value_hash) values ($1) on conflict (id) do nothing',
+        [HASH(77)],
+      ),
+    );
+    await asServer((q) =>
+      q.query(
+        'insert into public.people_key_checks (value_hash) values ($1) on conflict (id) do nothing',
+        [HASH(78)],
+      ),
+    );
+    const rows = await db.query<{ value_hash: string }>(
+      'select value_hash from public.people_key_checks',
+    );
+    expect(rows).toEqual([{ value_hash: HASH(77) }]);
+    await expectDbError(
+      asServer((q) => q.query('update public.people_key_checks set value_hash = $1', [HASH(79)])),
+      { code: '42501' },
+    );
+    await expectDbError(
+      asServer((q) => q.query('delete from public.people_key_checks')),
+      { code: '42501' },
+    );
+    await expectDbError(
+      asServer((q) =>
+        q.query('insert into public.people_key_checks (id, value_hash) values (2, $1)', [HASH(80)]),
+      ),
+      { code: '23514' },
+    );
+    await expectDbError(
+      db.asRole('anon', (q) => q.query('select * from public.people_key_checks')),
+      { code: '42501' },
     );
   });
 

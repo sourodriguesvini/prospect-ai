@@ -13,6 +13,11 @@ const DISCOVERY_SPEC = /discovery\.spec\.ts$/;
  * política de contato (a tela avisa que falta o opt-out sem depender da ordem dos outros specs).
  */
 const EMAIL_SPEC = /email\.spec\.ts$/;
+/**
+ * Pesquisa extensa do Copiloto: no servidor da Descoberta (buscador sintético e trabalhador da
+ * fila ligados), DEPOIS da Descoberta, para os lotes não disputarem a fila com as pesquisas dela.
+ */
+const RESEARCH_SPEC = /copilot-research\.spec\.ts$/;
 const withDatabase = process.env.E2E_SUPABASE === '1';
 const withOllama = process.env.E2E_OLLAMA === '1';
 /** Specs que gravam dados: rodam no servidor em modo memória (sem banco real). */
@@ -80,6 +85,7 @@ export default defineConfig({
         RELATIONSHIP_SPEC,
         EMAIL_SPEC,
         INSIGHTS_SPEC,
+        RESEARCH_SPEC,
       ],
       use: { ...devices['Desktop Chrome'] },
     },
@@ -97,6 +103,12 @@ export default defineConfig({
     {
       name: 'descoberta-memoria',
       testMatch: DISCOVERY_SPEC,
+      use: { ...devices['Desktop Chrome'], baseURL: discoveryURL },
+    },
+    {
+      name: 'pesquisa-copiloto-memoria',
+      testMatch: RESEARCH_SPEC,
+      dependencies: ['descoberta-memoria'],
       use: { ...devices['Desktop Chrome'], baseURL: discoveryURL },
     },
     {

@@ -1,9 +1,12 @@
+import { RESEARCH_TOOL_NAME } from '@prospector/application';
 import { Alert, Panel, PanelHeader, Well } from '@prospector/ui';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CopilotChat } from '@/components/copilot/copilot-chat';
 import { LocalAiStatus } from '@/components/copilot/local-ai-status';
+import { ResearchCard } from '@/components/copilot/research-parts';
 import { CopilotLayout } from '@/components/copilot/side-column';
 import { ThreadList } from '@/components/copilot/thread-list';
 import {
@@ -12,7 +15,9 @@ import {
   turnsFromMessages,
   type Turn,
 } from '@/lib/copilot';
+import { researchRoutes } from '@/lib/research-labels';
 import { getLocalAi, getServices } from '@/server/container';
+import { threadResearch } from '@/server/copilot-research';
 import { userContext } from '@/server/context';
 
 export const metadata: Metadata = { title: 'Copiloto' };
@@ -30,9 +35,11 @@ async function loadConversations(conversa: string | null) {
       copilot.listThreads(ctx, { archived: true }),
       conversa ? copilot.conversation(ctx, conversa) : Promise.resolve(null),
     ]);
-    const titles = Object.fromEntries(
-      (tools?.specs() ?? []).map((spec) => [spec.name, spec.title]),
-    );
+    const titles: Record<string, string> = {
+      ...Object.fromEntries((tools?.specs() ?? []).map((spec) => [spec.name, spec.title])),
+      // A pesquisa extensa é operada por regra, fora do registro de ferramentas do modelo.
+      [RESEARCH_TOOL_NAME]: 'Pesquisa extensa',
+    };
     const turns: Turn[] = opened ? turnsFromMessages(opened.messages, titles) : [];
     return {
       kind: 'ok' as const,
@@ -76,6 +83,8 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
       ? `Nenhum modelo de conversa está instalado. Instale com "ollama pull ${copilotRoute?.preferred[0] ?? 'qwen3.5:4b'}" e clique em Atualizar.`
       : null;
   const ok = conversations.kind === 'ok' ? conversations : null;
+  // Pesquisas extensas pedidas nesta conversa (Parte 6.3): o contexto que um pedido seguinte muda.
+  const researches = await threadResearch(ok?.opened?.id ?? null);
   return (
     // Conversas salvas à esquerda da conversa (menus à esquerda); em tela estreita, atrás de um botão.
     <CopilotLayout
@@ -89,6 +98,27 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
                 archived={ok.archived}
                 currentId={ok.opened?.id ?? null}
               />
+            </Panel>
+          ) : null}
+          {researches.length > 0 ? (
+            <Panel aria-labelledby="pesquisas-conversa" className="shrink-0">
+              <PanelHeader
+                titleId="pesquisas-conversa"
+                title="Pesquisas desta conversa"
+                description="Rodam em segundo plano; os achados ficam na tela de cada pesquisa, com a fonte."
+              />
+              <ul className="space-y-2">
+                {researches.slice(0, 5).map((research) => (
+                  <li key={research.id}>
+                    <ResearchCard research={research} />
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm">
+                <Link href={researchRoutes.list} className="underline underline-offset-4">
+                  Todas as pesquisas
+                </Link>
+              </p>
             </Panel>
           ) : null}
           <Panel aria-labelledby="ia-local" className="min-w-0 shrink-0">
@@ -141,14 +171,16 @@ async function Workspace({ searchParams }: { searchParams: SearchParams }) {
  * Tela de chat (diretriz 2026-11-26, Parte 6.1): a página ocupa só a altura da área do app (a
  * mesma conta do menu lateral: 100dvh menos as margens da moldura), o documento não rola, só o
  * histórico de mensagens rola, e o campo de mensagem fica sempre embaixo. Abaixo de 28rem de
- * altura a página volta a rolar inteira, para nada ficar espremido.
+ * altura (46rem a partir de `md`, onde cabeçalho, painel e campo somam cerca de 31rem) a página volta
+ * a rolar inteira, para nada ficar espremido: na janela mínima do app (960×600) o histórico ficava
+ * com 40 px (validação de 27/11).
  *
  * Margens da moldura (`app-shell.tsx`): no celular 6rem (bordas, topo fixo de 2,5rem e o espaço
  * abaixo dele); de `sm` a `md`, com bordas maiores, 7rem; a partir de `md`, sem o topo, 3,5rem.
  */
 export default function CopilotPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <div className="flex h-[calc(100dvh-6rem)] min-h-[28rem] flex-col gap-4 sm:h-[calc(100dvh-7rem)] md:h-[calc(100dvh-3.5rem)]">
+    <div className="flex h-[calc(100dvh-6rem)] min-h-[28rem] flex-col gap-4 sm:h-[calc(100dvh-7rem)] md:h-[calc(100dvh-3.5rem)] md:min-h-[46rem]">
       <div className="shrink-0 space-y-1">
         <h1 className="text-3xl tracking-[-0.03em] lg:text-4xl">Copiloto</h1>
         <p className="hidden text-sm text-muted-foreground md:block">

@@ -1,6 +1,7 @@
 import {
   EMPTY_DISCOVERY_PROGRESS,
   type AiJob,
+  type AiJobKind,
   type DiscoveryMonitor,
   type DiscoveryRun,
   type DiscoveryRunQuery,
@@ -20,6 +21,13 @@ import type {
 
 const clone = <T>(value: T): T => structuredClone(value);
 
+export interface MemoryJobInput {
+  kind: AiJobKind;
+  idempotencyKey: string;
+  payload: Record<string, unknown>;
+  traceId: string;
+}
+
 /**
  * Descoberta e fila em memória (ADR-0009): mesmo comportamento observável do banco (migração
  * 20261111120000) — pesquisa confirmada entra na fila na mesma operação, cancelamento marca a
@@ -30,7 +38,14 @@ export function createMemoryDiscoveryStore(options: {
   clock?: Clock;
   newId?: () => string;
   maxAttempts?: number;
-}): { repository: DiscoveryRepository; queue: JobQueue } {
+}): {
+  repository: DiscoveryRepository;
+  queue: JobQueue;
+  /** Põe uma tarefa na fila (o que os gatilhos do banco fazem); mesma chave = nada novo. */
+  enqueueJob(input: MemoryJobInput): void;
+  /** Pede o cancelamento das tarefas abertas que casam (gatilho de cancelamento do banco). */
+  cancelJobs(match: (job: AiJob) => boolean): void;
+} {
   const clock = options.clock ?? systemClock;
   const newId = options.newId ?? (() => crypto.randomUUID());
   const maxAttempts = options.maxAttempts ?? 3;
@@ -58,16 +73,15 @@ export function createMemoryDiscoveryStore(options: {
     });
   }
 
-  function enqueue(run: DiscoveryRun): void {
-    const key = `discovery_run:${run.id}`;
-    if ([...jobs.values()].some((job) => job.idempotencyKey === key)) return;
+  function enqueueJob(input: MemoryJobInput): void {
+    if ([...jobs.values()].some((job) => job.idempotencyKey === input.idempotencyKey)) return;
     const id = newId();
     jobs.set(id, {
       id,
-      kind: 'discovery_run',
+      kind: input.kind,
       status: 'queued',
-      idempotencyKey: key,
-      payload: { runId: run.id },
+      idempotencyKey: input.idempotencyKey,
+      payload: clone(input.payload),
       attempts: 0,
       maxAttempts,
       runAfter: now(),
@@ -75,10 +89,31 @@ export function createMemoryDiscoveryStore(options: {
       leaseExpiresAt: null,
       cancelRequestedAt: null,
       lastErrorCode: null,
-      traceId: run.traceId,
+      traceId: input.traceId,
       createdAt: now(),
       startedAt: null,
       finishedAt: null,
+    });
+  }
+
+  function cancelJobs(match: (job: AiJob) => boolean): void {
+    for (const job of jobs.values()) {
+      if (
+        (job.status === 'queued' || job.status === 'running') &&
+        !job.cancelRequestedAt &&
+        match(job)
+      ) {
+        job.cancelRequestedAt = now();
+      }
+    }
+  }
+
+  function enqueue(run: DiscoveryRun): void {
+    enqueueJob({
+      kind: 'discovery_run',
+      idempotencyKey: `discovery_run:${run.id}`,
+      payload: { runId: run.id },
+      traceId: run.traceId,
     });
   }
 
@@ -475,5 +510,5 @@ export function createMemoryDiscoveryStore(options: {
     },
   };
 
-  return { repository, queue };
+  return { repository, queue, enqueueJob, cancelJobs };
 }

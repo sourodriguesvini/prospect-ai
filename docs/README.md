@@ -49,6 +49,7 @@
 | [0017](adr/0017-monitoramento-e-inteligencia.md) | Monitoramento e Inteligência sobre os dados que já existem | Proposto |
 | [0018](adr/0018-programa-de-desktop-com-electron.md) | Programa de desktop do Prospector com Electron | Proposto |
 | [0019](adr/0019-motor-de-inteligencia-comercial.md) | Motor de inteligência comercial: perfis, acontecimentos e tese | Aceito |
+| [0020](adr/0020-pesquisa-extensa-do-copiloto.md) | Pesquisa extensa do Copiloto: regra antes do modelo, lotes duráveis e pessoas protegidas por chave | Aceito |
 
 ## Pesquisa de viabilidade (fontes oficiais, consultadas em 2026-11-09)
 

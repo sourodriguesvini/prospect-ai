@@ -49,6 +49,8 @@ export const EntityRefKind = z.enum([
   'conversation',
   'pipeline',
   'metrics',
+  // Pesquisa extensa do Copiloto (diretriz de 2026-11-26, Partes 6.3 a 6.5).
+  'research',
 ]);
 export type EntityRefKind = z.infer<typeof EntityRefKind>;
 

@@ -1,5 +1,6 @@
 import 'server-only';
-import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import { ModelName, WEB_RESEARCH_ENV_FORMATS, WebResearchEnv } from '@prospector/contracts';
 
@@ -390,4 +391,101 @@ export function investigationEnv(): InvestigationSettings {
     capturesDirProblem: firstProblem,
     capturesDirSource: null,
   };
+}
+
+/**
+ * Segredo do HMAC das pessoas (KI-222, ADR-0006): a chave de deduplicação e a supressão de uma
+ * pessoa são o HMAC da identidade com este segredo, então ele precisa ser o mesmo no `pnpm dev` e
+ * no app instalado (os dois usam o mesmo banco) e sobreviver a reinstalações. Ordem:
+ * `PROSPECTOR_PEOPLE_KEY` (32+ caracteres); o arquivo `chaves\pessoas.key` na pasta de dados
+ * (`PROSPECTOR_DATA_DIR` ou a da instalação), criado na primeira vez; no modo memória, um segredo
+ * do processo (os dados somem ao reiniciar). Sem nenhum: pessoas achadas são só contadas, nunca
+ * guardadas. O valor nunca vai para log nem para a tela. Perder o arquivo faz a supressão de quem
+ * pediu opt-out deixar de casar: ele entra no backup junto com a pasta de dados.
+ */
+export interface PeopleKeySettings {
+  key: string | null;
+  source: 'env' | 'data_dir' | 'installation' | 'ephemeral' | null;
+  /** Motivo de não haver chave (texto para o log e a tela, sem valores). */
+  problem: string | null;
+}
+
+const PEOPLE_KEY_FILE = /^[a-f0-9]{64}$/;
+
+function peopleKeyFromDir(dir: string): string {
+  const keysDir = joinDir(dir, 'chaves');
+  const file = joinDir(keysDir, 'pessoas.key');
+  try {
+    const existing = readFileSync(file, 'utf8').trim();
+    if (PEOPLE_KEY_FILE.test(existing)) return existing;
+    throw new Error('O arquivo da chave das pessoas está em formato inesperado.');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  mkdirSync(keysDir, { recursive: true });
+  const created = randomBytes(32).toString('hex');
+  // `wx`: nunca sobrescreve uma chave que outro processo acabou de criar.
+  try {
+    writeFileSync(file, `${created}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    return created;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    const existing = readFileSync(file, 'utf8').trim();
+    if (!PEOPLE_KEY_FILE.test(existing)) {
+      throw new Error('O arquivo da chave das pessoas está em formato inesperado.', {
+        cause: error,
+      });
+    }
+    return existing;
+  }
+}
+
+export function peopleKeyEnv(): PeopleKeySettings {
+  const fromEnv = readVar('PROSPECTOR_PEOPLE_KEY');
+  if (fromEnv) {
+    return fromEnv.length >= 32
+      ? { key: fromEnv, source: 'env', problem: null }
+      : {
+          key: null,
+          source: null,
+          problem: 'PROSPECTOR_PEOPLE_KEY precisa ter pelo menos 32 caracteres.',
+        };
+  }
+  if (readVar('PROSPECTOR_STORAGE') === 'memory') {
+    const holder = globalThis as { __prospectorEphemeralPeopleKey?: string };
+    holder.__prospectorEphemeralPeopleKey ??= randomBytes(32).toString('hex');
+    return { key: holder.__prospectorEphemeralPeopleKey, source: 'ephemeral', problem: null };
+  }
+  const candidates: Array<{
+    name: string;
+    dir: string | null | undefined;
+    source: 'data_dir' | 'installation';
+  }> = [
+    { name: 'PROSPECTOR_DATA_DIR', dir: readVar('PROSPECTOR_DATA_DIR'), source: 'data_dir' },
+    { name: 'A pasta de dados da instalação', dir: installationDataDir(), source: 'installation' },
+  ];
+  // Só a primeira pasta configurada vale: cair para outra criaria uma chave diferente e a
+  // supressão de quem pediu opt-out deixaria de casar (o banco também confere a impressão).
+  const candidate = candidates.find((entry) => entry.dir);
+  if (!candidate?.dir) {
+    return {
+      key: null,
+      source: null,
+      problem:
+        'Sem pasta de dados nem PROSPECTOR_PEOPLE_KEY: a pesquisa conta as pessoas achadas, mas não as guarda.',
+    };
+  }
+  const problem = dataDirProblem(candidate.name, candidate.dir);
+  if (problem) return { key: null, source: null, problem };
+  try {
+    return { key: peopleKeyFromDir(candidate.dir), source: candidate.source, problem: null };
+  } catch (error) {
+    return {
+      key: null,
+      source: null,
+      problem: `Não deu para ler nem criar a chave das pessoas na pasta de dados (${
+        error instanceof Error ? error.message : 'erro desconhecido'
+      }).`,
+    };
+  }
 }

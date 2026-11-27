@@ -304,14 +304,29 @@ create trigger people_guard_suppressed
   before insert on public.people
   for each row execute function app.guard_person_suppressed();
 
+-- Impressão da chave das pessoas (HMAC de um texto fixo, revisão de segurança de 26/11, A1): a
+-- primeira gravação fixa qual chave criou as `dedupe_key` e os hashes de supressão. Outra chave
+-- (arquivo trocado ou perdido) não grava pessoa nenhuma, senão a supressão deixaria de valer em
+-- silêncio. Uma linha só, sem atualização: trocar a chave exige decisão explícita (runbook §5c).
+create table public.people_key_checks (
+  id smallint primary key default 1 check (id = 1),
+  value_hash text not null check (value_hash ~ '^[a-f0-9]{64}$'),
+  created_at timestamptz not null default now()
+);
+comment on table public.people_key_checks is
+  'Impressão da chave HMAC das pessoas (uma linha, só inclusão): chave diferente = nada gravado.';
+
 -- -----------------------------------------------------------------------------
 -- Acesso: só o servidor do app (ADR-0007)
 -- -----------------------------------------------------------------------------
 
 alter table public.people enable row level security;
 alter table public.person_suppressions enable row level security;
+alter table public.people_key_checks enable row level security;
 
-revoke all on public.people, public.person_suppressions from anon, authenticated, service_role;
+revoke all on public.people, public.person_suppressions, public.people_key_checks
+  from anon, authenticated, service_role;
+grant select, insert on public.people_key_checks to service_role;
 grant select, insert, delete on public.people to service_role;
 -- Nome e chave não mudam: correção pedida pelo titular (art. 18, III) = apagar e recriar.
 grant update (

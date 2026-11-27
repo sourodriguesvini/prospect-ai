@@ -22,4 +22,8 @@ export {
   type MemoryStrategyRepository,
 } from './strategy-repository';
 export { createMemoryWebResearchUsage } from './web-research-usage';
-export { createMemoryDiscoveryStore } from './discovery';
+export { createMemoryDiscoveryStore, type MemoryJobInput } from './discovery';
+export {
+  createMemoryResearchRepository,
+  type MemoryResearchRepository,
+} from './research-repository';

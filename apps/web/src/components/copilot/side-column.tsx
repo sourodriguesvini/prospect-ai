@@ -55,7 +55,7 @@ export function CopilotLayout({ side, children }: { side: ReactNode; children: R
           aria-controls={id}
           onClick={() => setOpen((value) => !value)}
         >
-          {open ? 'Voltar à conversa' : 'Conversas salvas e IA local'}
+          {open ? 'Voltar à conversa' : 'Conversas, pesquisas e IA local'}
           <ChevronDown
             aria-hidden="true"
             className={cn('size-4 transition-transform', open && 'rotate-180')}
@@ -64,7 +64,7 @@ export function CopilotLayout({ side, children }: { side: ReactNode; children: R
         <div
           id={id}
           role="region"
-          aria-label="Conversas salvas e IA local"
+          aria-label="Conversas, pesquisas e IA local"
           // Escolher uma conversa (ou "Nova conversa") leva a ela: a gaveta fecha junto.
           onClick={(event) => {
             if (event.target instanceof Element && event.target.closest('a[href]')) {

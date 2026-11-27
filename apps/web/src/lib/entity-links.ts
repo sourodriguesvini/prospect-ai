@@ -42,6 +42,8 @@ export function entityHref(ref: EntityRef): string | null {
         : relationshipRoutes.approaches;
     case 'pipeline':
       return relationshipRoutes.pipeline;
+    case 'research':
+      return ref.id ? `/copiloto/pesquisas/${encodeURIComponent(ref.id)}` : '/copiloto/pesquisas';
     default:
       return null;
   }

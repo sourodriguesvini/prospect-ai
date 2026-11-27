@@ -162,6 +162,23 @@ A tela Configuração › E-mail guarda quem assina, a caixa de envio e a senha 
 - A prévia abre em `/configuracoes/email/previa`, com política de segurança só dela (aceita as imagens https cadastradas, sem script). O navegador embutido do Claude bloqueia esse quadro (`ERR_BLOCKED_BY_CLIENT`); no Chrome/Edge e no e2e ele aparece.
 - Imagens da assinatura (faixa e ícones) ficam publicadas no site do usuário, que é o repositório privado `sourodriguesvini/portf-lio` publicado na Hostinger: um arquivo em `assets/email/<nome>.png` vira `https://foundstudio.com.br/assets/email/<nome>.png` depois do commit e da publicação. Hoje lá estão `assinatura-banner.jpg` (900×300) e `icone-{instagram,linkedin,github}.png` (40×40). Use PNG ou JPG (nunca SVG nem WebP), faixa com pelo menos 536 px de largura (o ideal é 1072) e ícone quadrado de 40×40. Ao salvar quem assina, o app baixa cada endereço e recusa o que não for imagem, com o motivo no campo; em `PROSPECTOR_EMAIL=fixture` nada é baixado (endereço terminado em `.png`, `.jpg`, `.jpeg` ou `.gif` conta como imagem, os outros como página).
 
+## 5c. Pesquisa extensa do Copiloto (pessoas e organizações, Parte 6)
+
+Um pedido no Copiloto como "Quero encontrar 100 terapeutas ocupacionais no Brasil para apresentar a Blummy." vira uma pesquisa ligada à conversa (`copilot_research`), que roda em lotes na mesma fila da Descoberta e guarda cada achado com a fonte e o trecho. Pedidos seguintes na mesma conversa ("agora priorize SP e MG", "mais 50", "só no Paraná", "pare a pesquisa", "continue a pesquisa") mudam a mesma pesquisa. A revisão fica em **Copiloto › Pesquisas** (`/copiloto/pesquisas`), com exportação em CSV. Nada é enviado a ninguém. Precisa do banco com a migração `20261127120000_copilot_research.sql` e das de perfis e pessoas do mesmo dia (as três aplicadas no `prospector-dev` em 2026-11-27).
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `PROSPECTOR_PEOPLE_KEY` | (vazio) | Segredo do HMAC das pessoas (32+ caracteres). Vazio: o app usa o arquivo `chaves\pessoas.key` da pasta de dados |
+| `PROSPECTOR_DATA_DIR` | pasta da instalação | Onde fica `chaves\pessoas.key` (criado na primeira pesquisa) |
+
+- **Chave das pessoas (KI-222).** A deduplicação e a supressão de pessoas (opt-out) usam o HMAC da identidade com esse segredo. O `pnpm dev` e o app instalado usam o mesmo banco: os dois precisam do **mesmo** segredo. Copie `chaves\pessoas.key` da pasta de dados do app instalado para o `PROSPECTOR_DATA_DIR` do `pnpm dev` (ou ponha o mesmo valor em `PROSPECTOR_PEOPLE_KEY` nos dois). Perder o arquivo faz quem pediu opt-out voltar a entrar em pesquisas: ele entra no backup junto com a pasta de dados. Nunca troque o segredo sem o plano de recálculo do KI-222.
+- **Impressão da chave no banco.** Na primeira pesquisa, o app grava em `people_key_checks` o HMAC de um texto fixo (nunca o segredo). Se outro computador ou outra pasta de dados abrir o mesmo banco com uma chave diferente, a pesquisa **não guarda pessoa nenhuma** e a tela avisa: restaure o `chaves\pessoas.key` original (do app instalado ou do backup da pasta de dados). Com `PROSPECTOR_DATA_DIR` configurado e a pasta com problema, o app não procura outra pasta: avisa e só conta as pessoas.
+- Sem chave nenhuma, a pesquisa só guarda organizações e **conta** as pessoas achadas (a tela avisa).
+- **Opt-out pela tela.** Cada pessoa da tela da pesquisa tem "Registrar opt-out" (com confirmação): o contato some, o trecho fica só com o nome e a identidade entra na supressão. Organização cujo domínio está suprimido no Relacionamento não entra na pesquisa.
+- Sem LIA aprovada que cubra as fontes `search_result`/`professional_directory` e os dados profissão, organização e cidade/UF, as pessoas ficam **só para revisão** por 90 dias (KI-214).
+- A conversa mostra contagens e o link "Ver a pesquisa", nunca a lista de nomes (KI-217).
+- Para ver o fluxo sem internet nem créditos: `PROSPECTOR_STORAGE=memory PROSPECTOR_DISCOVERY=fixture pnpm dev` (configuração `dev-demonstracao`); o buscador sintético (`src/server/research-fixture.ts`) devolve nomes "Demo …" em domínios `.test`, com selo DEMO. O e2e é `e2e/copilot-research.spec.ts`.
+
 ## 6. Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |

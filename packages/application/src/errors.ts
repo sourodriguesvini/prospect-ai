@@ -78,6 +78,18 @@ export const ERROR_MESSAGES = {
     'Esta pessoa pediu para não ser contatada: os meios de contato não voltam e a marca não sai.',
   person_suppressed:
     'Esta pessoa pediu para não ser contatada (supressão). Ela não entra de novo em nenhuma lista.',
+  // Pesquisa extensa do Copiloto (diretriz de 2026-11-26, Partes 6.3 a 6.5)
+  research_not_understood:
+    'Não entendi o pedido como uma pesquisa de profissionais ou organizações. Diga a profissão ou o segmento e, se quiser, a quantidade e a região (ex.: "100 terapeutas ocupacionais em SP").',
+  research_revision_not_understood:
+    'Não entendi a mudança na pesquisa. Dá para pedir, por exemplo: "priorize SP e MG", "só no Paraná", "mais 50" ou "pare a pesquisa".',
+  research_search_unavailable:
+    'A pesquisa na internet não está configurada ou está desligada (veja Sistema). Nenhuma pesquisa foi criada.',
+  research_budget_exhausted:
+    'O orçamento de buscas deste mês acabou (plano gratuito da Tavily). Nenhuma pesquisa nova até o mês que vem; o que já foi achado continua disponível.',
+  research_queue_full:
+    'Já há 3 pesquisas extensas em andamento. Espere uma terminar ou peça para parar alguma.',
+  research_cancelled: 'Esta pesquisa foi cancelada. Para continuar, peça uma pesquisa nova.',
   // E-mail (ADR-0016)
   sender_identity_missing: 'Salve primeiro quem assina os e-mails (nome, cargo e estúdio).',
   mailbox_missing: 'Salve primeiro a caixa de envio (endereço e servidores).',

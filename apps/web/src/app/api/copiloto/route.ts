@@ -1,4 +1,10 @@
-import { isAppError, type OpenedTurn, type RequestContext } from '@prospector/application';
+import {
+  isAppError,
+  runResearchTurn,
+  type OpenedTurn,
+  type RequestContext,
+  type ResearchTurn,
+} from '@prospector/application';
 import {
   AI_ERROR_MESSAGES,
   CopilotEvent,
@@ -9,7 +15,12 @@ import {
 } from '@prospector/contracts';
 import { entityLinks } from '@/lib/entity-links';
 import { isSameOriginRequest } from '@/lib/host';
-import { getLocalAi, getServices } from '@/server/container';
+import {
+  ensureDiscoveryWorker,
+  getLocalAi,
+  getServices,
+  pokeDiscoveryWorker,
+} from '@/server/container';
 import { copilotSystemFacts } from '@/server/copilot-context';
 
 /** Pedido do Copiloto: só a pergunta nova (até 8.000 caracteres) e o id da conversa. */
@@ -17,6 +28,50 @@ const MAX_BODY_BYTES = 64 * 1024;
 
 function problem(status: number, message: string): Response {
   return Response.json({ error: message }, { status, headers: { 'cache-control': 'no-store' } });
+}
+
+/** Resposta montada por regra (pesquisa extensa): sem modelo, sem tokens. */
+const RULES_MODEL = 'regras do Prospector';
+const NO_USAGE: GenerationUsage = {
+  inputTokens: null,
+  outputTokens: null,
+  totalMs: null,
+  loadMs: null,
+  outputTokensPerSecond: null,
+};
+
+function ndjson(stream: AsyncGenerator<CopilotEvent>, traceId: string, threadId: string | null) {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const next = await stream.next();
+      if (next.done) {
+        controller.close();
+        return;
+      }
+      // O contrato vale nos dois lados: o servidor só envia o que o navegador sabe ler.
+      const checked = CopilotEvent.safeParse(next.value);
+      const event: CopilotEvent = checked.success
+        ? checked.data
+        : { type: 'error', code: 'provider_error', message: AI_ERROR_MESSAGES.provider_error };
+      try {
+        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      } catch {
+        // O navegador já fechou a conexão; o `cancel` abaixo encerra a geração.
+      }
+    },
+    async cancel() {
+      await stream.return(undefined);
+    },
+  });
+  return new Response(body, {
+    headers: {
+      'content-type': 'application/x-ndjson; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-trace-id': traceId,
+      ...(threadId ? { 'x-thread-id': threadId } : {}),
+    },
+  });
 }
 
 const NO_HISTORY_NOTICE =
@@ -93,6 +148,78 @@ export async function POST(request: Request): Promise<Response> {
   }
   const threadId = opened?.thread.id ?? null;
 
+  // Pesquisa extensa (Partes 6.2 a 6.5): pedido de pesquisa, ou mudança na pesquisa da conversa,
+  // é operado pelo serviço, por regra, antes do modelo. A resposta e o resultado ficam no
+  // histórico, então a pergunta seguinte ao modelo já sabe da pesquisa.
+  if (opened && history && services.copilotResearch) {
+    let turn: ResearchTurn | null;
+    try {
+      turn = await runResearchTurn(ctx, services.copilotResearch, {
+        threadId: opened.thread.id,
+        message: turnRequest.message,
+      });
+    } catch (error) {
+      console.warn(`[copiloto] pesquisa extensa falhou trace=${traceId}`, error);
+      return problem(503, 'Não foi possível operar a pesquisa agora. Tente de novo.');
+    }
+    if (turn) {
+      if (turn.status === 'ok') {
+        ensureDiscoveryWorker();
+        pokeDiscoveryWorker();
+      }
+      const researchTurn = turn;
+      const thread = opened.thread;
+      const created = opened.created;
+      async function* researchEvents(): AsyncGenerator<CopilotEvent> {
+        try {
+          yield { type: 'thread', threadId: thread.id, title: thread.title, created };
+          yield {
+            type: 'tool_call',
+            id: researchTurn.call.id,
+            name: researchTurn.call.name,
+            title: researchTurn.title,
+          };
+          yield {
+            type: 'tool_result',
+            id: researchTurn.call.id,
+            name: researchTurn.call.name,
+            status: researchTurn.status,
+            summary: researchTurn.summary,
+            links: entityLinks(researchTurn.refs),
+          };
+          yield { type: 'delta', text: researchTurn.answer };
+          yield { type: 'done', model: RULES_MODEL, doneReason: 'stop', usage: NO_USAGE };
+        } finally {
+          await history!
+            .saveToolResult(ctx, {
+              threadId: thread.id,
+              call: researchTurn.call,
+              status: researchTurn.status,
+              summary: researchTurn.summary,
+            })
+            .catch((error: unknown) =>
+              console.warn(`[copiloto] resultado da pesquisa não salvo trace=${traceId}`, error),
+            );
+          await history!
+            .saveAnswer(ctx, {
+              threadId: thread.id,
+              content: researchTurn.answer,
+              status: 'complete',
+              model: RULES_MODEL,
+              promptVersion: null,
+              toolCalls: [researchTurn.call],
+              errorCode: null,
+              usage: null,
+            })
+            .catch((error: unknown) =>
+              console.warn(`[copiloto] resposta da pesquisa não salva trace=${traceId}`, error),
+            );
+        }
+      }
+      return ndjson(researchEvents(), traceId, thread.id);
+    }
+  }
+
   const registry = history ? services.tools : null;
   const specs = registry?.specs() ?? [];
   const requestedCalls: ToolCallRequest[] = [];
@@ -130,7 +257,6 @@ export async function POST(request: Request): Promise<Response> {
   const { copilot } = getLocalAi();
   const systemFacts = await copilotSystemFacts(new Date(), specs);
   const messages = opened?.history ?? [{ role: 'user' as const, content: turnRequest.message }];
-  const encoder = new TextEncoder();
 
   async function* events(): AsyncGenerator<CopilotEvent> {
     let content = '';
@@ -216,36 +342,5 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  const stream = events();
-  const body$ = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const next = await stream.next();
-      if (next.done) {
-        controller.close();
-        return;
-      }
-      // O contrato vale nos dois lados: o servidor só envia o que o navegador sabe ler.
-      const checked = CopilotEvent.safeParse(next.value);
-      const event: CopilotEvent = checked.success
-        ? checked.data
-        : { type: 'error', code: 'provider_error', message: AI_ERROR_MESSAGES.provider_error };
-      try {
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-      } catch {
-        // O navegador já fechou a conexão; o `cancel` abaixo encerra a geração.
-      }
-    },
-    async cancel() {
-      await stream.return(undefined);
-    },
-  });
-
-  return new Response(body$, {
-    headers: {
-      'content-type': 'application/x-ndjson; charset=utf-8',
-      'cache-control': 'no-store',
-      'x-trace-id': traceId,
-      ...(threadId ? { 'x-thread-id': threadId } : {}),
-    },
-  });
+  return ndjson(events(), traceId, threadId);
 }

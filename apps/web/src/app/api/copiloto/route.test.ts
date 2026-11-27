@@ -32,10 +32,25 @@ const history = {
 const registry = { specs: vi.fn(), execute: vi.fn() };
 let withDatabase = true;
 
+const RESEARCH_ID = '44444444-4444-4444-8444-444444444444';
+/** Pesquisa extensa falsa: só o que o turno do Copiloto lê para responder. */
+const research = {
+  interpret: vi.fn(),
+  latestForThread: vi.fn(),
+  isRevision: vi.fn(),
+  start: vi.fn(),
+  revise: vi.fn(),
+};
+const worker = { ensure: vi.fn(), poke: vi.fn() };
+
 vi.mock('@/server/container', () => ({
   getLocalAi: () => ({ copilot: { promptId: 'copilot/v3', reply } }),
   getServices: () =>
-    withDatabase ? { copilot: history, tools: registry } : { copilot: null, tools: null },
+    withDatabase
+      ? { copilot: history, tools: registry, copilotResearch: research }
+      : { copilot: null, tools: null, copilotResearch: null },
+  ensureDiscoveryWorker: () => worker.ensure(),
+  pokeDiscoveryWorker: () => worker.poke(),
 }));
 vi.mock('@/server/copilot-context', () => ({
   copilotSystemFacts: () => Promise.resolve(['Hoje é segunda-feira.']),
@@ -114,6 +129,11 @@ beforeEach(() => {
     { name: 'list_offers', title: 'Consultando ofertas', description: 'x', parameters: {} },
   ]);
   registry.execute.mockReset();
+  for (const fn of [...Object.values(research), ...Object.values(worker)]) fn.mockReset();
+  // Por padrão, nenhuma mensagem é pedido de pesquisa: segue para o modelo.
+  research.interpret.mockReturnValue(null);
+  research.latestForThread.mockResolvedValue(null);
+  research.isRevision.mockReturnValue(false);
 });
 
 describe('POST /api/copiloto: recusas', () => {
@@ -311,5 +331,60 @@ describe('POST /api/copiloto: streaming e histórico', () => {
       expect.anything(),
       expect.objectContaining({ status: 'interrupted' }),
     );
+  });
+});
+
+describe('POST /api/copiloto: pesquisa extensa (Parte 6.2)', () => {
+  it('pedido de pesquisa é operado por regra: sem modelo, com link para a revisão e histórico salvo', async () => {
+    research.interpret.mockReturnValue({ requestedCount: 100 });
+    research.start.mockResolvedValue({
+      research: {
+        id: RESEARCH_ID,
+        requestedCount: 100,
+        audience: 'terapeutas ocupacionais',
+        profileName: 'Blummy',
+        objective: 'Apresentar a Blummy',
+        creditCap: 60,
+        plan: { queries: [{ status: 'pending', city: 'São Paulo', uf: 'SP' }] },
+      },
+      assumptions: ['Brasil inteiro, começando pelos estados mais populosos.'],
+    });
+    const response = await POST(post({ ...ask, message: 'Quero encontrar 100 terapeutas' }));
+    expect(response.status).toBe(200);
+    const events = await lines(response);
+    expect(reply).not.toHaveBeenCalled();
+    expect(events).toEqual([
+      THREAD_EVENT,
+      expect.objectContaining({ type: 'tool_call', name: 'pesquisa_extensa' }),
+      expect.objectContaining({
+        type: 'tool_result',
+        status: 'ok',
+        links: [{ href: `/copiloto/pesquisas/${RESEARCH_ID}`, label: 'Ver a pesquisa' }],
+      }),
+      expect.objectContaining({
+        type: 'delta',
+        text: expect.stringContaining('Vou pesquisar 100 terapeutas ocupacionais para Blummy'),
+      }),
+      expect.objectContaining({ type: 'done', model: 'regras do Prospector' }),
+    ]);
+    expect(history.saveToolResult).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ threadId: THREAD, status: 'ok' }),
+    );
+    expect(history.saveAnswer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'complete', model: 'regras do Prospector' }),
+    );
+    expect(worker.poke).toHaveBeenCalled();
+  });
+
+  it('falha inesperada da pesquisa: 503 com mensagem, sem chamar o modelo', async () => {
+    research.interpret.mockReturnValue({ requestedCount: 100 });
+    research.start.mockRejectedValue(new Error('banco caiu'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const response = await POST(post({ ...ask, message: 'Quero encontrar 100 terapeutas' }));
+    warn.mockRestore();
+    expect(response.status).toBe(503);
+    expect(reply).not.toHaveBeenCalled();
   });
 });

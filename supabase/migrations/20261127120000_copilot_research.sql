@@ -28,7 +28,7 @@ create table public.copilot_research (
   request text not null check (char_length(btrim(request)) between 3 and 1000),
   objective text not null check (char_length(btrim(objective)) between 3 and 300),
   audience text not null check (char_length(btrim(audience)) between 2 and 120),
-  -- { entityKinds, profession, ufs, cities, priorityUfs, exclude, assumptions } (contrato
+  -- { profession, terms, entityKinds, ufs, priorityUfs, cities, assumptions } (contrato
   -- ResearchCriteria no app).
   criteria jsonb not null check (
     jsonb_typeof(criteria) = 'object' and pg_column_size(criteria) <= 8192
@@ -52,7 +52,11 @@ create table public.copilot_research (
   revisions jsonb not null default '[]'::jsonb check (
     jsonb_typeof(revisions) = 'array' and pg_column_size(revisions) <= 16384
   ),
+  -- Sobe com a mudança pedida pela pessoa (chave da fila: uma tarefa por versão e lote).
   version integer not null default 1 check (version >= 1),
+  -- Sobe em toda gravação (gatilho): a gravação confere versão e `row_version`, então um lote e uma
+  -- mudança simultâneos não se apagam (revisão de arquitetura de 26/11, D1).
+  row_version integer not null default 1 check (row_version >= 1),
   -- Teto de créditos da Tavily desta pesquisa (plano gratuito: o mensal também vale).
   credit_cap integer not null check (credit_cap between 1 and 300),
   trace_id uuid not null,
@@ -77,6 +81,20 @@ create index copilot_research_retention_idx on public.copilot_research (retentio
 create trigger copilot_research_updated_at
   before update on public.copilot_research
   for each row execute function app.set_updated_at();
+
+create function app.bump_copilot_research_row_version() returns trigger
+  language plpgsql
+  set search_path = ''
+as $$
+begin
+  new.row_version := old.row_version + 1;
+  return new;
+end;
+$$;
+revoke execute on function app.bump_copilot_research_row_version() from public, anon, authenticated;
+create trigger copilot_research_row_version
+  before update on public.copilot_research
+  for each row execute function app.bump_copilot_research_row_version();
 create trigger copilot_research_audit
   after insert or update or delete on public.copilot_research
   for each row execute function app.audit_write();
@@ -162,6 +180,63 @@ alter table public.ai_jobs drop constraint ai_jobs_kind_check;
 alter table public.ai_jobs add constraint ai_jobs_kind_check
   check (kind in ('discovery_run', 'copilot_research'));
 
+-- Um lote por tarefa. A pesquisa aberta entra na fila na mesma escrita que a cria, que conclui um
+-- lote (o número em `progress.batches` sobe), que a muda (a versão sobe) ou que a reabre. A chave
+-- leva versão e lote: a tarefa velha, se ainda rodar, vê que não é a do estado atual e termina.
+create function app.enqueue_copilot_research() returns trigger
+  language plpgsql
+  set search_path = ''
+as $$
+declare
+  batch integer := coalesce((new.progress ->> 'batches')::integer, 0);
+begin
+  if new.status in ('queued', 'running') and (
+    tg_op = 'INSERT'
+    or old.status not in ('queued', 'running')
+    or new.version is distinct from old.version
+    or batch is distinct from coalesce((old.progress ->> 'batches')::integer, 0)
+  ) then
+    insert into public.ai_jobs (kind, idempotency_key, payload, trace_id)
+    values (
+      'copilot_research',
+      'copilot_research:' || new.id::text || ':' || new.version::text || ':' || batch::text,
+      jsonb_build_object('researchId', new.id, 'version', new.version, 'batch', batch),
+      new.trace_id
+    )
+    on conflict (idempotency_key) do nothing;
+  end if;
+  return null;
+end;
+$$;
+revoke execute on function app.enqueue_copilot_research() from public, anon, authenticated;
+
+create trigger copilot_research_enqueue
+  after insert or update of status, version, progress on public.copilot_research
+  for each row execute function app.enqueue_copilot_research();
+
+-- Cancelar a pesquisa marca as tarefas dela: quem está rodando para na próxima renovação do lease.
+create function app.cancel_copilot_research_jobs() returns trigger
+  language plpgsql
+  set search_path = ''
+as $$
+begin
+  if new.status = 'cancelled' and old.status is distinct from 'cancelled' then
+    update public.ai_jobs
+    set cancel_requested_at = now()
+    where kind = 'copilot_research'
+      and payload ->> 'researchId' = new.id::text
+      and status in ('queued', 'running')
+      and cancel_requested_at is null;
+  end if;
+  return null;
+end;
+$$;
+revoke execute on function app.cancel_copilot_research_jobs() from public, anon, authenticated;
+
+create trigger copilot_research_cancel_jobs
+  after update of status on public.copilot_research
+  for each row execute function app.cancel_copilot_research_jobs();
+
 -- -----------------------------------------------------------------------------
 -- Acesso: só o servidor do app (ADR-0007)
 -- -----------------------------------------------------------------------------
@@ -174,8 +249,8 @@ revoke all on public.copilot_research, public.copilot_research_items
 grant select, insert, delete on public.copilot_research, public.copilot_research_items
   to service_role;
 grant update (
-  criteria, found_count, status, stop_reason, plan, progress, revisions, version, credit_cap,
-  finished_at
+  criteria, requested_count, found_count, status, stop_reason, plan, progress, revisions, version,
+  credit_cap, finished_at
 ) on public.copilot_research to service_role;
 grant update (audience_role, segment, fit_reason, rank, verified_at)
   on public.copilot_research_items to service_role;

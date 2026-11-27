@@ -41,6 +41,8 @@ import {
   createSystemService,
   createToolRegistry,
   createWebResearchService,
+  createPersonKeyHasher,
+  createResearchService,
   DiscoveryAiError,
   discoveryJobHandler,
   relationshipTools,
@@ -80,6 +82,8 @@ import {
   type ToolRegistry,
   type WebResearchService,
   type WebResearchUsageStore,
+  type ResearchRepository,
+  type ResearchService,
   type CaptureStore,
   type CaptureStoreHealth,
 } from '@prospector/application';
@@ -95,7 +99,9 @@ import {
   createMemoryMonitoringRepository,
   createMemoryStrategyRepository,
   createMemoryWebResearchUsage,
+  createMemoryResearchRepository,
   type MemoryCompanyRepository,
+  type MemoryResearchRepository,
 } from '@prospector/application/memory';
 import {
   createServerSupabaseClient,
@@ -108,6 +114,7 @@ import {
   createSupabaseDiscoveryRepository,
   createSupabaseJobQueue,
   createSupabaseRelationshipRepository,
+  createSupabaseResearchRepository,
   createSupabaseInvestigationRepository,
   createSupabaseIntelligenceRepository,
   createSupabaseMonitoringRepository,
@@ -133,6 +140,7 @@ import { syntheticCnpjLookup } from './cnpj-fixture';
 import { syntheticDiscoveryAi, syntheticDiscoveryWeb } from './discovery-fixture';
 import { syntheticEmail } from './email-fixture';
 import { syntheticRelationshipAi } from './relationship-ai-fixture';
+import { syntheticResearchWeb } from './research-fixture';
 import {
   cnpjLookupMode,
   databaseEnv,
@@ -145,6 +153,7 @@ import {
   LOCAL_AI_ENV_FORMATS,
   LocalAiConfigError,
   localAiEnv,
+  peopleKeyEnv,
   relationshipAiMode,
   storageMode,
   WebResearchConfigError,
@@ -196,6 +205,11 @@ export interface Services {
   monitoring: MonitoringService | null;
   /** Inteligência: funil e consumo do mês (ADR-0017); null sem banco. */
   intelligence: IntelligenceService | null;
+  /**
+   * Pesquisa extensa do Copiloto (diretriz de 2026-11-26, Partes 6.3 a 6.5): pedido ligado à
+   * conversa, lotes na fila durável, resultados com origem; null sem banco.
+   */
+  copilotResearch: ResearchService | null;
 }
 
 interface MemoryStores {
@@ -203,7 +217,8 @@ interface MemoryStores {
   strategy: StrategyRepository;
   copilot: CopilotRepository & AiTelemetryRepository;
   companies: MemoryCompanyRepository;
-  discovery: { repository: DiscoveryRepository; queue: JobQueue };
+  discovery: ReturnType<typeof createMemoryDiscoveryStore>;
+  research: MemoryResearchRepository;
   relationship: RelationshipRepository;
   email: EmailSettingsRepository;
 }
@@ -214,13 +229,19 @@ function memoryStores(): MemoryStores {
   if (!holder.__prospectorMemoryStores) {
     const audit = createMemoryAuditRepository();
     const companies = createMemoryCompanyRepository({ audit });
+    const discovery = createMemoryDiscoveryStore({ audit });
     // A estratégia grava a auditoria junto com cada escrita (KI-041), na mesma trilha.
     holder.__prospectorMemoryStores = {
       audit,
       strategy: createMemoryStrategyRepository({ audit }),
       copilot: createMemoryCopilotRepository({ audit }),
       companies,
-      discovery: createMemoryDiscoveryStore({ audit }),
+      discovery,
+      // A pesquisa do Copiloto usa a mesma fila (o que os gatilhos do banco fazem).
+      research: createMemoryResearchRepository({
+        audit,
+        jobs: { enqueueJob: discovery.enqueueJob, cancelJobs: discovery.cancelJobs },
+      }),
       relationship: createMemoryRelationshipRepository({ audit, companies }),
       email: createMemoryEmailRepository({ audit }),
     };
@@ -448,39 +469,90 @@ function discoveryAi(): DiscoveryAi {
   return holder.__prospectorDiscoveryAi;
 }
 
+/**
+ * Pesquisa extensa do Copiloto. A chave das pessoas (HMAC) vem de `PROSPECTOR_PEOPLE_KEY` ou do
+ * arquivo na pasta de dados (KI-222); sem ela, pessoas achadas são só contadas.
+ */
+function copilotResearchService(parts: {
+  repo: ResearchRepository;
+  threads: CopilotRepository;
+  research: WebResearchSetup;
+  lia: StrategyRepository;
+  /** A exportação (CSV) só sai com o registro na auditoria. */
+  audit: Pick<AuditRepository, 'append'>;
+}): ResearchService {
+  const holder = globalThis as { __prospectorPeopleKeyWarned?: boolean };
+  const settings = peopleKeyEnv();
+  if (settings.problem && !holder.__prospectorPeopleKeyWarned) {
+    holder.__prospectorPeopleKeyWarned = true;
+    console.warn(`[pesquisa] ${settings.problem}`);
+  }
+  // Demonstração (`PROSPECTOR_DISCOVERY=fixture`, só em memória): buscador sintético e selo DEMO.
+  const demo = storageMode() === 'memory' && discoveryMode() === 'fixture';
+  const holderWeb = globalThis as {
+    __prospectorResearchFixtureWeb?: ReturnType<typeof syntheticResearchWeb>;
+  };
+  if (demo) holderWeb.__prospectorResearchFixtureWeb ??= syntheticResearchWeb();
+  return createResearchService({
+    research: parts.repo,
+    threads: parts.threads,
+    webResearch: demo ? holderWeb.__prospectorResearchFixtureWeb! : parts.research.service,
+    ...(demo ? { demo: true } : {}),
+    lia: parts.lia,
+    audit: parts.audit,
+    personKey: settings.key ? createPersonKeyHasher(settings.key) : null,
+    log: (message) => console.warn(message),
+  });
+}
+
 /** Peças do trabalhador, montadas uma vez por processo (fora do ciclo de uma requisição). */
 function workerParts(): {
-  wiring: DiscoveryWiring;
+  queue: JobQueue;
+  wiring: DiscoveryWiring | null;
   strategy: StrategyService;
   companies: CompanyRepository;
+  research: ResearchService;
 } | null {
   if (storageMode() === 'memory') {
     const stores = memoryStores();
-    const wiring = discoveryWiring('memory', stores.discovery, webResearch(stores.companies, null));
-    if (!wiring) return null;
+    const web = webResearch(stores.companies, null);
     return {
-      wiring,
+      queue: stores.discovery.queue,
+      wiring: discoveryWiring('memory', stores.discovery, web),
       strategy: createStrategyService({ repo: stores.strategy, ephemeralStorage: true }),
       companies: stores.companies,
+      research: copilotResearchService({
+        repo: stores.research,
+        threads: stores.copilot,
+        research: web,
+        lia: stores.strategy,
+        audit: stores.audit,
+      }),
     };
   }
   const credentials = databaseEnv();
   if (!credentials) return null;
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
   const companyRepo = createSupabaseCompanyRepository(client);
-  const wiring = discoveryWiring(
-    'supabase',
-    {
-      repository: createSupabaseDiscoveryRepository(client),
-      queue: createSupabaseJobQueue(client),
-    },
-    webResearch(companyRepo, createSupabaseWebResearchUsage(client)),
-  );
-  if (!wiring) return null;
+  const web = webResearch(companyRepo, createSupabaseWebResearchUsage(client));
+  const queue = createSupabaseJobQueue(client);
+  const strategyRepo = createSupabaseStrategyRepository(client);
   return {
-    wiring,
-    strategy: createStrategyService({ repo: createSupabaseStrategyRepository(client) }),
+    queue,
+    wiring: discoveryWiring(
+      'supabase',
+      { repository: createSupabaseDiscoveryRepository(client), queue },
+      web,
+    ),
+    strategy: createStrategyService({ repo: strategyRepo }),
     companies: companyRepo,
+    research: copilotResearchService({
+      repo: createSupabaseResearchRepository(client),
+      threads: createSupabaseCopilotRepository(client),
+      research: web,
+      lia: strategyRepo,
+      audit: createSupabaseAuditRepository(client),
+    }),
   };
 }
 
@@ -504,26 +576,34 @@ export function ensureDiscoveryWorker(): void {
     const parts = workerParts();
     if (!parts) return;
     const { wiring } = parts;
-    const engine = createDiscoveryEngine({
-      repo: wiring.repo,
-      ai: wiring.ai,
-      web: wiring.web,
-      strategy: parts.strategy,
-      companies: parts.companies,
-    });
-    const scheduler = createDiscoveryScheduler({
-      repo: wiring.repo,
-      web: wiring.web,
-      dailyAutoCredits: discoveryDailyAutoCredits(),
-    });
+    const engine = wiring
+      ? createDiscoveryEngine({
+          repo: wiring.repo,
+          ai: wiring.ai,
+          web: wiring.web,
+          strategy: parts.strategy,
+          companies: parts.companies,
+        })
+      : null;
+    const scheduler = wiring
+      ? createDiscoveryScheduler({
+          repo: wiring.repo,
+          web: wiring.web,
+          dailyAutoCredits: discoveryDailyAutoCredits(),
+        })
+      : null;
     let lastSchedule = 0;
     const worker = createJobWorker({
-      queue: wiring.queue,
+      queue: parts.queue,
       workerId: `web-${process.pid}-${crypto.randomUUID().slice(0, 8)}`,
-      handlers: { discovery_run: discoveryJobHandler(engine) },
+      // A pesquisa do Copiloto roda mesmo com a Descoberta desligada (PROSPECTOR_DISCOVERY=off).
+      handlers: {
+        ...(engine ? { discovery_run: discoveryJobHandler(engine) } : {}),
+        copilot_research: parts.research.jobHandler,
+      },
       idleMs: 10_000,
       onIdle: async () => {
-        if (Date.now() - lastSchedule < SCHEDULER_INTERVAL_MS) return;
+        if (!scheduler || Date.now() - lastSchedule < SCHEDULER_INTERVAL_MS) return;
         lastSchedule = Date.now();
         try {
           await scheduler.tick();
@@ -868,6 +948,13 @@ export const getServices = cache((): Services => {
       emailSynthetic: emailMode() === 'fixture',
       monitoring,
       intelligence,
+      copilotResearch: copilotResearchService({
+        repo: stores.research,
+        threads: stores.copilot,
+        research,
+        lia: stores.strategy,
+        audit: stores.audit,
+      }),
     };
   }
   const credentials = databaseEnv();
@@ -888,6 +975,7 @@ export const getServices = cache((): Services => {
       emailSynthetic: false,
       monitoring: null,
       intelligence: null,
+      copilotResearch: null,
     };
   }
   const client = createServerSupabaseClient(credentials.url, credentials.secretKey);
@@ -971,6 +1059,13 @@ export const getServices = cache((): Services => {
     emailSynthetic: false,
     monitoring,
     intelligence,
+    copilotResearch: copilotResearchService({
+      repo: createSupabaseResearchRepository(client),
+      threads: copilotRepo,
+      research,
+      lia: createSupabaseStrategyRepository(client),
+      audit: createSupabaseAuditRepository(client),
+    }),
   };
 });
 
