@@ -1289,6 +1289,98 @@ describe('InvestigationService (ADR-0015)', () => {
     expect(thesis.angulo_principal.titulo).toBe(investigation.diagnosis?.thesis?.principal?.title);
   });
 
+  it('a busca que traz de novo a matéria de um sinal gravado, sem data, fica com a data do sinal', async () => {
+    // Matéria SINTÉTICA. Na Flash (27/11), a busca devolveu a matéria da NeoFeed sem data e o
+    // acontecimento saiu "Sem data", embora o sinal da Descoberta tivesse a publicação.
+    const url = 'https://neofeed.com.br/startups/atelie-exemplo-serie-b';
+    pages[url] = {
+      title: 'Ateliê Exemplo levanta R$ 40 milhões em Série B',
+      text: 'O Ateliê Exemplo, marcenaria de Curitiba, anunciou uma rodada Série B de R$ 40 milhões. A rodada foi liderada pela Fundo Exemplo Ventures.',
+    };
+    const base = fakeSearch();
+    const custom: WebSearch = {
+      ...base.search,
+      async search(request) {
+        if (!request.query.startsWith('"')) return base.search.search(request);
+        return {
+          ok: true,
+          creditsCharged: 1,
+          results: [
+            result(
+              1,
+              url,
+              'Ateliê Exemplo levanta R$ 40 milhões em Série B',
+              'O Ateliê Exemplo anunciou uma rodada Série B de R$ 40 milhões.',
+            ),
+          ],
+        };
+      },
+    };
+    const evidenceService = createEvidenceService({ evidence: repo, clock });
+    const customWeb = createWebResearchService({
+      search: custom,
+      pages: reader.fetcher,
+      usage: createMemoryWebResearchUsage(),
+      companies: repo,
+      evidence: repo,
+      evidenceService,
+      monthlyCreditBudget: 50,
+      clock,
+      log: (message) => logs.push(message),
+    });
+    const company = await importCompany();
+    const sourceId = crypto.randomUUID();
+    await evidenceService.record(
+      ctx,
+      company.id,
+      {
+        sources: [
+          {
+            id: sourceId,
+            source: {
+              schemaVersion: 1,
+              kind: 'search_result',
+              url,
+              provider: 'tavily',
+              capturedAt: now.toISOString(),
+              title: 'Ateliê Exemplo levanta R$ 40 milhões em Série B',
+              excerptText: 'Ateliê Exemplo levanta R$ 40 milhões em Série B\nRodada Série B.',
+            },
+          },
+        ],
+        claims: [
+          {
+            id: crypto.randomUUID(),
+            claim: {
+              schemaVersion: 1,
+              subjectType: 'company',
+              subjectId: company.id,
+              domain: 'signal',
+              key: 'signal.investment',
+              statement:
+                'Possível sinal (investimento) numa página de neofeed.com.br, a confirmar na fonte.',
+              value: { type: 'investment', publishedAt: '2026-11-01' },
+              epistemicType: 'hypothesis',
+              evidence: [{ sourceId, quote: 'Rodada Série B.' }],
+              reasoning:
+                'Sinal a confirmar: o trecho sugere a rodada. Ler a matéria antes de usar.',
+            },
+          },
+        ],
+      },
+      { action: 'company.discovery.signals' },
+    );
+
+    await run(service({ webResearch: customWeb }), company.id);
+
+    const funding = (await repo.claimsFor('company', company.id)).filter((claim) =>
+      claim.key.startsWith('signal.web.funding'),
+    );
+    expect(funding).toHaveLength(1);
+    const event = (funding[0]?.value as { event?: { occurredOn: string | null } }).event;
+    expect(event?.occurredOn).toBe('2026-11-01');
+  });
+
   it('sinal gravado cuja página não pode ser lida não vira outra hipótese (o da Descoberta continua)', async () => {
     const url = 'https://fora-do-ar.test/atelie-exemplo-rodada';
     const evidenceService = createEvidenceService({ evidence: repo, clock });

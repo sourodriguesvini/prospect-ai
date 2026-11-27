@@ -1134,8 +1134,10 @@ function corroboration(event: BusinessEvent): string {
  * acontecimentos quando a primeira não acha nenhum.
  * 4 (2026-11-27): a mesma matéria guardada duas vezes (menção e sinal) vira um candidato só, com a
  * data de publicação do sinal.
+ * 5 (2026-11-27): a busca que traz de novo a matéria de um sinal guardado, sem data, fica com a
+ * data do sinal.
  */
-export const SIGNALS_METHOD = 4;
+export const SIGNALS_METHOD = 5;
 
 /** ADR-0015: uma investigação gasta de 1 a 3 buscas (site, sinais, concorrentes). */
 const MAX_SEARCHES_PER_RUN = 3;
@@ -1256,9 +1258,17 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
     }
   }
   // Os sinais já gravados vêm primeiro: são os primeiros a ser lidos.
-  const stored = (await storedEventCandidates(run)).filter(
+  const known = await storedEventCandidates(run);
+  const stored = known.filter(
     (candidate) => !results.some((result) => sameUrl(result.url, candidate.url)),
   );
+  // A busca trouxe de novo uma matéria já guardada: fica o resultado da busca, mas a data de
+  // publicação do sinal não se perde quando a busca não traz nenhuma (validação da Flash, 27/11).
+  results = results.map((result) => {
+    if (result.publishedAt) return result;
+    const dated = known.find((entry) => entry.publishedAt && sameUrl(entry.url, result.url));
+    return dated ? { ...result, publishedAt: dated.publishedAt } : result;
+  });
   const mentions: EventCandidate[] = [...stored, ...results];
   // Parte 3.3: mesma notícia em vários sites vira um acontecimento só, com a origem na frente.
   const groups = groupEventReports(mentions, run.company.primaryDomain).slice(0, MAX_EVENTS);

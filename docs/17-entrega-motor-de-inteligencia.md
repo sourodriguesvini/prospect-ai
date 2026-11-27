@@ -229,7 +229,7 @@ Primeira análise de ponta a ponta com Ollama, Tavily e o banco `prospector-dev`
 
 | O que apareceu | O que mudou (27/11) | Estado |
 |---|---|---|
-| A matéria da Série D, já no ledger desde a Descoberta, não virou acontecimento; a busca de sinais fez uma consulta só e a tese saiu "Não priorizar agora" com momento indeterminado | As matérias dos sinais da Descoberta entram como candidatas e são lidas; sem acontecimento na primeira consulta, vem uma segunda voltada a acontecimentos (dentro do teto de 3 buscas); "levantar/levantará/levantando" reconhecidos (método de sinais 3). Na nova análise no app instalado (27/11, 01:30) a Série D virou fato e a tese passou a "Vale aprofundar", com o ângulo de produto digital; o acontecimento saiu sem data, corrigido em seguida (método 4: a menção e o sinal da mesma matéria viram um candidato só, com a data de 19/08/2026) | KI-233: validado no app; a data depende da próxima instalação |
+| A matéria da Série D, já no ledger desde a Descoberta, não virou acontecimento; a busca de sinais fez uma consulta só e a tese saiu "Não priorizar agora" com momento indeterminado | As matérias dos sinais da Descoberta entram como candidatas e são lidas; sem acontecimento na primeira consulta, vem uma segunda voltada a acontecimentos (dentro do teto de 3 buscas); "levantar/levantará/levantando" reconhecidos (método de sinais 3). Na nova análise no app instalado (27/11, 01:30) a Série D virou fato e a tese passou a "Vale aprofundar", com o ângulo de produto digital; o acontecimento saiu sem data, corrigido em seguida (métodos 4 e 5: a menção, o sinal e o resultado de busca da mesma matéria ficam com a data de publicação do sinal, 19/08/2026) | KI-233: validado no app |
 | Topo "Vale abordar" e tese "Não priorizar agora" | A tese aparece como ressalva logo abaixo do título, com o motivo; "O que mudou" diz quando o veredito ou a tese mudam | KI-234: qual regra manda no título é decisão do usuário |
 | "Site institucional" na oferta, "Site" na tese | — | KI-235 |
 | alertalicitacao.com.br como concorrente | — | KI-236 |
@@ -247,7 +247,7 @@ Decididas em 27/11 ("Tudo o que for decisão minha está aprovado"):
 
 1. **ADR-0019 aceito.** O KI-207 continua aberto (perfis no código e restrições da Blummy só no texto).
 2. **`pnpm app:install`:** rodado ao fim desta etapa, a partir do ramo `conclusao-produto`; o `versao.txt` de `D:\Prospector` diz o commit instalado.
-3. **Análise real com o `prospector-dev`:** feita com a Flash (§11a) e repetida no app instalado em 27/11 às 01:30, com as correções do KI-233 valendo; a data do acontecimento entrou na versão seguinte (método de sinais 4).
+3. **Análise real com o `prospector-dev`:** feita com a Flash (§11a) e repetida no app instalado em 27/11, com as correções do KI-233 valendo; a data do acontecimento entrou depois (métodos de sinais 4 e 5).
 4. **GPU para `pnpm evals`:** usada na Parte 5 (prompts v5 promovidos). O `copilot/v3` continua.
 5. **Migrações:** `20261127100000_commercial_profiles`, `20261127110000_people` e `20261127120000_copilot_research` aplicadas no `prospector-dev` em 27/11, com as versões do banco iguais às do repositório.
 6. **Validação jurídica (KI-213):** o usuário aceitou o risco por enquanto.
