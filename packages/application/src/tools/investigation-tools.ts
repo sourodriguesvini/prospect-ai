@@ -6,6 +6,8 @@ import {
   INVESTIGATION_STEP_LABELS,
   NEXT_STEP_LABELS,
   RECOMMENDATION_LABELS,
+  THESIS_RECOMMENDATION_LABELS,
+  type CommercialThesis,
   type Investigation,
 } from '@prospector/contracts';
 import { z } from 'zod';
@@ -134,6 +136,28 @@ function readingSuggestions(views: readonly ClaimView[], claimId: string | null)
   };
 }
 
+/** A tese comercial gravada (regra `compatibility/v1`), curta, para o Copiloto citar. */
+function thesisView(thesis: CommercialThesis | null) {
+  if (!thesis) return null;
+  const principal = thesis.principal;
+  return {
+    recomendacao: THESIS_RECOMMENDATION_LABELS[thesis.recommendation],
+    motivo: thesis.recommendationReason,
+    angulo_principal: principal
+      ? {
+          titulo: principal.title,
+          problema: principal.problem,
+          por_que_agora: principal.whyNow,
+          servicos: principal.offer.slice(0, 4),
+          com_quem_falar: principal.approachRole,
+          como_abrir: principal.openingTopic,
+        }
+      : null,
+    nao_oferecer: thesis.doNotOffer.slice(0, 4).map((item) => item.item),
+    a_confirmar: thesis.toConfirm.slice(0, 5),
+  };
+}
+
 function diagnosisView(investigation: Investigation, views: readonly ClaimView[]) {
   const diagnosis = investigation.diagnosis;
   if (!diagnosis) return null;
@@ -159,6 +183,9 @@ function diagnosisView(investigation: Investigation, views: readonly ClaimView[]
     hipoteses: claimsById(views, diagnosis.hypothesisClaimIds).slice(0, 4),
     lacunas: diagnosis.gaps.map((gap) => gap.text),
     descartadas_na_verificacao: diagnosis.verification.discarded,
+    // Validação real do Flash (27/11): sem a tese no resultado, o Copiloto inventou uma "tese
+    // comercial" que contradizia a gravada. Vai o que a tela mostra, montado pela regra.
+    tese_comercial: thesisView(diagnosis.thesis ?? null),
     // Vai no resultado, não no prompt: no prompt, falar de medidas fazia o modelo "pontuar"
     // empresas em respostas que não tinham nada a ver com investigação (2026-11-11).
     escala:

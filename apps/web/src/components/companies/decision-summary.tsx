@@ -7,6 +7,7 @@ import {
   type Investigation,
   type SuppressionReason,
 } from '@prospector/contracts';
+import { executiveSummary } from '@prospector/domain';
 import { Button, Panel, StatusDot, type StatusTone } from '@prospector/ui';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
@@ -15,6 +16,8 @@ import {
   resumeInvestigationAction,
   startInvestigationAction,
 } from '@/app/(shell)/empresas/actions';
+import { ExecutiveSummaryList } from '@/components/companies/report-panels';
+import { eventEvidenceOf } from '@/components/companies/timeline-section';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import {
   ANALYSIS_COST_TEXT,
@@ -24,6 +27,7 @@ import {
   decisionNext,
   recommendedOffer,
   securityLevel,
+  thesisCaveat,
   undiagnosedState,
   type ContactSituation,
   type DecisionTone,
@@ -33,8 +37,9 @@ import { relationshipRoutes } from '@/lib/relationship-routes';
 
 /**
  * Topo da página da empresa: a resposta para "Vale abordar?" antes de qualquer evidência
- * (proposta de 26/11, Frente 1). Só compõe o que a investigação já gravou: a recomendação, a
- * leitura central (claim do ledger) e a oferta recomendada. Nada novo é afirmado aqui.
+ * (proposta de 26/11, Frente 1) e o resumo executivo com as cinco perguntas (diretriz 2026-11-26,
+ * Parte 7). Só compõe o que a investigação já gravou: a recomendação, a leitura central (claim do
+ * ledger), os acontecimentos, a tese e a oferta recomendada. Nada novo é afirmado aqui.
  */
 
 const TONE: Record<DecisionTone, StatusTone> = {
@@ -217,6 +222,20 @@ export function DecisionSummary({
     const security = securityLevel(diagnosis.confidence);
     const gaps = diagnosis.gaps.slice(0, 2).map((gap) => gap.text);
     const suppressed = next.kind === 'suppressed' && contact ? contact.suppressions : null;
+    const thesis = diagnosis.thesis ?? null;
+    const caveat = suppressed ? null : thesisCaveat(diagnosis.recommendation, thesis);
+    const answers = executiveSummary({
+      claims: views.map((item) => ({
+        key: item.claim.key,
+        statement: item.claim.statement,
+        epistemicType: item.claim.epistemicType,
+        status: item.claim.status,
+      })),
+      events: eventEvidenceOf(views),
+      thesis: diagnosis.thesis ?? null,
+      fallbackOffer: offer?.offerName ?? null,
+      contactBlocked: suppressed !== null,
+    });
 
     let action: ReactNode = null;
     let note: string | null = null;
@@ -297,47 +316,59 @@ export function DecisionSummary({
               </a>
             </p>
           ) : null}
+          {caveat ? (
+            <p className="max-w-prose text-sm" data-thesis-caveat="">
+              {caveat}{' '}
+              <a
+                href="#tese-comercial"
+                className="text-muted-foreground underline underline-offset-4"
+              >
+                Ver a tese
+              </a>
+            </p>
+          ) : null}
           {next.kind === 'complete_analysis' && gaps.length > 0 ? (
             <p className="text-sm text-muted-foreground">Falta: {gaps.join(' ')}</p>
           ) : null}
           {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
         </div>
-        <dl className="grid gap-4 sm:grid-cols-3">
-          <Dimension
-            label="Serviço que faz sentido"
-            value={
-              diagnosis.offers.length === 0 ? (
-                <>
-                  Nenhum serviço cadastrado (
-                  <Link href="/configuracoes/estrategia" className="underline underline-offset-4">
-                    Estratégia
-                  </Link>
-                  )
-                </>
-              ) : offer ? (
-                offer.offerName
-              ) : (
-                'Nenhum dos serviços ativos'
-              )
-            }
-          />
-          <Dimension
-            label="Segurança da análise"
-            value={SECURITY_LABELS[security]}
-            help={SECURITY_HELP[security]}
-          />
-          <Dimension
-            label="Com quem falar"
-            value="Ainda não identificado"
-            help="O Prospector ainda não guarda contatos de pessoas."
-          />
-        </dl>
+        {/* A ação logo depois da resposta: no celular ela não fica atrás do resumo inteiro. */}
         <div className="flex flex-wrap items-center gap-3">
           {action}
           <p className="text-xs text-muted-foreground">
             Análise de {formatDate(diagnosed!.finishedAt ?? diagnosed!.createdAt)}.
           </p>
         </div>
+        <ExecutiveSummaryList answers={answers} />
+        {/* Serviço e contato já estão no resumo (onde contribuir, melhor abordagem): aqui só o
+            que ele não diz. Análise antiga, sem tese, ainda mostra o serviço comparado. */}
+        <dl className="grid gap-4 sm:grid-cols-3">
+          {thesis ? null : (
+            <Dimension
+              label="Serviço que faz sentido"
+              value={
+                diagnosis.offers.length === 0 ? (
+                  <>
+                    Nenhum serviço cadastrado (
+                    <Link href="/configuracoes/estrategia" className="underline underline-offset-4">
+                      Estratégia
+                    </Link>
+                    )
+                  </>
+                ) : offer ? (
+                  offer.offerName
+                ) : (
+                  'Nenhum dos serviços ativos'
+                )
+              }
+            />
+          )}
+          <Dimension
+            label="Segurança da análise"
+            value={SECURITY_LABELS[security]}
+            help={SECURITY_HELP[security]}
+          />
+        </dl>
       </div>
     );
   }

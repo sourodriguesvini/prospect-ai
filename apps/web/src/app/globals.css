@@ -18,3 +18,14 @@
     scroll-padding-bottom: 7rem;
   }
 }
+
+/*
+ * Abaixo de md o cabeçalho do app fica fixo no topo (~56 px): sem folga, o título de destino de
+ * um link "#…" (resumo executivo → tese, linha do tempo, Receita) fica coberto (revisão de UX de
+ * 27/11; WCAG 2.4.11).
+ */
+@media (max-width: 47.99rem) {
+  html {
+    scroll-padding-top: 4.5rem;
+  }
+}

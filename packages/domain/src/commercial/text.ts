@@ -42,8 +42,9 @@ export function originalSlice(
   return text.slice(from, lastIndex + (lastChar > 0xffff ? 2 : 1));
 }
 
-// Fim de frase: pontuação, quebra de linha (títulos não têm ponto) ou fim do texto.
-const SENTENCE = /[^.!?\n]+(?:[.!?]+|(?=\n)|$)/g;
+// Fim de frase: pontuação, quebra de linha (títulos não têm ponto) ou fim do texto. Ponto colado
+// em letra ou número não fecha a frase: e-mail, domínio e valor ("compras@loja.com.br", "1.500").
+const SENTENCE = /(?:[^.!?\n]|[.!?](?=[\p{L}\p{N}]))+(?:[.!?]+|(?=\n)|$)/gu;
 
 /** Frases do texto original, com início e fim (fim exclusivo). */
 export function sentences(text: string): Array<{ start: number; end: number; text: string }> {

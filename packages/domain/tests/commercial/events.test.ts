@@ -26,6 +26,9 @@ describe('detectEventTypes', () => {
   it.each([
     ['Flash levanta R$ 150 milhões em Série D', 'funding'],
     ['Startup capta aporte de fundo americano', 'funding'],
+    // Validação real do Flash (27/11): "levantar" no infinitivo não era reconhecido.
+    ['Flash quer levantar R$ 200 milhões com fundos americanos', 'funding'],
+    ['Fintech pode levantar até US$ 50 milhões neste ano', 'funding'],
     ['Grupo adquire rede de clínicas no Sul', 'acquisition'],
     ['Empresas anunciam fusão e criam gigante do setor', 'merger'],
     ['Marca chega ao México e mira América Latina', 'new_market'],

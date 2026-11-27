@@ -8,6 +8,7 @@ import {
   type CommercialSignal,
   type CommercialSolution,
   type CommercialThesis,
+  type DemandDetails,
   type QualitativeLevel,
   type SiteSignal,
   type ThesisAngle,
@@ -27,7 +28,8 @@ import type { EventEvidence } from './timeline';
  * Proteções dos casos obrigatórios (Parte 8):
  * - medição do site nunca vira o ângulo principal quando há acontecimento empresarial (Caso 1);
  * - só medição do site → "não priorizar" (Caso 4);
- * - investimento nunca é orçamento: a finalidade fica "não documentada" quando a fonte não diz.
+ * - investimento nunca é orçamento: a finalidade fica "não documentada" quando a fonte não diz;
+ * - demanda declarada pela empresa só sustenta o problema cuja área ela cita, com prazo e canal (Caso 5).
  */
 
 export interface SiteSignalEvidence {
@@ -100,14 +102,54 @@ interface RankedProblem {
 function mentionsArea(item: EventEvidence, problem: CommercialProblem): boolean {
   const purpose =
     item.event.funding?.purpose.status === 'declared' ? item.event.funding.purpose.value.text : '';
-  const words = ` ${fold(`${item.event.headline} ${purpose}`).replace(/[^a-z0-9]+/g, ' ')} `;
+  const need = item.event.demand?.need.text ?? '';
+  const words = ` ${fold(`${item.event.headline} ${purpose} ${need}`).replace(/[^a-z0-9]+/g, ' ')} `;
   return problem.terms.some((term) =>
     words.includes(` ${fold(term).replace(/[^a-z0-9]+/g, ' ')} `),
   );
 }
 
+/**
+ * Caso 5: quanto antes a área aparece no pedido, mais ela é o objeto dele. "Estúdio para refazer a
+ * identidade visual antes do lançamento" pede marca; o lançamento é o motivo, não o pedido.
+ */
+function demandFocus(item: EventEvidence, problem: CommercialProblem): number {
+  const need = ` ${fold(item.event.demand?.need.text ?? '').replace(/[^a-z0-9]+/g, ' ')} `;
+  const positions = problem.terms
+    .map((term) => need.indexOf(` ${fold(term).replace(/[^a-z0-9]+/g, ' ')} `))
+    .filter((at) => at >= 0);
+  if (positions.length === 0) return 1;
+  return 1 + 0.25 * (1 - Math.min(...positions) / need.length);
+}
+
+/** Caso 5: a demanda declarada sustenta só o problema cuja área ela cita (o pedido é dela). */
+function demandSupports(problem: CommercialProblem, input: ThesisInput): Support[] {
+  return input.events
+    .filter((item) => item.event.type === 'explicit_demand' && mentionsArea(item, problem))
+    .map((item) => ({
+      signal: 'explicit_demand' as const,
+      weight:
+        SIGNAL_STRENGTH.explicit_demand *
+        demandFocus(item, problem) *
+        recencyFactor(ageDays(item.event.occurredOn, input.now)) *
+        evidenceFactor(item),
+      claimIds: [item.claimId],
+      event: item,
+      site: null,
+    }));
+}
+
+/** Prazo da demanda declarada: dias até ele (negativo = passou), ou null sem prazo em data. */
+function daysToDeadline(item: EventEvidence | null, now: Date): number | null {
+  const on = item?.event.type === 'explicit_demand' ? item.event.demand?.deadlineOn : null;
+  if (!on) return null;
+  const [year, month, day = '28'] = on.split('-');
+  const time = Date.UTC(Number(year), Number(month) - 1, Number(day));
+  return Number.isFinite(time) ? Math.floor((time - now.getTime()) / DAY_MS) : null;
+}
+
 function supportsFor(problem: CommercialProblem, input: ThesisInput): Support[] {
-  const out: Support[] = [];
+  const out: Support[] = [...demandSupports(problem, input)];
   problem.signals.forEach((signal, position) => {
     const order = 1 / (1 + position * 0.25);
     if (SITE_SIGNALS.has(signal)) {
@@ -197,6 +239,10 @@ function eventPhrase(item: EventEvidence): string {
     const what = parts.length > 0 ? parts.join(' de ') : 'Investimento';
     return `${what}${investors} (${event.host}${when})`;
   }
+  if (event.type === 'explicit_demand' && event.demand) {
+    const deadline = event.demand.deadline ? `, prazo: ${event.demand.deadline.text}` : '';
+    return `A empresa publicou que procura ${event.demand.need.text}${deadline} (${event.host}${when})`;
+  }
   return `${BUSINESS_EVENT_LABELS[event.type]}: "${event.headline}" (${event.host}${when})`;
 }
 
@@ -216,6 +262,8 @@ function angleFor(input: ThesisInput, ranked: RankedProblem): ThesisAngle {
           .map((support) => (support.event ? eventPhrase(support.event) : ''))
       : siteSupports.slice(0, 3).map((support) => support.site?.detail ?? '');
   const signals = [...new Set(ranked.supports.map((support) => support.signal))].slice(0, 8);
+  const demand = lead?.event.type === 'explicit_demand' ? (lead.event.demand ?? null) : null;
+  if (lead && demand) return demandAngle(input, ranked, lead, demand, signals);
   const days = lead ? ageDays(lead.event.occurredOn, input.now) : null;
   const whyNow = lead
     ? lead.event.occurredOn
@@ -225,9 +273,10 @@ function angleFor(input: ThesisInput, ranked: RankedProblem): ThesisAngle {
       : 'A data do acontecimento não foi conferida: confirmar se o momento ainda vale.'
     : 'Medições do site não indicam momento: não há urgência a partir delas.';
   const openingTopic = lead
-    ? `${capitalize(BUSINESS_EVENT_LABELS[lead.event.type])}${
-        lead.event.occurredOn ? ` anunciado em ${brazilianPartialDate(lead.event.occurredOn)}` : ''
-      } e o que ele muda em ${ranked.problem.openingArea} na ${input.companyName}.`
+    ? // "anúncio de" serve a qualquer acontecimento ("mudança de liderança anunciado" não serve).
+      `${capitalize(BUSINESS_EVENT_LABELS[lead.event.type])}${
+        lead.event.occurredOn ? `, anúncio de ${brazilianPartialDate(lead.event.occurredOn)},` : ''
+      } e o que isso muda em ${ranked.problem.openingArea} na ${input.companyName}.`
     : `Uma observação concreta do site, como pergunta, sem tratar como projeto grande.`;
   const signalLabels = signals.map((signal) =>
     SITE_SIGNALS.has(signal)
@@ -248,6 +297,57 @@ function angleFor(input: ThesisInput, ranked: RankedProblem): ThesisAngle {
     whyNow,
     approachRole: ranked.problem.approachRole,
     openingTopic: openingTopic.slice(0, 300),
+    signals,
+    claimIds: [...new Set(ranked.supports.flatMap((support) => support.claimIds))].slice(0, 12),
+  };
+}
+
+/**
+ * Caso 5: a empresa disse o que procura. O problema deixa de ser hipótese (foi declarado), o
+ * momento é o prazo publicado, a abordagem responde ao pedido pelo canal indicado.
+ */
+function demandAngle(
+  input: ThesisInput,
+  ranked: RankedProblem,
+  lead: EventEvidence,
+  demand: DemandDetails,
+  signals: CommercialSignal[],
+): ThesisAngle {
+  const left = daysToDeadline(lead, input.now);
+  const deadline = demand.deadline?.text ?? null;
+  const deadlineOn = demand.deadlineOn ? brazilianPartialDate(demand.deadlineOn) : '';
+  const whyNow =
+    left === null
+      ? deadline
+        ? `A empresa publicou que procura ${demand.need.text}, com prazo "${deadline}": confirmar a data antes de responder.`
+        : `A empresa publicou que procura ${demand.need.text}; a publicação não diz prazo.`
+      : left < 0
+        ? `O prazo publicado (${deadlineOn}) já passou: confirmar se a procura continua aberta.`
+        : `A empresa publicou que procura ${demand.need.text} e o prazo é ${deadlineOn} (faltam ${left} dias).`;
+  const channel = demand.responsible
+    ? ` pelo canal que ela indicou (${demand.responsible.text})`
+    : '';
+  return {
+    problemId: ranked.problem.id,
+    solutionId: ranked.solution?.id ?? null,
+    title: (ranked.solution?.name ?? ranked.problem.statement).slice(0, 160),
+    context: eventPhrase(lead).slice(0, 600),
+    problem: `Demanda declarada pela empresa: ${demand.need.text}.`.slice(0, 400),
+    offer: serviceNames(input.profile, ranked).slice(0, 8),
+    why: `${ranked.solution?.rationale ?? ranked.problem.statement} A própria empresa publicou o pedido (${lead.event.host}).`.slice(
+      0,
+      600,
+    ),
+    whyNow: whyNow.slice(0, 400),
+    approachRole: (demand.responsible
+      ? `Quem responde pela publicação (${demand.responsible.text})`
+      : ranked.problem.approachRole
+    ).slice(0, 160),
+    openingTopic:
+      `Resposta ao pedido publicado: ${demand.need.text}${deadline ? ` (prazo: ${deadline})` : ''}${channel}, com o que a ${input.profile.name} entrega para isso.`.slice(
+        0,
+        300,
+      ),
     signals,
     claimIds: [...new Set(ranked.supports.flatMap((support) => support.claimIds))].slice(0, 12),
   };
@@ -395,6 +495,15 @@ function timing(input: ThesisInput, principal: RankedProblem | null): ThesisDime
       principal ? 'Medições do site não têm data de acontecimento.' : 'Sem acontecimento datado.',
     );
   }
+  const left = daysToDeadline(lead, input.now);
+  if (left !== null) {
+    const when = brazilianPartialDate(lead.event.demand?.deadlineOn ?? '');
+    return left < 0
+      ? dimension('timing', 'low', `O prazo publicado (${when}) já passou.`, [lead.claimId])
+      : dimension('timing', 'high', `Prazo publicado: ${when}, daqui a ${left} dias.`, [
+          lead.claimId,
+        ]);
+  }
   const days = ageDays(lead.event.occurredOn, input.now);
   if (days === null)
     return dimension('timing', 'unknown', 'A data do acontecimento não foi conferida.', [
@@ -418,6 +527,18 @@ function timing(input: ThesisInput, principal: RankedProblem | null): ThesisDime
 }
 
 function accessibility(input: ThesisInput, principal: RankedProblem | null): ThesisDimension {
+  const lead = principal?.supports.find((support) => support.event !== null)?.event ?? null;
+  const responsible =
+    lead?.event.type === 'explicit_demand' ? lead.event.demand?.responsible : null;
+  if (lead && responsible) {
+    // O canal é o da publicação; quem decide segue sem nome: nunca "alto".
+    return dimension(
+      'accessibility',
+      'medium',
+      `A publicação diz por onde responder: ${responsible.text}. Quem decide não foi identificado.`,
+      [lead.claimId],
+    );
+  }
   // Sem entidade de pessoa (doc 15 §6), decisores não são identificados: nunca "alto".
   return input.contactKnown
     ? dimension(
@@ -519,6 +640,11 @@ function toConfirm(input: ThesisInput, principal: RankedProblem | null): string[
     }
   }
   const lead = principal?.supports.find((support) => support.event !== null)?.event ?? null;
+  if (lead?.event.type === 'explicit_demand') {
+    out.unshift('Se a procura continua aberta e o que a resposta precisa trazer (escopo, formato)');
+    if (!lead.event.demand?.deadlineOn) out.push('O prazo para responder');
+    if (!lead.event.demand?.responsible) out.push('Por onde a empresa quer receber as respostas');
+  }
   for (const conflict of lead?.event.conflicts ?? [])
     out.push(`Qual versão está certa. ${conflict}`);
   if (lead && !lead.event.pageRead) out.push(`Ler a matéria original: ${lead.event.url}`);
@@ -536,14 +662,18 @@ function toConfirm(input: ThesisInput, principal: RankedProblem | null): string[
 function recommendationOf(
   principal: RankedProblem | null,
   dimensions: readonly ThesisDimension[],
+  hasEvents: boolean,
 ): { recommendation: ThesisRecommendation; reason: string } {
   const level = (key: ThesisDimension['key']) =>
     dimensions.find((item) => item.key === key)?.level ?? 'unknown';
   if (!principal) {
     return {
       recommendation: 'deepen_research',
-      reason:
-        'Nenhum acontecimento encontrado: não há base para uma tese. Vale pesquisar mais antes de decidir.',
+      // Há acontecimento, mas nenhum sustenta um problema do catálogo (ex.: pedido de madeira
+      // certificada para uma agência de marca): dizer isso, não "nenhum acontecimento".
+      reason: hasEvents
+        ? 'Os acontecimentos encontrados não pedem nada do catálogo do perfil: não há base para uma tese. Vale pesquisar mais antes de decidir.'
+        : 'Nenhum acontecimento encontrado: não há base para uma tese. Vale pesquisar mais antes de decidir.',
     };
   }
   if (principal.siteOnly) {
@@ -558,6 +688,34 @@ function recommendationOf(
       recommendation: 'deepen_research',
       reason:
         'As fontes divergem sobre o acontecimento: confirmar a versão correta antes de abordar.',
+    };
+  }
+  if (lead?.event.type === 'explicit_demand' && level('timing') === 'low') {
+    return {
+      recommendation: 'deepen_research',
+      reason:
+        'O prazo da procura publicada já passou: confirmar se ela continua aberta antes de responder.',
+    };
+  }
+  if (lead?.event.type === 'explicit_demand' && lead.epistemicType !== 'fact') {
+    return {
+      recommendation: 'deepen_research',
+      reason:
+        'A procura publicada ainda não foi lida na fonte: ler a publicação antes de responder.',
+    };
+  }
+  // ADR-0019 §5: demanda sem data conferida não pula a proteção: segue as regras abaixo e leva a
+  // aprofundar.
+  if (
+    lead?.event.type === 'explicit_demand' &&
+    lead.epistemicType === 'fact' &&
+    level('evidence_quality') !== 'low' &&
+    level('timing') !== 'unknown'
+  ) {
+    return {
+      recommendation: 'approach',
+      reason:
+        'A empresa publicou o que procura e o pedido cabe no catálogo: vale preparar a resposta, conferindo prazo e escopo.',
     };
   }
   if (level('evidence_quality') === 'low') {
@@ -610,7 +768,11 @@ export function buildCommercialThesis(input: ThesisInput): CommercialThesis {
     accessibility(input, principal),
     executionViability(input, principal),
   ];
-  const { recommendation, reason } = recommendationOf(principal, dimensions);
+  const { recommendation, reason } = recommendationOf(
+    principal,
+    dimensions,
+    input.events.length > 0,
+  );
   return {
     version: COMPATIBILITY_VERSION,
     profileId: input.profile.id,

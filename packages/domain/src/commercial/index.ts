@@ -1,8 +1,10 @@
 export * from './compatibility';
+export * from './demand';
 export * from './events';
 export * from './identify';
 export * from './language';
 export * from './profiles';
+export * from './report-sections';
 export * from './reports';
 export * from './timeline';
 export { brazilianPartialDate } from './text';

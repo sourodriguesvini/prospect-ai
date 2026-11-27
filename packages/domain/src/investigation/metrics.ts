@@ -147,8 +147,10 @@ export function metricLines(metrics: BrandMetrics, options: MetricTextOptions = 
     add(
       'favicon',
       metrics.hasFavicon
-        ? 'A página tem ícone de favoritos (favicon).'
-        : 'A página não tem ícone de favoritos (favicon).',
+        ? 'A página declara ícone de favoritos (favicon) no HTML.'
+        : // Validação do Flash (27/11): o HTML não declara rel=icon, mas /favicon.ico existia. A
+          // medição só vê o HTML; o enunciado diz só isso.
+          'O HTML da página não declara ícone de favoritos (favicon); o navegador ainda pode achar um em /favicon.ico.',
     );
     add(
       'og_image',

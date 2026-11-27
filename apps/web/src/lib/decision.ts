@@ -1,9 +1,11 @@
-import type {
-  Company,
-  Diagnosis,
-  Investigation,
-  OfferAssessment,
-  Recommendation,
+import {
+  THESIS_RECOMMENDATION_LABELS,
+  type CommercialThesis,
+  type Company,
+  type Diagnosis,
+  type Investigation,
+  type OfferAssessment,
+  type Recommendation,
 } from '@prospector/contracts';
 import { CONFIDENCE_BAND_THRESHOLDS } from '@prospector/domain';
 
@@ -47,6 +49,51 @@ export const RECOMMENDATION_VIEW: Record<Recommendation, RecommendationView> = {
     action: 'complete_analysis',
   },
 };
+
+/**
+ * Validação real do Flash e revisão de UX (27/11): o título vem da comparação com os serviços e a
+ * tese comercial vem de outra regra; quando discordam, o cartão não pode dar duas respostas
+ * opostas sem dizer. A tese entra como ressalva logo abaixo do título, com o motivo dela.
+ */
+export function thesisCaveat(
+  recommendation: Recommendation,
+  thesis: CommercialThesis | null,
+): string | null {
+  if (!thesis) return null;
+  const approachTitle = RECOMMENDATION_VIEW[recommendation].action === 'prepare_message';
+  if (approachTitle && thesis.recommendation !== 'approach') {
+    // Rótulo e motivo em frases separadas: o motivo já costuma ter dois-pontos.
+    const reason = thesis.recommendationReason.trim().replace(/[.!?…]$/, '');
+    return `Ressalva da tese comercial: ${THESIS_RECOMMENDATION_LABELS[thesis.recommendation].toLowerCase()}. ${reason}.`;
+  }
+  if (!approachTitle && thesis.recommendation === 'approach' && thesis.principal) {
+    return `A tese comercial vê um ângulo para abordar (${thesis.principal.title}). Confira os pontos abertos dela antes de decidir.`;
+  }
+  return null;
+}
+
+/**
+ * Validação real do Flash (27/11): "O que mudou" dizia "nenhuma mudança" quando o veredito tinha
+ * passado de "Falta informação" para "Vale abordar". As mudanças do retrato (páginas, sinais) não
+ * cobrem o diagnóstico; estas frases cobrem, com as mesmas palavras do topo.
+ */
+export function verdictChanges(previous: Diagnosis | null, current: Diagnosis | null): string[] {
+  if (!previous || !current) return [];
+  const out: string[] = [];
+  if (previous.recommendation !== current.recommendation) {
+    out.push(
+      `O veredito mudou de “${RECOMMENDATION_VIEW[previous.recommendation].headline}” para “${RECOMMENDATION_VIEW[current.recommendation].headline}”.`,
+    );
+  }
+  const before = previous.thesis?.recommendation;
+  const after = current.thesis?.recommendation;
+  if (before && after && before !== after) {
+    out.push(
+      `A tese comercial mudou de “${THESIS_RECOMMENDATION_LABELS[before]}” para “${THESIS_RECOMMENDATION_LABELS[after]}”.`,
+    );
+  }
+  return out;
+}
 
 /** Rótulo curto da recomendação para selos e listas (mesmas palavras do topo da empresa). */
 export const RECOMMENDATION_SHORT: Record<Recommendation, string> = {

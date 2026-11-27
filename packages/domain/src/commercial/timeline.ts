@@ -22,6 +22,8 @@ export interface EventEvidence {
 
 /** Consequência possível por tipo: leitura cautelosa, nunca necessidade declarada. */
 export const EVENT_CONSEQUENCES: Readonly<Record<BusinessEventType, string>> = Object.freeze({
+  explicit_demand:
+    'A empresa disse o que procura: a resposta segue o pedido, o prazo e o canal que ela indicou.',
   funding:
     'Pode abrir uma fase de crescimento; a destinação dos recursos precisa estar documentada antes de qualquer leitura de orçamento.',
   acquisition: 'Integração de operações, marcas e produtos costuma vir depois.',

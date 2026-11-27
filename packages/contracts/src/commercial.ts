@@ -52,6 +52,8 @@ export type CapabilityFamily = z.infer<typeof CapabilityFamily>;
 
 /** Tipos de acontecimento empresarial que a investigação reconhece (Parte 2.2, momento). */
 export const BusinessEventType = z.enum([
+  /** A empresa publicou que procura fornecedor ou profissional (Parte 8, Caso 5). */
+  'explicit_demand',
   'funding',
   'acquisition',
   'merger',
@@ -69,6 +71,7 @@ export const BusinessEventType = z.enum([
 ]);
 export type BusinessEventType = z.infer<typeof BusinessEventType>;
 export const BUSINESS_EVENT_LABELS: Record<BusinessEventType, string> = {
+  explicit_demand: 'procura declarada por fornecedor ou profissional',
   funding: 'investimento ou rodada',
   acquisition: 'aquisição',
   merger: 'fusão',
@@ -208,6 +211,20 @@ export const FundingDetails = z.object({
 });
 export type FundingDetails = z.infer<typeof FundingDetails>;
 
+/**
+ * Demanda declarada pela empresa (Parte 8, Caso 5): o que ela procura, o prazo e por onde
+ * responder, cada um com o trecho literal. O canal só é guardado quando é da empresa (área ou
+ * e-mail genérico como compras@); nome de pessoa nunca entra.
+ */
+export const DemandDetails = z.object({
+  need: QuotedValue,
+  deadline: QuotedValue.nullable(),
+  /** Prazo em data, quando a fonte diz o dia (o ano, se faltar, vem da data da publicação). */
+  deadlineOn: PartialDate.nullable(),
+  responsible: QuotedValue.nullable(),
+});
+export type DemandDetails = z.infer<typeof DemandDetails>;
+
 export const BusinessEvent = z.object({
   type: BusinessEventType,
   /** Data do acontecimento, quando a fonte diz; senão a de publicação; senão null. */
@@ -226,6 +243,8 @@ export const BusinessEvent = z.object({
   /** A página da fonte foi lida (não só o título da busca). */
   pageRead: z.boolean(),
   funding: FundingDetails.nullable(),
+  /** Só em `explicit_demand`; ausente nos acontecimentos gravados antes de 27/11/2026. */
+  demand: DemandDetails.nullable().optional(),
 });
 export type BusinessEvent = z.infer<typeof BusinessEvent>;
 

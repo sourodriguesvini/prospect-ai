@@ -106,9 +106,12 @@ function Angle({
 export function ThesisSection({
   thesis,
   views,
+  contactBlocked = false,
 }: {
   thesis: CommercialThesis;
   views: readonly ClaimView[];
+  /** Há pedido de não contato em vigor: a tese fica para consulta, nunca para abordar. */
+  contactBlocked?: boolean;
 }) {
   return (
     <section className="space-y-4" aria-labelledby="tese-comercial">
@@ -123,6 +126,11 @@ export function ThesisSection({
       <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
         {thesis.recommendationReason}
       </p>
+      {contactBlocked ? (
+        <p className="text-sm font-medium" data-thesis-blocked="">
+          Não abordar: a empresa pediu para não ser contatada. A tese fica só para consulta.
+        </p>
+      ) : null}
 
       {thesis.principal ? (
         <Angle angle={thesis.principal} views={views} principal />

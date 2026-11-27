@@ -31,7 +31,7 @@ import {
   resumeInvestigationAction,
   startInvestigationAction,
 } from '@/app/(shell)/empresas/actions';
-import { ClaimCard } from '@/components/companies/claim-card';
+import { ClaimList, Section } from '@/components/companies/claim-list';
 import {
   InvestigationAutoRefresh,
   SiteConfirmForm,
@@ -40,7 +40,7 @@ import { ThesisSection } from '@/components/companies/thesis-section';
 import { TimelineSection } from '@/components/companies/timeline-section';
 import { StatusButton } from '@/components/strategy/decision-forms';
 import { companyRoutes } from '@/lib/company-routes';
-import { RECOMMENDATION_SHORT } from '@/lib/decision';
+import { RECOMMENDATION_SHORT, verdictChanges } from '@/lib/decision';
 import { formatDate, formatDateTime } from '@/lib/format';
 import type { InvestigationPanelData } from '@/server/investigations';
 
@@ -105,33 +105,6 @@ function claimsById(views: readonly ClaimView[], ids: readonly string[]): ClaimV
     const view = byId.get(id);
     return view ? [view] : [];
   });
-}
-
-/** `support`: todos os claims em vigor do dossiê, para cada conclusão mostrar o seu apoio. */
-function ClaimList({
-  views,
-  support,
-}: {
-  views: readonly ClaimView[];
-  support: readonly ClaimView[];
-}) {
-  const byId = new Map(support.map((view) => [view.claim.id, view]));
-  return (
-    <ul className="divide-y">
-      {views.map((view) => (
-        <ClaimCard key={view.claim.id} view={view} support={byId} />
-      ))}
-    </ul>
-  );
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="space-y-2">
-      <h3 className="text-sm font-medium">{title}</h3>
-      {children}
-    </section>
-  );
 }
 
 function counted(count: number, one: string, many: string): string | null {
@@ -530,11 +503,14 @@ export function DiagnosisPanel({
   investigation,
   latest = null,
   views,
+  contactBlocked = false,
 }: {
   investigation: Investigation | null;
   /** Investigação mais recente (pode ser mais nova que a do diagnóstico, em andamento ou sem diagnóstico). */
   latest?: Investigation | null;
   views: readonly ClaimView[];
+  /** Há pedido de não contato em vigor (a tese não sugere abordar). */
+  contactBlocked?: boolean;
 }) {
   const diagnosis = investigation?.diagnosis;
   if (!investigation || !diagnosis) return null;
@@ -575,7 +551,7 @@ export function DiagnosisPanel({
         ) : null}
         <TimelineSection views={views} />
         {diagnosis.thesis ? (
-          <ThesisSection thesis={diagnosis.thesis} views={views} />
+          <ThesisSection thesis={diagnosis.thesis} views={views} contactBlocked={contactBlocked} />
         ) : (
           <Well className="py-4 text-sm text-muted-foreground">
             Esta análise não tem tese comercial (as feitas antes de 26/11/2026 não têm). Atualize a
@@ -857,14 +833,18 @@ export function BrandPanel({ company, views }: { company: Company; views: readon
   );
 }
 
-/** Negócio, posicionamento, sinais e concorrentes, cada conclusão com o tipo e a fonte. */
+/**
+ * Negócio, posicionamento, sinais e concorrentes, cada conclusão com o tipo e a fonte. O que a
+ * empresa oferece fica em "Produto e tecnologia" (Parte 7, seção 6).
+ */
 export function MarketPanel({ views }: { views: readonly ClaimView[] }) {
   const business = views.filter(
     (view) =>
       view.claim.key.startsWith('positioning.') &&
       view.claim.key !== INVESTIGATION_KEYS.summary &&
       !view.claim.key.startsWith('positioning.hypothesis.') &&
-      !view.claim.key.startsWith('positioning.opportunity.'),
+      !view.claim.key.startsWith('positioning.opportunity.') &&
+      !view.claim.key.startsWith('positioning.offering.'),
   );
   const signals = claimsWithPrefix(views, 'signal.');
   const competitors = claimsWithPrefix(views, 'competitive.competitor.');
@@ -911,7 +891,18 @@ export function InvestigationHistoryPanel({ data }: { data: InvestigationPanelDa
   const latest = data.history.find(
     (item) => item.status === 'succeeded' || item.status === 'partial',
   );
-  const changes = latest?.changes ?? [];
+  // O retrato compara páginas, sinais e visual; a mudança de veredito e de tese vem do diagnóstico
+  // da análise anterior que chegou a montá-lo.
+  const earlier = latest
+    ? data.history.slice(data.history.indexOf(latest) + 1).find((item) => item.diagnosis)
+    : undefined;
+  const changes = [
+    ...verdictChanges(earlier?.diagnosis ?? null, latest?.diagnosis ?? null).map((text) => ({
+      kind: 'verdict',
+      text,
+    })),
+    ...(latest?.changes ?? []),
+  ];
   return (
     <Panel aria-labelledby="historico-investigacoes">
       <PanelHeader

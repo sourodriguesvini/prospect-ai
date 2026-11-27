@@ -10,6 +10,7 @@ import type {
   WebSearchRequest,
   WebSearchResult,
 } from '@prospector/contracts';
+import { THESIS_RECOMMENDATION_LABELS } from '@prospector/contracts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   AppError,
@@ -40,7 +41,7 @@ import {
   createMemoryCompanyRepository,
   createMemoryInvestigationRepository,
 } from '../src/memory';
-import { signalCodes } from '../src/services/investigation/collect';
+import { SIGNALS_METHOD, signalCodes } from '../src/services/investigation/collect';
 
 describe('signalCodes (sinais recentes, hipóteses a conferir)', () => {
   it('aniversário só da empresa; prêmio sem confundir com "premium"', () => {
@@ -1157,6 +1158,236 @@ describe('InvestigationService (ADR-0015)', () => {
     expect(thesis?.dimensions).toHaveLength(6);
   });
 
+  it('validação do Flash: a matéria de um sinal gravado pela Descoberta é lida como acontecimento, e sem acontecimento na busca vem a consulta voltada a eles', async () => {
+    // Matéria SINTÉTICA no formato da notícia real (a busca de sinais não a trazia).
+    const url = 'https://neofeed.com.br/startups/atelie-exemplo-serie-b';
+    pages[url] = {
+      title: 'Ateliê Exemplo levanta R$ 40 milhões em Série B',
+      text: 'O Ateliê Exemplo, marcenaria de Curitiba, anunciou uma rodada Série B de R$ 40 milhões. A rodada foi liderada pela Fundo Exemplo Ventures. A empresa não detalhou o uso dos recursos.',
+    };
+    const base = fakeSearch();
+    const queries: string[] = [];
+    const custom: WebSearch = {
+      ...base.search,
+      async search(request) {
+        if (!request.query.startsWith('"')) return base.search.search(request);
+        queries.push(request.query);
+        // Nenhuma das duas consultas traz acontecimento (como na análise real do Flash).
+        return {
+          ok: true,
+          creditsCharged: 1,
+          results: [
+            result(
+              1,
+              'https://guia-exemplo.test/atelie-exemplo',
+              'Ateliê Exemplo — guia',
+              'Telefone.',
+            ),
+          ],
+        };
+      },
+    };
+    const evidenceService = createEvidenceService({ evidence: repo, clock });
+    const customWeb = createWebResearchService({
+      search: custom,
+      pages: reader.fetcher,
+      usage: createMemoryWebResearchUsage(),
+      companies: repo,
+      evidence: repo,
+      evidenceService,
+      monthlyCreditBudget: 50,
+      clock,
+      log: (message) => logs.push(message),
+    });
+    const company = await importCompany();
+    // Sinal da Descoberta: hipótese com o título e o trecho do resultado de busca.
+    const sourceId = crypto.randomUUID();
+    await evidenceService.record(
+      ctx,
+      company.id,
+      {
+        sources: [
+          {
+            id: sourceId,
+            source: {
+              schemaVersion: 1,
+              kind: 'search_result',
+              url,
+              provider: 'tavily',
+              capturedAt: now.toISOString(),
+              title: 'Ateliê Exemplo levanta R$ 40 milhões em Série B',
+              excerptText: 'Ateliê Exemplo levanta R$ 40 milhões em Série B\nRodada Série B.',
+            },
+          },
+        ],
+        claims: [
+          {
+            id: crypto.randomUUID(),
+            claim: {
+              schemaVersion: 1,
+              subjectType: 'company',
+              subjectId: company.id,
+              domain: 'signal',
+              key: 'signal.investment',
+              statement:
+                'Possível sinal (investimento) numa página de neofeed.com.br, a confirmar na fonte.',
+              value: { type: 'investment', publishedAt: '2026-11-01' },
+              epistemicType: 'hypothesis',
+              evidence: [{ sourceId, quote: 'Rodada Série B.' }],
+              reasoning:
+                'Sinal a confirmar: o trecho sugere a rodada. Ler a matéria antes de usar.',
+            },
+          },
+        ],
+      },
+      { action: 'company.discovery.signals' },
+    );
+
+    const svc = service({ webResearch: customWeb });
+    const investigation = await run(svc, company.id);
+
+    expect(state(investigation).signals).toBe('done');
+    // A primeira consulta não achou acontecimento: veio a voltada a eles, dentro do teto (3).
+    expect(queries).toHaveLength(2);
+    expect(queries[1]).toMatch(/investimento OR rodada/);
+    expect(investigation.usage.searches).toBeLessThanOrEqual(3);
+    expect(reader.calls).toContain(url);
+    const funding = (await repo.claimsFor('company', company.id)).filter((claim) =>
+      claim.key.startsWith('signal.web.funding'),
+    );
+    expect(funding).toHaveLength(1);
+    expect(funding[0]?.epistemicType).toBe('fact');
+    expect(funding[0]?.statement).toContain('R$ 40 milhões');
+    expect(investigation.diagnosis?.thesis?.principal?.context).toContain('R$ 40 milhões');
+    // O Copiloto recebe a tese gravada (antes inventava uma que a contradizia).
+    const view = await callTool(svc, 'get_company_investigation', { empresa: company.id });
+    const thesis = view.body.dados.diagnostico.tese_comercial;
+    expect(thesis.recomendacao).toBe(
+      THESIS_RECOMMENDATION_LABELS[investigation.diagnosis!.thesis!.recommendation],
+    );
+    expect(thesis.angulo_principal.titulo).toBe(investigation.diagnosis?.thesis?.principal?.title);
+  });
+
+  it('sinal gravado cuja página não pode ser lida não vira outra hipótese (o da Descoberta continua)', async () => {
+    const url = 'https://fora-do-ar.test/atelie-exemplo-rodada';
+    const evidenceService = createEvidenceService({ evidence: repo, clock });
+    const company = await importCompany();
+    const sourceId = crypto.randomUUID();
+    await evidenceService.record(
+      ctx,
+      company.id,
+      {
+        sources: [
+          {
+            id: sourceId,
+            source: {
+              schemaVersion: 1,
+              kind: 'search_result',
+              url,
+              provider: 'tavily',
+              capturedAt: now.toISOString(),
+              title: 'Ateliê Exemplo levanta R$ 40 milhões em Série B',
+              excerptText: 'Ateliê Exemplo levanta R$ 40 milhões em Série B',
+            },
+          },
+        ],
+        claims: [
+          {
+            id: crypto.randomUUID(),
+            claim: {
+              schemaVersion: 1,
+              subjectType: 'company',
+              subjectId: company.id,
+              domain: 'signal',
+              key: 'signal.investment',
+              statement:
+                'Possível sinal (investimento) numa página de fora-do-ar.test, a confirmar na fonte.',
+              value: { type: 'investment', publishedAt: '2026-11-01' },
+              epistemicType: 'hypothesis',
+              evidence: [{ sourceId, quote: 'Ateliê Exemplo levanta R$ 40 milhões em Série B' }],
+              reasoning:
+                'Sinal a confirmar: o título sugere a rodada. Ler a matéria antes de usar.',
+            },
+          },
+        ],
+      },
+      { action: 'company.discovery.signals' },
+    );
+
+    await run(service(), company.id);
+
+    expect(reader.calls).toContain(url);
+    const claims = await repo.claimsFor('company', company.id);
+    expect(claims.some((claim) => claim.key.startsWith('signal.web.funding'))).toBe(false);
+    expect(claims.some((claim) => claim.key === 'signal.investment')).toBe(true);
+  });
+
+  it('demanda declarada (Parte 8, Caso 5): lê o pedido, o prazo e o canal, e a tese responde ao pedido', async () => {
+    // Publicação SINTÉTICA: a empresa diz que procura um estúdio, com prazo e e-mail de área.
+    pages['https://atelie-exemplo.test/novidades/estudio'] = {
+      title: 'Ateliê Exemplo procura estúdio para nova identidade visual',
+      text: 'O Ateliê Exemplo procura um estúdio para refazer a identidade visual antes da nova coleção. Envie seu portfólio para compras@atelie-exemplo.test até 30/11. Dúvidas com a coordenadora pelo e-mail ana.souza@atelie-exemplo.test.',
+    };
+    const base = fakeSearch();
+    const custom: WebSearch = {
+      ...base.search,
+      async search(request) {
+        if (!request.query.startsWith('"')) return base.search.search(request);
+        return {
+          ok: true,
+          creditsCharged: 1,
+          results: [
+            result(
+              1,
+              'https://atelie-exemplo.test/novidades/estudio',
+              'Ateliê Exemplo procura estúdio para nova identidade visual',
+              'Envie seu portfólio até 30/11.',
+              '2026-11-05',
+            ),
+          ],
+        };
+      },
+    };
+    const customWeb = createWebResearchService({
+      search: custom,
+      pages: reader.fetcher,
+      usage: createMemoryWebResearchUsage(),
+      companies: repo,
+      evidence: repo,
+      evidenceService: createEvidenceService({ evidence: repo, clock }),
+      monthlyCreditBudget: 50,
+      clock,
+      log: (message) => logs.push(message),
+    });
+    const company = await importCompany();
+    const investigation = await run(service({ webResearch: customWeb }), company.id);
+
+    const claims = await repo.claimsFor('company', company.id);
+    const demand = claims.filter((claim) => claim.key.startsWith('signal.web.explicit_demand'));
+    expect(demand).toHaveLength(1);
+    expect(demand[0]?.epistemicType).toBe('fact');
+    expect(demand[0]?.statement).toBe(
+      'Publicação em atelie-exemplo.test (05/11/2026) informa que a empresa procura estúdio para nova identidade visual, com prazo até 30/11; respostas por compras@atelie-exemplo.test.',
+    );
+    expect(demand[0]?.value?.event).toMatchObject({
+      type: 'explicit_demand',
+      sourceTier: 'official',
+      pageRead: true,
+      demand: {
+        deadlineOn: '2026-11-30',
+        responsible: { text: 'compras@atelie-exemplo.test' },
+      },
+    });
+    // O e-mail de uma pessoa citado na página não entra no ledger.
+    expect(JSON.stringify(demand[0])).not.toContain('ana.souza');
+
+    const thesis = investigation.diagnosis?.thesis;
+    expect(thesis?.recommendation).toBe('approach');
+    expect(thesis?.principal?.problem).toContain('Demanda declarada pela empresa');
+    expect(thesis?.principal?.whyNow).toContain('o prazo é 30/11/2026');
+    expect(thesis?.principal?.openingTopic).toContain('compras@atelie-exemplo.test');
+  });
+
   it('acontecimento: texto dirigido à máquina fica fora do enunciado; noarchive guarda só o título', async () => {
     // Matérias SINTÉTICAS: uma com instrução embutida no título, outra que pede para não guardar.
     pages['https://neofeed.com.br/startups/atelie-exemplo-lanca'] = {
@@ -1558,7 +1789,7 @@ describe('InvestigationService (ADR-0015)', () => {
     const company = await importCompany();
     const svc = service();
     const first = await run(svc, company.id);
-    expect(first.snapshot?.signalsMethod).toBe(2);
+    expect(first.snapshot?.signalsMethod).toBe(SIGNALS_METHOD);
     // Análise de antes do ADR-0019: o retrato não diz o método.
     const { signalsMethod: _dropped, ...oldSnapshot } = first.snapshot!;
     await investigations.update(first.id, { snapshot: oldSnapshot });
@@ -1568,13 +1799,13 @@ describe('InvestigationService (ADR-0015)', () => {
     const second = await run(svc, company.id);
     expect(state(second).signals).toBe('done');
     expect(search.calls.length).toBeGreaterThan(searches);
-    expect(second.snapshot?.signalsMethod).toBe(2);
+    expect(second.snapshot?.signalsMethod).toBe(SIGNALS_METHOD);
 
     // Com o método atual gravado, a análise seguinte reaproveita a busca dentro dos 30 dias.
     now = new Date(now.getTime() + 24 * 3600_000);
     const third = await run(svc, company.id);
     expect(state(third).signals).toBe('reused');
-    expect(third.snapshot?.signalsMethod).toBe(2);
+    expect(third.snapshot?.signalsMethod).toBe(SIGNALS_METHOD);
   });
 
   it('não retoma investigação concluída', async () => {

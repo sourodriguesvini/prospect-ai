@@ -14,6 +14,7 @@ import { Suspense, type ReactNode } from 'react';
 import { CnpjLinkForm, LifecycleForm } from '@/components/companies/company-forms';
 import { DecisionSummary } from '@/components/companies/decision-summary';
 import { EvidenceGroups } from '@/components/companies/evidence-groups';
+import { OrganizationPanel, ProductTechnologyPanel } from '@/components/companies/report-panels';
 import { CompanyRelationshipPanel } from '@/components/relationship/company-panel';
 import {
   BrandPanel,
@@ -402,6 +403,7 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
       : null;
   const archived = company.lifecycle === 'archived';
   const cnpj = companyCnpj(dossier);
+  const contactBlocked = (contact?.suppressions.length ?? 0) > 0;
 
   return (
     <>
@@ -445,9 +447,21 @@ async function Dossier({ params, searchParams }: Pick<Props, 'params' | 'searchP
       />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
-          <DiagnosisPanel investigation={diagnosed} latest={latest} views={dossier.claims} />
+          <DiagnosisPanel
+            investigation={diagnosed}
+            latest={latest}
+            views={dossier.claims}
+            contactBlocked={contactBlocked}
+          />
           <BrandPanel company={company} views={dossier.claims} />
           <MarketPanel views={dossier.claims} />
+          <ProductTechnologyPanel views={dossier.claims} analyzed={diagnosed !== null} />
+          <OrganizationPanel
+            views={dossier.claims}
+            thesis={diagnosed?.diagnosis?.thesis ?? null}
+            analyzed={diagnosed !== null}
+            contactBlocked={contactBlocked}
+          />
           <ContactsPanel />
           {/* Recolhido quando há análise (o relatório vem primeiro); sem análise, o cadastro e as
               evidências são o que há para ler, então já abrem. */}

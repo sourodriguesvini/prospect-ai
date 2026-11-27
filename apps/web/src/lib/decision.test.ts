@@ -1,5 +1,5 @@
 import { CONFIDENCE_BAND_THRESHOLDS } from '@prospector/domain';
-import type { Diagnosis, OfferAssessment } from '@prospector/contracts';
+import type { CommercialThesis, Diagnosis, OfferAssessment } from '@prospector/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   RECOMMENDATION_SHORT,
@@ -7,7 +7,9 @@ import {
   decisionNext,
   recommendedOffer,
   securityLevel,
+  thesisCaveat,
   undiagnosedState,
+  verdictChanges,
   type ContactSituation,
 } from './decision';
 
@@ -103,5 +105,53 @@ describe('leitura comercial do diagnóstico', () => {
     expect(securityLevel(CONFIDENCE_BAND_THRESHOLDS.high * 100 - 1)).toBe('medium');
     expect(securityLevel(CONFIDENCE_BAND_THRESHOLDS.medium * 100)).toBe('medium');
     expect(securityLevel(CONFIDENCE_BAND_THRESHOLDS.medium * 100 - 1)).toBe('low');
+  });
+});
+
+describe('ressalva da tese no topo (validação do Flash, 27/11)', () => {
+  /** Tese SINTÉTICA, só com o que a ressalva lê. */
+  const thesis = (recommendation: CommercialThesis['recommendation']) =>
+    ({
+      recommendation,
+      recommendationReason:
+        'Nenhum acontecimento encontrado: não há base para uma tese. Vale pesquisar mais antes de decidir.',
+      principal: recommendation === 'approach' ? { title: 'Marca para o novo momento' } : null,
+    }) as CommercialThesis;
+
+  it('título "Vale abordar" com tese que pede cautela: a tese aparece como ressalva', () => {
+    expect(thesisCaveat('pursue', thesis('deepen_research'))).toBe(
+      'Ressalva da tese comercial: vale aprofundar a pesquisa antes. Nenhum acontecimento encontrado: não há base para uma tese. Vale pesquisar mais antes de decidir.',
+    );
+  });
+
+  it('título de espera com tese que vê ângulo: avisa', () => {
+    expect(thesisCaveat('monitor', thesis('approach'))).toContain('Marca para o novo momento');
+  });
+
+  it('sem tese ou com as duas de acordo, nada', () => {
+    expect(thesisCaveat('pursue', null)).toBeNull();
+    expect(thesisCaveat('pursue', thesis('approach'))).toBeNull();
+    expect(thesisCaveat('discard', thesis('deprioritize'))).toBeNull();
+  });
+});
+
+describe('O que mudou: veredito e tese (validação do Flash, 27/11)', () => {
+  const diag = (
+    recommendation: Diagnosis['recommendation'],
+    thesis: CommercialThesis['recommendation'] | null,
+  ) => ({ recommendation, thesis: thesis ? { recommendation: thesis } : null }) as Diagnosis;
+
+  it('diz quando o veredito e a tese mudaram, com as palavras do topo', () => {
+    expect(
+      verdictChanges(diag('investigate_more', 'deprioritize'), diag('prepare_access', 'approach')),
+    ).toEqual([
+      'O veredito mudou de “Falta informação para decidir” para “Vale abordar”.',
+      'A tese comercial mudou de “Não priorizar agora” para “Vale preparar a abordagem”.',
+    ]);
+  });
+
+  it('sem análise anterior com diagnóstico, ou sem mudança, nada', () => {
+    expect(verdictChanges(null, diag('pursue', 'approach'))).toEqual([]);
+    expect(verdictChanges(diag('pursue', null), diag('pursue', 'approach'))).toEqual([]);
   });
 });

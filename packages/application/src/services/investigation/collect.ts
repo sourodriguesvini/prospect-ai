@@ -20,6 +20,7 @@ import {
   type CaptureStorageOutcome,
   type CaptureViewport,
   type CompetitorKind,
+  type DemandDetails,
   type FundingDetails,
   type SourceInputDraft,
   type WebSearchOutcome,
@@ -28,14 +29,18 @@ import {
   bareHost,
   brazilianPartialDate,
   captureExcerpt,
+  companyPassage,
   competitorSearchQueries,
   DEEP_READ_EVENTS,
   detectEventTypes,
   eventLeadQuote,
   extractCompanyFunding,
+  extractDemand,
   formatBrlAmount,
   fundingQuotes,
   groupEventReports,
+  guardEventText,
+  type EventReport,
   dominantColors,
   filterCompetitorCandidates,
   isNotCompetitorDomain,
@@ -73,6 +78,7 @@ import {
   type CaptureStoreFailure,
 } from '../../ports/investigation';
 import { guardTriageInput, guardTriageOutput, recordGuardLog } from './guards';
+import { WEB_MENTION_KEY } from '../web-research-service';
 
 /**
  * Etapas de coleta: o que a empresa já tem no dossiê, site oficial, páginas do site, capturas da
@@ -984,6 +990,8 @@ interface EventPageRead {
    */
   readonly quote: string;
   readonly funding: FundingDetails | null;
+  /** Procura declarada (Caso 5): o que a empresa procura, prazo e canal, com trechos. */
+  readonly demand: DemandDetails | null;
 }
 
 type EventPageOutcome = EventPageRead | { readonly ok: false; readonly reason: EventPageRefusal };
@@ -1001,6 +1009,7 @@ async function readEventPage(
   url: string,
   tokens: readonly string[],
   type: BusinessEventType,
+  publishedAt: string | null,
 ): Promise<EventPageOutcome> {
   const web = run.deps.webResearch;
   if (!web) return { ok: false, reason: 'unavailable' };
@@ -1015,8 +1024,23 @@ async function readEventPage(
   const lead = eventLeadQuote(body, tokens, type);
   if (!lead) return { ok: false, reason: 'off_topic' };
   const funding = type === 'funding' ? extractCompanyFunding(title, page.text, tokens) : null;
-  const quotes = [...new Set([lead, ...(funding ? fundingQuotes(funding) : [])])];
-  const quote = funding?.amount?.quote ?? funding?.round?.quote ?? lead;
+  // Procura declarada: lida só das frases que citam a empresa e das três seguintes (onde costumam
+  // vir prazo e canal); o ano de um prazo sem ano vem da data da publicação.
+  const demand =
+    type === 'explicit_demand'
+      ? extractDemand(
+          companyPassage(body, tokens, 3),
+          publishedAt ?? run.deps.clock.now().toISOString().slice(0, 10),
+          run.company.primaryDomain ? [run.company.primaryDomain] : [],
+        )
+      : null;
+  const demandQuotes = demand
+    ? [demand.need.quote, demand.deadline?.quote, demand.responsible?.quote].filter(
+        (item): item is string => Boolean(item),
+      )
+    : [];
+  const quotes = [...new Set([lead, ...(funding ? fundingQuotes(funding) : []), ...demandQuotes])];
+  const quote = funding?.amount?.quote ?? funding?.round?.quote ?? demand?.need.quote ?? lead;
   const excerpt = [title, ...quotes.filter((item) => item !== title)]
     .filter((part): part is string => Boolean(part))
     .join('\n[…]\n');
@@ -1041,6 +1065,7 @@ async function readEventPage(
     title,
     quote,
     funding,
+    demand,
   };
 }
 
@@ -1064,6 +1089,15 @@ function eventStatement(event: BusinessEvent, label: string): string {
         ? ` Finalidade declarada: ${funding.purpose.value.text}.`
         : ' A fonte não informa a finalidade dos recursos.';
     return cut(`Matéria em ${event.host}${when} informa ${what}${investors}.${purpose}`, 480);
+  }
+  const demand = event.demand;
+  if (event.type === 'explicit_demand' && demand) {
+    const deadline = demand.deadline ? `, com prazo ${demand.deadline.text}` : '';
+    const channel = demand.responsible ? `; respostas por ${demand.responsible.text}` : '';
+    return cut(
+      `Publicação em ${event.host}${when} informa que a empresa procura ${demand.need.text}${deadline}${channel}.`,
+      480,
+    );
   }
   return cut(`Matéria em ${event.host}${when} informa ${label}: "${event.headline}".`, 480);
 }
@@ -1096,8 +1130,65 @@ function corroboration(event: BusinessEvent): string {
 /**
  * Método atual da busca de sinais (ver `InvestigationSnapshot.signalsMethod`). Mudou a forma de
  * investigar os acontecimentos: suba o número, para a busca da análise anterior não ser reaproveitada.
+ * 3 (2026-11-27): lê as matérias dos sinais já gravados pela Descoberta e faz a consulta voltada a
+ * acontecimentos quando a primeira não acha nenhum.
  */
-export const SIGNALS_METHOD = 2;
+export const SIGNALS_METHOD = 3;
+
+/** ADR-0015: uma investigação gasta de 1 a 3 buscas (site, sinais, concorrentes). */
+const MAX_SEARCHES_PER_RUN = 3;
+
+/** Resultado de busca ou página de sinal já gravado; `stored` marca o segundo caso. */
+type EventCandidate = EventReport & { readonly stored?: true };
+
+/**
+ * Validação real do Flash (27/11): a matéria da rodada Série D estava gravada como sinal da
+ * Descoberta, mas a busca de sinais não a trouxe e ela nunca foi lida. As páginas dos sinais da
+ * Descoberta (`signal.<tipo>`) e das menções guardadas entram como candidatas a acontecimento, na
+ * frente dos resultados da busca. Não gastam crédito: só a leitura, que confere de novo se a página
+ * cita a empresa junto com o acontecimento.
+ */
+async function storedEventCandidates(run: Run): Promise<EventCandidate[]> {
+  const claims = [...run.inForce.values()].filter(
+    (claim) =>
+      (claim.key.startsWith('signal.') &&
+        !claim.key.startsWith('signal.web.') &&
+        !claim.key.startsWith('signal.site.')) ||
+      claim.key === WEB_MENTION_KEY,
+  );
+  if (claims.length === 0) return [];
+  const evidence = await run.deps.evidence.evidenceFor(claims.map((claim) => claim.id));
+  const sourceIds = [...new Set(evidence.map((item) => item.sourceId))];
+  const sources = sourceIds.length ? await run.deps.evidence.sourcesByIds(sourceIds) : [];
+  const byId = new Map(sources.map((source) => [source.id, source]));
+  const candidates: EventCandidate[] = [];
+  for (const claim of claims) {
+    const item = evidence.find((entry) => entry.claimId === claim.id);
+    const source = item ? byId.get(item.sourceId) : undefined;
+    const url = source?.url ?? (typeof claim.value?.url === 'string' ? claim.value.url : null);
+    if (!url || candidates.some((candidate) => candidate.url === url)) continue;
+    const publishedAt =
+      typeof claim.value?.publishedAt === 'string' ? claim.value.publishedAt : null;
+    candidates.push({
+      url,
+      title: source?.title ?? '',
+      // O trecho citado da fonte, não o resumo da IA da Descoberta.
+      snippet: item?.quote ?? '',
+      publishedAt,
+      stored: true,
+    });
+  }
+  return candidates;
+}
+
+/** Consulta voltada a acontecimentos (método 3), usada quando a primeira não acha nenhum. */
+function eventQuery(run: Run): string {
+  return `"${run.company.displayName}" investimento OR rodada OR aquisição OR expansão OR lançamento OR contratação`;
+}
+
+function sameUrl(a: string, b: string): boolean {
+  return a.replace(/\/$/, '').toLowerCase() === b.replace(/\/$/, '').toLowerCase();
+}
 
 export async function stepSignals(run: Run): Promise<StepOutcome> {
   const web = run.deps.webResearch;
@@ -1121,10 +1212,38 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
   markSearched(run, 'signals', run.deps.clock.now().toISOString());
 
   const tokens = nameTokens(run.company.displayName).slice(0, 2);
-  const mentions = outcome.results.filter((result) => {
+  const citesCompany = (result: EventReport) => {
     const text = fold(`${result.title} ${result.snippet}`);
     return tokens.length === 0 || tokens.every((token) => text.includes(token));
-  });
+  };
+  let results: EventCandidate[] = outcome.results.filter(citesCompany);
+  // A primeira consulta (nome e cidade) não trouxe nenhum acontecimento: uma consulta voltada a
+  // acontecimentos, só se ainda sobra uma busca para os concorrentes (teto do ADR-0015).
+  if (
+    groupEventReports(results, run.company.primaryDomain).length === 0 &&
+    run.usage.searches + 1 < MAX_SEARCHES_PER_RUN
+  ) {
+    const second = await web.search(run.ctx, {
+      query: eventQuery(run),
+      maxResults: 8,
+      timeRange: 'year',
+      ...(run.company.primaryDomain ? { excludeDomains: [run.company.primaryDomain] } : {}),
+    });
+    if (second.ok) {
+      countSearch(run, second.creditsCharged);
+      results = [
+        ...results,
+        ...second.results
+          .filter(citesCompany)
+          .filter((result) => !results.some((known) => sameUrl(known.url, result.url))),
+      ];
+    }
+  }
+  // Os sinais já gravados vêm primeiro: são os primeiros a ser lidos.
+  const stored = (await storedEventCandidates(run)).filter(
+    (candidate) => !results.some((result) => sameUrl(result.url, candidate.url)),
+  );
+  const mentions: EventCandidate[] = [...stored, ...results];
   // Parte 3.3: mesma notícia em vários sites vira um acontecimento só, com a origem na frente.
   const groups = groupEventReports(mentions, run.company.primaryDomain).slice(0, MAX_EVENTS);
   const sources: Array<{ id: string; source: SourceInputDraft }> = [];
@@ -1133,14 +1252,21 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
   let reads = 0;
   for (const group of groups) {
     run.signal.throwIfAborted();
-    const result = group.origin;
+    let result = group.origin;
     const label = BUSINESS_EVENT_LABELS[group.type];
     let page: EventPageOutcome | null = null;
     if (DEEP_READ_EVENTS.has(group.type) && reads < MAX_EVENT_PAGES) {
       reads += 1;
-      page = await readEventPage(run, result.url, tokens, group.type);
+      page = await readEventPage(run, result.url, tokens, group.type, result.publishedAt);
     }
     const read = page?.ok ? page : null;
+    if (!read && result.stored) {
+      // A página do sinal guardado não foi lida: o sinal da Descoberta continua no ledger como
+      // estava. Fica a hipótese de um resultado da busca do mesmo grupo, se houver.
+      const fromSearch = group.members.find((member) => !member.stored);
+      if (!fromSearch) continue;
+      result = fromSearch;
+    }
     const occurredOn = result.publishedAt ? result.publishedAt.slice(0, 10) : null;
     const draft: BusinessEvent = {
       type: group.type,
@@ -1156,6 +1282,7 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
       conflicts: group.conflicts,
       pageRead: read !== null,
       funding: read?.funding ?? null,
+      demand: read?.demand ?? null,
     };
     // O valor guardado passa pelo contrato: fora dele, o sinal é gravado sem o acontecimento
     // estruturado (e fica fora da tese), com aviso no log em vez de sumir em silêncio.
@@ -1166,13 +1293,17 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
         checked.error.issues.slice(0, 3).map((issue) => issue.path.join('.')),
       );
     }
-    const event = checked.success ? checked.data : draft;
+    // Texto da página que se dirige a máquinas não fica no acontecimento estruturado (vai para a
+    // tese e dali para a mensagem): fica só na fonte.
+    const raw = checked.success ? checked.data : draft;
+    const event = guardEventText(raw);
+    const textGuarded = event !== raw;
     const value = {
       code: group.type,
       label,
       url: result.url,
       publishedAt: result.publishedAt,
-      ...(checked.success ? { event: checked.data } : {}),
+      ...(checked.success ? { event } : {}),
     };
     // Tipo, site e começo do título do resultado: duas notícias do mesmo tipo no mesmo site não
     // se sobrepõem, e a mesma matéria numa análise seguinte substitui a versão anterior.
@@ -1182,7 +1313,7 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
     const confirmations: Array<{ id: string; source: SourceInputDraft & { title: string } }> = [];
     for (const host of group.confirmedBy) {
       if (confirmations.length + 1 >= CLAIM_EVIDENCE_LIMIT) break;
-      const member = group.members.find((item) => bareHost(item.url) === host);
+      const member = group.members.find((item) => !item.stored && bareHost(item.url) === host);
       if (!member) continue;
       const source = searchSource(run, member, outcome);
       if (!source.title) continue;
@@ -1215,7 +1346,7 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
             [
               'Matéria lida pelo leitor do Prospector; o trecho cita a empresa e o acontecimento.',
               corroboration(event),
-              statement.guarded
+              statement.guarded || textGuarded
                 ? 'O texto da matéria trazia frases dirigidas a sistemas automatizados: ficou só na fonte, fora do enunciado.'
                 : '',
             ]
@@ -1275,8 +1406,6 @@ export async function stepSignals(run: Run): Promise<StepOutcome> {
 // -----------------------------------------------------------------------------
 
 const MAX_COMPETITORS = 3;
-/** ADR-0015: uma investigação gasta de 1 a 3 buscas (site, sinais, concorrentes). */
-const MAX_SEARCHES_PER_RUN = 3;
 
 function sameQueries(a: readonly string[] | undefined, b: readonly string[]): boolean {
   return a !== undefined && a.length === b.length && a.every((query, index) => query === b[index]);

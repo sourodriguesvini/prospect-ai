@@ -1,10 +1,13 @@
-import type {
-  BusinessEventType,
-  CommercialSignal,
-  FundingDetails,
-  FundingModality,
-  QuotedValue,
+import {
+  BUSINESS_EVENT_LABELS,
+  type BusinessEvent,
+  type BusinessEventType,
+  type CommercialSignal,
+  type FundingDetails,
+  type FundingModality,
+  type QuotedValue,
 } from '@prospector/contracts';
+import { looksLikeInjection } from '../investigation/consistency';
 import {
   fold,
   foldWithMap,
@@ -13,6 +16,7 @@ import {
   sentences,
   type FoldedText,
 } from './text';
+import { EXPLICIT_DEMAND_PATTERN } from './demand';
 
 /**
  * Acontecimentos empresariais (diretriz 2026-11-26, Parte 2.3): reconhecer o tipo num título ou
@@ -23,10 +27,12 @@ import {
 
 /** Padrões sobre texto dobrado (sem acento, minúsculo), na ordem de prioridade. */
 const EVENT_PATTERNS: ReadonlyArray<{ type: BusinessEventType; pattern: RegExp }> = [
+  // Caso 5: a própria empresa diz o que procura; vem antes de "contratação" (vagas de emprego).
+  { type: 'explicit_demand', pattern: EXPLICIT_DEMAND_PATTERN },
   {
     type: 'funding',
     pattern:
-      /\b(rodada|series? [a-h]\b|aporte|capta(cao|cou|r|m)\b|levant(a|ou|am|aram) (r\$|us\$|\d|cerca|mais)|recebe(u)? (um |novo )?investimento|investimento de (r\$|us\$|\d)|pre-?seed|seed\b|venture debt|debentures?\b|investe (r\$|us\$)|investira (r\$|us\$))/,
+      /\b(rodada|series? [a-h]\b|aporte|capta(cao|cou|r|m)\b|levant(a|ou|am|aram|ar|ara|ando) (r\$|us\$|\d|cerca|mais|ate)|recebe(u)? (um |novo )?investimento|investimento de (r\$|us\$|\d)|pre-?seed|seed\b|venture debt|debentures?\b|investe (r\$|us\$)|investira (r\$|us\$))/,
   },
   {
     type: 'acquisition',
@@ -93,6 +99,8 @@ export function detectEventTypes(text: string): BusinessEventType[] {
  * acontecimentos estruturais pesam mais que sinais de rotina; medições do site pesam pouco.
  */
 export const SIGNAL_STRENGTH: Readonly<Record<CommercialSignal, number>> = Object.freeze({
+  // Necessidade dita pela empresa: pesa mais que qualquer leitura de acontecimento.
+  explicit_demand: 3.5,
   funding: 3,
   acquisition: 3,
   merger: 3,
@@ -114,6 +122,7 @@ export const SIGNAL_STRENGTH: Readonly<Record<CommercialSignal, number>> = Objec
 
 /** Acontecimentos que valem ler a matéria inteira (Parte 2.3), em vez de ficar no título. */
 export const DEEP_READ_EVENTS: ReadonlySet<BusinessEventType> = new Set([
+  'explicit_demand',
   'funding',
   'acquisition',
   'merger',
@@ -377,6 +386,40 @@ export function fundingQuotes(details: FundingDetails): string[] {
     details.context?.quote,
   ].filter((quote): quote is string => typeof quote === 'string' && quote.length > 0);
   return [...new Set(quotes)];
+}
+
+/**
+ * Revisões de segurança e de arquitetura de 27/11: o texto de uma página (título, pedido,
+ * investidores, finalidade) entra na tese e dali nos DADOS do prompt da mensagem. Se algum campo se
+ * dirige a máquinas ("ignore as instruções anteriores…"), o título vira o rótulo do tipo e o
+ * detalhe acusado sai inteiro (demanda ou investimento): o texto externo fica só na fonte.
+ */
+export function guardEventText(event: BusinessEvent): BusinessEvent {
+  const texts = (value: QuotedValue | null | undefined) => (value ? [value.text, value.quote] : []);
+  const demand = event.demand ?? null;
+  const demandFlagged = demand
+    ? [demand.need, demand.deadline, demand.responsible].flatMap(texts).some(looksLikeInjection)
+    : false;
+  const funding = event.funding;
+  const fundingFlagged = funding
+    ? [
+        funding.amount,
+        funding.round,
+        ...funding.investors,
+        funding.purpose.status === 'declared' ? funding.purpose.value : null,
+        funding.context,
+      ]
+        .flatMap(texts)
+        .some(looksLikeInjection)
+    : false;
+  const headlineFlagged = looksLikeInjection(event.headline);
+  if (!demandFlagged && !fundingFlagged && !headlineFlagged) return event;
+  return {
+    ...event,
+    headline: headlineFlagged ? BUSINESS_EVENT_LABELS[event.type] : event.headline,
+    funding: fundingFlagged ? null : event.funding,
+    ...(demandFlagged ? { demand: null } : {}),
+  };
 }
 
 /** "R$ 150 milhões" a partir de centavos (para textos curtos). */

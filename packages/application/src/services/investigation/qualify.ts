@@ -16,6 +16,8 @@ import {
   DEFAULT_COMMERCIAL_PROFILE_ID,
   detectChanges,
   detectEventTypes,
+  extractDemand,
+  guardEventText,
   type EventEvidence,
   type SiteSignalEvidence,
   knowledgeGaps,
@@ -167,8 +169,16 @@ function idsOf(
 function eventEvidence(run: Run): EventEvidence[] {
   const fromWeb = claimsWithPrefix(run, 'signal.web.').flatMap((claim) => {
     const parsed = BusinessEvent.safeParse(claim.value?.event);
+    // Texto de página que se dirige a máquinas não chega à tese (vale também para claims
+    // gravados antes da guarda).
     return parsed.success
-      ? [{ claimId: claim.id, epistemicType: claim.epistemicType, event: parsed.data }]
+      ? [
+          {
+            claimId: claim.id,
+            epistemicType: claim.epistemicType,
+            event: guardEventText(parsed.data),
+          },
+        ]
       : [];
   });
   // O próprio site anunciando vagas, lançamento ou expansão (leitura da IA, `signal.site.*`).
@@ -192,9 +202,21 @@ function eventEvidence(run: Run): EventEvidence[] {
           conflicts: [],
           pageRead: true,
           funding: null,
+          // Procura declarada no próprio site (Caso 5): o que procura, prazo e canal, do enunciado;
+          // o ano de um prazo sem ano vem da data do claim, e só e-mail do domínio vira canal.
+          demand:
+            type === 'explicit_demand'
+              ? extractDemand(claim.statement, claim.createdAt.slice(0, 10), [domain])
+              : null,
         });
         return parsed.success
-          ? [{ claimId: claim.id, epistemicType: claim.epistemicType, event: parsed.data }]
+          ? [
+              {
+                claimId: claim.id,
+                epistemicType: claim.epistemicType,
+                event: guardEventText(parsed.data),
+              },
+            ]
           : [];
       })
     : [];
@@ -274,10 +296,11 @@ const INFERENCE_PREFIXES = [
   'competitive.finding.',
   'competitive.competitor.',
 ];
+const SITE_CANDIDATE_PREFIX = 'digital_presence.official_site_candidate.';
 const HYPOTHESIS_PREFIXES = [
   'signal.web.',
   'competitive.competitor.',
-  'digital_presence.official_site_candidate.',
+  SITE_CANDIDATE_PREFIX,
   'digital_presence.web_mention',
 ];
 
@@ -357,7 +380,17 @@ export async function stepQualification(run: Run): Promise<StepOutcome> {
     summaryClaimId: run.summaryClaimId,
     factClaimIds: idsOf(run, 'fact', FACT_PREFIXES, [...run.citedFactIds], 40),
     inferenceClaimIds: idsOf(run, 'inference', INFERENCE_PREFIXES, [], 30),
-    hypothesisClaimIds: idsOf(run, 'hypothesis', HYPOTHESIS_PREFIXES, run.hypothesisIds, 20),
+    // Com o site confirmado, os candidatos de antes (dc.com, imdb.com na validação do Flash, 27/11)
+    // não são mais o que conferir.
+    hypothesisClaimIds: idsOf(
+      run,
+      'hypothesis',
+      run.siteUrl
+        ? HYPOTHESIS_PREFIXES.filter((prefix) => prefix !== SITE_CANDIDATE_PREFIX)
+        : HYPOTHESIS_PREFIXES,
+      run.hypothesisIds,
+      20,
+    ),
     opportunityClaimIds: [...run.opportunityIds.values()].slice(0, 10),
     gaps: gaps.slice(0, 10),
     offers: assessments.slice(0, 10),
