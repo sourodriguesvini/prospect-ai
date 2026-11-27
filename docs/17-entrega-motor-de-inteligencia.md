@@ -1,6 +1,6 @@
 # 17 — Entrega da diretriz de 26/11/2026: motor de inteligência comercial
 
-> Entrega ao responsável pelo produto (diretriz [Parte 12](diretrizes/2026-11-26-evolucao-do-motor-de-inteligencia.md#parte-12--entrega-ao-responsável-pelo-produto)) e fechamento da Parte 13 (13.11). Estado em **2026-11-26**, no `pnpm dev` e nos testes. Nada foi commitado; o app instalado em `D:\Prospector` não foi atualizado; nenhum dado do banco real foi gravado ou apagado. Detalhes técnicos: [doc 15](15-motor-de-inteligencia.md) (diagnóstico, arquitetura e estado por fase), [ADR-0019](adr/0019-motor-de-inteligencia-comercial.md) (decisão) e [doc 16](16-prontidao-operacional.md) (prontidão).
+> Entrega ao responsável pelo produto (diretriz [Parte 12](diretrizes/2026-11-26-evolucao-do-motor-de-inteligencia.md#parte-12--entrega-ao-responsável-pelo-produto)) e fechamento da Parte 13 (13.11). Estado em **2026-11-27**. As Partes 1 a 5 estão commitadas no ramo `conclusao-produto` até `1993c7e`; as Partes 6.2 a 8, as correções das revisões e as da validação da Flash entram nos commits de 27/11 do mesmo ramo. As migrações de 27/11 estão aplicadas no `prospector-dev`. A primeira análise real (Flash, no app instalado) foi feita pelo usuário; o que ela mostrou e o que mudou por causa dela estão no §11a. Nenhum dado do banco real foi apagado. Detalhes técnicos: [doc 15](15-motor-de-inteligencia.md) (diagnóstico, arquitetura e estado por fase), [ADR-0019](adr/0019-motor-de-inteligencia-comercial.md) (decisão) e [doc 16](16-prontidao-operacional.md) (prontidão).
 
 ## 1. Em uma tela
 
@@ -12,13 +12,13 @@
 - **Evidências** (Parte 3): fato, interpretação e hipótese separados; imprensa reconhecida acima de título de busca; confirmações no ledger; potencial separado de confiança.
 - **Tese comercial** (Parte 4): seis dimensões qualitativas com motivo e evidência, um ângulo principal e até duas alternativas, o que não oferecer e o que confirmar, e a recomendação (abordar, aprofundar ou não priorizar). Aparece no painel Oportunidade da empresa.
 
-**Feito em parte**
-- Relatório em 15 seções (Parte 7): a maior parte das seções já tem conteúdo na página aprovada; faltam resumo executivo com as cinco perguntas, produto e tecnologia, estrutura organizacional e pessoas (§6).
-- Seis cenários (Parte 8): casos 1, 3, 4 e 6 testados nas regras; 2 e 5 dependem das Fases 5 e 6.
+- **Mensagem a partir da tese** (Parte 5): Preparar abordagem oferece o ângulo da tese (principal, alternativas ou "sem a tese"); a base aprovada fica gravada e a nova versão continua no mesmo ângulo. Prompts `relationship-approach/v5` e `relationship-message/v5` promovidos pelo doc 11 §4.3 com `pnpm evals` (estratégia 89–90% → 96–97%, mensagem 95% → 96–97%, 0 erros de formato).
+- **Copiloto que opera a pesquisa extensa** (Partes 6.2 a 6.5): "Quero encontrar 100 terapeutas ocupacionais no Brasil para apresentar a Blummy." vira uma pesquisa ligada à conversa, com perfil, premissas, plano por profissão e região e teto de buscas; roda em lotes na fila (continua se o app fechar); pedidos seguintes na mesma conversa ("agora priorize SP e MG", "mais 50", "só no Paraná", "pare", "continue") mudam a mesma pesquisa sem refazer o que foi achado. Cada achado tem fonte, trecho, papel para o perfil (usuário, comprador, influenciador) e se pode ser abordado. Revisão em Copiloto › Pesquisas, com CSV auditado. Testado com buscador sintético (unitários, rota e e2e); falta a rodada com a Tavily e o banco real (§12).
 
-**Não iniciado (depende de autorização)**
-- Mensagem a partir da tese (Parte 5): exige prompt novo avaliado com `pnpm evals` (GPU).
-- Copiloto operador com pesquisa extensa e contexto persistente (Partes 6.2 a 6.5): exige migração e revisão LGPD.
+**Feito em parte**
+- Relatório em 15 seções (Parte 7): resumo executivo com as cinco perguntas, produto e tecnologia e estrutura organizacional feitos em 27/11; só "Pessoas para abordar" segue bloqueada (§6).
+- Seis cenários (Parte 8): os seis testados com dados sintéticos (caso 2: distribuição da pesquisa extensa por região, segmento e papel; caso 5: demanda declarada com o que procura, prazo e canal). As doze métricas têm revisão humana com instrumento próprio (`pnpm review:quality`), ainda não preenchida pelo usuário (KI-231).
+
 
 ## 2. Diagnóstico do funcionamento atual (antes desta entrega)
 
@@ -118,25 +118,25 @@ O relatório da empresa, pela Parte 7:
 
 | Seção | Onde está hoje |
 |---|---|
-| 1. Resumo executivo | Parcial: "leitura do topo" do diagnóstico; as cinco perguntas dependem da narrativa (Fase 5) |
+| 1. Resumo executivo | **Feito (27/11):** no topo ("Vale abordar?"), as cinco perguntas respondidas por regra a partir do ledger, dos acontecimentos e da tese (`executiveSummary`, `packages/domain/src/commercial/report-sections.ts`), cada uma com o caminho para a seção completa; sem base, a resposta diz o que falta |
 | 2. Perfil da empresa | Cadastro e Receita |
 | 3. Momento empresarial | Tese: "por que agora" e dimensão Momento |
 | 4. Linha do tempo | **Nova**, no painel Oportunidade |
 | 5. Mercado | Painel Mercado |
-| 6. Produto e tecnologia | Falta |
+| 6. Produto e tecnologia | **Feito (27/11):** painel próprio com o que o site oferece (`positioning.offering.*`, que saiu de Mercado) e lançamentos, parcerias e investimentos ligados a produto, com o destino declarado da rodada. As ferramentas e linguagens que a empresa usa não são levantadas (a tela diz) |
 | 7. Marca e posicionamento | Painel Marca |
-| 8. Estrutura organizacional | Falta |
+| 8. Estrutura organizacional | **Feito (27/11):** painel próprio com natureza jurídica, porte, matriz ou filial, início de atividade, capital social e sede (Receita), mudanças de liderança, equipe e estrutura, e o papel a procurar pela tese. Nomes e cargos de pessoas da empresa não são levantados |
 | 9 e 10. Oportunidades e necessidades potenciais | Tese (problema provável) e serviços |
 | 11. Compatibilidade | Dimensões da tese |
 | 12. Estratégia recomendada | Ângulo principal e alternativas |
-| 13. Pessoas para abordar | Bloqueado: sem entidade de pessoa (KI-210) |
+| 13. Pessoas para abordar | Parcial: a página mostra o papel a procurar pela tese (topo, Estrutura organizacional e Com quem falar). A tabela de pessoas existe desde a pesquisa do Copiloto (ADR-0020), mas não é ligada a empresas; levantar quem trabalha numa empresa analisada segue fora (KI-210) |
 | 14. Fontes e evidências | Painel Evidências e "Em que se apoia" em cada bloco |
 | 15. Incertezas | "O que ainda não sabemos" e "O que confirmar antes" |
 
 ## 7. Fluxo de geração de mensagens
 
-- **Hoje (sem mudança):** o Relacionamento parte da oferta escolhida e dos achados do diagnóstico, sem a tese, o destinatário ou a linguagem da empresa. Uma abordagem preparada agora ainda pode abrir pela medição do site (KI-209). Aprovação humana, hash do conteúdo, supressão e auditoria seguem iguais (regra 2).
-- **Proposto (Fase 5):** a mensagem parte da tese **aprovada pelo usuário**: o ângulo principal, o assunto de abertura, o que não oferecer e o que confirmar entram no prompt como estrutura. A linguagem da empresa entra como medida (formalidade, termos recorrentes). Prompt novo só é promovido depois de `pnpm evals` com casos da Parte 8.
+- **Antes:** o Relacionamento partia da oferta escolhida e dos achados do diagnóstico, sem a tese; uma abordagem podia abrir pela medição do site (KI-209).
+- **Agora (Fase 5, commit `1993c7e`):** a mensagem parte do ângulo da tese **escolhido pelo usuário** em Preparar abordagem: o assunto de abertura, a estratégia por acontecimento, o que não oferecer e o que confirmar entram no prompt como estrutura (`thesisBasis` gravado com a abordagem). A linguagem pública da empresa entra como medida (formalidade, tratamento, termos recorrentes). Prompts v5 promovidos pelo doc 11 §4.3. Aprovação humana, hash do conteúdo, supressão e auditoria seguem iguais (regra 2).
 
 ## 8. Arquitetura do Copiloto
 
@@ -146,12 +146,13 @@ O relatório da empresa, pela Parte 7:
   - prompt `copilot/v3` preservado;
   - ferramentas só de leitura (empresas, Descoberta e pesquisa na internet com Tavily);
   - não altera dados e não envia mensagens.
-- **Proposto (Fase 6):**
-  - identificar a operação pelo pedido (`identifyCommercialProfile`, pronto);
-  - pesquisa extensa em lotes, com dedupe e progresso;
-  - contexto persistente por conversa (objetivo, perfil, critérios, resultados), que exige tabela nova (`copilot_research` ou `thread_id` na Descoberta);
-  - para o caso Blummy (100 terapeutas ocupacionais), entidade de pessoa com base legal por contato.
-  - Bloqueios: migração, revisão LGPD e prompt novo avaliado.
+- **Agora (Fase 6):**
+  - **Operador por regra, antes do modelo** (`runResearchTurn`): pedido de pesquisa cria; mudança pedida na mesma conversa muda a pesquisa mais recente dela. A resposta diz o que foi entendido, as premissas e o plano, e aponta "Ver a pesquisa"; fica salva no histórico, então a pergunta seguinte ao modelo já sabe da pesquisa. O prompt `copilot/v3` continua o mesmo.
+  - **Pesquisa em lotes** (`copilot_research`, um lote por tarefa da fila `ai_jobs`): 5 buscas por lote, 10 resultados por busca, versão otimista contra mudança no meio do lote, nova tentativa sem avançar quando o buscador cai, parada com motivo (quantidade atingida, teto de buscas, orçamento do mês, fontes esgotadas, busca indisponível, cancelada).
+  - **Extração por regra** (`packages/domain/src/research/`): só o título e o trecho do buscador, nunca a página de diretório; nome conferido no trecho; nada de e-mail deduzido; redes sociais e sites que não permitem coleta descartados; descartes contados por motivo.
+  - **Pessoas com base legal por linha:** deduplicação e supressão por HMAC com a chave do servidor (KI-222); a pessoa só fica abordável se a LIA aprovada cobrir a fonte e os dados; sem isso, fica 90 dias só para revisão. Opt-out e supressão conferidos antes de gravar.
+  - **Sem nomes no chat** (KI-217): a conversa leva contagens e o link; a lista fica na tela da pesquisa, lida das tabelas.
+  - **Demonstração:** `PROSPECTOR_DISCOVERY=fixture` em memória usa um buscador sintético com selo DEMO.
 
 ## 9. Alterações implementadas
 
@@ -195,11 +196,15 @@ Casos da Parte 8 cobertos (dados sintéticos, marcados como tal):
 | 1 — Flash | `packages/domain/tests/commercial/events.test.ts`, `compatibility.test.ts`; `packages/application/tests/investigation-service.test.ts` | Valor, rodada, investidores e modalidade com trecho literal; finalidade "não documentada"; contexto "não precisava de dinheiro"; a matéria de origem é lida e vira fato com confiança acima de agregador; republicação não confirma, apuração própria confirma e entra no ledger; o valor de outra matéria da mesma página não entra; a tese não abre pelo site e diz para não tratar investimento como orçamento |
 | 3 — Startup contratando | `compatibility.test.ts` | Contratação de produto e engenharia leva a "produto em estruturação", não a marca |
 | 4 — Só problema de site | `compatibility.test.ts` | Recomendação "não priorizar agora" |
+| 2 — Blummy, pesquisa extensa | `packages/domain/tests/research/research.test.ts`; `apps/web/e2e/copilot-research.spec.ts` | Interpretação do pedido, buscas pelas capitais primeiro, extração por região com descarte de listagens, distribuição real por região, estado, segmento e papel provável (só o que está gravado; opt-out fora; estado vindo só da região da busca contado à parte); a tela da pesquisa mostra "Como os achados se distribuem" |
+| 5 — Demanda declarada | `packages/domain/tests/commercial/demand.test.ts`; `investigation-service.test.ts` | "Procura estúdio", "concorrência para agências" e "solicitação de propostas" viram demanda (vaga de emprego e "procura por crédito" não); o que procura, o prazo (com o ano da publicação) e o canal saem com trecho literal; e-mail de pessoa nunca vira canal; a tese responde ao pedido (prazo e canal no "por que agora" e no "para abrir"), escolhe a área pedida (identidade visual é marca, mesmo com "lançamento" no texto), aprofunda se o prazo passou e não vira ângulo fora do portfólio |
 | 6 — Fontes divergentes | `compatibility.test.ts` | Divergência registrada, evidência "baixa", recomendação "aprofundar" e confirmação da versão |
 | Segurança e conformidade | `investigation-service.test.ts` | Título com instrução para máquinas fica fora do enunciado; página com `noarchive` guarda só o título |
 | Tela | `apps/web/src/components/companies/thesis-render.test.ts`; `apps/web/e2e/copilot.spec.ts` | Tese com seis dimensões e aviso de evidência substituída; linha do tempo em ordem, sem duplicar a mesma rodada e sem link perigoso; Copiloto sem rolagem do documento em 1280, 700 e 375 px, gaveta com Esc e foco |
 
-Casos 2 (Blummy, 100 terapeutas) e 5 (demanda explícita) e as métricas com revisão humana dependem das Fases 5 e 6 e da GPU.
+**Rodada de 2026-11-27**, depois das Partes 6.2 a 8, das revisões e das correções da Flash: `pnpm typecheck`, `pnpm lint` e `pnpm format:check` sem erro; `pnpm test` com **2.182 testes passando** (domínio 611, aplicação 415, agentes 348, integrações 226, web 210, contratos 195, banco em PGlite 137, programa de desktop 40); `pnpm test:e2e` (`E2E_PORT=3120`, `E2E_MEMORY_PORT=3130`) com **107 passando e 3 pulados** (os que exigem Ollama ou banco real), incluindo a pesquisa extensa do Copiloto. A tabela acima é a rodada de 26/11.
+
+**Métricas com revisão humana (2026-11-27):** as doze métricas da Parte 8 têm instrumento próprio, sem modelo julgando o próprio trabalho (`pnpm review:quality`, doc 11 §4.3a). A página dos cinco casos sintéticos foi gerada e já mostrou um defeito, corrigido: uma demanda por identidade visual caía em "comunicação do lançamento". Nenhuma revisão humana foi feita ainda (KI-231).
 
 ## 11. Limitações
 
@@ -208,24 +213,48 @@ Casos 2 (Blummy, 100 terapeutas) e 5 (demanda explícita) e as métricas com rev
   - um acontecimento vale 30 dias como sinal;
   - a corroboração usa só a mesma busca (teto de 3 buscas por análise);
   - a extração funciona só com matérias em português.
-- **KI-209:** a mensagem ainda não usa a tese.
+- **KI-209:** a mensagem parte do ângulo da tese aprovado (Parte 5); falta validar no app instalado.
 - **KI-210:** sem decisores; "acesso a quem decide" nunca é alto.
 - **KI-211:** lista de imprensa proposta; claims antigos não são recalculados.
 - **KI-212:** nomes de pessoas em fatos de acontecimento ficam sem prazo até existir o expurgo.
 - **KI-213:** termos dos veículos e base legal para nomes de terceiros sem validação jurídica.
+- **KI-230:** demanda declarada só por regra em português e só em páginas que citam a empresa; sem busca própria em portais de compras.
+- **KI-231:** revisão humana das doze métricas com instrumento pronto, mas ainda não feita; só casos sintéticos na página.
 - **Parte 13:** capturas ainda não chegaram ao app instalado (KI-205); o banco não tem backup.
-- **Sem teste com o modelo real nesta entrega:** a tese é regra. A investigação completa com Ollama e banco real não foi rodada depois das mudanças (§12).
+- **KI-233 a KI-241:** achados da validação da Flash e das revisões de 27/11 (§11a).
 
-## 12. Decisões pendentes (dependem do usuário)
+## 11a. Validação real da Flash (2026-11-26, 23:06) e o que mudou
 
-1. **Aceitar o ADR-0019** e confirmar o modo de entrega de cada capacidade (§4) e os dados da Blummy.
-2. **`pnpm app:install`:** leva capturas, tese e Copiloto ao app instalado e cria `D:\Prospector-dados`. Fecha e reabre o Prospector.
-3. **Uma análise real com o banco `prospector-dev`** (grava dados do usuário) para validar ponta a ponta com a Flash, depois da instalação.
-4. **Autorizar a GPU** para `pnpm evals`, condição da Fase 5 (mensagem a partir da tese) e da troca de modelo.
-5. **Migrações** (skill `migracao-supabase`): `commercial_profiles` + `profile_id` na Estratégia; pesquisa do Copiloto; entidade de pessoa, com revisão LGPD.
-6. **Validação jurídica** (KI-213): termos dos veículos de imprensa; base legal para nomes de investidores e executivos; citação de trechos.
-7. **Backup do banco:** plano pago ou `pg_dump` com a senha do Postgres.
-8. **Limpeza opcional:** apagar `D:\prospector-validacao-13-7` e as versões antigas do Chromium no C:.
+Primeira análise de ponta a ponta com Ollama, Tavily e o banco `prospector-dev`, feita pelo usuário no app instalado (versão `1993c7e`).
+
+| O que apareceu | O que mudou (27/11) | Estado |
+|---|---|---|
+| A matéria da Série D, já no ledger desde a Descoberta, não virou acontecimento; a busca de sinais fez uma consulta só e a tese saiu "Não priorizar agora" com momento indeterminado | As matérias dos sinais da Descoberta entram como candidatas e são lidas; sem acontecimento na primeira consulta, vem uma segunda voltada a acontecimentos (dentro do teto de 3 buscas); "levantar/levantará/levantando" reconhecidos (método de sinais 3) | KI-233: corrigido no código, falta rodar de novo no app |
+| Topo "Vale abordar" e tese "Não priorizar agora" | A tese aparece como ressalva logo abaixo do título, com o motivo; "O que mudou" diz quando o veredito ou a tese mudam | KI-234: qual regra manda no título é decisão do usuário |
+| "Site institucional" na oferta, "Site" na tese | — | KI-235 |
+| alertalicitacao.com.br como concorrente | — | KI-236 |
+| "Não tem favicon" com confiança alta | O enunciado diz o que foi medido (o HTML não declara) | KI-237: parcial |
+| O Copiloto inventou uma tese e disse que conferiu o dossiê sem chamar ferramenta | A ferramenta da empresa entrega a tese gravada | KI-238: o resto pede prompt novo com `pnpm evals` (`copilot/v3` mantido) |
+| Histórico do Copiloto com 40 px na janela mínima | Altura mínima com rolagem da página | KI-239: falta conferir na janela do app |
+| dc.com e imdb.com em "A confirmar" com o site já confirmado | Candidatos fora das hipóteses quando há site confirmado | KI-240 |
+| Textos que confundiam ("Por regra", "não é levantado", plurais) | Reescritos; o resumo marca o que é inferência | — |
+
+As quatro revisões independentes (arquitetura, segurança, conformidade e UX) sobre a Parte 7, os casos 2 e 5 e essas correções foram aplicadas no que bloqueava ou era importante; o que ficou para depois está no KI-241. Entre o que entrou: a demanda declarada só aceita e-mail do domínio da empresa como canal e exige o tipo de fornecedor depois de "concorrência/seleção/edital"; texto de página dirigido a máquinas tira a demanda e o investimento do acontecimento antes da tese e da mensagem; demanda sem data conferida não leva a "abordar"; pedido de não contato aparece na tese e em "Estrutura organizacional".
+
+## 12. Decisões do usuário
+
+Decididas em 27/11 ("Tudo o que for decisão minha está aprovado"):
+
+1. **ADR-0019 aceito.** O KI-207 continua aberto (perfis no código e restrições da Blummy só no texto).
+2. **`pnpm app:install`:** rodado ao fim desta etapa, a partir do ramo `conclusao-produto`; o `versao.txt` de `D:\Prospector` diz o commit instalado.
+3. **Análise real com o `prospector-dev`:** feita com a Flash (§11a). Falta repetir depois da instalação, para validar as correções do KI-233.
+4. **GPU para `pnpm evals`:** usada na Parte 5 (prompts v5 promovidos). O `copilot/v3` continua.
+5. **Migrações:** `20261127100000_commercial_profiles`, `20261127110000_people` e `20261127120000_copilot_research` aplicadas no `prospector-dev` em 27/11, com as versões do banco iguais às do repositório.
+6. **Validação jurídica (KI-213):** o usuário aceitou o risco por enquanto.
+7. **Backup do banco:** segue sem; precisa de plano pago ou da senha do Postgres, que ficam com o usuário (KI-232).
+8. **Limpeza:** `D:\prospector-validacao-13-7` está protegida contra exclusão pelo agente e fica para o usuário apagar; as versões 1223 e 1234 do Chromium no C: são usadas por outros programas e ficaram.
+
+Ainda pendente com o usuário: qual regra manda no título de "Vale abordar?" (KI-234) e a revisão humana das doze métricas (KI-231).
 
 ## 13. Parte 13 (13.11), atualizada
 
@@ -237,4 +266,4 @@ O inventário completo está no [doc 16 §4](16-prontidao-operacional.md#4-entre
   - texto externo chegava ao enunciado lido pela IA.
 - **Integrações validadas:** as mesmas do doc 16. A leitura de matérias usa o leitor já validado, sem crédito de busca a mais.
 - **Funcionalidades aprovadas pelo 13.10 no `pnpm dev`:** capturas (doc 16) e a tela de chat do Copiloto (e2e em computador, tela média e celular).
-- **Funcionalidades implementadas e testadas, mas não aprovadas pelo 13.10:** tese e linha do tempo. Falta a validação de ponta a ponta com Ollama e banco real, que depende das decisões 2 e 3.
+- **Funcionalidades implementadas e testadas, mas não aprovadas pelo 13.10:** tese e linha do tempo. A primeira análise real (Flash) foi feita e mostrou os problemas do §11a, corrigidos no código; a aprovação depende de repetir a análise no app instalado (KI-233).
